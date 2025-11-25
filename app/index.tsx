@@ -7,9 +7,6 @@ export default function Index() {
   const router = useRouter();
   const { theme, mode } = useTheme();
 
-  console.log(theme);
-  
-
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
@@ -28,13 +25,13 @@ export default function Index() {
           </View>
           {/* Headline */}
           <View className="mb-12 items-center">
-            <Text 
+            <Text
               className="text-4xl font-bold text-center mb-4"
               style={{ color: theme.foreground }}
             >
               Welcome to PawBuck
             </Text>
-            <Text 
+            <Text
               className="text-lg text-center"
               style={{ color: theme.foreground, opacity: 0.9 }}
             >
@@ -45,10 +42,11 @@ export default function Index() {
           <View className="w-full max-w-xs gap-4">
             <Pressable
               onPress={() => router.push("/onboarding/step1")}
+              // onPress={() => router.push("/signup")}
               className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
               style={{ backgroundColor: theme.primary }}
             >
-              <Text 
+              <Text
                 className="text-lg font-semibold"
                 style={{ color: theme.primaryForeground }}
               >
@@ -57,11 +55,11 @@ export default function Index() {
             </Pressable>
 
             <Pressable
-              // onPress={() => router.push("/auth")}
+              onPress={() => router.push("/login")}
               className="w-full bg-transparent rounded-2xl py-4 px-8 items-center active:opacity-80"
               style={{ borderWidth: 2, borderColor: theme.foreground }}
             >
-              <Text 
+              <Text
                 className="text-lg font-semibold"
                 style={{ color: theme.foreground }}
               >

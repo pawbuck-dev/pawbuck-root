@@ -13,8 +13,6 @@ import {
   View,
 } from "react-native";
 
-
-
 interface BreedPickerProps {
   visible: boolean;
   selectedBreed: string;
@@ -108,7 +106,7 @@ export default function BreedPicker({
                   color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
                 />
                 <TextInput
-                  className="flex-1 ml-2 text-base"
+                  className="flex-1 ml-2 text-start"
                   style={{ color: theme.foreground }}
                   placeholder="Search breeds..."
                   placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
@@ -168,7 +166,7 @@ export default function BreedPicker({
               ) : (
                 <View className="py-8 items-center">
                   <Text
-                    className="text-base"
+                    className="text-start"
                     style={{ color: theme.foreground, opacity: 0.5 }}
                   >
                     No breeds found
@@ -182,4 +180,3 @@ export default function BreedPicker({
     </Modal>
   );
 }
-

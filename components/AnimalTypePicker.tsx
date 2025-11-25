@@ -59,7 +59,7 @@ export default function AnimalTypePicker({
 
           {/* Label */}
           <Text
-            className="text-base font-medium mb-4"
+            className="text-start font-medium mb-4"
             style={{ color: theme.foreground }}
           >
             Animal Type
@@ -85,10 +85,7 @@ export default function AnimalTypePicker({
                   />
                 )}
               </View>
-              <Text
-                className="text-lg"
-                style={{ color: theme.foreground }}
-              >
+              <Text className="text-lg" style={{ color: theme.foreground }}>
                 Dog
               </Text>
             </Pressable>
@@ -111,10 +108,7 @@ export default function AnimalTypePicker({
                   />
                 )}
               </View>
-              <Text
-                className="text-lg"
-                style={{ color: theme.foreground }}
-              >
+              <Text className="text-lg" style={{ color: theme.foreground }}>
                 Cat
               </Text>
             </Pressable>
@@ -128,7 +122,7 @@ export default function AnimalTypePicker({
               style={{ backgroundColor: theme.secondary }}
             >
               <Text
-                className="text-base font-semibold"
+                className="text-start font-semibold"
                 style={{ color: theme.foreground }}
               >
                 Cancel
@@ -141,7 +135,7 @@ export default function AnimalTypePicker({
               style={{ backgroundColor: theme.primary }}
             >
               <Text
-                className="text-base font-semibold"
+                className="text-start font-semibold"
                 style={{ color: theme.primaryForeground }}
               >
                 Save
@@ -153,4 +147,3 @@ export default function AnimalTypePicker({
     </Modal>
   );
 }
-

@@ -1,13 +1,15 @@
+import { OnboardingProvider } from "@/context/onboardingContext";
 import { Stack } from "expo-router";
 
 export default function OnboardingLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: "slide_from_right",
-      }}
-    />
+    <OnboardingProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+        }}
+      />
+    </OnboardingProvider>
   );
 }
-

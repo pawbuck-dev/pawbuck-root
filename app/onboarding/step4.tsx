@@ -1,15 +1,15 @@
-import { useTheme } from "@/context/themeContext";
-import { useOnboarding } from "@/context/onboardingContext";
-import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { Pressable, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
 import BreedPicker from "@/components/BreedPicker";
+import Header from "@/components/Header";
+import { useOnboarding } from "@/context/onboardingContext";
+import { useTheme } from "@/context/themeContext";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 export default function OnboardingStep4() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme, mode } = useTheme();
   const { updatePetData, nextStep, petData } = useOnboarding();
   const [breed, setBreed] = useState("");
   const [showBreedPicker, setShowBreedPicker] = useState(false);
@@ -34,36 +34,13 @@ export default function OnboardingStep4() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
       {/* Header with Icons */}
+      <Header />
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center mb-6">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-
         {/* Progress Indicator */}
         <View className="items-center mb-2">
           <Text
-            className="text-base font-medium"
+            className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
             Question 3 of 8
@@ -99,7 +76,7 @@ export default function OnboardingStep4() {
             style={{ opacity: 0.7 }}
           />
           <Text
-            className="text-base ml-1"
+            className="text-start ml-1"
             style={{ color: theme.foreground, opacity: 0.7 }}
           >
             Back
@@ -120,7 +97,7 @@ export default function OnboardingStep4() {
             <>
               {/* Breed Label */}
               <Text
-                className="text-base font-medium mb-3"
+                className="text-start font-medium mb-3"
                 style={{ color: theme.foreground }}
               >
                 Select breed
@@ -134,7 +111,7 @@ export default function OnboardingStep4() {
               >
                 <View className="flex-row justify-between items-center">
                   <Text
-                    className="text-base"
+                    className="text-start"
                     style={{
                       color: breed ? theme.foreground : theme.foreground,
                       opacity: breed ? 1 : 0.5,
@@ -156,7 +133,7 @@ export default function OnboardingStep4() {
                 className="mb-8 active:opacity-70"
               >
                 <Text
-                  className="text-base text-center"
+                  className="text-start text-center"
                   style={{ color: theme.primary }}
                 >
                   Can't find your breed? Enter custom breed
@@ -176,14 +153,14 @@ export default function OnboardingStep4() {
             <>
               {/* Custom Breed Input */}
               <Text
-                className="text-base font-medium mb-3"
+                className="text-start font-medium mb-3"
                 style={{ color: theme.foreground }}
               >
                 Enter breed name
               </Text>
 
               <TextInput
-                className="w-full rounded-xl py-4 px-5 mb-4 text-base"
+                className="w-full rounded-xl py-4 px-5 mb-4 text-start"
                 style={{
                   backgroundColor: theme.background,
                   borderWidth: 2,
@@ -205,7 +182,7 @@ export default function OnboardingStep4() {
                 className="mb-8 active:opacity-70"
               >
                 <Text
-                  className="text-base text-center"
+                  className="text-start text-center"
                   style={{ color: theme.primary }}
                 >
                   Choose from common breeds
@@ -220,9 +197,7 @@ export default function OnboardingStep4() {
             disabled={!breed.trim()}
             className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
             style={{
-              backgroundColor: breed.trim()
-                ? theme.primary
-                : theme.secondary,
+              backgroundColor: breed.trim() ? theme.primary : theme.secondary,
               opacity: breed.trim() ? 1 : 0.5,
             }}
           >
@@ -242,4 +217,3 @@ export default function OnboardingStep4() {
     </View>
   );
 }
-

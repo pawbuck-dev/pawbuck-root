@@ -1,15 +1,15 @@
-import { useTheme } from "@/context/themeContext";
+import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
-import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { Pressable, Text, View, Platform } from "react-native";
+import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { Platform, Pressable, Text, View } from "react-native";
+import DatePicker from "react-native-date-picker";
 
 export default function OnboardingStep7() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme, mode } = useTheme();
   const { updatePetData, nextStep, petData } = useOnboarding();
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -45,36 +45,12 @@ export default function OnboardingStep7() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
-      {/* Header with Icons */}
+      <Header />
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center mb-6">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-
         {/* Progress Indicator */}
         <View className="items-center mb-2">
           <Text
-            className="text-base font-medium"
+            className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
             Question 6 of 8
@@ -110,7 +86,7 @@ export default function OnboardingStep7() {
             style={{ opacity: 0.7 }}
           />
           <Text
-            className="text-base ml-1"
+            className="text-start ml-1"
             style={{ color: theme.foreground, opacity: 0.7 }}
           >
             Back
@@ -127,7 +103,7 @@ export default function OnboardingStep7() {
 
         {/* Subtitle */}
         <Text
-          className="text-base text-center mb-12"
+          className="text-start text-center mb-12"
           style={{ color: theme.foreground, opacity: 0.6 }}
         >
           Select their date of birth
@@ -152,7 +128,7 @@ export default function OnboardingStep7() {
               style={{ marginRight: 12 }}
             />
             <Text
-              className="text-base flex-1"
+              className="text-start flex-1"
               style={{
                 color: birthDate ? theme.foreground : theme.foreground,
                 opacity: birthDate ? 1 : 0.5,
@@ -163,33 +139,22 @@ export default function OnboardingStep7() {
           </Pressable>
 
           {/* Date Picker */}
-          {showDatePicker && (
-            <View className="mb-8">
-              <DateTimePicker
-                value={birthDate || new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-                minimumDate={new Date(1990, 0, 1)}
-                themeVariant={mode}
-              />
-              {Platform.OS === "ios" && (
-                <Pressable
-                  onPress={() => setShowDatePicker(false)}
-                  className="w-full rounded-xl py-3 items-center mt-4"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  <Text
-                    className="text-base font-semibold"
-                    style={{ color: theme.primaryForeground }}
-                  >
-                    Done
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          )}
+          <DatePicker
+            modal
+            open={showDatePicker}
+            theme={mode}
+            mode="date"
+            maximumDate={new Date()}
+            minimumDate={new Date(1990, 0, 1)}
+            date={birthDate || new Date()}
+            onConfirm={(date) => {
+              setShowDatePicker(false);
+              setBirthDate(date);
+            }}
+            onCancel={() => {
+              setShowDatePicker(false);
+            }}
+          />
 
           {/* Next Button */}
           <Pressable
@@ -217,4 +182,3 @@ export default function OnboardingStep7() {
     </View>
   );
 }
-

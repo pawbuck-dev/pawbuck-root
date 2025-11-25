@@ -1,51 +1,25 @@
+import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { Pressable, Text, View } from "react-native";
 
 export default function OnboardingComplete() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme } = useTheme();
   const { petData } = useOnboarding();
 
   const petName = petData.petName || "your pet";
 
   const handleContinueToSignUp = () => {
     // Navigate to sign up screen
-    console.log("Navigate to sign up screen");
-    // router.push("/auth/signup");
+    router.push("/signup");
   };
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
-      {/* Header */}
-      <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-      </View>
+      <Header />
 
       {/* Main Content */}
       <View className="flex-1 items-center justify-center px-6">
@@ -62,7 +36,7 @@ export default function OnboardingComplete() {
               style={{ opacity: 0.7 }}
             />
             <Text
-              className="text-base ml-1"
+              className="text-start ml-1"
               style={{ color: theme.foreground, opacity: 0.7 }}
             >
               Back
@@ -111,4 +85,3 @@ export default function OnboardingComplete() {
     </View>
   );
 }
-

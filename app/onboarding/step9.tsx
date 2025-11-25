@@ -1,14 +1,14 @@
+import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 export default function OnboardingStep9() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme, mode } = useTheme();
   const { updatePetData, saveToStorage } = useOnboarding();
   const [microchipNumber, setMicrochipNumber] = useState("");
 
@@ -19,48 +19,27 @@ export default function OnboardingStep9() {
     if (microchipNumber.trim() && microchipNumber.trim().length === maxLength) {
       updatePetData({ microchipNumber: microchipNumber.trim() });
     }
-    
+
     // Navigate to review screen
     router.push("/onboarding/review");
   };
 
-  const isValidMicrochip = microchipNumber.trim().length === 0 || microchipNumber.trim().length === maxLength;
+  const isValidMicrochip =
+    microchipNumber.trim().length === 0 ||
+    microchipNumber.trim().length === maxLength;
   const canProceed = isValidMicrochip;
 
   const progressPercent = 100; // Final question, 8/8 = 100%
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
+      <Header />
       {/* Header with Icons */}
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center mb-6">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-
         {/* Progress Indicator */}
         <View className="items-center mb-2">
           <Text
-            className="text-base font-medium"
+            className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
             Question 8 of 8
@@ -96,7 +75,7 @@ export default function OnboardingStep9() {
             style={{ opacity: 0.7 }}
           />
           <Text
-            className="text-base ml-1"
+            className="text-start ml-1"
             style={{ color: theme.foreground, opacity: 0.7 }}
           >
             Back
@@ -113,7 +92,7 @@ export default function OnboardingStep9() {
 
         {/* Subtitle */}
         <Text
-          className="text-base text-center mb-12"
+          className="text-start text-center mb-12"
           style={{ color: theme.foreground, opacity: 0.6 }}
         >
           Usually found on vet records (optional)
@@ -123,7 +102,7 @@ export default function OnboardingStep9() {
         <View className="w-full max-w-lg mx-auto">
           {/* Microchip Label */}
           <Text
-            className="text-base font-medium mb-3"
+            className="text-start font-medium mb-3"
             style={{ color: theme.foreground }}
           >
             Microchip Number
@@ -132,7 +111,7 @@ export default function OnboardingStep9() {
           {/* Microchip Input with Character Count */}
           <View className="relative mb-8">
             <TextInput
-              className="w-full rounded-xl py-4 px-5 text-base"
+              className="w-full rounded-xl py-4 px-5 text-start"
               style={{
                 backgroundColor: theme.background,
                 borderWidth: 2,
@@ -185,7 +164,7 @@ export default function OnboardingStep9() {
               {microchipNumber.trim().length === 0 ? "Skip" : "Next"}
             </Text>
           </Pressable>
-          
+
           {/* Validation Message */}
           {microchipNumber.trim().length > 0 &&
             microchipNumber.trim().length < maxLength && (
@@ -201,4 +180,3 @@ export default function OnboardingStep9() {
     </View>
   );
 }
-

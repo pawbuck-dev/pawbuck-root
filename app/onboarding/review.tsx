@@ -6,22 +6,20 @@ import { COUNTRY_FLAGS } from "@/constants/onboarding";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import DatePicker from "react-native-date-picker";
 
-
-
-type EditingField = 
-  | "country" 
-  | "petType" 
-  | "breed" 
-  | "petName" 
-  | "gender" 
-  | "birthDate" 
-  | "weight" 
+type EditingField =
+  | "country"
+  | "petType"
+  | "breed"
+  | "petName"
+  | "gender"
+  | "birthDate"
+  | "weight"
   | "microchip"
   | null;
 
@@ -36,12 +34,18 @@ export default function OnboardingReview() {
   const [showAnimalTypePicker, setShowAnimalTypePicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
+
   // Temp values for editing
   const [tempPetName, setTempPetName] = useState(petData.petName || "");
-  const [tempWeight, setTempWeight] = useState(petData.weight?.toString() || "");
-  const [tempWeightUnit, setTempWeightUnit] = useState(petData.weightUnit || "pounds");
-  const [tempMicrochip, setTempMicrochip] = useState(petData.microchipNumber || "");
+  const [tempWeight, setTempWeight] = useState(
+    petData.weight?.toString() || ""
+  );
+  const [tempWeightUnit, setTempWeightUnit] = useState(
+    petData.weightUnit || "pounds"
+  );
+  const [tempMicrochip, setTempMicrochip] = useState(
+    petData.microchipNumber || ""
+  );
   const [tempBirthDate, setTempBirthDate] = useState(
     petData.birthDate ? new Date(petData.birthDate) : new Date()
   );
@@ -51,7 +55,7 @@ export default function OnboardingReview() {
   const handleConfirm = async () => {
     // Save all data to storage
     await saveToStorage();
-    
+
     // Navigate to account creation screen
     router.push("/onboarding/complete");
   };
@@ -88,7 +92,9 @@ export default function OnboardingReview() {
     setTempWeight(petData.weight?.toString() || "");
     setTempWeightUnit(petData.weightUnit || "pounds");
     setTempMicrochip(petData.microchipNumber || "");
-    setTempBirthDate(petData.birthDate ? new Date(petData.birthDate) : new Date());
+    setTempBirthDate(
+      petData.birthDate ? new Date(petData.birthDate) : new Date()
+    );
     setEditingField(null);
   };
 
@@ -120,14 +126,16 @@ export default function OnboardingReview() {
             >
               {label}
             </Text>
-            
+
             {!isEditing ? (
               <View className="flex-row items-center">
-                {showFlag && petData.country && COUNTRY_FLAGS[petData.country] && (
-                  <Text className="text-lg mr-2">
-                    {COUNTRY_FLAGS[petData.country]}
-                  </Text>
-                )}
+                {showFlag &&
+                  petData.country &&
+                  COUNTRY_FLAGS[petData.country] && (
+                    <Text className="text-lg mr-2">
+                      {COUNTRY_FLAGS[petData.country]}
+                    </Text>
+                  )}
                 <Text
                   className="text-lg font-semibold"
                   style={{ color: theme.foreground }}
@@ -158,10 +166,20 @@ export default function OnboardingReview() {
                         onPress={() => setTempWeightUnit("pounds")}
                         className="px-4 py-2 rounded-lg"
                         style={{
-                          backgroundColor: tempWeightUnit === "pounds" ? theme.primary : theme.secondary,
+                          backgroundColor:
+                            tempWeightUnit === "pounds"
+                              ? theme.primary
+                              : theme.secondary,
                         }}
                       >
-                        <Text style={{ color: tempWeightUnit === "pounds" ? theme.primaryForeground : theme.foreground }}>
+                        <Text
+                          style={{
+                            color:
+                              tempWeightUnit === "pounds"
+                                ? theme.primaryForeground
+                                : theme.foreground,
+                          }}
+                        >
                           Pounds
                         </Text>
                       </Pressable>
@@ -169,10 +187,20 @@ export default function OnboardingReview() {
                         onPress={() => setTempWeightUnit("kilograms")}
                         className="px-4 py-2 rounded-lg"
                         style={{
-                          backgroundColor: tempWeightUnit === "kilograms" ? theme.primary : theme.secondary,
+                          backgroundColor:
+                            tempWeightUnit === "kilograms"
+                              ? theme.primary
+                              : theme.secondary,
                         }}
                       >
-                        <Text style={{ color: tempWeightUnit === "kilograms" ? theme.primaryForeground : theme.foreground }}>
+                        <Text
+                          style={{
+                            color:
+                              tempWeightUnit === "kilograms"
+                                ? theme.primaryForeground
+                                : theme.foreground,
+                          }}
+                        >
                           Kilograms
                         </Text>
                       </Pressable>
@@ -189,7 +217,9 @@ export default function OnboardingReview() {
                       onChangeText={setTempWeight}
                       keyboardType="decimal-pad"
                       placeholder={`Weight in ${tempWeightUnit}`}
-                      placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+                      placeholderTextColor={
+                        mode === "dark" ? "#6B7280" : "#9CA3AF"
+                      }
                     />
                   </View>
                 )}
@@ -207,7 +237,9 @@ export default function OnboardingReview() {
                     keyboardType="numeric"
                     maxLength={15}
                     placeholder="15-digit number"
-                    placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+                    placeholderTextColor={
+                      mode === "dark" ? "#6B7280" : "#9CA3AF"
+                    }
                   />
                 )}
                 <View className="flex-row gap-2 mt-2">
@@ -229,7 +261,7 @@ export default function OnboardingReview() {
               </View>
             )}
           </View>
-          
+
           {!isEditing && (
             <Pressable
               onPress={() => {
@@ -273,7 +305,7 @@ export default function OnboardingReview() {
               style={{ opacity: 0.7 }}
             />
             <Text
-              className="text-base ml-1"
+              className="text-start ml-1"
               style={{ color: theme.foreground, opacity: 0.7 }}
             >
               Back
@@ -314,7 +346,7 @@ export default function OnboardingReview() {
         </Text>
 
         <Text
-          className="text-base text-center mb-6"
+          className="text-start text-center mb-6"
           style={{ color: theme.foreground, opacity: 0.6 }}
         >
           Review and confirm the details
@@ -441,44 +473,23 @@ export default function OnboardingReview() {
           />
 
           {/* Date Picker */}
-          {showDatePicker && (
-            <View className="mb-4">
-              <DateTimePicker
-                value={tempBirthDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS === "android") {
-                    setShowDatePicker(false);
-                  }
-                  if (selectedDate) {
-                    setTempBirthDate(selectedDate);
-                    updatePetData({ birthDate: selectedDate.toISOString() });
-                    if (Platform.OS === "android") {
-                      setShowDatePicker(false);
-                    }
-                  }
-                }}
-                maximumDate={new Date()}
-                minimumDate={new Date(1990, 0, 1)}
-                themeVariant={mode}
-              />
-              {Platform.OS === "ios" && (
-                <Pressable
-                  onPress={() => setShowDatePicker(false)}
-                  className="w-full rounded-xl py-3 items-center mt-2"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  <Text
-                    className="text-base font-semibold"
-                    style={{ color: theme.primaryForeground }}
-                  >
-                    Done
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          )}
+          {/* Date Picker */}
+          <DatePicker
+            modal
+            open={showDatePicker}
+            theme={mode}
+            mode="date"
+            maximumDate={new Date()}
+            minimumDate={new Date(1990, 0, 1)}
+            date={tempBirthDate || new Date()}
+            onConfirm={(date) => {
+              setShowDatePicker(false);
+              setTempBirthDate(date);
+            }}
+            onCancel={() => {
+              setShowDatePicker(false);
+            }}
+          />
         </View>
       </ScrollView>
 
@@ -500,4 +511,3 @@ export default function OnboardingReview() {
     </View>
   );
 }
-

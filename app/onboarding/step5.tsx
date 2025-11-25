@@ -1,14 +1,14 @@
-import { useTheme } from "@/context/themeContext";
+import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
-import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 export default function OnboardingStep5() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme, mode } = useTheme();
   const { updatePetData, nextStep } = useOnboarding();
   const [petName, setPetName] = useState("");
 
@@ -24,36 +24,12 @@ export default function OnboardingStep5() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
-      {/* Header with Icons */}
+      <Header />
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center mb-6">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-
         {/* Progress Indicator */}
         <View className="items-center mb-2">
           <Text
-            className="text-base font-medium"
+            className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
             Question 4 of 8
@@ -89,7 +65,7 @@ export default function OnboardingStep5() {
             style={{ opacity: 0.7 }}
           />
           <Text
-            className="text-base ml-1"
+            className="text-start ml-1"
             style={{ color: theme.foreground, opacity: 0.7 }}
           >
             Back
@@ -108,7 +84,7 @@ export default function OnboardingStep5() {
         <View className="w-full max-w-lg mx-auto">
           {/* Name Label */}
           <Text
-            className="text-base font-medium mb-3"
+            className="text-start font-medium mb-3"
             style={{ color: theme.foreground }}
           >
             Name
@@ -116,7 +92,7 @@ export default function OnboardingStep5() {
 
           {/* Name Text Input */}
           <TextInput
-            className="w-full rounded-xl py-4 px-5 mb-8 text-base"
+            className="w-full rounded-xl py-4 px-5 mb-8 text-start"
             style={{
               backgroundColor: theme.background,
               borderWidth: 2,
@@ -139,9 +115,7 @@ export default function OnboardingStep5() {
             disabled={!petName.trim()}
             className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
             style={{
-              backgroundColor: petName.trim()
-                ? theme.primary
-                : theme.secondary,
+              backgroundColor: petName.trim() ? theme.primary : theme.secondary,
               opacity: petName.trim() ? 1 : 0.5,
             }}
           >
@@ -161,4 +135,3 @@ export default function OnboardingStep5() {
     </View>
   );
 }
-

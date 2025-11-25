@@ -1,27 +1,18 @@
-import { useTheme } from "@/context/themeContext";
+import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
-import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { Pressable, Text, View } from "react-native";
+import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 type PetType = "dog" | "cat";
 
 export default function OnboardingStep3() {
   const router = useRouter();
-  const { theme, toggleTheme, mode } = useTheme();
+  const { theme } = useTheme();
   const { updatePetData, nextStep } = useOnboarding();
   const [selectedPet, setSelectedPet] = useState<PetType | null>(null);
-
-  const handleNext = () => {
-    if (selectedPet) {
-      updatePetData({ petType: selectedPet });
-      nextStep();
-      // Navigate to step 4 when it's created: router.push("/onboarding/step4");
-      console.log("Moving to step 4 (screen not yet created)", { petType: selectedPet });
-    }
-  };
 
   const handleSelectPet = (petType: PetType) => {
     setSelectedPet(petType);
@@ -37,36 +28,12 @@ export default function OnboardingStep3() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
-      {/* Header with Icons */}
+      <Header />
       <View className="px-6 pt-14 pb-4">
-        <View className="flex-row justify-between items-center mb-6">
-          {/* Paw Icon */}
-          <Pressable
-            onPress={() => router.back()}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="paw" size={28} color={theme.primary} />
-          </Pressable>
-
-          {/* Theme Toggle */}
-          <Pressable
-            onPress={toggleTheme}
-            className="w-12 h-12 items-center justify-center active:opacity-70"
-          >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={24}
-              color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-            />
-          </Pressable>
-        </View>
-
         {/* Progress Indicator */}
         <View className="items-center mb-2">
           <Text
-            className="text-base font-medium"
+            className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
             Question 2 of 8
@@ -126,7 +93,11 @@ export default function OnboardingStep3() {
                 <Ionicons
                   name="paw"
                   size={40}
-                  color={selectedPet === "dog" ? theme.primaryForeground : theme.primary}
+                  color={
+                    selectedPet === "dog"
+                      ? theme.primaryForeground
+                      : theme.primary
+                  }
                 />
               </View>
 
@@ -169,7 +140,11 @@ export default function OnboardingStep3() {
                 <Ionicons
                   name="paw"
                   size={40}
-                  color={selectedPet === "cat" ? theme.primaryForeground : theme.primary}
+                  color={
+                    selectedPet === "cat"
+                      ? theme.primaryForeground
+                      : theme.primary
+                  }
                 />
               </View>
 
@@ -192,4 +167,3 @@ export default function OnboardingStep3() {
     </View>
   );
 }
-
