@@ -1,8 +1,8 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
 import { PetData } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
+import { useUser } from "@/context/userContext";
 import { TablesInsert } from "@/database.types";
-import { createPet } from "@/services/pets";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -22,6 +22,7 @@ function SignUp() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { theme, mode } = useTheme();
+  const { addPet } = useUser();
 
   // Parse petData from route params
   const petData: PetData = params.petData
@@ -35,7 +36,9 @@ function SignUp() {
 
   const addPetToDatabase = async () => {
     try {
-      await createPet(petData as TablesInsert<"pets">);
+      // Wait a bit for the auth state to be properly set
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await addPet(petData as TablesInsert<"pets">);
       console.log("Pet created successfully");
     } catch (error) {
       console.error("Error creating pet:", error);

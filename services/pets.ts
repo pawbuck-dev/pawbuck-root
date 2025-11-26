@@ -2,7 +2,20 @@ import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export const getPets = async () => {
-  const { data, error } = await supabase.from("pets").select("*");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User must be authenticated to fetch pets");
+  }
+
+  const { data, error } = await supabase
+    .from("pets")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
   if (error) throw error;
 
   return data;

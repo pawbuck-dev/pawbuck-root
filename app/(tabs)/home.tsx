@@ -1,11 +1,13 @@
 import { useTheme } from "@/context/themeContext";
+import { useUser } from "@/context/userContext";
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   Text,
@@ -21,74 +23,11 @@ import Animated, {
   withSpring
 } from "react-native-reanimated";
 
-interface Pet {
-  id: number;
-  name: string;
-  breed: string;
-  age: number;
-  gender: string;
-  microchip: string;
-  photo?: string;
-  vaccines: {
-    status: string;
-    next: string;
-  };
-  medicines: {
-    next: string;
-  };
-}
-
 export default function Home() {
   const router = useRouter();
   const { theme, mode, toggleTheme } = useTheme();
-  const [userEmail, setUserEmail] = useState<string | undefined>();
+  const { user, pets, loading, refreshPets } = useUser();
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
-
-  // Mock data - replace with actual data from Supabase
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      id: 1,
-      name: "Loc",
-      breed: "Domestic Shorthair",
-      age: 0,
-      gender: "Male",
-      microchip: "123456789009876",
-      vaccines: {
-        status: "Up-to-date",
-        next: "None scheduled",
-      },
-      medicines: {
-        next: "None scheduled",
-      },
-    },
-    {
-      id: 2,
-      name: "Buddy",
-      breed: "Golden Retriever",
-      age: 3,
-      gender: "Male",
-      microchip: "987654321012345",
-      vaccines: {
-        status: "Up-to-date",
-        next: "None scheduled",
-      },
-      medicines: {
-        next: "None scheduled",
-      },
-    },
-  ]);
-
-  useEffect(() => {
-    // Get current user
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUserEmail(user?.email);
-    };
-
-    getUser();
-  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -100,6 +39,15 @@ export default function Home() {
     } catch (error: any) {
       console.error("Error signing out:", error);
       Alert.alert("Error", error.message || "Failed to sign out");
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await refreshPets();
+      Alert.alert("Success", "Pets data refreshed!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to refresh pets");
     }
   };
 
@@ -152,7 +100,18 @@ export default function Home() {
   const currentPet = pets[currentPetIndex];
 
   const getUserInitial = () => {
-    return userEmail?.charAt(0).toUpperCase() || "U";
+    return user?.email?.charAt(0).toUpperCase() || "U";
+  };
+
+  const calculateAge = (dateOfBirth: string): number => {
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
   };
 
   // Swipe gesture handling
@@ -186,6 +145,78 @@ export default function Home() {
     };
   });
 
+  // Show loading state
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+        <ActivityIndicator size="large" color="#5FC4C0" />
+        <Text className="mt-4 text-lg" style={{ color: theme.foreground }}>
+          Loading your pets...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show message if no pets
+  if (pets.length === 0) {
+    return (
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
+        
+        {/* Header */}
+        <View className="px-6 pt-12 pb-3 flex-row items-center justify-between">
+          <Ionicons name="paw" size={32} color="#5FC4C0" />
+          <Text
+            className="text-3xl font-bold"
+            style={{ color: theme.foreground }}
+          >
+            Your Pets
+          </Text>
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity
+              onPress={toggleTheme}
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+            >
+              <Ionicons
+                name={mode === "dark" ? "sunny" : "moon"}
+                size={20}
+                color="#5FC4C0"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: "#5FC4C0" }}
+            >
+              <Text className="text-xl font-bold text-gray-900">
+                {getUserInitial()}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View className="flex-1 items-center justify-center px-6">
+          <Ionicons name="paw-outline" size={80} color="#5FC4C0" />
+          <Text className="text-2xl font-bold mt-6 text-center" style={{ color: theme.foreground }}>
+            No Pets Yet
+          </Text>
+          <Text className="text-base mt-2 text-center" style={{ color: theme.foreground, opacity: 0.7 }}>
+            Add your first pet to get started!
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/onboarding/step1")}
+            className="mt-6 px-8 py-4 rounded-full"
+            style={{ backgroundColor: "#5FC4C0" }}
+          >
+            <Text className="text-lg font-bold text-gray-900">
+              Add a Pet
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
@@ -200,6 +231,17 @@ export default function Home() {
           Your Pets
         </Text>
         <View className="flex-row items-center gap-4">
+          <TouchableOpacity
+            onPress={handleRefresh}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color="#5FC4C0"
+            />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={toggleTheme}
             className="w-10 h-10 rounded-full items-center justify-center"
@@ -336,13 +378,13 @@ export default function Home() {
                     {currentPet.name}
                   </Text>
                   <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
-                    {currentPet.breed} • {currentPet.age} years • {currentPet.gender}
+                    {currentPet.breed} • {calculateAge(currentPet.date_of_birth)} years • {currentPet.sex}
                   </Text>
                   <Text
                     className="text-xs tracking-wider font-mono"
                     style={{ color: "#2C3E50" }}
                   >
-                    MICROCHIP {currentPet.microchip}
+                    MICROCHIP {currentPet.microchip_number || "N/A"}
                   </Text>
                 </View>
               </View>
@@ -372,22 +414,28 @@ export default function Home() {
                   className="text-lg font-extrabold mb-3 tracking-wide"
                   style={{ color: "#2C3E50" }}
                 >
-                  HEALTH AT A GLANCE
+                  PET DETAILS
                 </Text>
                 <View className="gap-2.5">
                   <View className="flex-row items-start">
-                    <Text className="text-lg mr-2">💉</Text>
+                    <Text className="text-lg mr-2">🏠</Text>
                     <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
-                      <Text className="font-bold">Vaccines:</Text>{" "}
-                      {currentPet.vaccines.status} | Next:{" "}
-                      {currentPet.vaccines.next}
+                      <Text className="font-bold">Country:</Text>{" "}
+                      {currentPet.country}
                     </Text>
                   </View>
                   <View className="flex-row items-start">
-                    <Text className="text-lg mr-2">💊</Text>
+                    <Text className="text-lg mr-2">⚖️</Text>
                     <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
-                      <Text className="font-bold">Medicines:</Text> Next:{" "}
-                      {currentPet.medicines.next}
+                      <Text className="font-bold">Weight:</Text>{" "}
+                      {currentPet.weight_value} {currentPet.weight_unit}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-start">
+                    <Text className="text-lg mr-2">🐾</Text>
+                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                      <Text className="font-bold">Type:</Text>{" "}
+                      {currentPet.animal_type}
                     </Text>
                   </View>
                 </View>
