@@ -1,14 +1,82 @@
 import { useTheme } from "@/context/themeContext";
 import { supabase } from "@/utils/supabase";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import QRCode from "react-native-qrcode-svg";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring
+} from "react-native-reanimated";
+
+interface Pet {
+  id: number;
+  name: string;
+  breed: string;
+  age: number;
+  gender: string;
+  microchip: string;
+  photo?: string;
+  vaccines: {
+    status: string;
+    next: string;
+  };
+  medicines: {
+    next: string;
+  };
+}
 
 export default function Home() {
   const router = useRouter();
-  const { theme, mode } = useTheme();
+  const { theme, mode, toggleTheme } = useTheme();
   const [userEmail, setUserEmail] = useState<string | undefined>();
+  const [currentPetIndex, setCurrentPetIndex] = useState(0);
+
+  // Mock data - replace with actual data from Supabase
+  const [pets, setPets] = useState<Pet[]>([
+    {
+      id: 1,
+      name: "Loc",
+      breed: "Domestic Shorthair",
+      age: 0,
+      gender: "Male",
+      microchip: "123456789009876",
+      vaccines: {
+        status: "Up-to-date",
+        next: "None scheduled",
+      },
+      medicines: {
+        next: "None scheduled",
+      },
+    },
+    {
+      id: 2,
+      name: "Buddy",
+      breed: "Golden Retriever",
+      age: 3,
+      gender: "Male",
+      microchip: "987654321012345",
+      vaccines: {
+        status: "Up-to-date",
+        next: "None scheduled",
+      },
+      medicines: {
+        next: "None scheduled",
+      },
+    },
+  ]);
 
   useEffect(() => {
     // Get current user
@@ -35,54 +103,312 @@ export default function Home() {
     }
   };
 
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Sorry, we need camera permissions to take photos!");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // Handle photo upload
+      console.log("Photo taken:", result.assets[0].uri);
+    }
+  };
+
+  const handleUpload = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Sorry, we need media library permissions to upload photos!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // Handle photo upload
+      console.log("Photo uploaded:", result.assets[0].uri);
+    }
+  };
+
+  const navigateToPet = (direction: "prev" | "next") => {
+    if (direction === "prev" && currentPetIndex > 0) {
+      setCurrentPetIndex(currentPetIndex - 1);
+    } else if (direction === "next" && currentPetIndex < pets.length - 1) {
+      setCurrentPetIndex(currentPetIndex + 1);
+    }
+  };
+
+  const currentPet = pets[currentPetIndex];
+
+  const getUserInitial = () => {
+    return userEmail?.charAt(0).toUpperCase() || "U";
+  };
+
+  // Swipe gesture handling
+  const translateX = useSharedValue(0);
+  const context = useSharedValue({ x: 0 });
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = { x: translateX.value };
+    })
+    .onUpdate((event) => {
+      translateX.value = context.value.x + event.translationX;
+    })
+    .onEnd((event) => {
+      const SWIPE_THRESHOLD = 50;
+      
+      if (event.translationX > SWIPE_THRESHOLD && currentPetIndex > 0) {
+        // Swipe right - go to previous pet
+        runOnJS(navigateToPet)("prev");
+      } else if (event.translationX < -SWIPE_THRESHOLD && currentPetIndex < pets.length - 1) {
+        // Swipe left - go to next pet
+        runOnJS(navigateToPet)("next");
+      }
+      
+      translateX.value = withSpring(0);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-      <View className="flex-1 items-center justify-center px-6">
-        <View className="w-full max-w-md items-center">
-          <Text
-            className="text-4xl font-bold text-center mb-4"
-            style={{ color: theme.foreground }}
+      {/* Header */}
+      <View className="px-6 pt-12 pb-3 flex-row items-center justify-between">
+        <Ionicons name="paw" size={32} color="#5FC4C0" />
+        <Text
+          className="text-3xl font-bold"
+          style={{ color: theme.foreground }}
+        >
+          Your Pets
+        </Text>
+        <View className="flex-row items-center gap-4">
+          <TouchableOpacity
+            onPress={toggleTheme}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
           >
-            Welcome Home! 🏠
-          </Text>
-
-          {userEmail && (
-            <Text
-              className="text-lg text-center mb-8"
-              style={{ color: theme.foreground, opacity: 0.7 }}
-            >
-              Signed in as: {userEmail}
+            <Ionicons
+              name={mode === "dark" ? "sunny" : "moon"}
+              size={20}
+              color="#5FC4C0"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: "#5FC4C0" }}
+          >
+            <Text className="text-xl font-bold text-gray-900">
+              {getUserInitial()}
             </Text>
-          )}
-
-          <Text
-            className="text-start text-center mb-8"
-            style={{ color: theme.foreground, opacity: 0.6 }}
-          >
-            Your pet management dashboard is coming soon!
-          </Text>
-
-          <Pressable
-            onPress={handleSignOut}
-            className="w-full max-w-xs rounded-xl py-4 px-8 items-center active:opacity-80"
-            style={{
-              backgroundColor:
-                mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-              borderWidth: 1,
-              borderColor: theme.foreground + "40",
-            }}
-          >
-            <Text
-              className="text-start font-semibold"
-              style={{ color: theme.foreground }}
-            >
-              Sign Out
-            </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
-    </View>
+
+      {/* Pet Card with Navigation */}
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <View className="flex-1 px-5 py-2">
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              className="rounded-3xl p-5 relative h-full"
+              style={[{ backgroundColor: "#5FC4C0" }, animatedStyle]}
+            >
+              {/* Edit Button */}
+              <TouchableOpacity
+                className="absolute top-5 right-5 w-12 h-12 rounded-full items-center justify-center z-10"
+                style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
+              >
+                <Ionicons name="pencil" size={20} color="#2C3E50" />
+              </TouchableOpacity>
+
+              {/* Photo Upload Area */}
+              <View className="items-center mb-4">
+                <View className="relative">
+                  <View
+                    className="w-56 h-56 rounded-full items-center justify-center"
+                    style={{
+                      backgroundColor: "#2C3E50",
+                      borderWidth: 3,
+                      borderStyle: "dashed",
+                      borderColor: "#1A252F",
+                    }}
+                  >
+                    <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
+                  </View>
+                  {/* Pet Counter */}
+                  <View
+                    className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full"
+                    style={{ backgroundColor: "#2C3E50" }}
+                  >
+                    <Text className="text-white font-semibold">
+                      {currentPetIndex + 1} / {pets.length}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Photo Buttons */}
+                <View className="flex-row gap-4 mt-5">
+                  <TouchableOpacity
+                    onPress={handleTakePhoto}
+                    className="flex-row items-center gap-2 px-6 py-3 rounded-full"
+                    style={{ backgroundColor: "rgba(255, 255, 255, 0.3)" }}
+                  >
+                    <Ionicons name="camera" size={20} color="#2C3E50" />
+                    <Text className="font-semibold" style={{ color: "#2C3E50" }}>
+                      Take Photo
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleUpload}
+                    className="flex-row items-center gap-2 px-6 py-3 rounded-full"
+                    style={{ backgroundColor: "#2C3E50" }}
+                  >
+                    <Ionicons name="cloud-upload" size={20} color="#5FC4C0" />
+                    <Text className="font-semibold text-white">Upload</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Pet Info with Navigation Arrows */}
+              <View className="relative mb-4">
+                {/* Left Arrow - Inside Card */}
+                <TouchableOpacity
+                  onPress={() => navigateToPet("prev")}
+                  disabled={currentPetIndex === 0}
+                  className="absolute left-0 top-1/2 -translate-y-6 w-12 h-12 rounded-full items-center justify-center z-10"
+                  style={{
+                    backgroundColor:
+                      currentPetIndex === 0
+                        ? "rgba(44, 62, 80, 0.3)"
+                        : "rgba(44, 62, 80, 0.7)",
+                  }}
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={24}
+                    color={currentPetIndex === 0 ? "#999" : "#fff"}
+                  />
+                </TouchableOpacity>
+
+                {/* Right Arrow - Inside Card */}
+                <TouchableOpacity
+                  onPress={() => navigateToPet("next")}
+                  disabled={currentPetIndex === pets.length - 1}
+                  className="absolute right-0 top-1/2 -translate-y-6 w-12 h-12 rounded-full items-center justify-center z-10"
+                  style={{
+                    backgroundColor:
+                      currentPetIndex === pets.length - 1
+                        ? "rgba(44, 62, 80, 0.3)"
+                        : "rgba(44, 62, 80, 0.7)",
+                  }}
+                >
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color={currentPetIndex === pets.length - 1 ? "#999" : "#fff"}
+                  />
+                </TouchableOpacity>
+
+                {/* Pet Info */}
+                <View className="items-center px-14">
+                  <Text className="text-4xl font-bold mb-2" style={{ color: "#2C3E50" }}>
+                    {currentPet.name}
+                  </Text>
+                  <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
+                    {currentPet.breed} • {currentPet.age} years • {currentPet.gender}
+                  </Text>
+                  <Text
+                    className="text-xs tracking-wider font-mono"
+                    style={{ color: "#2C3E50" }}
+                  >
+                    MICROCHIP {currentPet.microchip}
+                  </Text>
+                </View>
+              </View>
+
+              {/* QR Code */}
+              <View className="items-center mb-4">
+                <View
+                  className="w-32 h-32 rounded-lg items-center justify-center p-2"
+                  style={{ backgroundColor: "white" }}
+                >
+                  <QRCode
+                    value={`https://pawbuck.app/pet/${currentPet.id}`}
+                    size={112}
+                  />
+                </View>
+                <Text className="mt-2 text-sm" style={{ color: "#2C3E50" }}>
+                  Scan for health passport
+                </Text>
+              </View>
+
+              {/* Health at a Glance */}
+              <View
+                className="rounded-3xl p-4 mb-4"
+                style={{ backgroundColor: "rgba(69, 123, 121, 0.35)" }}
+              >
+                <Text
+                  className="text-lg font-extrabold mb-3 tracking-wide"
+                  style={{ color: "#2C3E50" }}
+                >
+                  HEALTH AT A GLANCE
+                </Text>
+                <View className="gap-2.5">
+                  <View className="flex-row items-start">
+                    <Text className="text-lg mr-2">💉</Text>
+                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                      <Text className="font-bold">Vaccines:</Text>{" "}
+                      {currentPet.vaccines.status} | Next:{" "}
+                      {currentPet.vaccines.next}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-start">
+                    <Text className="text-lg mr-2">💊</Text>
+                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                      <Text className="font-bold">Medicines:</Text> Next:{" "}
+                      {currentPet.medicines.next}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Health Records Button */}
+              <TouchableOpacity
+                className="rounded-3xl py-4 items-center shadow-lg"
+                style={{ backgroundColor: "#2C3E50" }}
+              >
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="document-text" size={22} color="white" />
+                  <Text className="text-white font-bold text-lg tracking-wide">
+                    Health Records
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </GestureDetector>
+        </View>
+      </ScrollView>
+    </GestureHandlerRootView>
   );
 }
