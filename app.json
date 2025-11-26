@@ -47,6 +47,13 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.674589864184-a8cbiukjbaa4l0s7nc51r5mbfm58i1nj"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to upload pet images.",
+          "cameraPermission": "The app needs access to your camera to take photos of your pets."
+        }
       ]
     ],
     "experiments": {

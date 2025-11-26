@@ -132,6 +132,28 @@ export default function Home() {
     }
   };
 
+  const handlePhotoUpload = () => {
+    Alert.alert(
+      "Upload Photo",
+      "Choose an option",
+      [
+        {
+          text: "Take Photo",
+          onPress: handleTakePhoto,
+        },
+        {
+          text: "Choose from Gallery",
+          onPress: handleUpload,
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const navigateToPet = (direction: "prev" | "next") => {
     if (direction === "prev" && currentPetIndex > 0) {
       setCurrentPetIndex(currentPetIndex - 1);
@@ -282,7 +304,7 @@ export default function Home() {
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Header */}
-      <View className="px-6 pt-12 pb-3 flex-row items-center justify-between">
+      <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
         <Ionicons name="paw" size={32} color="#5FC4C0" />
         <Text
           className="text-3xl font-bold"
@@ -325,9 +347,9 @@ export default function Home() {
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
       >
-        <View className="flex-1 px-5 py-2">
+        <View className="flex-1 px-5 pt-2">
           <GestureDetector gesture={panGesture}>
             <Animated.View
               className="rounded-3xl p-5 relative h-full"
@@ -344,7 +366,9 @@ export default function Home() {
               {/* Photo Upload Area */}
               <View className="items-center mb-4">
                 <View className="relative">
-                  <View
+                  <TouchableOpacity
+                    onPress={handlePhotoUpload}
+                    activeOpacity={0.7}
                     className="w-56 h-56 rounded-full items-center justify-center"
                     style={{
                       backgroundColor: "#2C3E50",
@@ -354,7 +378,7 @@ export default function Home() {
                     }}
                   >
                     <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
-                  </View>
+                  </TouchableOpacity>
                   {/* Pet Counter */}
                   <View
                     className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full"
@@ -364,31 +388,6 @@ export default function Home() {
                       {currentPetIndex + 1} / {pets.length}
                     </Text>
                   </View>
-                </View>
-
-                {/* Photo Buttons */}
-                <View className="flex-row gap-4 mt-5">
-                  <TouchableOpacity
-                    onPress={handleTakePhoto}
-                    className="flex-row items-center gap-2 px-6 py-3 rounded-full"
-                    style={{ backgroundColor: "rgba(255, 255, 255, 0.3)" }}
-                  >
-                    <Ionicons name="camera" size={20} color="#2C3E50" />
-                    <Text
-                      className="font-semibold"
-                      style={{ color: "#2C3E50" }}
-                    >
-                      Take Photo
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleUpload}
-                    className="flex-row items-center gap-2 px-6 py-3 rounded-full"
-                    style={{ backgroundColor: "#2C3E50" }}
-                  >
-                    <Ionicons name="cloud-upload" size={20} color="#5FC4C0" />
-                    <Text className="font-semibold text-white">Upload</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
 
