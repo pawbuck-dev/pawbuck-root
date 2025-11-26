@@ -17,7 +17,7 @@ export default function OnboardingStep9() {
   const handleNext = () => {
     // Only save microchip if it's exactly 15 digits or empty
     if (microchipNumber.trim() && microchipNumber.trim().length === maxLength) {
-      updatePetData({ microchipNumber: microchipNumber.trim() });
+      updatePetData({ microchip_number: microchipNumber.trim() });
     }
 
     // Navigate to review screen

@@ -10,18 +10,17 @@ import { Pressable, Text, TextInput, View } from "react-native";
 export default function OnboardingStep4() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, nextStep, petData } = useOnboarding();
+  const { updatePetData, petData } = useOnboarding();
   const [breed, setBreed] = useState("");
   const [showBreedPicker, setShowBreedPicker] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  const petType = petData.petType || "dog";
+  const petType = (petData.animal_type || "dog") as "dog" | "cat" | "other";
   const petLabel = petType === "cat" ? "cat" : "dog";
 
   const handleNext = () => {
     if (breed.trim()) {
       updatePetData({ breed: breed.trim() });
-      nextStep();
       router.push("/onboarding/step5");
     }
   };

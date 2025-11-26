@@ -9,13 +9,12 @@ import { Pressable, Text, TextInput, View } from "react-native";
 export default function OnboardingStep5() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, nextStep } = useOnboarding();
+  const { updatePetData } = useOnboarding();
   const [petName, setPetName] = useState("");
 
   const handleNext = () => {
     if (petName.trim()) {
-      updatePetData({ petName: petName.trim() });
-      nextStep();
+      updatePetData({ name: petName.trim() });
       router.push("/onboarding/step6");
     }
   };

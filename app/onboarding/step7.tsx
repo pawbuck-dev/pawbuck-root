@@ -4,31 +4,21 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import DatePicker from "react-native-date-picker";
 
 export default function OnboardingStep7() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, nextStep, petData } = useOnboarding();
+  const { updatePetData, petData } = useOnboarding();
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const petName = petData.petName || "your pet";
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setBirthDate(selectedDate);
-    }
-  };
+  const petName = petData.name || "your pet";
 
   const handleNext = () => {
     if (birthDate) {
-      updatePetData({ birthDate: birthDate.toISOString() });
-      nextStep();
+      updatePetData({ date_of_birth: birthDate.toISOString() });
       router.push("/onboarding/step8");
     }
   };

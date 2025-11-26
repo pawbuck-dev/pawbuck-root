@@ -2,7 +2,7 @@ import { View } from "react-native";
 import GoogleButton from "./GoogleButton";
 
 interface OAuthProps {
-  onSuccess?: () => void;
+  onSuccess?: () => Promise<void>;
 }
 
 export default function OAuth({ onSuccess }: OAuthProps) {

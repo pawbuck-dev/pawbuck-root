@@ -5,6 +5,7 @@ import GenderPicker from "@/components/GenderPicker";
 import { COUNTRY_FLAGS } from "@/constants/onboarding";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,16 +13,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import DatePicker from "react-native-date-picker";
 
-type EditingField =
-  | "country"
-  | "petType"
-  | "breed"
-  | "petName"
-  | "gender"
-  | "birthDate"
-  | "weight"
-  | "microchip"
-  | null;
+type EditingField = keyof TablesInsert<"pets"> | null;
 
 export default function OnboardingReview() {
   const router = useRouter();
@@ -36,21 +28,21 @@ export default function OnboardingReview() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Temp values for editing
-  const [tempPetName, setTempPetName] = useState(petData.petName || "");
+  const [tempPetName, setTempPetName] = useState(petData.name || "");
   const [tempWeight, setTempWeight] = useState(
-    petData.weight?.toString() || ""
+    petData.weight_value?.toString() || ""
   );
   const [tempWeightUnit, setTempWeightUnit] = useState(
-    petData.weightUnit || "pounds"
+    petData.weight_unit || "pounds"
   );
   const [tempMicrochip, setTempMicrochip] = useState(
-    petData.microchipNumber || ""
+    petData.microchip_number || ""
   );
   const [tempBirthDate, setTempBirthDate] = useState(
-    petData.birthDate ? new Date(petData.birthDate) : new Date()
+    petData.date_of_birth ? new Date(petData.date_of_birth) : new Date()
   );
 
-  const petName = petData.petName || "your pet";
+  const petName = petData.name || "your pet";
 
   const handleConfirm = async () => {
     // Save all data to storage
@@ -71,29 +63,32 @@ export default function OnboardingReview() {
   };
 
   const handleSaveField = (field: EditingField) => {
-    if (field === "petName") {
-      updatePetData({ petName: tempPetName });
-    } else if (field === "weight") {
+    if (field === "name") {
+      updatePetData({ name: tempPetName });
+    } else if (field === "weight_value") {
       const weightValue = parseFloat(tempWeight);
       if (!isNaN(weightValue)) {
-        updatePetData({ weight: weightValue, weightUnit: tempWeightUnit });
+        updatePetData({
+          weight_value: weightValue,
+          weight_unit: tempWeightUnit,
+        });
       }
-    } else if (field === "microchip") {
-      updatePetData({ microchipNumber: tempMicrochip });
-    } else if (field === "birthDate") {
-      updatePetData({ birthDate: tempBirthDate.toISOString() });
+    } else if (field === "microchip_number") {
+      updatePetData({ microchip_number: tempMicrochip });
+    } else if (field === "date_of_birth") {
+      updatePetData({ date_of_birth: tempBirthDate.toISOString() });
     }
     setEditingField(null);
   };
 
   const handleCancelEdit = () => {
     // Reset temp values
-    setTempPetName(petData.petName || "");
-    setTempWeight(petData.weight?.toString() || "");
-    setTempWeightUnit(petData.weightUnit || "pounds");
-    setTempMicrochip(petData.microchipNumber || "");
+    setTempPetName(petData.name || "");
+    setTempWeight(petData.weight_value?.toString() || "");
+    setTempWeightUnit(petData.weight_unit || "pounds");
+    setTempMicrochip(petData.microchip_number || "");
     setTempBirthDate(
-      petData.birthDate ? new Date(petData.birthDate) : new Date()
+      petData.date_of_birth ? new Date(petData.date_of_birth) : new Date()
     );
     setEditingField(null);
   };
@@ -145,7 +140,7 @@ export default function OnboardingReview() {
               </View>
             ) : (
               <View>
-                {field === "petName" && (
+                {field === "name" && (
                   <TextInput
                     className="text-lg font-semibold rounded-lg px-3 py-2"
                     style={{
@@ -159,7 +154,7 @@ export default function OnboardingReview() {
                     autoFocus
                   />
                 )}
-                {field === "weight" && (
+                {field === "weight_value" && (
                   <View>
                     <View className="flex-row gap-2 mb-2">
                       <Pressable
@@ -223,7 +218,7 @@ export default function OnboardingReview() {
                     />
                   </View>
                 )}
-                {field === "microchip" && (
+                {field === "microchip_number" && (
                   <TextInput
                     className="text-lg font-semibold rounded-lg px-3 py-2"
                     style={{
@@ -370,12 +365,12 @@ export default function OnboardingReview() {
           <ProfileField
             label="Animal"
             value={
-              petData.petType
-                ? petData.petType.charAt(0).toUpperCase() +
-                  petData.petType.slice(1)
+              petData.animal_type
+                ? petData.animal_type.charAt(0).toUpperCase() +
+                  petData.animal_type.slice(1)
                 : "Not set"
             }
-            field="petType"
+            field="animal_type"
             onPickerOpen={() => setShowAnimalTypePicker(true)}
           />
 
@@ -388,43 +383,42 @@ export default function OnboardingReview() {
 
           <ProfileField
             label="Name"
-            value={petData.petName || "Not set"}
-            field="petName"
+            value={petData.name || "Not set"}
+            field="name"
           />
 
           <ProfileField
             label="Sex"
             value={
-              petData.gender
-                ? petData.gender.charAt(0).toUpperCase() +
-                  petData.gender.slice(1)
+              petData.sex
+                ? petData.sex.charAt(0).toUpperCase() + petData.sex.slice(1)
                 : "Not set"
             }
-            field="gender"
+            field="sex"
             onPickerOpen={() => setShowGenderPicker(true)}
           />
 
           <ProfileField
             label="Date of Birth"
-            value={formatDate(petData.birthDate)}
-            field="birthDate"
+            value={formatDate(petData.date_of_birth)}
+            field="date_of_birth"
             onPickerOpen={() => setShowDatePicker(true)}
           />
 
           <ProfileField
             label="Weight"
             value={
-              petData.weight
-                ? `${petData.weight} ${petData.weightUnit === "pounds" ? "lbs" : "kg"}`
+              petData.weight_value
+                ? `${petData.weight_value} ${petData.weight_unit === "pounds" ? "lbs" : "kg"}`
                 : "Not set"
             }
-            field="weight"
+            field="weight_value"
           />
 
           <ProfileField
             label="Microchip"
-            value={petData.microchipNumber || "Not entered"}
-            field="microchip"
+            value={petData.microchip_number || "Not entered"}
+            field="microchip_number"
           />
 
           {/* Country Picker Modal */}
@@ -441,9 +435,9 @@ export default function OnboardingReview() {
           {/* Animal Type Picker Modal */}
           <AnimalTypePicker
             visible={showAnimalTypePicker}
-            selectedType={(petData.petType as "dog" | "cat") || "dog"}
+            selectedType={(petData.animal_type as "dog" | "cat") || "dog"}
             onSelect={(type) => {
-              updatePetData({ petType: type });
+              updatePetData({ animal_type: type });
               setShowAnimalTypePicker(false);
             }}
             onClose={() => setShowAnimalTypePicker(false)}
@@ -453,7 +447,7 @@ export default function OnboardingReview() {
           <BreedPicker
             visible={showBreedPicker}
             selectedBreed={petData.breed || ""}
-            petType={petData.petType || "dog"}
+            petType={(petData.animal_type as "dog" | "cat" | "other") || "dog"}
             onSelect={(breed) => {
               updatePetData({ breed });
               setShowBreedPicker(false);
@@ -464,9 +458,9 @@ export default function OnboardingReview() {
           {/* Gender Picker Modal */}
           <GenderPicker
             visible={showGenderPicker}
-            selectedGender={(petData.gender as "male" | "female") || "male"}
+            selectedGender={(petData.sex as "male" | "female") || "male"}
             onSelect={(gender) => {
-              updatePetData({ gender });
+              updatePetData({ sex: gender });
               setShowGenderPicker(false);
             }}
             onClose={() => setShowGenderPicker(false)}

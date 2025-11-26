@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
@@ -7,10 +6,8 @@ import { Pressable, Text, View } from "react-native";
 export default function OnboardingStep1() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { goToStep } = useOnboarding();
 
   const handleLetsGo = () => {
-    goToStep(2);
     router.push("/onboarding/step2");
   };
 

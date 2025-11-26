@@ -15,7 +15,7 @@ GoogleSignin.configure({
 });
 
 type GoogleButtonProps = {
-  onSuccess?: () => void;
+  onSuccess?: () => Promise<void>;
 };
 
 const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
@@ -51,7 +51,7 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
 
       // Call onSuccess callback to navigate to home
       if (onSuccess) {
-        onSuccess();
+        await onSuccess();
       }
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {

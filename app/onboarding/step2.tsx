@@ -11,14 +11,13 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 export default function OnboardingStep2() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, nextStep } = useOnboarding();
+  const { updatePetData } = useOnboarding();
   const [country, setCountry] = useState("");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const handleNext = () => {
     if (country) {
       updatePetData({ country });
-      nextStep();
       router.push("/onboarding/step3");
     }
   };

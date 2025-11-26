@@ -11,17 +11,16 @@ type Gender = "male" | "female";
 export default function OnboardingStep6() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { updatePetData, nextStep, petData } = useOnboarding();
+  const { updatePetData, petData } = useOnboarding();
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
 
-  const petName = petData.petName || "your pet";
+  const petName = petData.name || "your pet";
 
   const handleSelectGender = (gender: Gender) => {
     setSelectedGender(gender);
     // Auto-advance after selection
     setTimeout(() => {
-      updatePetData({ gender });
-      nextStep();
+      updatePetData({ sex: gender });
       router.push("/onboarding/step7");
     }, 300);
   };

@@ -1,7 +1,10 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
+import { PetData } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
+import { createPet } from "@/services/pets";
 import { supabase } from "@/utils/supabase";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -17,11 +20,32 @@ import {
 
 function SignUp() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { theme, mode } = useTheme();
+
+  // Parse petData from route params
+  const petData: PetData = params.petData
+    ? JSON.parse(params.petData as string)
+    : {};
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const addPetToDatabase = async () => {
+    try {
+      await createPet(petData as TablesInsert<"pets">);
+      console.log("Pet created successfully");
+    } catch (error) {
+      console.error("Error creating pet:", error);
+      // Don't block the user flow if pet creation fails
+      Alert.alert(
+        "Note",
+        "Your account was created, but there was an issue saving your pet's profile. You can add it later from the home page."
+      );
+    }
+  };
 
   const handleEmailSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -50,6 +74,9 @@ function SignUp() {
       if (error) throw error;
 
       console.log("Successfully signed up:", data);
+
+      // Add pet to database after successful signup
+      await addPetToDatabase();
 
       // Show success message
       Alert.alert(
@@ -105,7 +132,13 @@ function SignUp() {
               </View>
 
               {/* Google Sign In */}
-              <OAuthLogins onSuccess={() => router.replace("/(tabs)/home")} />
+              <OAuthLogins
+                onSuccess={async () => {
+                  // Add pet to database after OAuth signup
+                  await addPetToDatabase();
+                  router.replace("/(tabs)/home");
+                }}
+              />
 
               {/* Divider */}
               <View className="flex-row items-center gap-4 my-6">

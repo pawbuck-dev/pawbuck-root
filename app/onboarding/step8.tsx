@@ -11,19 +11,18 @@ type WeightUnit = "pounds" | "kilograms";
 export default function OnboardingStep8() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, nextStep, petData } = useOnboarding();
+  const { updatePetData, petData } = useOnboarding();
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState<WeightUnit>("pounds");
 
-  const petName = petData.petName || "your pet";
+  const petName = petData.name || "your pet";
 
   const handleNext = () => {
     if (weight.trim() && !isNaN(parseFloat(weight))) {
       updatePetData({
-        weight: parseFloat(weight),
-        weightUnit: unit,
+        weight_value: parseFloat(weight),
+        weight_unit: unit,
       });
-      nextStep();
       router.push("/onboarding/step9");
     }
   };

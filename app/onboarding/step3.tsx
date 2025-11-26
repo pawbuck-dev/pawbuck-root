@@ -11,15 +11,14 @@ type PetType = "dog" | "cat";
 export default function OnboardingStep3() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { updatePetData, nextStep } = useOnboarding();
+  const { updatePetData } = useOnboarding();
   const [selectedPet, setSelectedPet] = useState<PetType | null>(null);
 
   const handleSelectPet = (petType: PetType) => {
     setSelectedPet(petType);
     // Auto-advance after selection
     setTimeout(() => {
-      updatePetData({ petType });
-      nextStep();
+      updatePetData({ animal_type: petType });
       router.push("/onboarding/step4");
     }, 300);
   };
