@@ -18,7 +18,7 @@ export default function AnimalTypePicker({
   onSelect,
   onClose,
 }: AnimalTypePickerProps) {
-  const { theme, mode } = useTheme();
+  const { theme } = useTheme();
   const [tempSelection, setTempSelection] = useState<AnimalType>(selectedType);
 
   const handleSave = () => {
