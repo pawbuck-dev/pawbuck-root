@@ -1,5 +1,4 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
-import { PetData } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,11 +19,6 @@ function SignUp() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { theme, mode } = useTheme();
-
-  // Parse petData from route params
-  const petData: PetData = params.petData
-    ? JSON.parse(params.petData as string)
-    : {};
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,21 +53,10 @@ function SignUp() {
 
       console.log("Successfully signed up:", data);
 
-      // Show success message and navigate to home with pet data
-      Alert.alert(
-        "Success",
-        "Account created successfully! Please check your email to verify your account.",
-        [
-          {
-            text: "OK",
-            onPress: () =>
-              router.replace({
-                pathname: "/(tabs)/home",
-                params: { petData: JSON.stringify(petData) },
-              }),
-          },
-        ]
-      );
+      router.replace({
+        pathname: "/(tabs)/home",
+        params,
+      });
     } catch (error: any) {
       console.error("Error signing up:", error);
       Alert.alert("Error", error.message || "Failed to create account");
@@ -122,7 +105,7 @@ function SignUp() {
                   // Navigate to home with pet data
                   router.replace({
                     pathname: "/(tabs)/home",
-                    params: { petData: JSON.stringify(petData) },
+                    params,
                   });
                 }}
               />
