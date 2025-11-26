@@ -1,8 +1,6 @@
 import { useAuth } from "@/context/authContext";
-import { PetData } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -34,33 +32,27 @@ export default function Home() {
   const params = useLocalSearchParams();
   const { theme, mode, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
-  const { pets, loading, refreshPets, addPet } = usePets();
+  const { pets, loading, refreshPets, syncPetFromParams } = usePets();
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
 
-  // Handle pet data from signup
+  // Handle pet data from onboarding/signup using PetsContext
   useEffect(() => {
     const handlePetData = async () => {
-      if (params.petData && typeof params.petData === "string") {
-        try {
-          const petData: PetData = JSON.parse(params.petData);
-          // Wait a bit for the auth state to be properly set
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          await addPet(petData as TablesInsert<"pets">);
-          console.log("Pet created successfully from signup");
-          // Clear the params to prevent re-adding on navigation
+      try {
+        await syncPetFromParams(params.petData, () => {
           router.setParams({ petData: undefined });
-        } catch (error) {
-          console.error("Error creating pet:", error);
-          Alert.alert(
-            "Note",
-            "There was an issue saving your pet's profile. You can add it later from the home page."
-          );
-        }
+        });
+      } catch (error) {
+        console.error("Error syncing pet:", error);
+        Alert.alert(
+          "Error",
+          "There was an issue saving your pet's profile. Please try adding it again from the home page."
+        );
       }
     };
 
     handlePetData();
-  }, [params.petData, addPet, router]);
+  }, [params.petData, user, syncPetFromParams, router]);
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [

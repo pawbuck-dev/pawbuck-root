@@ -9,7 +9,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 export default function OnboardingStep9() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { updatePetData, saveToStorage } = useOnboarding();
+  const { updatePetData } = useOnboarding();
   const [microchipNumber, setMicrochipNumber] = useState("");
 
   const maxLength = 15;

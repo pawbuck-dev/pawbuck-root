@@ -3,6 +3,7 @@ import BreedPicker from "@/components/BreedPicker";
 import CountryPicker from "@/components/CountryPicker";
 import GenderPicker from "@/components/GenderPicker";
 import { COUNTRY_FLAGS } from "@/constants/onboarding";
+import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
@@ -18,7 +19,8 @@ type EditingField = keyof TablesInsert<"pets"> | null;
 export default function OnboardingReview() {
   const router = useRouter();
   const { theme, toggleTheme, mode } = useTheme();
-  const { petData, updatePetData, saveToStorage } = useOnboarding();
+  const { petData, updatePetData } = useOnboarding();
+  const { user } = useAuth();
 
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -44,12 +46,20 @@ export default function OnboardingReview() {
 
   const petName = petData.name || "your pet";
 
-  const handleConfirm = async () => {
-    // Save all data to storage
-    await saveToStorage();
-
-    // Navigate to account creation screen
-    router.push("/onboarding/complete");
+  const handleConfirm = () => {
+    if (user) {
+      // Already authenticated → go directly to home
+      router.push({
+        pathname: "/(tabs)/home",
+        params: {
+          petData: JSON.stringify(petData),
+        },
+      });
+      // OnboardingProvider will automatically unmount when leaving /onboarding routes
+    } else {
+      // Not authenticated → go to complete screen first
+      router.push("/onboarding/complete");
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -498,7 +508,7 @@ export default function OnboardingReview() {
             className="text-lg font-semibold"
             style={{ color: theme.primaryForeground }}
           >
-            Confirm & Continue
+            {user ? "Save Pet" : "Confirm & Continue"}
           </Text>
         </Pressable>
       </View>

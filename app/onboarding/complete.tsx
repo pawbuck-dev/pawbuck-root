@@ -20,6 +20,7 @@ export default function OnboardingComplete() {
         petData: JSON.stringify(petData),
       },
     });
+    // OnboardingProvider will automatically unmount when leaving /onboarding routes
   };
 
   return (
