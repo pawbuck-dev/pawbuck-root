@@ -1,11 +1,41 @@
+import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Image, Pressable, Text, View } from "react-native";
+import { useEffect } from "react";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
   const { theme, mode } = useTheme();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.replace("/(tabs)/home");
+    }
+  }, [isAuthenticated, loading, router]);
+
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <View
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: theme.background }}
+      >
+        <ActivityIndicator size="large" color="#5FC4C0" />
+        <Text className="mt-4 text-lg" style={{ color: theme.foreground }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  // Don't render the welcome screen if authenticated (will redirect)
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>

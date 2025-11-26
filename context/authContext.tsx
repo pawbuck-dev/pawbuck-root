@@ -1,0 +1,134 @@
+/**
+ * Auth Context for managing authentication state
+ *
+ * This context provides:
+ * - Current authenticated user
+ * - Loading and error states for authentication
+ * - Sign out functionality
+ * - Convenience isAuthenticated flag
+ *
+ * Usage example:
+ * ```tsx
+ * import { useAuth } from "@/context/authContext";
+ *
+ * function MyComponent() {
+ *   const { user, loading, isAuthenticated, signOut } = useAuth();
+ *
+ *   if (loading) return <ActivityIndicator />;
+ *
+ *   return (
+ *     <View>
+ *       {isAuthenticated ? (
+ *         <>
+ *           <Text>Welcome {user?.email}</Text>
+ *           <Button title="Sign Out" onPress={signOut} />
+ *         </>
+ *       ) : (
+ *         <Text>Please sign in</Text>
+ *       )}
+ *     </View>
+ *   );
+ * }
+ * ```
+ */
+
+import { supabase } from "@/utils/supabase";
+import { User } from "@supabase/supabase-js";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+interface AuthContextType {
+  /** Currently authenticated user, null if not authenticated */
+  user: User | null;
+  /** Loading state for authentication operations */
+  loading: boolean;
+  /** Error message if any operation fails */
+  error: string | null;
+  /** Convenience flag for checking authentication status */
+  isAuthenticated: boolean;
+  /** Sign out the current user */
+  signOut: () => Promise<void>;
+  /** Clear any authentication errors */
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sign out the current user
+  const signOut = useCallback(async () => {
+    try {
+      setError(null);
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+
+      // User state will be updated by the auth state listener
+      console.log("User signed out successfully");
+    } catch (err) {
+      console.error("Error signing out:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to sign out";
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }, []);
+
+  // Clear authentication errors
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Initialize authentication state
+  useEffect(() => {
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user?.email);
+
+      setUser(session?.user || null);
+
+      // Clear loading state when auth state changes
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isAuthenticated: !!user,
+        signOut,
+        clearError,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

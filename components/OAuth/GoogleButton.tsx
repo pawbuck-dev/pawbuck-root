@@ -15,7 +15,7 @@ GoogleSignin.configure({
 });
 
 type GoogleButtonProps = {
-  onSuccess?: () => Promise<void>;
+  onSuccess?: () => Promise<void> | void;
 };
 
 const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {

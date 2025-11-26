@@ -1,6 +1,6 @@
+import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { useUser } from "@/context/userContext";
-import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -12,34 +12,49 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import QRCode from "react-native-qrcode-svg";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring
+  withSpring,
 } from "react-native-reanimated";
 
 export default function Home() {
   const router = useRouter();
   const { theme, mode, toggleTheme } = useTheme();
-  const { user, pets, loading, refreshPets } = useUser();
+  const { user, signOut } = useAuth();
+  const { pets, loading, refreshPets } = useUser();
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
 
   const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Navigate back to welcome screen
-      router.replace("/");
-    } catch (error: any) {
-      console.error("Error signing out:", error);
-      Alert.alert("Error", error.message || "Failed to sign out");
-    }
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+            // Navigate back to welcome screen
+            router.replace("/");
+          } catch (error: any) {
+            console.error("Error signing out:", error);
+            Alert.alert("Error", error.message || "Failed to sign out");
+          }
+        },
+      },
+    ]);
   };
 
   const handleRefresh = async () => {
@@ -108,7 +123,10 @@ export default function Home() {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
     return age;
@@ -127,15 +145,18 @@ export default function Home() {
     })
     .onEnd((event) => {
       const SWIPE_THRESHOLD = 50;
-      
+
       if (event.translationX > SWIPE_THRESHOLD && currentPetIndex > 0) {
         // Swipe right - go to previous pet
         runOnJS(navigateToPet)("prev");
-      } else if (event.translationX < -SWIPE_THRESHOLD && currentPetIndex < pets.length - 1) {
+      } else if (
+        event.translationX < -SWIPE_THRESHOLD &&
+        currentPetIndex < pets.length - 1
+      ) {
         // Swipe left - go to next pet
         runOnJS(navigateToPet)("next");
       }
-      
+
       translateX.value = withSpring(0);
     });
 
@@ -148,7 +169,10 @@ export default function Home() {
   // Show loading state
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+      <View
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: theme.background }}
+      >
         <ActivityIndicator size="large" color="#5FC4C0" />
         <Text className="mt-4 text-lg" style={{ color: theme.foreground }}>
           Loading your pets...
@@ -162,7 +186,7 @@ export default function Home() {
     return (
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
-        
+
         {/* Header */}
         <View className="px-6 pt-12 pb-3 flex-row items-center justify-between">
           <Ionicons name="paw" size={32} color="#5FC4C0" />
@@ -185,6 +209,7 @@ export default function Home() {
               />
             </TouchableOpacity>
             <TouchableOpacity
+              onPress={handleSignOut}
               className="w-10 h-10 rounded-full items-center justify-center"
               style={{ backgroundColor: "#5FC4C0" }}
             >
@@ -197,10 +222,16 @@ export default function Home() {
 
         <View className="flex-1 items-center justify-center px-6">
           <Ionicons name="paw-outline" size={80} color="#5FC4C0" />
-          <Text className="text-2xl font-bold mt-6 text-center" style={{ color: theme.foreground }}>
+          <Text
+            className="text-2xl font-bold mt-6 text-center"
+            style={{ color: theme.foreground }}
+          >
             No Pets Yet
           </Text>
-          <Text className="text-base mt-2 text-center" style={{ color: theme.foreground, opacity: 0.7 }}>
+          <Text
+            className="text-base mt-2 text-center"
+            style={{ color: theme.foreground, opacity: 0.7 }}
+          >
             Add your first pet to get started!
           </Text>
           <TouchableOpacity
@@ -208,9 +239,7 @@ export default function Home() {
             className="mt-6 px-8 py-4 rounded-full"
             style={{ backgroundColor: "#5FC4C0" }}
           >
-            <Text className="text-lg font-bold text-gray-900">
-              Add a Pet
-            </Text>
+            <Text className="text-lg font-bold text-gray-900">Add a Pet</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -218,7 +247,10 @@ export default function Home() {
   }
 
   return (
-    <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
+    <GestureHandlerRootView
+      className="flex-1"
+      style={{ backgroundColor: theme.background }}
+    >
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Header */}
@@ -236,11 +268,7 @@ export default function Home() {
             className="w-10 h-10 rounded-full items-center justify-center"
             style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
           >
-            <Ionicons
-              name="refresh"
-              size={20}
-              color="#5FC4C0"
-            />
+            <Ionicons name="refresh" size={20} color="#5FC4C0" />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={toggleTheme}
@@ -254,6 +282,7 @@ export default function Home() {
             />
           </TouchableOpacity>
           <TouchableOpacity
+            onPress={handleSignOut}
             className="w-10 h-10 rounded-full items-center justify-center"
             style={{ backgroundColor: "#5FC4C0" }}
           >
@@ -265,8 +294,8 @@ export default function Home() {
       </View>
 
       {/* Pet Card with Navigation */}
-      <ScrollView 
-        className="flex-1" 
+      <ScrollView
+        className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1 }}
       >
@@ -317,7 +346,10 @@ export default function Home() {
                     style={{ backgroundColor: "rgba(255, 255, 255, 0.3)" }}
                   >
                     <Ionicons name="camera" size={20} color="#2C3E50" />
-                    <Text className="font-semibold" style={{ color: "#2C3E50" }}>
+                    <Text
+                      className="font-semibold"
+                      style={{ color: "#2C3E50" }}
+                    >
                       Take Photo
                     </Text>
                   </TouchableOpacity>
@@ -368,17 +400,24 @@ export default function Home() {
                   <Ionicons
                     name="chevron-forward"
                     size={24}
-                    color={currentPetIndex === pets.length - 1 ? "#999" : "#fff"}
+                    color={
+                      currentPetIndex === pets.length - 1 ? "#999" : "#fff"
+                    }
                   />
                 </TouchableOpacity>
 
                 {/* Pet Info */}
                 <View className="items-center px-14">
-                  <Text className="text-4xl font-bold mb-2" style={{ color: "#2C3E50" }}>
+                  <Text
+                    className="text-4xl font-bold mb-2"
+                    style={{ color: "#2C3E50" }}
+                  >
                     {currentPet.name}
                   </Text>
                   <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
-                    {currentPet.breed} • {calculateAge(currentPet.date_of_birth)} years • {currentPet.sex}
+                    {currentPet.breed} •{" "}
+                    {calculateAge(currentPet.date_of_birth)} years •{" "}
+                    {currentPet.sex}
                   </Text>
                   <Text
                     className="text-xs tracking-wider font-mono"
@@ -419,21 +458,30 @@ export default function Home() {
                 <View className="gap-2.5">
                   <View className="flex-row items-start">
                     <Text className="text-lg mr-2">🏠</Text>
-                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                    <Text
+                      className="flex-1 text-base leading-5"
+                      style={{ color: "#2C3E50" }}
+                    >
                       <Text className="font-bold">Country:</Text>{" "}
                       {currentPet.country}
                     </Text>
                   </View>
                   <View className="flex-row items-start">
                     <Text className="text-lg mr-2">⚖️</Text>
-                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                    <Text
+                      className="flex-1 text-base leading-5"
+                      style={{ color: "#2C3E50" }}
+                    >
                       <Text className="font-bold">Weight:</Text>{" "}
                       {currentPet.weight_value} {currentPet.weight_unit}
                     </Text>
                   </View>
                   <View className="flex-row items-start">
                     <Text className="text-lg mr-2">🐾</Text>
-                    <Text className="flex-1 text-base leading-5" style={{ color: "#2C3E50" }}>
+                    <Text
+                      className="flex-1 text-base leading-5"
+                      style={{ color: "#2C3E50" }}
+                    >
                       <Text className="font-bold">Type:</Text>{" "}
                       {currentPet.animal_type}
                     </Text>
