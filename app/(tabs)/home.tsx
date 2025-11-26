@@ -32,16 +32,18 @@ export default function Home() {
   const params = useLocalSearchParams();
   const { theme, mode, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
-  const { pets, loading, refreshPets, syncPetFromParams } = usePets();
+  const { pets, loading, refreshPets, addPet } = usePets();
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
 
   // Handle pet data from onboarding/signup using PetsContext
   useEffect(() => {
+    if (!params.petData) return;
+
     const handlePetData = async () => {
       try {
-        await syncPetFromParams(params.petData, () => {
-          router.setParams({ petData: undefined });
-        });
+        const petData = JSON.parse(params.petData as string);
+        await addPet(petData);
+        router.setParams({ petData: undefined });
       } catch (error) {
         console.error("Error syncing pet:", error);
         Alert.alert(
@@ -52,7 +54,7 @@ export default function Home() {
     };
 
     handlePetData();
-  }, [params.petData, user, syncPetFromParams, router]);
+  }, [params.petData, router, addPet]);
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
