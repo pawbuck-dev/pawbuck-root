@@ -1,8 +1,6 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
 import { PetData } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
-import { useUser } from "@/context/userContext";
-import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -22,7 +20,6 @@ function SignUp() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { theme, mode } = useTheme();
-  const { addPet } = useUser();
 
   // Parse petData from route params
   const petData: PetData = params.petData
@@ -33,22 +30,6 @@ function SignUp() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const addPetToDatabase = async () => {
-    try {
-      // Wait a bit for the auth state to be properly set
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      await addPet(petData as TablesInsert<"pets">);
-      console.log("Pet created successfully");
-    } catch (error) {
-      console.error("Error creating pet:", error);
-      // Don't block the user flow if pet creation fails
-      Alert.alert(
-        "Note",
-        "Your account was created, but there was an issue saving your pet's profile. You can add it later from the home page."
-      );
-    }
-  };
 
   const handleEmailSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -78,17 +59,18 @@ function SignUp() {
 
       console.log("Successfully signed up:", data);
 
-      // Add pet to database after successful signup
-      await addPetToDatabase();
-
-      // Show success message
+      // Show success message and navigate to home with pet data
       Alert.alert(
         "Success",
         "Account created successfully! Please check your email to verify your account.",
         [
           {
             text: "OK",
-            onPress: () => router.replace("/(tabs)/home"),
+            onPress: () =>
+              router.replace({
+                pathname: "/(tabs)/home",
+                params: { petData: JSON.stringify(petData) },
+              }),
           },
         ]
       );
@@ -136,10 +118,12 @@ function SignUp() {
 
               {/* Google Sign In */}
               <OAuthLogins
-                onSuccess={async () => {
-                  // Add pet to database after OAuth signup
-                  await addPetToDatabase();
-                  router.replace("/(tabs)/home");
+                onSuccess={() => {
+                  // Navigate to home with pet data
+                  router.replace({
+                    pathname: "/(tabs)/home",
+                    params: { petData: JSON.stringify(petData) },
+                  });
                 }}
               />
 
