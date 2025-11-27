@@ -7,9 +7,14 @@ import {
   createMaterialTopTabNavigator,
 } from "@react-navigation/material-top-tabs";
 import { ParamListBase, TabNavigationState } from "@react-navigation/native";
-import { router, useLocalSearchParams, withLayoutContext } from "expo-router";
+import {
+  router,
+  useLocalSearchParams,
+  useSegments,
+  withLayoutContext,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 const { Navigator } = createMaterialTopTabNavigator();
@@ -21,14 +26,49 @@ export const MaterialTopTabs = withLayoutContext<
   MaterialTopTabNavigationEventMap
 >(Navigator);
 
+type Tab = "vaccinations" | "medications" | "exams" | "lab-results";
+
 export default function HealthRecordsLayout() {
   const { theme, mode } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pets } = usePets();
+  const segments = useSegments();
+  const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
 
   // Find the pet by ID (convert string param to number)
   const pet = pets.find((p) => p.id.toString() === id);
   const petName = pet?.name || "Pet";
+
+  // Track active tab from route segments
+  useEffect(() => {
+    const currentTab = segments[segments.length - 1] as Tab;
+    if (currentTab) {
+      setActiveTab(currentTab);
+    }
+  }, [segments]);
+
+  // Handle add button press based on active tab
+  const handleAddPress = () => {
+    switch (activeTab) {
+      case "vaccinations":
+        router.push(`/health-record/${id}/vaccination-upload-modal`);
+        break;
+      case "medications":
+        // TODO: Add medication logic
+        console.log("Add Medication");
+        break;
+      case "exams":
+        // TODO: Add exam logic
+        console.log("Add Exam");
+        break;
+      case "lab-results":
+        // TODO: Add lab result logic
+        console.log("Add Lab Result");
+        break;
+      default:
+        console.log("Unknown tab");
+    }
+  };
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -53,8 +93,13 @@ export default function HealthRecordsLayout() {
             {petName}'s Health Records
           </Text>
 
-          {/* Placeholder for alignment */}
-          <View className="w-10" />
+          {/* Add Button */}
+          <Pressable
+            onPress={handleAddPress}
+            className="w-10 h-10 items-center justify-center active:opacity-70"
+          >
+            <Ionicons name="add-circle" size={28} color={theme.primary} />
+          </Pressable>
         </View>
       </View>
 

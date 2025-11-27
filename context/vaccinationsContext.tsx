@@ -53,10 +53,6 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     },
   });
 
-  console.log("vaccinations", vaccinations);
-  console.log("isLoading", isLoading);
-  console.log("queryError", queryError);
-
   // Add vaccination mutation
   const addVaccinationMutation = useMutation({
     mutationFn: createVaccination,
