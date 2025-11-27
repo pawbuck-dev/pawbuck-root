@@ -184,7 +184,7 @@ export default function PetCard({ pet }: PetCardProps) {
         className="rounded-3xl py-4 items-center shadow-lg"
         style={{ backgroundColor: "#2C3E50" }}
         onPress={() =>
-          router.push(`/(home)/health-record/${pet.id}/vaccinations`)
+          router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
         }
       >
         <View className="flex-row items-center gap-2">

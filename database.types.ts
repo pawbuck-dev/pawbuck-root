@@ -21,7 +21,7 @@ export type Database = {
           country: string
           created_at: string
           date_of_birth: string
-          id: number
+          id: string
           microchip_number: string | null
           name: string
           photo_url: string | null
@@ -36,7 +36,7 @@ export type Database = {
           country: string
           created_at?: string
           date_of_birth: string
-          id?: number
+          id?: string
           microchip_number?: string | null
           name: string
           photo_url?: string | null
@@ -51,7 +51,7 @@ export type Database = {
           country?: string
           created_at?: string
           date_of_birth?: string
-          id?: number
+          id?: string
           microchip_number?: string | null
           name?: string
           photo_url?: string | null
@@ -61,6 +61,53 @@ export type Database = {
           weight_value?: number
         }
         Relationships: []
+      }
+      vaccinations: {
+        Row: {
+          clinic_name: string | null
+          created_at: string
+          date: string
+          document_url: string | null
+          id: string
+          name: string
+          next_due_date: string | null
+          notes: string | null
+          pet_id: string
+          user_id: string
+        }
+        Insert: {
+          clinic_name?: string | null
+          created_at: string
+          date: string
+          document_url?: string | null
+          id?: string
+          name: string
+          next_due_date?: string | null
+          notes?: string | null
+          pet_id: string
+          user_id?: string
+        }
+        Update: {
+          clinic_name?: string | null
+          created_at?: string
+          date?: string
+          document_url?: string | null
+          id?: string
+          name?: string
+          next_due_date?: string | null
+          notes?: string | null
+          pet_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccinations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
