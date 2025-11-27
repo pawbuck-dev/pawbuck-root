@@ -1,6 +1,5 @@
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
-import * as FileSystem from "expo-file-system";
 
 /**
  * Fetch all vaccinations for a specific pet
@@ -10,7 +9,7 @@ export const getVaccinationsByPetId = async (petId: string) => {
     .from("vaccinations")
     .select("*")
     .eq("pet_id", petId)
-    .order("vaccination_date", { ascending: false });
+    .order("date", { ascending: false });
 
   if (error) throw error;
   return data;
