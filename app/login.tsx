@@ -40,8 +40,11 @@ function Login() {
 
       console.log("Successfully signed in:", data);
 
-      // Navigate to home screen after successful login
-      router.replace("/(tabs)/home");
+      // Navigate to home screen after successful login - clear stack
+      while (router.canGoBack()) {
+        router.back();
+      }
+      router.replace("/home");
     } catch (error: any) {
       console.error("Error signing in:", error);
       Alert.alert("Error", error.message || "Failed to sign in");
@@ -86,7 +89,15 @@ function Login() {
               </View>
 
               {/* Google Sign In */}
-              <OAuthLogins onSuccess={() => router.replace("/(tabs)/home")} />
+              <OAuthLogins
+                onSuccess={() => {
+                  // Clear navigation stack before going to home
+                  while (router.canGoBack()) {
+                    router.back();
+                  }
+                  router.replace("/home");
+                }}
+              />
 
               {/* Divider */}
               <View className="flex-row items-center gap-4 my-6">

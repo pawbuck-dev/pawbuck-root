@@ -15,7 +15,7 @@ export default function OnboardingStep4() {
   const [showBreedPicker, setShowBreedPicker] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  const petType = (petData.animal_type || "dog") as "dog" | "cat" | "other";
+  const petType = (petData?.animal_type || "dog") as "dog" | "cat" | "other";
   const petLabel = petType === "cat" ? "cat" : "dog";
 
   const handleNext = () => {

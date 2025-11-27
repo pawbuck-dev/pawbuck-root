@@ -10,17 +10,12 @@ export default function OnboardingComplete() {
   const { theme } = useTheme();
   const { petData } = useOnboarding();
 
-  const petName = petData.name || "your pet";
+  const petName = petData!.name || "your pet";
 
   const handleContinueToSignUp = () => {
-    // Navigate to sign up screen with pet data
     router.push({
       pathname: "/signup",
-      params: {
-        petData: JSON.stringify(petData),
-      },
     });
-    // OnboardingProvider will automatically unmount when leaving /onboarding routes
   };
 
   return (

@@ -14,7 +14,7 @@ export default function OnboardingStep7() {
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const petName = petData.name || "your pet";
+  const petName = petData?.name || "your pet";
 
   const handleNext = () => {
     if (birthDate) {

@@ -14,7 +14,7 @@ export default function OnboardingStep6() {
   const { updatePetData, petData } = useOnboarding();
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
 
-  const petName = petData.name || "your pet";
+  const petName = petData?.name || "your pet";
 
   const handleSelectGender = (gender: Gender) => {
     setSelectedGender(gender);

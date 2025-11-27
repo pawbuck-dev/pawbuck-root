@@ -15,7 +15,7 @@ export default function OnboardingStep8() {
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState<WeightUnit>("pounds");
 
-  const petName = petData.name || "your pet";
+  const petName = petData?.name || "your pet";
 
   const handleNext = () => {
     if (weight.trim() && !isNaN(parseFloat(weight))) {

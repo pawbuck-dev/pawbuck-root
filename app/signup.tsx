@@ -53,8 +53,13 @@ function SignUp() {
 
       console.log("Successfully signed up:", data);
 
+      console.log("params", params);
+      // Clear navigation stack before going to home
+      while (router.canGoBack()) {
+        router.back();
+      }
       router.replace({
-        pathname: "/(tabs)/home",
+        pathname: "/home",
         params,
       });
     } catch (error: any) {
@@ -102,9 +107,13 @@ function SignUp() {
               {/* Google Sign In */}
               <OAuthLogins
                 onSuccess={() => {
-                  // Navigate to home with pet data
+                  // Navigate to home with pet - clear stack first
+                  console.log("signup params", params);
+                  while (router.canGoBack()) {
+                    router.back();
+                  }
                   router.replace({
-                    pathname: "/(tabs)/home",
+                    pathname: "/home",
                     params,
                   });
                 }}

@@ -13,7 +13,7 @@ export default function Index() {
   // Redirect to home if already authenticated
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.replace("/(tabs)/home");
+      router.replace("/home");
     }
   }, [isAuthenticated, loading, router]);
 

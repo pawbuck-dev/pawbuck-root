@@ -1,4 +1,10 @@
-import React, { createContext, ReactNode, useContext, useState } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 import { TablesInsert } from "../database.types";
 
 // Base pet data from database schema
@@ -8,8 +14,11 @@ type PetInsert = TablesInsert<"pets">;
 export type PetData = Partial<Omit<PetInsert, "user_id" | "created_at" | "id">>;
 
 interface OnboardingContextType {
-  petData: PetData;
+  petData: PetData | null;
   updatePetData: (data: Partial<PetData>) => void;
+  resetOnboarding: () => void;
+  isOnboardingComplete: boolean;
+  completeOnboarding: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(
@@ -20,16 +29,29 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [petData, setPetData] = useState<PetData>({});
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
 
   const updatePetData = (data: Partial<PetData>) => {
-    setPetData((prev) => ({ ...prev, ...data }));
+    setPetData((prev) => ({ ...(prev || {}), ...data }));
   };
+
+  const completeOnboarding = useCallback(() => {
+    setIsOnboardingComplete(true);
+  }, []);
+
+  const resetOnboarding = useCallback(() => {
+    setIsOnboardingComplete(false);
+    setPetData({});
+  }, []);
 
   return (
     <OnboardingContext.Provider
       value={{
         petData,
         updatePetData,
+        resetOnboarding,
+        isOnboardingComplete,
+        completeOnboarding,
       }}
     >
       {children}
