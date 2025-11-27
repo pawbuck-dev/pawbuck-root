@@ -93,30 +93,28 @@ export default function PetCard({ pet }: PetCardProps) {
         className="absolute top-5 right-5 w-12 h-12 rounded-full items-center justify-center z-10"
         style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
       >
-        <Ionicons name="pencil" size={20} color="#2C3E50" />
+        <Ionicons name="pencil-outline" size={18} color="#5FC4C0" />
       </TouchableOpacity>
 
       {/* Photo Upload Area */}
       <View className="items-center mb-4">
-        <View className="relative">
-          <TouchableOpacity
-            onPress={handlePhotoUpload}
-            activeOpacity={0.7}
-            className="w-56 h-56 rounded-full items-center justify-center"
-            style={{
-              backgroundColor: "#2C3E50",
-              borderWidth: 3,
-              borderStyle: "dashed",
-              borderColor: "#1A252F",
-            }}
-          >
-            <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={handlePhotoUpload}
+          activeOpacity={0.7}
+          className="w-56 h-56 rounded-full items-center justify-center"
+          style={{
+            backgroundColor: "#2C3E50",
+            borderWidth: 3,
+            borderStyle: "dashed",
+            borderColor: "#1A252F",
+          }}
+        >
+          <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
+        </TouchableOpacity>
       </View>
 
       {/* Pet Info */}
-      <View className="items-center px-14">
+      <View className="items-center mb-4">
         <Text className="text-4xl font-bold mb-2" style={{ color: "#2C3E50" }}>
           {pet.name}
         </Text>
@@ -153,35 +151,26 @@ export default function PetCard({ pet }: PetCardProps) {
           className="text-lg font-extrabold mb-3 tracking-wide"
           style={{ color: "#2C3E50" }}
         >
-          PET DETAILS
+          HEALTH AT A GLANCE
         </Text>
         <View className="gap-2.5">
           <View className="flex-row items-start">
-            <Text className="text-lg mr-2">🏠</Text>
+            <Text className="text-lg mr-2">💉</Text>
             <Text
               className="flex-1 text-base leading-5"
               style={{ color: "#2C3E50" }}
             >
-              <Text className="font-bold">Country:</Text> {pet.country}
+              <Text className="font-bold">Vaccines:</Text> Up-to-date | Next:
+              None scheduled
             </Text>
           </View>
           <View className="flex-row items-start">
-            <Text className="text-lg mr-2">⚖️</Text>
+            <Text className="text-lg mr-2">💊</Text>
             <Text
               className="flex-1 text-base leading-5"
               style={{ color: "#2C3E50" }}
             >
-              <Text className="font-bold">Weight:</Text> {pet.weight_value}{" "}
-              {pet.weight_unit}
-            </Text>
-          </View>
-          <View className="flex-row items-start">
-            <Text className="text-lg mr-2">🐾</Text>
-            <Text
-              className="flex-1 text-base leading-5"
-              style={{ color: "#2C3E50" }}
-            >
-              <Text className="font-bold">Type:</Text> {pet.animal_type}
+              <Text className="font-bold">Medicines:</Text> Next: None scheduled
             </Text>
           </View>
         </View>
