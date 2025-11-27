@@ -1,4 +1,5 @@
 import { Pet } from "@/context/petsContext";
+import { useTheme } from "@/context/themeContext";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -11,6 +12,7 @@ type PetCardProps = {
 
 export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
+  const { theme } = useTheme();
 
   const handleTakePhoto = async () => {
     const imageUri = await takePhoto();
@@ -68,108 +70,181 @@ export default function PetCard({ pet }: PetCardProps) {
 
   return (
     <View
-      className="rounded-3xl p-5 relative"
-      style={{ backgroundColor: "#5FC4C0" }}
+      className="rounded-3xl p-6 relative"
+      style={{
+        backgroundColor: theme.card,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 5,
+      }}
     >
       {/* Edit Button */}
       <TouchableOpacity
-        className="absolute top-5 right-5 w-12 h-12 rounded-full items-center justify-center z-10"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
+        className="absolute top-5 right-5 w-10 h-10 rounded-full items-center justify-center z-10"
+        style={{
+          backgroundColor: theme.dashedCard,
+          borderWidth: 1,
+          borderColor: theme.border,
+        }}
       >
-        <Ionicons name="pencil-outline" size={18} color="#5FC4C0" />
+        <Ionicons name="pencil-outline" size={16} color={theme.secondary} />
       </TouchableOpacity>
 
       {/* Photo Upload Area */}
-      <View className="items-center mb-4">
+      <View className="items-center mb-5">
         <TouchableOpacity
           onPress={handlePhotoUpload}
           activeOpacity={0.7}
-          className="w-56 h-56 rounded-full items-center justify-center"
+          className="w-40 h-40 rounded-full items-center justify-center"
           style={{
-            backgroundColor: "#2C3E50",
-            borderWidth: 3,
+            backgroundColor: theme.dashedCard,
+            borderWidth: 2,
             borderStyle: "dashed",
-            borderColor: "#1A252F",
+            borderColor: theme.border,
           }}
         >
-          <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
+          <Ionicons name="camera-outline" size={40} color={theme.secondary} />
+          <Text
+            className="text-xs mt-2 font-medium"
+            style={{ color: theme.secondary }}
+          >
+            Add Photo
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Pet Info */}
-      <View className="items-center mb-4">
-        <Text className="text-4xl font-bold mb-2" style={{ color: "#2C3E50" }}>
+      <View className="items-center mb-5">
+        <Text
+          className="text-3xl font-bold mb-2"
+          style={{ color: theme.cardForeground, letterSpacing: -0.5 }}
+        >
           {pet.name}
         </Text>
-        <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
+        <Text className="text-sm mb-2" style={{ color: theme.secondary }}>
           {pet.breed} • {calculateAge(pet.date_of_birth)} years • {pet.sex}
         </Text>
-        <Text
-          className="text-xs tracking-wider font-mono"
-          style={{ color: "#2C3E50" }}
-        >
-          MICROCHIP {pet.microchip_number || "N/A"}
-        </Text>
+        {pet.microchip_number && (
+          <View
+            className="px-3 py-1.5 rounded-full mt-1"
+            style={{ backgroundColor: theme.dashedCard }}
+          >
+            <Text
+              className="text-xs font-medium"
+              style={{ color: theme.secondary, letterSpacing: 0.5 }}
+            >
+              MICROCHIP {pet.microchip_number}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* QR Code */}
-      <View className="items-center mb-4">
+      <View className="items-center mb-5">
         <View
-          className="w-32 h-32 rounded-lg items-center justify-center p-2"
-          style={{ backgroundColor: "white" }}
+          className="w-32 h-32 rounded-lg items-center justify-center p-3"
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
         >
-          <QRCode value={`https://pawbuck.app/pet/${pet.id}`} size={112} />
+          <QRCode
+            value={`https://pawbuck.app/pet/${pet.id}`}
+            size={104}
+            backgroundColor="#FFFFFF"
+            color="#000000"
+          />
         </View>
-        <Text className="mt-2 text-sm" style={{ color: "#2C3E50" }}>
+        <Text className="mt-3 text-xs" style={{ color: theme.secondary }}>
           Scan for health passport
         </Text>
       </View>
 
       {/* Health at a Glance */}
       <View
-        className="rounded-3xl p-4 mb-4"
-        style={{ backgroundColor: "rgba(69, 123, 121, 0.35)" }}
+        className="rounded-2xl p-4 mb-4"
+        style={{
+          backgroundColor: theme.dashedCard,
+          borderWidth: 1,
+          borderColor: theme.border,
+        }}
       >
         <Text
-          className="text-lg font-extrabold mb-3 tracking-wide"
-          style={{ color: "#2C3E50" }}
+          className="text-sm font-bold mb-3"
+          style={{ color: theme.cardForeground, letterSpacing: 0.5 }}
         >
           HEALTH AT A GLANCE
         </Text>
-        <View className="gap-2.5">
-          <View className="flex-row items-start">
-            <Text className="text-lg mr-2">💉</Text>
-            <Text
-              className="flex-1 text-base leading-5"
-              style={{ color: "#2C3E50" }}
+        <View className="gap-3">
+          <View className="flex-row items-center">
+            <View
+              className="w-8 h-8 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: theme.primary + "20" }}
             >
-              <Text className="font-bold">Vaccines:</Text> Up-to-date | Next:
-              None scheduled
-            </Text>
+              <Ionicons name="medical" size={16} color={theme.primary} />
+            </View>
+            <View className="flex-1">
+              <Text
+                className="text-xs font-semibold mb-0.5"
+                style={{ color: theme.cardForeground }}
+              >
+                Vaccines
+              </Text>
+              <Text className="text-xs" style={{ color: theme.secondary }}>
+                Up-to-date • Next: None scheduled
+              </Text>
+            </View>
           </View>
-          <View className="flex-row items-start">
-            <Text className="text-lg mr-2">💊</Text>
-            <Text
-              className="flex-1 text-base leading-5"
-              style={{ color: "#2C3E50" }}
+          <View className="flex-row items-center">
+            <View
+              className="w-8 h-8 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: "#FF9800" + "20" }}
             >
-              <Text className="font-bold">Medicines:</Text> Next: None scheduled
-            </Text>
+              <Ionicons name="medkit" size={16} color="#FF9800" />
+            </View>
+            <View className="flex-1">
+              <Text
+                className="text-xs font-semibold mb-0.5"
+                style={{ color: theme.cardForeground }}
+              >
+                Medicines
+              </Text>
+              <Text className="text-xs" style={{ color: theme.secondary }}>
+                Next: None scheduled
+              </Text>
+            </View>
           </View>
         </View>
       </View>
 
       {/* Health Records Button */}
       <TouchableOpacity
-        className="rounded-3xl py-4 items-center shadow-lg"
-        style={{ backgroundColor: "#2C3E50" }}
+        className="rounded-2xl py-4 items-center"
+        style={{
+          backgroundColor: theme.primary,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        }}
         onPress={() =>
           router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
         }
       >
         <View className="flex-row items-center gap-2">
-          <Ionicons name="document-text" size={22} color="white" />
-          <Text className="text-white font-bold text-lg tracking-wide">
+          <Ionicons
+            name="document-text-outline"
+            size={20}
+            color={theme.primaryForeground}
+          />
+          <Text
+            className="font-semibold text-base"
+            style={{ color: theme.primaryForeground }}
+          >
             Health Records
           </Text>
         </View>
