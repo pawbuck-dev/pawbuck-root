@@ -1,6 +1,6 @@
 import { Pet } from "@/context/petsContext";
+import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -13,40 +13,20 @@ export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
 
   const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Sorry, we need camera permissions to take photos!");
-      return;
-    }
+    const imageUri = await takePhoto();
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      // Handle photo upload
-      console.log("Photo taken:", result.assets[0].uri);
+    if (imageUri) {
+      // TODO: Handle image upload
+      console.log("Image URI:", imageUri);
     }
   };
 
   const handleUpload = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Sorry, we need media library permissions to upload photos!");
-      return;
-    }
+    const imageUri = await pickImageFromLibrary();
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      // Handle photo upload
-      console.log("Photo uploaded:", result.assets[0].uri);
+    if (imageUri) {
+      // TODO: Handle image upload
+      console.log("Image URI:", imageUri);
     }
   };
 

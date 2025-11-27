@@ -37,55 +37,56 @@ export const requestLibraryPermission = async (): Promise<boolean> => {
  * Launch camera to take a photo
  * @returns {Promise<string | null>} Image URI if successful, null otherwise
  */
-export const takePhoto = async (): Promise<string | null> => {
-  try {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
+export const takePhoto =
+  async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+    try {
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        return null;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        return result.assets[0];
+      }
+      return null;
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      Alert.alert("Error", "Failed to take photo. Please try again.");
       return null;
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      return result.assets[0].uri;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error taking photo:", error);
-    Alert.alert("Error", "Failed to take photo. Please try again.");
-    return null;
-  }
-};
+  };
 
 /**
  * Launch image picker to select from library
  * @returns {Promise<string | null>} Image URI if successful, null otherwise
  */
-export const pickImageFromLibrary = async (): Promise<string | null> => {
-  try {
-    const hasPermission = await requestLibraryPermission();
-    if (!hasPermission) {
+export const pickImageFromLibrary =
+  async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+    try {
+      const hasPermission = await requestLibraryPermission();
+      if (!hasPermission) {
+        return null;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        return result.assets[0];
+      }
+      return null;
+    } catch (error) {
+      console.error("Error selecting photo:", error);
+      Alert.alert("Error", "Failed to select photo. Please try again.");
       return null;
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      return result.assets[0].uri;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error selecting photo:", error);
-    Alert.alert("Error", "Failed to select photo. Please try again.");
-    return null;
-  }
-};
-
+  };
