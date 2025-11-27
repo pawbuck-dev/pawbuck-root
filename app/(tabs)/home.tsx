@@ -354,99 +354,45 @@ export default function Home() {
                 className="absolute top-5 right-5 w-12 h-12 rounded-full items-center justify-center z-10"
                 style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
               >
-                <Ionicons name="pencil" size={20} color="#2C3E50" />
+                <Ionicons name="pencil-outline" size={18} color="#5FC4C0" />
               </TouchableOpacity>
 
               {/* Photo Upload Area */}
               <View className="items-center mb-4">
-                <View className="relative">
-                  <TouchableOpacity
-                    onPress={handlePhotoUpload}
-                    activeOpacity={0.7}
-                    className="w-56 h-56 rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor: "#2C3E50",
-                      borderWidth: 3,
-                      borderStyle: "dashed",
-                      borderColor: "#1A252F",
-                    }}
-                  >
-                    <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
-                  </TouchableOpacity>
-                  {/* Pet Counter */}
-                  <View
-                    className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full"
-                    style={{ backgroundColor: "#2C3E50" }}
-                  >
-                    <Text className="text-white font-semibold">
-                      {currentPetIndex + 1} / {pets.length}
-                    </Text>
-                  </View>
-                </View>
+                <TouchableOpacity
+                  onPress={handlePhotoUpload}
+                  activeOpacity={0.7}
+                  className="w-56 h-56 rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor: "#2C3E50",
+                    borderWidth: 3,
+                    borderStyle: "dashed",
+                    borderColor: "#1A252F",
+                  }}
+                >
+                  <Ionicons name="cloud-upload" size={48} color="#5FC4C0" />
+                </TouchableOpacity>
               </View>
 
-              {/* Pet Info with Navigation Arrows */}
-              <View className="relative mb-4">
-                {/* Left Arrow - Inside Card */}
-                <TouchableOpacity
-                  onPress={() => navigateToPet("prev")}
-                  disabled={currentPetIndex === 0}
-                  className="absolute left-0 top-1/2 -translate-y-6 w-12 h-12 rounded-full items-center justify-center z-10"
-                  style={{
-                    backgroundColor:
-                      currentPetIndex === 0
-                        ? "rgba(44, 62, 80, 0.3)"
-                        : "rgba(44, 62, 80, 0.7)",
-                  }}
+              {/* Pet Info */}
+              <View className="items-center mb-4">
+                <Text
+                  className="text-4xl font-bold mb-2"
+                  style={{ color: "#2C3E50" }}
                 >
-                  <Ionicons
-                    name="chevron-back"
-                    size={24}
-                    color={currentPetIndex === 0 ? "#999" : "#fff"}
-                  />
-                </TouchableOpacity>
-
-                {/* Right Arrow - Inside Card */}
-                <TouchableOpacity
-                  onPress={() => navigateToPet("next")}
-                  disabled={currentPetIndex === pets.length - 1}
-                  className="absolute right-0 top-1/2 -translate-y-6 w-12 h-12 rounded-full items-center justify-center z-10"
-                  style={{
-                    backgroundColor:
-                      currentPetIndex === pets.length - 1
-                        ? "rgba(44, 62, 80, 0.3)"
-                        : "rgba(44, 62, 80, 0.7)",
-                  }}
+                  {currentPet.name}
+                </Text>
+                <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
+                  {currentPet.breed} •{" "}
+                  {calculateAge(currentPet.date_of_birth)} years •{" "}
+                  {currentPet.sex}
+                </Text>
+                <Text
+                  className="text-xs tracking-wider font-mono"
+                  style={{ color: "#2C3E50" }}
                 >
-                  <Ionicons
-                    name="chevron-forward"
-                    size={24}
-                    color={
-                      currentPetIndex === pets.length - 1 ? "#999" : "#fff"
-                    }
-                  />
-                </TouchableOpacity>
-
-                {/* Pet Info */}
-                <View className="items-center px-14">
-                  <Text
-                    className="text-4xl font-bold mb-2"
-                    style={{ color: "#2C3E50" }}
-                  >
-                    {currentPet.name}
-                  </Text>
-                  <Text className="text-base mb-1" style={{ color: "#2C3E50" }}>
-                    {currentPet.breed} •{" "}
-                    {calculateAge(currentPet.date_of_birth)} years •{" "}
-                    {currentPet.sex}
-                  </Text>
-                  <Text
-                    className="text-xs tracking-wider font-mono"
-                    style={{ color: "#2C3E50" }}
-                  >
-                    MICROCHIP {currentPet.microchip_number || "N/A"}
-                  </Text>
-                </View>
+                  MICROCHIP {currentPet.microchip_number || "N/A"}
+                </Text>
               </View>
 
               {/* QR Code */}
@@ -474,37 +420,25 @@ export default function Home() {
                   className="text-lg font-extrabold mb-3 tracking-wide"
                   style={{ color: "#2C3E50" }}
                 >
-                  PET DETAILS
+                  HEALTH AT A GLANCE
                 </Text>
                 <View className="gap-2.5">
                   <View className="flex-row items-start">
-                    <Text className="text-lg mr-2">🏠</Text>
+                    <Text className="text-lg mr-2">💉</Text>
                     <Text
                       className="flex-1 text-base leading-5"
                       style={{ color: "#2C3E50" }}
                     >
-                      <Text className="font-bold">Country:</Text>{" "}
-                      {currentPet.country}
+                      <Text className="font-bold">Vaccines:</Text> Up-to-date | Next: None scheduled
                     </Text>
                   </View>
                   <View className="flex-row items-start">
-                    <Text className="text-lg mr-2">⚖️</Text>
+                    <Text className="text-lg mr-2">💊</Text>
                     <Text
                       className="flex-1 text-base leading-5"
                       style={{ color: "#2C3E50" }}
                     >
-                      <Text className="font-bold">Weight:</Text>{" "}
-                      {currentPet.weight_value} {currentPet.weight_unit}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-start">
-                    <Text className="text-lg mr-2">🐾</Text>
-                    <Text
-                      className="flex-1 text-base leading-5"
-                      style={{ color: "#2C3E50" }}
-                    >
-                      <Text className="font-bold">Type:</Text>{" "}
-                      {currentPet.animal_type}
+                      <Text className="font-bold">Medicines:</Text> Next: None scheduled
                     </Text>
                   </View>
                 </View>
@@ -524,6 +458,26 @@ export default function Home() {
               </TouchableOpacity>
             </Animated.View>
           </GestureDetector>
+        </View>
+
+        {/* Carousel Dots - Bottom of Screen */}
+        <View className="items-center py-4">
+          <View className="flex-row gap-2">
+            {pets.map((_, index) => (
+              <View
+                key={index}
+                className="rounded-full"
+                style={{
+                  width: 10,
+                  height: 10,
+                  backgroundColor:
+                    index === currentPetIndex
+                      ? "#5FC4C0"
+                      : "rgba(95, 196, 192, 0.3)",
+                }}
+              />
+            ))}
+          </View>
         </View>
       </ScrollView>
     </GestureHandlerRootView>
