@@ -1,19 +1,19 @@
 import { Theme } from "./model";
 
 export const darkTheme: Theme = {
-  background: "#111722",
-  backgroundEnd: "#0A0F19",
-  foreground: "#FAFAFA",
+  background: "#0F1419",
+  backgroundEnd: "#0A0F14",
+  foreground: "#FFFFFF",
 
-  card: "#181D27",
-  cardForeground: "#FAFAFA",
+  card: "#1C2128",
+  cardForeground: "#FFFFFF",
 
-  primary: "#36E3C7",
-  primaryForeground: "#0A0F19",
+  primary: "#5FC4C0",
+  primaryForeground: "#0F1419",
 
-  secondary: "#272D39",
-  secondaryForeground: "#FAFAFA",
+  secondary: "#9CA3AF",
+  secondaryForeground: "#FFFFFF",
 
-  border: "#2A303D",
-  ring: "#36E3C7",
+  border: "#30363D",
+  ring: "#5FC4C0",
 };

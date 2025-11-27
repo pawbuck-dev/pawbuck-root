@@ -1,6 +1,7 @@
 import { Pet } from "@/context/petsContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
@@ -9,6 +10,8 @@ type PetCardProps = {
 };
 
 export default function PetCard({ pet }: PetCardProps) {
+  const router = useRouter();
+
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -180,6 +183,9 @@ export default function PetCard({ pet }: PetCardProps) {
       <TouchableOpacity
         className="rounded-3xl py-4 items-center shadow-lg"
         style={{ backgroundColor: "#2C3E50" }}
+        onPress={() =>
+          router.push(`/(home)/health-record/${pet.id}/vaccinations`)
+        }
       >
         <View className="flex-row items-center gap-2">
           <Ionicons name="document-text" size={22} color="white" />

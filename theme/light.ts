@@ -1,19 +1,19 @@
 import { Theme } from "./model";
 
 export const lightTheme: Theme = {
-  background: "#FAFAFA",
-  backgroundEnd: "#F3F1EE",
-  foreground: "#0F0F0F",
+  background: "#F5F5F5",
+  backgroundEnd: "#EFEFEF",
+  foreground: "#1A1A1A",
 
   card: "#FFFFFF",
-  cardForeground: "#0F0F0F",
+  cardForeground: "#1A1A1A",
 
-  primary: "#00B6BF",
+  primary: "#5FC4C0",
   primaryForeground: "#FFFFFF",
 
-  secondary: "#EBEBEB",
-  secondaryForeground: "#0F0F0F",
+  secondary: "#6B7280",
+  secondaryForeground: "#1A1A1A",
 
-  border: "#E0E0E0",
-  ring: "#00B6BF",
+  border: "#E5E7EB",
+  ring: "#5FC4C0",
 };
