@@ -16,4 +16,5 @@ export const darkTheme: Theme = {
 
   border: "#30363D",
   ring: "#5FC4C0",
+  dashedCard: "#161B22",
 };

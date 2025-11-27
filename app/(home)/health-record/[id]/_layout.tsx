@@ -18,7 +18,7 @@ export default function HealthRecordLayout() {
           <Stack.Screen
             name="vaccination-upload-modal"
             options={{
-              presentation: "formSheet",
+              presentation: "pageSheet",
               headerShown: false,
             }}
           />

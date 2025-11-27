@@ -18,7 +18,7 @@ export default function AddPetCard() {
         activeOpacity={0.7}
         className="rounded-3xl p-8 w-full h-full"
         style={{
-          backgroundColor: theme.secondary,
+          backgroundColor: theme.dashedCard,
           borderWidth: 2,
           borderStyle: "dashed",
           borderColor: theme.primary,

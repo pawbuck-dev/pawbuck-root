@@ -51,10 +51,10 @@ export default function VaccinationUploadModal() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View style={{ backgroundColor: theme.background }} className="flex-1">
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-      <View className="p-6">
+      <View className="p-6 pt-8">
         {/* Header */}
         <View className="items-center mb-6">
           <View

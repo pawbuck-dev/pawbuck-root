@@ -10,4 +10,5 @@ export type Theme = {
   secondaryForeground: string;
   border: string;
   ring: string;
+  dashedCard: string;
 };
