@@ -1,10 +1,10 @@
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import PetImage from "./PetImage";
 
 type PetCardProps = {
   pet: Pet;
@@ -13,46 +13,6 @@ type PetCardProps = {
 export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
   const { theme } = useTheme();
-
-  const handleTakePhoto = async () => {
-    const imageUri = await takePhoto();
-
-    if (imageUri) {
-      // TODO: Handle image upload
-      console.log("Image URI:", imageUri);
-    }
-  };
-
-  const handleUpload = async () => {
-    const imageUri = await pickImageFromLibrary();
-
-    if (imageUri) {
-      // TODO: Handle image upload
-      console.log("Image URI:", imageUri);
-    }
-  };
-
-  const handlePhotoUpload = () => {
-    Alert.alert(
-      "Upload Photo",
-      "Choose an option",
-      [
-        {
-          text: "Take Photo",
-          onPress: handleTakePhoto,
-        },
-        {
-          text: "Choose from Gallery",
-          onPress: handleUpload,
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ],
-      { cancelable: true }
-    );
-  };
 
   const calculateAge = (dateOfBirth: string): number => {
     const birthDate = new Date(dateOfBirth);
@@ -93,27 +53,7 @@ export default function PetCard({ pet }: PetCardProps) {
       </TouchableOpacity>
 
       {/* Photo Upload Area */}
-      <View className="items-center mb-5">
-        <TouchableOpacity
-          onPress={handlePhotoUpload}
-          activeOpacity={0.7}
-          className="w-40 h-40 rounded-full items-center justify-center"
-          style={{
-            backgroundColor: theme.dashedCard,
-            borderWidth: 2,
-            borderStyle: "dashed",
-            borderColor: theme.border,
-          }}
-        >
-          <Ionicons name="camera-outline" size={40} color={theme.secondary} />
-          <Text
-            className="text-xs mt-2 font-medium"
-            style={{ color: theme.secondary }}
-          >
-            Add Photo
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <PetImage pet={pet} />
 
       {/* Pet Info */}
       <View className="items-center mb-5">
