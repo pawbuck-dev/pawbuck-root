@@ -1,4 +1,5 @@
-import * as ImagePicker from "expo-image-picker";
+import { DocumentPickerAsset } from "expo-document-picker";
+import { ImagePickerAsset } from "expo-image-picker";
 import { supabase } from "./supabase";
 
 type CachedUrl = {
@@ -59,7 +60,7 @@ export const clearUrlCache = (imagePath?: string) => {
 
 // Upload file using standard upload
 export async function uploadFile(
-  file: ImagePicker.ImagePickerAsset,
+  file: ImagePickerAsset | DocumentPickerAsset,
   path: string
 ) {
   try {

@@ -1,59 +1,87 @@
 import { CameraButton } from "@/components/upload/CameraButton";
 import { FilesButton } from "@/components/upload/FilesButton";
 import { LibraryButton } from "@/components/upload/LibraryButton";
+import { useAuth } from "@/context/authContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { pickPdfFile } from "@/utils/filePicker";
+import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
+import { DocumentPickerAsset } from "expo-document-picker";
+import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 
 export default function VaccinationUploadModal() {
-  const { theme, mode } = useTheme();
+  const { theme } = useTheme();
   const [requesting, setRequesting] = useState(false);
+  const { user } = useAuth();
+  const { pet } = useSelectedPet();
+
+  const handleUploadFile = async (
+    file: ImagePickerAsset | DocumentPickerAsset
+  ) => {
+    try {
+      setRequesting(true);
+      const data = await uploadFile(
+        file,
+        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.pdf`
+      );
+      setRequesting(false);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      Alert.alert("Error", "Failed to upload file");
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   const handleTakePhoto = async () => {
     setRequesting(true);
-    const imageUri = await takePhoto();
+    const image = await takePhoto();
     setRequesting(false);
 
-    if (imageUri) {
-      // TODO: Handle image upload
-      console.log("Image URI:", imageUri);
-      router.back();
+    if (!image) {
+      Alert.alert("Error", "No image selected");
+      return;
     }
+
+    await handleUploadFile(image);
+    router.back();
   };
 
   const handleUploadFromLibrary = async () => {
     setRequesting(true);
-    const imageUri = await pickImageFromLibrary();
+    const image = await pickImageFromLibrary();
     setRequesting(false);
 
-    if (imageUri) {
-      // TODO: Handle image upload
-      console.log("Image URI:", imageUri);
-      router.back();
+    if (!image) {
+      Alert.alert("Error", "No image selected");
+      return;
     }
+
+    await handleUploadFile(image);
+    router.back();
   };
 
   const handlePickPdfFile = async () => {
     setRequesting(true);
-    const fileUri = await pickPdfFile();
+    const file = await pickPdfFile();
     setRequesting(false);
 
-    if (fileUri) {
-      // TODO: Handle PDF upload
-      console.log("PDF URI:", fileUri);
-      router.back();
+    if (!file) {
+      Alert.alert("Error", "No file selected");
+      return;
     }
-  };
 
+    await handleUploadFile(file);
+    router.back();
+  };
+  // TODO: Handle PDF upload
   return (
     <View style={{ backgroundColor: theme.background }} className="flex-1">
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
       <View className="p-6 pt-8">
         {/* Header */}
         <View className="items-center mb-6">

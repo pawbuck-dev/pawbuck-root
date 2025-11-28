@@ -6,6 +6,8 @@ import { clearUrlCache, uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
+import { ImagePickerAsset } from "expo-image-picker";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -26,37 +28,34 @@ export default function PetImage({ pet }: PetImageProps) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
 
+  const updateImage = async (image: ImagePickerAsset) => {
+    try {
+      setUploading(true);
+      const fileExtension = image.uri.split(".").pop() || "jpg";
+      const filePath = `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/profile.${fileExtension}`;
+      const data = await uploadFile(image, filePath);
+      clearUrlCache(filePath);
+
+      await updatePet(pet.id, {
+        photo_url: data.path,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
+      Alert.alert("Success", "Photo uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert("Error", "Failed to upload image. Please try again.");
+      throw error;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleTakePhoto = async () => {
     const image = await takePhoto();
 
     if (image) {
-      setUploading(true);
-      try {
-        // Generate a unique file path for the pet's profile photo
-        const fileExtension = image.uri.split(".").pop() || "jpg";
-        const filePath = `${user?.id}/pet-profile-photos/${pet.id}.${fileExtension}`;
-
-        // Upload the image to Supabase
-        await uploadFile(image, filePath);
-
-        // Clear the cached URL for this image path
-        clearUrlCache(filePath);
-
-        // Update the pet record with the photo URL
-        await updatePet(pet.id, {
-          photo_url: filePath,
-        });
-
-        // Invalidate and refetch pets query to update UI
-        await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
-
-        Alert.alert("Success", "Photo uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading photo:", error);
-        Alert.alert("Error", "Failed to upload photo. Please try again.");
-      } finally {
-        setUploading(false);
-      }
+      await updateImage(image);
+      router.back();
     }
   };
 
@@ -64,33 +63,8 @@ export default function PetImage({ pet }: PetImageProps) {
     const image = await pickImageFromLibrary();
 
     if (image) {
-      setUploading(true);
-      try {
-        // Generate a unique file path for the pet's profile photo
-        const fileExtension = image.uri.split(".").pop() || "jpg";
-        const filePath = `${user?.id}/pet-profile-photos/${pet.id}.${fileExtension}`;
-
-        // Upload the image to Supabase
-        const data = await uploadFile(image, filePath);
-
-        // Clear the cached URL for this image path
-        clearUrlCache(data.path);
-
-        // Update the pet record with the photo URL
-        await updatePet(pet.id, {
-          photo_url: data.path,
-        });
-
-        // Invalidate and refetch pets query to update UI
-        await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
-
-        Alert.alert("Success", "Photo uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading photo:", error);
-        Alert.alert("Error", "Failed to upload photo. Please try again.");
-      } finally {
-        setUploading(false);
-      }
+      await updateImage(image);
+      router.back();
     }
   };
 
