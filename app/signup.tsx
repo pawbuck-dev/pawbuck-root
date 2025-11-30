@@ -109,9 +109,8 @@ function SignUp() {
                 onSuccess={() => {
                   // Navigate to home with pet - clear stack first
                   console.log("signup params", params);
-                  while (router.canGoBack()) {
-                    router.back();
-                  }
+
+                  router.dismissAll();
                   router.replace({
                     pathname: "/home",
                     params,

@@ -25,9 +25,10 @@ export default function VaccinationUploadModal() {
   ) => {
     try {
       setRequesting(true);
+      const extension = file.mimeType?.split("/")[1];
       const data = await uploadFile(
         file,
-        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.pdf`
+        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.${extension}`
       );
       setRequesting(false);
     } catch (error) {

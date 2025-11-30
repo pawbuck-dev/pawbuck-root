@@ -41,9 +41,7 @@ function Login() {
       console.log("Successfully signed in:", data);
 
       // Navigate to home screen after successful login - clear stack
-      while (router.canGoBack()) {
-        router.back();
-      }
+      router.dismissAll();
       router.replace("/home");
     } catch (error: any) {
       console.error("Error signing in:", error);
@@ -92,9 +90,7 @@ function Login() {
               <OAuthLogins
                 onSuccess={() => {
                   // Clear navigation stack before going to home
-                  while (router.canGoBack()) {
-                    router.back();
-                  }
+                  router.dismissAll();
                   router.replace("/home");
                 }}
               />
