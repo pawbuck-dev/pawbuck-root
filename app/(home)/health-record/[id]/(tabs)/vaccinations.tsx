@@ -1,16 +1,9 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
-import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import {
-  ActivityIndicator,
-  Button,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 export default function VaccinationsScreen() {
   const { theme } = useTheme();
@@ -33,23 +26,6 @@ export default function VaccinationsScreen() {
         className="flex-1 items-center justify-center px-6"
         style={{ backgroundColor: theme.background }}
       >
-        <Button
-          title="Test"
-          onPress={async () => {
-            console.log("test");
-            const { data, error } = await supabase.functions.invoke(
-              "vaccination-ocr",
-              {
-                body: {
-                  bucket: "pets",
-                  path: "96a53016-e8a8-4b10-a7d5-1c473c44d101/pet_Max_57de46eb-3c42-4e56-a412-85a6500cdd9b/vaccinations/1764498670205.jpeg",
-                },
-              }
-            );
-            console.log("data", data);
-            console.log("error", error);
-          }}
-        />
         <View
           className="w-24 h-24 rounded-full items-center justify-center mb-6"
           style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}

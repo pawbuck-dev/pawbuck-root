@@ -4,6 +4,7 @@ import {
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
+import { getFileAsBase64 } from "../_shared/supabase-utils.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,11 +13,11 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log("Received body:", body);
-
     const { bucket, path } = body;
 
-    // Support both direct imageUrl or bucket + path for Supabase Storage
+    if (!bucket || !path) {
+      throw new Error("Missing bucket or path in request body");
+    }
 
     const GOOGLE_VISION_API_KEY = Deno.env.get("GOOGLE_VISION_API_KEY");
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -25,42 +26,10 @@ Deno.serve(async (req) => {
       throw new Error("API keys not configured");
     }
 
-    console.log(`[Vaccination OCR] Downloading image from ${bucket}/${path}`);
+    console.log(`[Vaccination OCR] Processing file from ${bucket}/${path}`);
 
-    // Import Supabase client
-    const { createClient } = await import(
-      "https://esm.sh/@supabase/supabase-js@2"
-    );
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Download the image from Supabase Storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from(bucket)
-      .download(path);
-
-    if (downloadError || !fileData) {
-      console.error("Error downloading image:", downloadError);
-      return errorResponse("Failed to download image from storage", 400);
-    }
-
-    console.log("[Vaccination OCR] Image downloaded successfully");
-
-    // Convert image to base64 using Deno's standard library
-    const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-
-    // Use Deno's built-in base64 encoding
-    const { encode } = await import(
-      "https://deno.land/std@0.208.0/encoding/base64.ts"
-    );
-    const base64Image = encode(uint8Array);
-
-    console.log(
-      "[Vaccination OCR] Step 1: Performing OCR with Google Vision..."
-    );
+    // Download the file and convert to base64 using shared utility
+    const base64Image = await getFileAsBase64(bucket, path);
 
     // Step 1: Extract text from image using Google Vision API
     const visionResponse = await fetch(
@@ -78,7 +47,7 @@ Deno.serve(async (req) => {
               },
               features: [
                 {
-                  type: "TEXT_DETECTION",
+                  type: "DOCUMENT_TEXT_DETECTION",
                 },
               ],
             },
@@ -97,7 +66,6 @@ Deno.serve(async (req) => {
     const extractedText = visionData.responses?.[0]?.fullTextAnnotation?.text;
 
     if (!extractedText) {
-      console.error("No text extracted from image");
       return jsonResponse(
         {
           error: "No text found in image",
@@ -106,13 +74,6 @@ Deno.serve(async (req) => {
         400
       );
     }
-
-    console.log(
-      `[Vaccination OCR] OCR complete. Extracted ${extractedText.length} characters`
-    );
-    console.log(
-      "[Vaccination OCR] Step 2: Parsing vaccination data with Gemini..."
-    );
 
     // Step 2: Parse vaccination data using Google Gemini
     const geminiResponse = await fetch(
@@ -146,15 +107,15 @@ CRITICAL INSTRUCTIONS FOR DATE EXTRACTION:
    - YYYY-MM-DD (ISO format)
 
 4. For EACH vaccine entry, extract:
-   - vaccine_name: The vaccine product name (e.g., "Nobivac L4", "Nobivac DHPPi", "Nobivac Rabies")
-   - vaccination_date: The date the vaccine was administered (YYYY-MM-DD format)
+   - name: The vaccine product name (e.g., "Nobivac L4", "Nobivac DHPPi", "Nobivac Rabies")
+   - date: The date the vaccine was administered (YYYY-MM-DD format)
    - next_due_date: The "valid until" date from column 2 or field labeled "2." (YYYY-MM-DD format) - THIS IS MANDATORY, look carefully for it
-   - vet_clinic_name: Veterinary clinic name if visible
+   - clinic_name: Veterinary clinic name if visible
    - notes: Batch numbers, lot numbers, or other details
 
-5. CRITICAL: If you see two dates next to each other, the FIRST is vaccination_date and the SECOND is next_due_date (valid until).
+5. CRITICAL: If you see two dates next to each other, the FIRST is date (vaccination date) and the SECOND is next_due_date (valid until).
 
-Return ONLY valid JSON (no markdown, no code blocks): { "vaccines": [{ "vaccine_name": "...", "vaccination_date": "YYYY-MM-DD", "next_due_date": "YYYY-MM-DD", "vet_clinic_name": "...", "notes": "..." }] }
+Return ONLY valid JSON (no markdown, no code blocks): { "vaccines": [{ "name": "...", "date": "YYYY-MM-DD", "next_due_date": "YYYY-MM-DD", "clinic_name": "...", "notes": "...", "document_url": "" }] }
 
 Make absolutely sure to extract the next_due_date (valid until date) for every vaccine - it's the most important field!
 
@@ -187,8 +148,6 @@ ${extractedText}`,
       throw new Error("No content in AI response");
     }
 
-    console.log("[Vaccination OCR] Raw AI response:", content);
-
     // Parse JSON from response
     let vaccines = [];
     try {
@@ -208,14 +167,14 @@ ${extractedText}`,
     }
 
     console.log(
-      `[Vaccination OCR] Parsing complete. Found ${vaccines.length} vaccines`
+      `[Vaccination OCR] Successfully extracted ${vaccines.length} vaccines`
     );
-
     return jsonResponse({ vaccines });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("[Vaccination OCR] Error:", error);
     return errorResponse(
-      error instanceof Error ? error.message : "Unknown error"
+      error instanceof Error ? error.message : "Unknown error",
+      400
     );
   }
 });
