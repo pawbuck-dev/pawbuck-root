@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/authContext";
-import { Tables, TablesInsert } from "@/database.types";
-import { createPet, getPets } from "@/services/pets";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { createPet, getPets, updatePet } from "@/services/pets";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, {
   createContext,
@@ -27,6 +27,10 @@ interface PetsContextType {
   error: string | null;
   /** Add a new pet to the database and local state */
   addPet: typeof createPet;
+  /** Update an existing pet */
+  updatePet: (petId: string, petData: TablesUpdate<"pets">) => Promise<Pet>;
+  /** Loading state for pet update */
+  updatingPet: boolean;
 }
 
 const PetsContext = createContext<PetsContextType | undefined>(undefined);
@@ -73,6 +77,21 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
   });
 
+  // Update pet mutation
+  const updatePetMutation = useMutation({
+    mutationFn: ({ petId, petData }: { petId: string; petData: TablesUpdate<"pets"> }) =>
+      updatePet(petId, petData),
+    onSuccess: (updatedPet) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<Pet[]>(["pets", userId], (old = []) =>
+        old.map((pet) => (pet.id === updatedPet.id ? updatedPet : pet))
+      );
+    },
+    onError: (err) => {
+      console.error("Error updating pet:", err);
+    },
+  });
+
   useEffect(() => {
     console.log("pets context mounted");
 
@@ -86,6 +105,13 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     async (petData: TablesInsert<"pets">): Promise<Pet> =>
       addPetMutation.mutateAsync(petData),
     [addPetMutation]
+  );
+
+  // Update an existing pet
+  const updatePetCallback = useCallback(
+    async (petId: string, petData: TablesUpdate<"pets">): Promise<Pet> =>
+      updatePetMutation.mutateAsync({ petId, petData }),
+    [updatePetMutation]
   );
 
   // Reset the sync tracker when onboarding is reset
@@ -121,7 +147,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     handlePetData();
   }, [isOnboardingComplete, addPetMutation, resetOnboarding, petData]);
 
-  const error = queryError?.message || addPetMutation.error?.message || null;
+  const error = queryError?.message || addPetMutation.error?.message || updatePetMutation.error?.message || null;
 
   return (
     <PetsContext.Provider
@@ -131,6 +157,8 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
         addingPet: addPetMutation.isPending,
         error,
         addPet,
+        updatePet: updatePetCallback,
+        updatingPet: updatePetMutation.isPending,
       }}
     >
       {children}

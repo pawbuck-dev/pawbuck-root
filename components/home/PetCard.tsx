@@ -1,9 +1,11 @@
-import { Pet } from "@/context/petsContext";
+import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import { PetEditModal } from "./PetEditModal";
 import PetImage from "./PetImage";
 
 type PetCardProps = {
@@ -13,6 +15,12 @@ type PetCardProps = {
 export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
   const { theme } = useTheme();
+  const { updatePet, updatingPet } = usePets();
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const handleUpdatePet = async (petId: string, petData: any) => {
+    await updatePet(petId, petData);
+  };
 
   const calculateAge = (dateOfBirth: string): number => {
     const birthDate = new Date(dateOfBirth);
@@ -48,6 +56,7 @@ export default function PetCard({ pet }: PetCardProps) {
           borderWidth: 1,
           borderColor: theme.border,
         }}
+        onPress={() => setShowEditModal(true)}
       >
         <Ionicons name="pencil-outline" size={16} color={theme.secondary} />
       </TouchableOpacity>
@@ -189,6 +198,17 @@ export default function PetCard({ pet }: PetCardProps) {
           </Text>
         </View>
       </TouchableOpacity>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <PetEditModal
+          visible={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleUpdatePet}
+          pet={pet}
+          loading={updatingPet}
+        />
+      )}
     </View>
   );
 }

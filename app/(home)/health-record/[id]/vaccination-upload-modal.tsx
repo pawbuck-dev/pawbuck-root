@@ -4,13 +4,15 @@ import { LibraryButton } from "@/components/upload/LibraryButton";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { VaccinationOCRResponse } from "@/models/vaccination";
+import { VaccinationInsert, VaccinationOCRResponse } from "@/models/vaccination";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { supabase } from "@/utils/supabase";
 import { parseVaccinationOCRResponse } from "@/utils/vaccination.ts/response";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
 import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
@@ -18,7 +20,11 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
+  ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -37,6 +43,14 @@ export default function VaccinationUploadModal() {
   const [statusMessage, setStatusMessage] = useState("");
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const queryClient = useQueryClient();
+  const [extractedVaccinations, setExtractedVaccinations] = useState<
+    VaccinationInsert[]
+  >([]);
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [editingDateIndex, setEditingDateIndex] = useState<number | null>(null);
+  const [editingDateType, setEditingDateType] = useState<"date" | "next_due_date" | null>(null);
+  const [tempDate, setTempDate] = useState<string | null>(null);
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
@@ -77,33 +91,10 @@ export default function VaccinationUploadModal() {
 
       const supabaseVaccines = parseVaccinationOCRResponse(pet.id, ocrData!);
 
-      // Step 3: Inserting
-      setStatus("inserting");
-      setStatusMessage(
-        `Saving ${supabaseVaccines.length} vaccination${supabaseVaccines.length !== 1 ? "s" : ""}...`
-      );
-
-      const { error: insertError } = await supabase
-        .from("vaccinations")
-        .insert(supabaseVaccines);
-
-      if (insertError) {
-        console.error("Error inserting vaccines:", insertError);
-        setStatus("error");
-        setStatusMessage("Failed to save vaccinations");
-        Alert.alert("Error", "Failed to insert vaccines");
-        setTimeout(() => setStatus("idle"), 2000);
-        return;
-      }
-
-      // Step 4: Success
-      setStatus("success");
-      setStatusMessage("Vaccinations added successfully!");
-
-      // Navigate back after showing success
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      // Store extracted data and switch to review mode
+      setExtractedVaccinations(supabaseVaccines);
+      setStatus("idle");
+      setIsReviewMode(true);
     } catch (error) {
       console.error("Error uploading file:", error);
       setStatus("error");
@@ -145,6 +136,76 @@ export default function VaccinationUploadModal() {
 
     await handleUploadFile(file);
   };
+
+  const handleSaveVaccinations = async () => {
+    try {
+      setStatus("inserting");
+      setStatusMessage(
+        `Saving ${extractedVaccinations.length} vaccination${extractedVaccinations.length !== 1 ? "s" : ""}...`
+      );
+
+      const { error: insertError } = await supabase
+        .from("vaccinations")
+        .insert(extractedVaccinations);
+
+      if (insertError) {
+        console.error("Error inserting vaccines:", insertError);
+        setStatus("error");
+        setStatusMessage("Failed to save vaccinations");
+        Alert.alert("Error", "Failed to insert vaccines");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+
+      // Invalidate vaccinations query to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ["vaccinations", pet.id],
+      });
+
+      // Success
+      setStatus("success");
+      setStatusMessage("Vaccinations added successfully!");
+
+      // Navigate back after showing success
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving vaccinations:", error);
+      setStatus("error");
+      setStatusMessage("An error occurred");
+      Alert.alert("Error", "Failed to save vaccinations");
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  };
+
+  const handleUpdateVaccination = (index: number, field: keyof VaccinationInsert, value: any) => {
+    const updated = [...extractedVaccinations];
+    updated[index] = { ...updated[index], [field]: value };
+    setExtractedVaccinations(updated);
+  };
+
+  const handleRemoveVaccination = (index: number) => {
+    Alert.alert(
+      "Remove Vaccination",
+      "Are you sure you want to remove this vaccination?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            const updated = extractedVaccinations.filter((_, i) => i !== index);
+            setExtractedVaccinations(updated);
+            if (updated.length === 0) {
+              setIsReviewMode(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const isProcessing = status !== "idle";
 
   const getStatusIcon = () => {
@@ -175,6 +236,362 @@ export default function VaccinationUploadModal() {
     }
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not set";
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Review Mode UI
+  if (isReviewMode) {
+    return (
+      <View style={{ backgroundColor: theme.background }} className="flex-1">
+        {/* Header */}
+        <View
+          className="px-6 pt-4 pb-4 border-b"
+          style={{
+            backgroundColor: theme.card,
+            borderBottomColor: theme.background,
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <TouchableOpacity
+              onPress={() => {
+                setIsReviewMode(false);
+                setExtractedVaccinations([]);
+              }}
+              disabled={isProcessing}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.primary} />
+            </TouchableOpacity>
+            <Text
+              className="text-lg font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              Review Vaccinations
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <Text
+            className="text-sm text-center"
+            style={{ color: theme.secondary }}
+          >
+            {extractedVaccinations.length} vaccination
+            {extractedVaccinations.length !== 1 ? "s" : ""} found
+          </Text>
+        </View>
+
+        {/* Vaccinations List */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="p-6 gap-4">
+            {extractedVaccinations.map((vaccination, index) => (
+              <View
+                key={index}
+                className="p-4 rounded-xl"
+                style={{ backgroundColor: theme.card }}
+              >
+                {/* Header with remove button */}
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: theme.secondary }}
+                  >
+                    Vaccination {index + 1}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveVaccination(index)}
+                    disabled={isProcessing}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Vaccine Name */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Vaccine Name *
+                  </Text>
+                  <TextInput
+                    className="p-3 rounded-lg text-base"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={vaccination.name || ""}
+                    onChangeText={(text) =>
+                      handleUpdateVaccination(index, "name", text)
+                    }
+                    placeholder="e.g., Rabies, DHPP"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Vaccination Date */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Vaccination Date *
+                  </Text>
+                  <View
+                    className="p-3 rounded-lg flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {formatDate(vaccination.date)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setTempDate(vaccination.date);
+                        setEditingDateIndex(index);
+                        setEditingDateType("date");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Next Due Date */}
+                {vaccination.next_due_date && (
+                  <View className="mb-3">
+                    <Text
+                      className="text-xs font-medium mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Next Due Date
+                    </Text>
+                    <View
+                      className="p-3 rounded-lg flex-row items-center justify-between"
+                      style={{ backgroundColor: theme.background }}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{ color: theme.foreground }}
+                      >
+                        {formatDate(vaccination.next_due_date)}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setTempDate(vaccination.next_due_date || null);
+                          setEditingDateIndex(index);
+                          setEditingDateType("next_due_date");
+                        }}
+                        disabled={isProcessing}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Vet Clinic */}
+                {vaccination.clinic_name && (
+                  <View className="mb-3">
+                    <Text
+                      className="text-xs font-medium mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Vet Clinic
+                    </Text>
+                    <TextInput
+                      className="p-3 rounded-lg text-base"
+                      style={{
+                        backgroundColor: theme.background,
+                        color: theme.foreground,
+                      }}
+                      value={vaccination.clinic_name || ""}
+                      onChangeText={(text) =>
+                        handleUpdateVaccination(index, "clinic_name", text)
+                      }
+                      placeholder="Clinic name"
+                      placeholderTextColor={theme.secondary}
+                      editable={!isProcessing}
+                    />
+                  </View>
+                )}
+
+                {/* Notes */}
+                {vaccination.notes && (
+                  <View>
+                    <Text
+                      className="text-xs font-medium mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Notes
+                    </Text>
+                    <TextInput
+                      className="p-3 rounded-lg text-base"
+                      style={{
+                        backgroundColor: theme.background,
+                        color: theme.foreground,
+                      }}
+                      value={vaccination.notes || ""}
+                      onChangeText={(text) =>
+                        handleUpdateVaccination(index, "notes", text)
+                      }
+                      placeholder="Additional notes..."
+                      placeholderTextColor={theme.secondary}
+                      multiline
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                      editable={!isProcessing}
+                    />
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Date Picker Modal */}
+        {editingDateIndex !== null && editingDateType && Platform.OS === "ios" && (
+          <Modal
+            transparent
+            animationType="slide"
+            visible={editingDateIndex !== null && editingDateType !== null}
+          >
+            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <View style={{ backgroundColor: theme.background }}>
+                {/* Buttons */}
+                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingDateIndex(null);
+                      setEditingDateType(null);
+                      setTempDate(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (editingDateIndex !== null && editingDateType && tempDate) {
+                        handleUpdateVaccination(editingDateIndex, editingDateType, tempDate);
+                      }
+                      setEditingDateIndex(null);
+                      setEditingDateType(null);
+                      setTempDate(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Date Picker */}
+                <DateTimePicker
+                  value={tempDate ? new Date(tempDate) : new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setTempDate(selectedDate.toISOString());
+                    }
+                  }}
+                  textColor={theme.foreground}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {editingDateIndex !== null && editingDateType && Platform.OS === "android" && (
+          <DateTimePicker
+            value={tempDate ? new Date(tempDate) : new Date()}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              if (event.type === "set" && selectedDate && editingDateIndex !== null && editingDateType) {
+                handleUpdateVaccination(editingDateIndex, editingDateType, selectedDate.toISOString());
+              }
+              setEditingDateIndex(null);
+              setEditingDateType(null);
+              setTempDate(null);
+            }}
+          />
+        )}
+
+        {/* Save Button */}
+        <View className="p-6 pt-4 border-t" style={{ borderTopColor: theme.background }}>
+          <TouchableOpacity
+            className="p-4 rounded-xl items-center"
+            style={{
+              backgroundColor: isProcessing
+                ? theme.secondary + "40"
+                : theme.primary,
+            }}
+            onPress={handleSaveVaccinations}
+            disabled={isProcessing || extractedVaccinations.length === 0}
+          >
+            <Text className="text-base font-semibold text-white">
+              {isProcessing
+                ? "Saving..."
+                : `Save ${extractedVaccinations.length} Vaccination${extractedVaccinations.length !== 1 ? "s" : ""}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <View
+            className="absolute inset-0 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          >
+            <View
+              className="bg-white rounded-3xl p-8 items-center mx-8"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View
+                className="w-20 h-20 rounded-full items-center justify-center mb-4"
+                style={{
+                  backgroundColor:
+                    status === "success" || status === "error"
+                      ? `${getStatusColor()}20`
+                      : "rgba(95, 196, 192, 0.15)",
+                }}
+              >
+                {status === "success" || status === "error" ? (
+                  <Ionicons
+                    name={getStatusIcon() as any}
+                    size={48}
+                    color={getStatusColor()}
+                  />
+                ) : (
+                  <ActivityIndicator size="large" color={theme.primary} />
+                )}
+              </View>
+
+              <Text
+                className="text-lg font-semibold text-center mb-2"
+                style={{ color: theme.foreground }}
+              >
+                {status === "inserting" && "Saving Vaccinations"}
+                {status === "success" && "Success!"}
+                {status === "error" && "Error"}
+              </Text>
+
+              <Text
+                className="text-sm text-center"
+                style={{ color: theme.secondary }}
+              >
+                {statusMessage}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // Upload Mode UI
   return (
     <View style={{ backgroundColor: theme.background }} className="flex-1">
       <View className="p-6 pt-8">

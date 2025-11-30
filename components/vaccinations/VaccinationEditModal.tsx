@@ -1,7 +1,7 @@
 import { useTheme } from "@/context/themeContext";
+import { Tables, TablesUpdate } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Image } from "expo-image";
 import React, { useState } from "react";
 import {
   Alert,
@@ -12,55 +12,56 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
-export interface VaccinationData {
-  vaccine_name: string;
-  vaccination_date: string;
-  next_due_date: string | null;
-  vet_clinic_name: string | null;
-  notes: string | null;
-  document_url: string | null;
-}
-
-interface VaccinationReviewModalProps {
+interface VaccinationEditModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (data: VaccinationData) => void;
-  initialData: VaccinationData;
-  documentUri?: string;
+  onSave: (id: string, data: TablesUpdate<"vaccinations">) => void;
+  vaccination: Tables<"vaccinations">;
   loading?: boolean;
 }
 
-export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
+export const VaccinationEditModal: React.FC<VaccinationEditModalProps> = ({
   visible,
   onClose,
   onSave,
-  initialData,
-  documentUri,
+  vaccination,
   loading = false,
 }) => {
   const { theme } = useTheme();
-  const [data, setData] = useState<VaccinationData>(initialData);
+  const [name, setName] = useState(vaccination.name);
+  const [date, setDate] = useState(vaccination.date);
+  const [nextDueDate, setNextDueDate] = useState(vaccination.next_due_date);
+  const [clinicName, setClinicName] = useState(vaccination.clinic_name || "");
+  const [notes, setNotes] = useState(vaccination.notes || "");
   const [showVaccinationDatePicker, setShowVaccinationDatePicker] =
     useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
-  const [tempVaccinationDate, setTempVaccinationDate] = useState(initialData.vaccination_date);
-  const [tempNextDueDate, setTempNextDueDate] = useState(initialData.next_due_date);
+  const [tempDate, setTempDate] = useState(vaccination.date);
+  const [tempNextDueDate, setTempNextDueDate] = useState(vaccination.next_due_date);
 
   const handleSave = () => {
     // Validate required fields
-    if (!data.vaccine_name.trim()) {
+    if (!name.trim()) {
       Alert.alert("Required Field", "Please enter the vaccine name");
       return;
     }
-    if (!data.vaccination_date) {
+    if (!date) {
       Alert.alert("Required Field", "Please select the vaccination date");
       return;
     }
 
-    onSave(data);
+    const updateData: TablesUpdate<"vaccinations"> = {
+      name,
+      date,
+      next_due_date: nextDueDate,
+      clinic_name: clinicName || null,
+      notes: notes || null,
+    };
+
+    onSave(vaccination.id, updateData);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -98,7 +99,7 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
               className="text-lg font-semibold"
               style={{ color: theme.foreground }}
             >
-              Review Vaccination
+              Edit Vaccination
             </Text>
             <TouchableOpacity onPress={handleSave} disabled={loading}>
               <Text
@@ -115,25 +116,6 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
           className="flex-1 px-6 pt-6"
           showsVerticalScrollIndicator={false}
         >
-          {/* Document Preview */}
-          {(documentUri || data.document_url) && (
-            <View className="mb-6">
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                Document
-              </Text>
-              <View className="rounded-2xl overflow-hidden">
-                <Image
-                  source={{ uri: documentUri || data.document_url || "" }}
-                  style={{ width: "100%", height: 200 }}
-                  contentFit="cover"
-                />
-              </View>
-            </View>
-          )}
-
           {/* Vaccine Name */}
           <View className="mb-4">
             <Text
@@ -148,8 +130,8 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                 backgroundColor: theme.card,
                 color: theme.foreground,
               }}
-              value={data.vaccine_name}
-              onChangeText={(text) => setData({ ...data, vaccine_name: text })}
+              value={name}
+              onChangeText={setName}
               placeholder="e.g., Rabies, DHPP"
               placeholderTextColor={theme.secondary}
               editable={!loading}
@@ -169,11 +151,11 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
               style={{ backgroundColor: theme.card }}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
-                {formatDate(data.vaccination_date)}
+                {formatDate(date)}
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  setTempVaccinationDate(data.vaccination_date);
+                  setTempDate(date);
                   setShowVaccinationDatePicker(true);
                 }}
                 disabled={loading}
@@ -195,17 +177,14 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                       <TouchableOpacity
                         onPress={() => {
                           setShowVaccinationDatePicker(false);
-                          setTempVaccinationDate(data.vaccination_date);
+                          setTempDate(date); // Reset to original
                         }}
                       >
                         <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => {
-                          setData({
-                            ...data,
-                            vaccination_date: tempVaccinationDate,
-                          });
+                          setDate(tempDate);
                           setShowVaccinationDatePicker(false);
                         }}
                       >
@@ -214,12 +193,12 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                     </View>
                     {/* Date Picker */}
                     <DateTimePicker
-                      value={tempVaccinationDate ? new Date(tempVaccinationDate) : new Date()}
+                      value={tempDate ? new Date(tempDate) : new Date()}
                       mode="date"
                       display="spinner"
                       onChange={(event, selectedDate) => {
                         if (selectedDate) {
-                          setTempVaccinationDate(selectedDate.toISOString());
+                          setTempDate(selectedDate.toISOString());
                         }
                       }}
                       textColor={theme.foreground}
@@ -230,20 +209,13 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
             )}
             {showVaccinationDatePicker && Platform.OS === "android" && (
               <DateTimePicker
-                value={
-                  data.vaccination_date
-                    ? new Date(data.vaccination_date)
-                    : new Date()
-                }
+                value={date ? new Date(date) : new Date()}
                 mode="date"
                 display="default"
                 onChange={(event, selectedDate) => {
                   setShowVaccinationDatePicker(false);
                   if (event.type === "set" && selectedDate) {
-                    setData({
-                      ...data,
-                      vaccination_date: selectedDate.toISOString(),
-                    });
+                    setDate(selectedDate.toISOString());
                   }
                 }}
               />
@@ -252,22 +224,36 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
 
           {/* Next Due Date */}
           <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Next Due Date
-            </Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text
+                className="text-sm font-medium"
+                style={{ color: theme.secondary }}
+              >
+                Next Due Date
+              </Text>
+              {nextDueDate && (
+                <TouchableOpacity
+                  onPress={() => setNextDueDate(null)}
+                  disabled={loading}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text className="text-xs" style={{ color: theme.primary }}>
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <View
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
+              
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
-                {formatDate(data.next_due_date)}
+                {formatDate(nextDueDate)}
               </Text>
               <TouchableOpacity
                 onPress={() => {
-                  setTempNextDueDate(data.next_due_date);
+                  setTempNextDueDate(nextDueDate);
                   setShowDueDatePicker(true);
                 }}
                 disabled={loading}
@@ -289,17 +275,14 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                       <TouchableOpacity
                         onPress={() => {
                           setShowDueDatePicker(false);
-                          setTempNextDueDate(data.next_due_date);
+                          setTempNextDueDate(nextDueDate); // Reset to original
                         }}
                       >
                         <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => {
-                          setData({
-                            ...data,
-                            next_due_date: tempNextDueDate,
-                          });
+                          setNextDueDate(tempNextDueDate);
                           setShowDueDatePicker(false);
                         }}
                       >
@@ -324,18 +307,13 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
             )}
             {showDueDatePicker && Platform.OS === "android" && (
               <DateTimePicker
-                value={
-                  data.next_due_date ? new Date(data.next_due_date) : new Date()
-                }
+                value={nextDueDate ? new Date(nextDueDate) : new Date()}
                 mode="date"
                 display="default"
                 onChange={(event, selectedDate) => {
                   setShowDueDatePicker(false);
                   if (event.type === "set" && selectedDate) {
-                    setData({
-                      ...data,
-                      next_due_date: selectedDate.toISOString(),
-                    });
+                    setNextDueDate(selectedDate.toISOString());
                   }
                 }}
               />
@@ -356,10 +334,8 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                 backgroundColor: theme.card,
                 color: theme.foreground,
               }}
-              value={data.vet_clinic_name || ""}
-              onChangeText={(text) =>
-                setData({ ...data, vet_clinic_name: text })
-              }
+              value={clinicName}
+              onChangeText={setClinicName}
               placeholder="Clinic name"
               placeholderTextColor={theme.secondary}
               editable={!loading}
@@ -380,8 +356,8 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
                 backgroundColor: theme.card,
                 color: theme.foreground,
               }}
-              value={data.notes || ""}
-              onChangeText={(text) => setData({ ...data, notes: text })}
+              value={notes}
+              onChangeText={setNotes}
               placeholder="Additional notes..."
               placeholderTextColor={theme.secondary}
               multiline
@@ -397,5 +373,4 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
     </Modal>
   );
 };
-
 
