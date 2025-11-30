@@ -236,7 +236,7 @@ export default function VaccinationUploadModal() {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString();
   };
@@ -314,7 +314,7 @@ export default function VaccinationUploadModal() {
                     Vaccine Name *
                   </Text>
                   <TextInput
-                    className="p-3 rounded-lg text-base"
+                    className="w-full rounded-xl py-4 px-4 text-start"
                     style={{
                       backgroundColor: theme.background,
                       color: theme.foreground,
@@ -338,7 +338,7 @@ export default function VaccinationUploadModal() {
                     Vaccination Date *
                   </Text>
                   <View
-                    className="p-3 rounded-lg flex-row items-center justify-between"
+                    className="p-3 rounded-lg px-4 flex-row items-center justify-between"
                     style={{ backgroundColor: theme.background }}
                   >
                     <Text
@@ -362,93 +362,87 @@ export default function VaccinationUploadModal() {
                 </View>
 
                 {/* Next Due Date */}
-                {vaccination.next_due_date && (
-                  <View className="mb-3">
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Next Due Date
+                  </Text>
+                  <View
+                    className="p-3 rounded-lg px-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
                     <Text
-                      className="text-xs font-medium mb-1"
-                      style={{ color: theme.secondary }}
+                      className="text-base"
+                      style={{ color: theme.foreground }}
                     >
-                      Next Due Date
+                      {formatDate(vaccination.next_due_date)}
                     </Text>
-                    <View
-                      className="p-3 rounded-lg flex-row items-center justify-between"
-                      style={{ backgroundColor: theme.background }}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setTempDate(vaccination.next_due_date || null);
+                        setEditingDateIndex(index);
+                        setEditingDateType("next_due_date");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Text
-                        className="text-base"
-                        style={{ color: theme.foreground }}
-                      >
-                        {formatDate(vaccination.next_due_date)}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setTempDate(vaccination.next_due_date || null);
-                          setEditingDateIndex(index);
-                          setEditingDateType("next_due_date");
-                        }}
-                        disabled={isProcessing}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons name="calendar-outline" size={18} color={theme.primary} />
-                      </TouchableOpacity>
-                    </View>
+                      <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                    </TouchableOpacity>
                   </View>
-                )}
+                </View>
 
                 {/* Vet Clinic */}
-                {vaccination.clinic_name && (
-                  <View className="mb-3">
-                    <Text
-                      className="text-xs font-medium mb-1"
-                      style={{ color: theme.secondary }}
-                    >
-                      Vet Clinic
-                    </Text>
-                    <TextInput
-                      className="p-3 rounded-lg text-base"
-                      style={{
-                        backgroundColor: theme.background,
-                        color: theme.foreground,
-                      }}
-                      value={vaccination.clinic_name || ""}
-                      onChangeText={(text) =>
-                        handleUpdateVaccination(index, "clinic_name", text)
-                      }
-                      placeholder="Clinic name"
-                      placeholderTextColor={theme.secondary}
-                      editable={!isProcessing}
-                    />
-                  </View>
-                )}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Vet Clinic
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={vaccination.clinic_name || ""}
+                    onChangeText={(text) =>
+                      handleUpdateVaccination(index, "clinic_name", text)
+                    }
+                    placeholder="Clinic name"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
 
                 {/* Notes */}
-                {vaccination.notes && (
-                  <View>
-                    <Text
-                      className="text-xs font-medium mb-1"
-                      style={{ color: theme.secondary }}
-                    >
-                      Notes
-                    </Text>
-                    <TextInput
-                      className="p-3 rounded-lg text-base"
-                      style={{
-                        backgroundColor: theme.background,
-                        color: theme.foreground,
-                      }}
-                      value={vaccination.notes || ""}
-                      onChangeText={(text) =>
-                        handleUpdateVaccination(index, "notes", text)
-                      }
-                      placeholder="Additional notes..."
-                      placeholderTextColor={theme.secondary}
-                      multiline
-                      numberOfLines={3}
-                      textAlignVertical="top"
-                      editable={!isProcessing}
-                    />
-                  </View>
-                )}
+                <View>
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Notes
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={vaccination.notes || ""}
+                    onChangeText={(text) =>
+                      handleUpdateVaccination(index, "notes", text)
+                    }
+                    placeholder="Additional notes..."
+                    placeholderTextColor={theme.secondary}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                    editable={!isProcessing}
+                  />
+                </View>
               </View>
             ))}
           </View>

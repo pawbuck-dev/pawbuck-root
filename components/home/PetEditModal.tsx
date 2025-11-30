@@ -155,7 +155,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               Pet Name *
             </Text>
             <TextInput
-              className="w-full rounded-xl py-4 px-5 mb-8 text-start"
+              className="w-full rounded-xl py-4 px-4 text-start"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
