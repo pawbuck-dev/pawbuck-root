@@ -1,10 +1,54 @@
-// Setup type definitions for built-in Supabase Runtime APIs
+// Vaccination OCR using Gemini Vision API
+// Analyzes vaccination certificate images and extracts structured data
 import {
   errorResponse,
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
-import { getFileAsBase64 } from "../_shared/supabase-utils.ts";
+import {
+  getFileAsBase64,
+  getMimeTypeFromPath,
+} from "../_shared/supabase-utils.ts";
+
+/* ============================================================================
+ * ALTERNATIVE IMPLEMENTATION: TWO-STEP APPROACH (LEGACY)
+ * ============================================================================
+ * 
+ * This commented code shows the previous two-step implementation using
+ * Google Vision API for text extraction + Gemini for parsing.
+ * 
+ * The two-step approach:
+ * 1. Use Google Vision API to extract text from image (DOCUMENT_TEXT_DETECTION)
+ * 2. Pass extracted text to Gemini for parsing into structured data
+ * 
+ * To use this approach:
+ * 1. Add GOOGLE_VISION_API_KEY to environment variables
+ * 2. Check both API keys: if (!GOOGLE_VISION_API_KEY || !GOOGLE_GEMINI_API_KEY)
+ * 3. Add Vision API text extraction step before Gemini
+ * 4. Change Gemini prompt to use extractedText instead of analyzing image directly
+ * 
+ * Vision API Call Example:
+ * 
+ * const visionResponse = await fetch(
+ *   `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
+ *   {
+ *     method: "POST",
+ *     headers: { "Content-Type": "application/json" },
+ *     body: JSON.stringify({
+ *       requests: [{
+ *         image: { content: base64Image },
+ *         features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+ *       }],
+ *     }),
+ *   }
+ * );
+ * 
+ * const visionData = await visionResponse.json();
+ * const extractedText = visionData.responses?.[0]?.fullTextAnnotation?.text;
+ * 
+ * Then pass extractedText to Gemini with modified prompt.
+ * 
+ * ============================================================================ */
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,63 +63,21 @@ Deno.serve(async (req) => {
       throw new Error("Missing bucket or path in request body");
     }
 
-    const GOOGLE_VISION_API_KEY = Deno.env.get("GOOGLE_VISION_API_KEY");
     const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
 
-    if (!GOOGLE_VISION_API_KEY || !GOOGLE_GEMINI_API_KEY) {
-      throw new Error("API keys not configured");
+    if (!GOOGLE_GEMINI_API_KEY) {
+      throw new Error("GOOGLE_GEMINI_API_KEY not configured");
     }
 
     console.log(`[Vaccination OCR] Processing file from ${bucket}/${path}`);
 
     // Download the file and convert to base64 using shared utility
     const base64Image = await getFileAsBase64(bucket, path);
+    const mimeType = getMimeTypeFromPath(path);
 
-    // Step 1: Extract text from image using Google Vision API
-    const visionResponse = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requests: [
-            {
-              image: {
-                content: base64Image,
-              },
-              features: [
-                {
-                  type: "DOCUMENT_TEXT_DETECTION",
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
+    console.log(`[Vaccination OCR] File MIME type: ${mimeType}`);
 
-    if (!visionResponse.ok) {
-      const errorText = await visionResponse.text();
-      console.error("Google Vision API error:", errorText);
-      throw new Error(`OCR error: ${visionResponse.status}`);
-    }
-
-    const visionData = await visionResponse.json();
-    const extractedText = visionData.responses?.[0]?.fullTextAnnotation?.text;
-
-    if (!extractedText) {
-      return jsonResponse(
-        {
-          error: "No text found in image",
-          vaccines: [],
-        },
-        400
-      );
-    }
-
-    // Step 2: Parse vaccination data using Google Gemini
+    // Use Gemini Vision API to directly analyze the vaccination certificate image
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
       {
@@ -88,7 +90,7 @@ Deno.serve(async (req) => {
             {
               parts: [
                 {
-                  text: `This is extracted text from a veterinary vaccination certificate. Extract ALL vaccination records from this text.
+                  text: `Analyze this veterinary vaccination certificate image and extract ALL vaccination records.
 
 CRITICAL INSTRUCTIONS FOR DATE EXTRACTION:
 1. Look for a two-column structure with:
@@ -117,10 +119,13 @@ CRITICAL INSTRUCTIONS FOR DATE EXTRACTION:
 
 Return ONLY valid JSON (no markdown, no code blocks): { "vaccines": [{ "name": "...", "date": "YYYY-MM-DD", "next_due_date": "YYYY-MM-DD", "clinic_name": "...", "notes": "...", "document_url": "" }] }
 
-Make absolutely sure to extract the next_due_date (valid until date) for every vaccine - it's the most important field!
-
-Here is the extracted text:
-${extractedText}`,
+Make absolutely sure to extract the next_due_date (valid until date) for every vaccine - it's the most important field!`,
+                },
+                {
+                  inlineData: {
+                    mimeType: mimeType,
+                    data: base64Image,
+                  },
                 },
               ],
             },
@@ -182,18 +187,15 @@ ${extractedText}`,
 /* To invoke locally:
 
   1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+  2. Make an HTTP request with Supabase Storage bucket and path:
 
-  Option 1: With direct image URL
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/vaccination-ocr' \
     --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
     --header 'Content-Type: application/json' \
-    --data '{"imageUrl":"https://your-image-url.com/vaccination-cert.jpg"}'
+    --data '{"bucket":"pets","path":"user-id/pet-name_pet-id/vaccinations/cert.jpg"}'
 
-  Option 2: With Supabase Storage bucket and path (automatically generates signed URL)
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/vaccination-ocr' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"bucket":"vaccination-images","path":"pet-123/vaccine-cert.jpg"}'
+  Note: This function uses Gemini Vision API (gemini-2.0-flash-exp) to directly analyze 
+  the image and extract vaccination data. No separate OCR step is needed - Gemini can 
+  read and understand the document structure directly for better accuracy.
 
 */
