@@ -54,8 +54,7 @@ export default function HealthRecordsLayout() {
         router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
       case "medications":
-        // TODO: Add medication logic
-        console.log("Add Medication");
+        router.push(`/health-record/${id}/medication-upload-modal`);
         break;
       case "exams":
         // TODO: Add exam logic
