@@ -29,6 +29,13 @@ export default function HealthRecordLayout() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="lab-result-upload-modal"
+            options={{
+              presentation: "pageSheet",
+              headerShown: false,
+            }}
+          />
         </Stack>
       </VaccinationsProvider>
     </SelectedPetProvider>

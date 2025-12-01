@@ -61,8 +61,7 @@ export default function HealthRecordsLayout() {
         console.log("Add Exam");
         break;
       case "lab-results":
-        // TODO: Add lab result logic
-        console.log("Add Lab Result");
+        router.push(`/health-record/${id}/lab-result-upload-modal`);
         break;
       default:
         console.log("Unknown tab");
