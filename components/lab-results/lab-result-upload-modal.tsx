@@ -1,12 +1,18 @@
 import { CameraButton } from "@/components/upload/CameraButton";
 import { FilesButton } from "@/components/upload/FilesButton";
 import { LibraryButton } from "@/components/upload/LibraryButton";
+import {
+  LabResultReviewModal,
+  LabResultData,
+} from "@/components/lab-results/LabResultReviewModal";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
+import { supabase } from "@/utils/supabase";
+import { createLabResult } from "@/services/labResults";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
@@ -25,6 +31,7 @@ type ProcessingStatus =
   | "idle"
   | "uploading"
   | "extracting"
+  | "review"
   | "inserting"
   | "success"
   | "error";
@@ -33,6 +40,9 @@ export default function LabResultUploadModal() {
   const { theme } = useTheme();
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
+  const [extractedData, setExtractedData] = useState<LabResultData | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { pet } = useSelectedPet();
   const queryClient = useQueryClient();
@@ -51,21 +61,54 @@ export default function LabResultUploadModal() {
         `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/lab-results/${Date.now()}.${extension}`
       );
 
-      // Step 2: Processing (placeholder - OCR not implemented for lab results yet)
+      // Step 2: Extracting lab results
       setStatus("extracting");
-      setStatusMessage("Processing lab result...");
+      setStatusMessage("Extracting lab result data...");
 
-      // TODO: Implement lab result OCR when available
-      // For now, just show a success message
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const { data: ocrData, error: ocrError } = await supabase.functions.invoke<{
+        confidence: number;
+        labResult: {
+          testType: string;
+          labName: string;
+          testDate: string | null;
+          orderedBy?: string;
+          results: Array<{
+            testName: string;
+            value: string;
+            unit: string;
+            referenceRange: string;
+            status: "normal" | "low" | "high";
+          }>;
+        };
+      }>("lab-results-ocr", {
+        body: {
+          bucket: "pets",
+          path: data.path,
+        },
+      });
 
-      setStatus("success");
-      setStatusMessage("Document uploaded successfully!");
+      if (ocrError) {
+        setStatus("error");
+        setStatusMessage("Failed to process document");
+        Alert.alert("Error", "Failed to extract lab result data");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
 
-      // Navigate back after showing success
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      // Step 3: Show review modal
+      const labResultData: LabResultData = {
+        test_type: ocrData!.labResult.testType,
+        lab_name: ocrData!.labResult.labName,
+        test_date: ocrData!.labResult.testDate,
+        ordered_by: ocrData!.labResult.orderedBy || null,
+        results: ocrData!.labResult.results,
+        document_url: data.path,
+        confidence: ocrData!.confidence,
+      };
+
+      setExtractedData(labResultData);
+      setStatus("review");
+      setShowReviewModal(true);
     } catch (error) {
       console.error("Error uploading file:", error);
       setStatus("error");
@@ -108,7 +151,57 @@ export default function LabResultUploadModal() {
     await handleUploadFile(file);
   };
 
-  const isProcessing = status !== "idle";
+  const handleSaveLabResult = async (data: LabResultData) => {
+    try {
+      setIsSaving(true);
+      setStatus("inserting");
+      setStatusMessage("Saving lab result...");
+
+      // Save to database
+      await createLabResult({
+        pet_id: pet.id,
+        user_id: user!.id,
+        test_type: data.test_type,
+        lab_name: data.lab_name,
+        test_date: data.test_date,
+        ordered_by: data.ordered_by,
+        results: data.results,
+        document_url: data.document_url,
+        confidence: data.confidence,
+      });
+
+      // Refresh lab results list
+      queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
+
+      setShowReviewModal(false);
+      setStatus("success");
+      setStatusMessage("Lab result added successfully!");
+
+      // Navigate back after showing success
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving lab result:", error);
+      setStatus("error");
+      setStatusMessage("Failed to save lab result");
+      Alert.alert("Error", "Failed to save lab result to database");
+      setTimeout(() => {
+        setStatus("review");
+        setShowReviewModal(true);
+      }, 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCloseReview = () => {
+    setShowReviewModal(false);
+    setStatus("idle");
+    setExtractedData(null);
+  };
+
+  const isProcessing = status !== "idle" && status !== "review";
 
   const getStatusIcon = () => {
     switch (status) {
@@ -140,7 +233,8 @@ export default function LabResultUploadModal() {
 
   // Upload Mode UI
   return (
-    <View style={{ backgroundColor: theme.background }} className="flex-1">
+    <>
+      <View style={{ backgroundColor: theme.background }} className="flex-1">
       <View className="p-6 pt-8">
         {/* Header */}
         <View className="items-center mb-6">
@@ -276,6 +370,18 @@ export default function LabResultUploadModal() {
         </View>
       )}
     </View>
+
+      {/* Review Modal */}
+      {extractedData && (
+        <LabResultReviewModal
+          visible={showReviewModal}
+          onClose={handleCloseReview}
+          onSave={handleSaveLabResult}
+          initialData={extractedData}
+          loading={isSaving}
+        />
+      )}
+    </>
   );
 }
 

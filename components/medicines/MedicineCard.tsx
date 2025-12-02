@@ -1,0 +1,246 @@
+import { useTheme } from "@/context/themeContext";
+import { useMedicines } from "@/context/medicinesContext";
+import { Medicine } from "@/services/medicines";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { MedicineEditModal } from "./MedicineEditModal";
+
+interface MedicineCardProps {
+  medicine: Medicine;
+}
+
+export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
+  const { theme } = useTheme();
+  const { updateMedicineMutation, deleteMedicineMutation } = useMedicines();
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Medicine",
+      "Are you sure you want to delete this medicine record?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteMedicineMutation.mutate(medicine.id, {
+              onSuccess: () => {
+                Alert.alert("Success", "Medicine deleted successfully");
+              },
+              onError: (error) => {
+                Alert.alert("Error", "Failed to delete medicine");
+                console.error("Delete error:", error);
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = (id: string, data: Partial<Medicine>) => {
+    updateMedicineMutation.mutate(
+      { id, data },
+      {
+        onSuccess: () => {
+          setShowEditModal(false);
+          Alert.alert("Success", "Medicine updated successfully");
+        },
+        onError: (error) => {
+          Alert.alert("Error", "Failed to update medicine");
+          console.error("Update error:", error);
+        },
+      }
+    );
+  };
+
+  const handleLongPress = () => {
+    Alert.alert(
+      medicine.name,
+      "What would you like to do?",
+      [
+        {
+          text: "Edit",
+          onPress: handleEdit,
+        },
+        {
+          text: "Delete",
+          onPress: handleDelete,
+          style: "destructive",
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getStatusBadge = () => {
+    if (!medicine.end_date) {
+      return {
+        label: "Active",
+        color: theme.primary,
+        bgColor: "rgba(95, 196, 192, 0.2)",
+      };
+    }
+    const endDate = new Date(medicine.end_date);
+    const now = new Date();
+    if (endDate < now) {
+      return {
+        label: "Completed",
+        color: theme.secondary,
+        bgColor: "rgba(156, 163, 175, 0.2)",
+      };
+    }
+    return {
+      label: "Active",
+      color: theme.primary,
+      bgColor: "rgba(95, 196, 192, 0.2)",
+    };
+  };
+
+  const status = getStatusBadge();
+
+  return (
+    <>
+      <TouchableOpacity
+        className="mb-4 p-4 rounded-2xl"
+        style={{ backgroundColor: theme.card }}
+        onLongPress={handleLongPress}
+        activeOpacity={0.7}
+      >
+        {/* Medication Header */}
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center flex-1">
+            <View
+              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+            >
+              <Ionicons name="medkit" size={20} color={theme.primary} />
+            </View>
+            <View className="flex-1">
+              <Text
+                className="text-base font-semibold"
+                style={{ color: theme.foreground }}
+                numberOfLines={1}
+              >
+                {medicine.name}
+              </Text>
+              <View className="flex-row items-center gap-2 mt-1">
+                <View
+                  className="px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: status.bgColor,
+                  }}
+                >
+                  <Text
+                    className="text-xs font-semibold"
+                    style={{
+                      color: status.color,
+                    }}
+                  >
+                    {status.label}
+                  </Text>
+                </View>
+                <View
+                  className="px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+                >
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
+                    {medicine.type}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Medication Details */}
+        <View className="ml-13">
+          {medicine.purpose && (
+            <Text
+              className="text-sm mb-2 italic"
+              style={{ color: theme.secondary }}
+            >
+              {medicine.purpose}
+            </Text>
+          )}
+
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="water-outline" size={14} color={theme.secondary} />
+            <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
+              {medicine.dosage}
+            </Text>
+          </View>
+
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="time-outline" size={14} color={theme.secondary} />
+            <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
+              {medicine.frequency}
+            </Text>
+          </View>
+
+          {medicine.start_date && (
+            <View className="flex-row items-center mb-2">
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color={theme.secondary}
+              />
+              <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
+                Started: {formatDate(medicine.start_date)}
+                {medicine.end_date && ` - ${formatDate(medicine.end_date)}`}
+              </Text>
+            </View>
+          )}
+
+          {medicine.prescribed_by && (
+            <View className="flex-row items-center">
+              <Ionicons
+                name="person-outline"
+                size={14}
+                color={theme.secondary}
+              />
+              <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
+                {medicine.prescribed_by}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Long press hint */}
+        <Text
+          className="text-xs text-center mt-3"
+          style={{ color: theme.secondary, opacity: 0.6 }}
+        >
+          Long press to edit or delete
+        </Text>
+      </TouchableOpacity>
+
+      <MedicineEditModal
+        visible={showEditModal}
+        medicine={medicine}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveEdit}
+        loading={updateMedicineMutation.isPending}
+      />
+    </>
+  );
+};
+

@@ -8,6 +8,7 @@ import { useTheme } from "@/context/themeContext";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
+import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,15 +17,15 @@ import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type ProcessingStatus =
@@ -35,7 +36,7 @@ type ProcessingStatus =
   | "success"
   | "error";
 
-type ViewMode = "upload" | "manual";
+type ViewMode = "upload" | "manual" | "review";
 
 interface MedicationData {
   name: string;
@@ -73,6 +74,10 @@ export default function MedicationUploadModal() {
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
+  // OCR extracted medications
+  const [extractedMedications, setExtractedMedications] = useState<MedicationData[]>([]);
+  const [extractionConfidence, setExtractionConfidence] = useState<number>(0);
+
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
   const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
 
@@ -90,21 +95,54 @@ export default function MedicationUploadModal() {
         `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/medications/${Date.now()}.${extension}`
       );
 
-      // Step 2: Extracting (placeholder - OCR not implemented for medications yet)
+      // Step 2: Extracting
       setStatus("extracting");
       setStatusMessage("Extracting medicine data...");
 
-      // TODO: Implement medication OCR when available
-      // For now, just show a success message
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const { data: ocrData, error: ocrError } = await supabase.functions.invoke<{
+        confidence: number;
+        medicines: Array<{
+          name: string;
+          type: string;
+          dosage: string;
+          frequency: string;
+          purpose_notes?: string;
+          prescribed_by?: string;
+          start_date?: string | null;
+          end_date?: string | null;
+        }>;
+      }>("medication-ocr", {
+        body: {
+          bucket: "pets",
+          path: data.path,
+        },
+      });
 
-      setStatus("success");
-      setStatusMessage("Document uploaded successfully!");
+      if (ocrError) {
+        setStatus("error");
+        setStatusMessage("Failed to process document");
+        Alert.alert("Error", "Failed to extract medication data");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
 
-      // Navigate back after showing success
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      // Convert extracted data to our format
+      const medications: MedicationData[] = ocrData!.medicines.map((med) => ({
+        name: med.name,
+        type: med.type,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        startDate: med.start_date || new Date().toISOString(),
+        endDate: med.end_date || null,
+        prescribedBy: med.prescribed_by || "",
+        purposeNotes: med.purpose_notes || "",
+      }));
+
+      // Store extracted data and switch to review mode
+      setExtractedMedications(medications);
+      setExtractionConfidence(ocrData!.confidence);
+      setStatus("idle");
+      setViewMode("review");
     } catch (error) {
       console.error("Error uploading file:", error);
       setStatus("error");
@@ -151,6 +189,91 @@ export default function MedicationUploadModal() {
     setViewMode("manual");
   };
 
+  const handleUpdateMedication = (index: number, field: keyof MedicationData, value: any) => {
+    const updated = [...extractedMedications];
+    updated[index] = { ...updated[index], [field]: value };
+    setExtractedMedications(updated);
+  };
+
+  const handleRemoveMedication = (index: number) => {
+    Alert.alert(
+      "Remove Medicine",
+      "Are you sure you want to remove this medicine?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            const updated = extractedMedications.filter((_, i) => i !== index);
+            setExtractedMedications(updated);
+            if (updated.length === 0) {
+              setViewMode("upload");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSaveExtractedMedications = async () => {
+    try {
+      setStatus("inserting");
+      setStatusMessage(
+        `Saving ${extractedMedications.length} medicine${extractedMedications.length !== 1 ? "s" : ""}...`
+      );
+
+      // Prepare medicines for insertion
+      const medicinesToInsert = extractedMedications.map((med) => ({
+        pet_id: pet.id,
+        user_id: user?.id,
+        name: med.name,
+        type: med.type,
+        dosage: med.dosage,
+        frequency: med.frequency,
+        start_date: med.startDate,
+        end_date: med.endDate,
+        prescribed_by: med.prescribedBy || null,
+        purpose: med.purposeNotes || null,
+        reminder_enabled: true,
+        reminder_timing: 'Day of',
+      }));
+
+      const { error: insertError } = await supabase
+        .from("medicines")
+        .insert(medicinesToInsert);
+
+      if (insertError) {
+        console.error("Error inserting medicines:", insertError);
+        setStatus("error");
+        setStatusMessage("Failed to save medicines");
+        Alert.alert("Error", "Failed to save medicines");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+
+      // Invalidate medicines query to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ["medicines", pet.id],
+      });
+
+      // Success
+      setStatus("success");
+      setStatusMessage("Medicines added successfully!");
+
+      // Navigate back after showing success
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving medicines:", error);
+      setStatus("error");
+      setStatusMessage("An error occurred");
+      Alert.alert("Error", "Failed to save medicines");
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  };
+
   const handleSaveMedication = async () => {
     // Validate required fields
     if (!medicationData.name.trim()) {
@@ -167,35 +290,36 @@ export default function MedicationUploadModal() {
       setStatus("inserting");
       setStatusMessage("Saving medicine...");
 
-      // TODO: Update this when medications table is created in Supabase
-      // For now, just simulate saving
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { error: insertError } = await supabase
+        .from("medicines")
+        .insert({
+          pet_id: pet.id,
+          user_id: user?.id,
+          name: medicationData.name,
+          type: medicationData.type,
+          dosage: medicationData.dosage,
+          frequency: medicationData.frequency,
+          start_date: medicationData.startDate,
+          end_date: medicationData.endDate,
+          prescribed_by: medicationData.prescribedBy || null,
+          purpose: medicationData.purposeNotes || null,
+          reminder_enabled: true,
+          reminder_timing: 'Day of',
+        });
 
-      // const { error: insertError } = await supabase
-      //   .from("medications")
-      //   .insert({
-      //     pet_id: pet.id,
-      //     name: medicationData.name,
-      //     purpose: medicationData.purpose,
-      //     dosage: medicationData.dosage,
-      //     frequency: medicationData.frequency,
-      //     start_date: medicationData.startDate,
-      //     end_date: hasEndDate ? medicationData.endDate : null,
-      //     prescribed_by: medicationData.prescribedBy,
-      //     notes: medicationData.notes,
-      //     status: hasEndDate && medicationData.endDate 
-      //       ? new Date(medicationData.endDate) < new Date() ? "completed" : "active"
-      //       : "active",
-      //   });
+      if (insertError) {
+        console.error("Error inserting medicine:", insertError);
+        setStatus("error");
+        setStatusMessage("Failed to save medicine");
+        Alert.alert("Error", "Failed to save medicine");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
 
-      // if (insertError) {
-      //   console.error("Error inserting medication:", insertError);
-      //   setStatus("error");
-      //   setStatusMessage("Failed to save medication");
-      //   Alert.alert("Error", "Failed to save medication");
-      //   setTimeout(() => setStatus("idle"), 2000);
-      //   return;
-      // }
+      // Invalidate medicines query to trigger refetch
+      await queryClient.invalidateQueries({
+        queryKey: ["medicines", pet.id],
+      });
 
       // Success
       setStatus("success");
@@ -248,6 +372,358 @@ export default function MedicationUploadModal() {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString();
   };
+
+  // Review Mode UI (for OCR extracted medications)
+  if (viewMode === "review") {
+    return (
+      <View style={{ backgroundColor: theme.background }} className="flex-1">
+        {/* Header */}
+        <View
+          className="px-6 pt-4 pb-4 border-b"
+          style={{
+            backgroundColor: theme.card,
+            borderBottomColor: theme.background,
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <TouchableOpacity
+              onPress={() => {
+                setViewMode("upload");
+                setExtractedMedications([]);
+              }}
+              disabled={isProcessing}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.primary} />
+            </TouchableOpacity>
+            <Text
+              className="text-lg font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              Review Medicines
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <Text
+            className="text-sm text-center"
+            style={{ color: theme.secondary }}
+          >
+            {extractedMedications.length} medicine{extractedMedications.length !== 1 ? "s" : ""} found • {extractionConfidence}% confidence
+          </Text>
+        </View>
+
+        {/* Medications List */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="p-6 gap-4">
+            {extractedMedications.map((medication, index) => (
+              <View
+                key={index}
+                className="p-4 rounded-xl"
+                style={{ backgroundColor: theme.card }}
+              >
+                {/* Header with remove button */}
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: theme.secondary }}
+                  >
+                    Medicine {index + 1}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveMedication(index)}
+                    disabled={isProcessing}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Medicine Name */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Medicine Name *
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.name}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "name", text)
+                    }
+                    placeholder="e.g., Amoxicillin"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Type */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Type *
+                  </Text>
+                  <TouchableOpacity
+                    className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                    style={{
+                      backgroundColor: theme.background,
+                    }}
+                    onPress={() => setShowTypePicker(true)}
+                    disabled={isProcessing}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {medication.type}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={theme.secondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Dosage */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Dosage *
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.dosage}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "dosage", text)
+                    }
+                    placeholder="e.g., 250mg, 1 tablet"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Frequency */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Frequency *
+                  </Text>
+                  <TouchableOpacity
+                    className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                    style={{
+                      backgroundColor: theme.background,
+                    }}
+                    onPress={() => setShowFrequencyPicker(true)}
+                    disabled={isProcessing}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {medication.frequency}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={theme.secondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Start Date */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Start Date
+                  </Text>
+                  <View
+                    className="p-3 rounded-xl px-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {formatDate(medication.startDate)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setTempDate(medication.startDate);
+                        setEditingDateType("startDate");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* End Date */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    End Date (Optional)
+                  </Text>
+                  <View
+                    className="p-3 rounded-xl px-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: medication.endDate ? theme.foreground : theme.secondary }}
+                    >
+                      {medication.endDate ? formatDate(medication.endDate) : "Leave blank if ongoing"}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setTempDate(medication.endDate || new Date().toISOString());
+                        setEditingDateType("endDate");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Prescribed By */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Prescribed By (Optional)
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.prescribedBy}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "prescribedBy", text)
+                    }
+                    placeholder="Vet clinic name"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Purpose/Notes */}
+                <View>
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Purpose/Notes (Optional)
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.purposeNotes}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "purposeNotes", text)
+                    }
+                    placeholder="e.g., Ear infection, pain relief"
+                    placeholderTextColor={theme.secondary}
+                    multiline
+                    numberOfLines={2}
+                    textAlignVertical="top"
+                    editable={!isProcessing}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Save Button */}
+        <View className="p-6 pt-4 border-t" style={{ borderTopColor: theme.background }}>
+          <TouchableOpacity
+            className="p-4 rounded-xl items-center"
+            style={{
+              backgroundColor: isProcessing
+                ? theme.secondary + "40"
+                : theme.primary,
+            }}
+            onPress={handleSaveExtractedMedications}
+            disabled={isProcessing || extractedMedications.length === 0}
+          >
+            <Text className="text-base font-semibold text-white">
+              {isProcessing
+                ? "Saving..."
+                : `Save ${extractedMedications.length} Medicine${extractedMedications.length !== 1 ? "s" : ""}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <View
+            className="absolute inset-0 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          >
+            <View
+              className="bg-white rounded-3xl p-8 items-center mx-8"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View
+                className="w-20 h-20 rounded-full items-center justify-center mb-4"
+                style={{
+                  backgroundColor:
+                    status === "success" || status === "error"
+                      ? `${getStatusColor()}20`
+                      : "rgba(95, 196, 192, 0.15)",
+                }}
+              >
+                {status === "success" || status === "error" ? (
+                  <Ionicons
+                    name={getStatusIcon() as any}
+                    size={48}
+                    color={getStatusColor()}
+                  />
+                ) : (
+                  <ActivityIndicator size="large" color={theme.primary} />
+                )}
+              </View>
+
+              <Text
+                className="text-lg font-semibold text-center mb-2"
+                style={{ color: theme.foreground }}
+              >
+                {status === "inserting" && "Saving Medicines"}
+                {status === "success" && "Success!"}
+                {status === "error" && "Error"}
+              </Text>
+
+              <Text
+                className="text-sm text-center"
+                style={{ color: theme.secondary }}
+              >
+                {statusMessage}
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   // Manual Entry Mode UI
   if (viewMode === "manual") {

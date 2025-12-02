@@ -171,6 +171,70 @@ Make absolutely sure to extract the next_due_date (valid until date) for every v
       throw new Error("Failed to parse vaccination data");
     }
 
+    // Validate and fix dates
+    vaccines = vaccines.map((vaccine: any) => {
+      // Helper function to validate and fix date
+      const fixDate = (dateStr: string | null): string | null => {
+        if (!dateStr) return null;
+        
+        try {
+          // Try parsing as-is first
+          let date = new Date(dateStr);
+          
+          // If invalid, try to fix common issues
+          if (isNaN(date.getTime())) {
+            // Try to parse formats like YYYY-DD-MM or DD-MM-YYYY
+            const parts = dateStr.split(/[-/]/);
+            
+            if (parts.length === 3) {
+              const [a, b, c] = parts.map(p => parseInt(p, 10));
+              
+              // If first part is year (YYYY-??-??)
+              if (a > 1900) {
+                // Check if month is invalid (YYYY-DD-MM format)
+                if (b > 12 && c <= 12) {
+                  // Swap day and month: YYYY-DD-MM -> YYYY-MM-DD
+                  date = new Date(`${a}-${String(c).padStart(2, '0')}-${String(b).padStart(2, '0')}`);
+                  console.log(`Fixed date from ${dateStr} to ${date.toISOString()}`);
+                }
+              }
+              // If first part is day or month (DD-MM-YYYY or MM-DD-YYYY)
+              else if (c > 1900) {
+                // Try DD-MM-YYYY first
+                if (a <= 31 && b <= 12) {
+                  date = new Date(`${c}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`);
+                }
+                // Try MM-DD-YYYY if DD-MM-YYYY failed
+                else if (a <= 12 && b <= 31) {
+                  date = new Date(`${c}-${String(a).padStart(2, '0')}-${String(b).padStart(2, '0')}`);
+                }
+              }
+            }
+          }
+          
+          const year = date.getFullYear();
+          
+          // Check if date is valid and year is reasonable
+          if (isNaN(date.getTime()) || year < 2000 || year > 2035) {
+            console.log(`Invalid date after parsing: ${dateStr}, setting to null`);
+            return null;
+          }
+          
+          // Return in ISO format (YYYY-MM-DD)
+          return date.toISOString().split('T')[0];
+        } catch (e) {
+          console.log(`Failed to parse date: ${dateStr}, setting to null`);
+          return null;
+        }
+      };
+
+      return {
+        ...vaccine,
+        vaccination_date: fixDate(vaccine.vaccination_date),
+        next_due_date: fixDate(vaccine.next_due_date),
+      };
+    });
+
     console.log(
       `[Vaccination OCR] Successfully extracted ${vaccines.length} vaccines`
     );
