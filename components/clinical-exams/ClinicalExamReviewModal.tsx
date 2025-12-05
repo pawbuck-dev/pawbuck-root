@@ -2,7 +2,6 @@ import { useTheme } from "@/context/themeContext";
 import { ClinicalExamData } from "@/models/clinicalExam";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Image } from "expo-image";
 import React, { useState } from "react";
 import {
   Alert,
@@ -21,7 +20,6 @@ interface ClinicalExamReviewModalProps {
   onClose: () => void;
   onSave: (data: ClinicalExamData) => void;
   initialData: ClinicalExamData;
-  documentUri?: string;
   loading?: boolean;
 }
 
@@ -30,7 +28,6 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
   onClose,
   onSave,
   initialData,
-  documentUri,
   loading = false,
 }) => {
   const { theme } = useTheme();
@@ -111,25 +108,6 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
           className="flex-1 px-6 pt-6"
           showsVerticalScrollIndicator={false}
         >
-          {/* Document Preview */}
-          {(documentUri || data.document_url) && (
-            <View className="mb-6">
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                Document
-              </Text>
-              <View className="rounded-2xl overflow-hidden">
-                <Image
-                  source={{ uri: documentUri || data.document_url || "" }}
-                  style={{ width: "100%", height: 200 }}
-                  contentFit="cover"
-                />
-              </View>
-            </View>
-          )}
-
           {/* Exam Type */}
           <View className="mb-4">
             <Text
