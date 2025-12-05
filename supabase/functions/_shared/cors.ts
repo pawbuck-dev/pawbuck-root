@@ -34,3 +34,4 @@ export function errorResponse(
   const message = error instanceof Error ? error.message : error;
   return jsonResponse({ error: message }, status);
 }
+
