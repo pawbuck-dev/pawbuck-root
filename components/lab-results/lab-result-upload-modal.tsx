@@ -1,42 +1,51 @@
 import { CameraButton } from "@/components/upload/CameraButton";
 import { FilesButton } from "@/components/upload/FilesButton";
 import { LibraryButton } from "@/components/upload/LibraryButton";
+import {
+  LabResultReviewModal,
+  LabResultData,
+} from "@/components/lab-results/LabResultReviewModal";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { VaccinationOCRResponse } from "@/models/vaccination";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { supabase } from "@/utils/supabase";
-import { parseVaccinationOCRResponse } from "@/utils/vaccination.ts/response";
+import { createLabResult } from "@/services/labResults";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
 import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type ProcessingStatus =
   | "idle"
   | "uploading"
   | "extracting"
+  | "review"
   | "inserting"
   | "success"
   | "error";
 
-export default function VaccinationUploadModal() {
+export default function LabResultUploadModal() {
   const { theme } = useTheme();
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
+  const [extractedData, setExtractedData] = useState<LabResultData | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const queryClient = useQueryClient();
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
@@ -49,61 +58,57 @@ export default function VaccinationUploadModal() {
       const extension = file.mimeType?.split("/")[1];
       const data = await uploadFile(
         file,
-        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.${extension}`
+        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/lab-results/${Date.now()}.${extension}`
       );
 
-      // Step 2: Extracting
+      // Step 2: Extracting lab results
       setStatus("extracting");
-      setStatusMessage("Extracting vaccination data...");
+      setStatusMessage("Extracting lab result data...");
 
-      const { data: ocrData, error: ocrError } =
-        await supabase.functions.invoke<VaccinationOCRResponse>(
-          "vaccination-ocr",
-          {
-            body: {
-              bucket: "pets",
-              path: data.path,
-            },
-          }
-        );
+      const { data: ocrData, error: ocrError } = await supabase.functions.invoke<{
+        confidence: number;
+        labResult: {
+          testType: string;
+          labName: string;
+          testDate: string | null;
+          orderedBy?: string;
+          results: Array<{
+            testName: string;
+            value: string;
+            unit: string;
+            referenceRange: string;
+            status: "normal" | "low" | "high";
+          }>;
+        };
+      }>("lab-results-ocr", {
+        body: {
+          bucket: "pets",
+          path: data.path,
+        },
+      });
 
       if (ocrError) {
         setStatus("error");
         setStatusMessage("Failed to process document");
-        Alert.alert("Error", "Failed to process vaccination OCR");
+        Alert.alert("Error", "Failed to extract lab result data");
         setTimeout(() => setStatus("idle"), 2000);
         return;
       }
 
-      const supabaseVaccines = parseVaccinationOCRResponse(pet.id, ocrData!);
+      // Step 3: Show review modal
+      const labResultData: LabResultData = {
+        test_type: ocrData!.labResult.testType,
+        lab_name: ocrData!.labResult.labName,
+        test_date: ocrData!.labResult.testDate,
+        ordered_by: ocrData!.labResult.orderedBy || null,
+        results: ocrData!.labResult.results,
+        document_url: data.path,
+        confidence: ocrData!.confidence,
+      };
 
-      // Step 3: Inserting
-      setStatus("inserting");
-      setStatusMessage(
-        `Saving ${supabaseVaccines.length} vaccination${supabaseVaccines.length !== 1 ? "s" : ""}...`
-      );
-
-      const { error: insertError } = await supabase
-        .from("vaccinations")
-        .insert(supabaseVaccines);
-
-      if (insertError) {
-        console.error("Error inserting vaccines:", insertError);
-        setStatus("error");
-        setStatusMessage("Failed to save vaccinations");
-        Alert.alert("Error", "Failed to insert vaccines");
-        setTimeout(() => setStatus("idle"), 2000);
-        return;
-      }
-
-      // Step 4: Success
-      setStatus("success");
-      setStatusMessage("Vaccinations added successfully!");
-
-      // Navigate back after showing success
-      setTimeout(() => {
-        router.back();
-      }, 1500);
+      setExtractedData(labResultData);
+      setStatus("review");
+      setShowReviewModal(true);
     } catch (error) {
       console.error("Error uploading file:", error);
       setStatus("error");
@@ -145,7 +150,58 @@ export default function VaccinationUploadModal() {
 
     await handleUploadFile(file);
   };
-  const isProcessing = status !== "idle";
+
+  const handleSaveLabResult = async (data: LabResultData) => {
+    try {
+      setIsSaving(true);
+      setStatus("inserting");
+      setStatusMessage("Saving lab result...");
+
+      // Save to database
+      await createLabResult({
+        pet_id: pet.id,
+        user_id: user!.id,
+        test_type: data.test_type,
+        lab_name: data.lab_name,
+        test_date: data.test_date,
+        ordered_by: data.ordered_by,
+        results: data.results,
+        document_url: data.document_url,
+        confidence: data.confidence,
+      });
+
+      // Refresh lab results list
+      queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
+
+      setShowReviewModal(false);
+      setStatus("success");
+      setStatusMessage("Lab result added successfully!");
+
+      // Navigate back after showing success
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving lab result:", error);
+      setStatus("error");
+      setStatusMessage("Failed to save lab result");
+      Alert.alert("Error", "Failed to save lab result to database");
+      setTimeout(() => {
+        setStatus("review");
+        setShowReviewModal(true);
+      }, 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCloseReview = () => {
+    setShowReviewModal(false);
+    setStatus("idle");
+    setExtractedData(null);
+  };
+
+  const isProcessing = status !== "idle" && status !== "review";
 
   const getStatusIcon = () => {
     switch (status) {
@@ -160,7 +216,7 @@ export default function VaccinationUploadModal() {
       case "error":
         return "close-circle";
       default:
-        return "camera";
+        return "flask";
     }
   };
 
@@ -175,8 +231,10 @@ export default function VaccinationUploadModal() {
     }
   };
 
+  // Upload Mode UI
   return (
-    <View style={{ backgroundColor: theme.background }} className="flex-1">
+    <>
+      <View style={{ backgroundColor: theme.background }} className="flex-1">
       <View className="p-6 pt-8">
         {/* Header */}
         <View className="items-center mb-6">
@@ -184,13 +242,13 @@ export default function VaccinationUploadModal() {
             className="w-16 h-16 rounded-full items-center justify-center mb-4"
             style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
           >
-            <Ionicons name="camera" size={32} color={theme.primary} />
+            <Ionicons name="flask" size={32} color={theme.primary} />
           </View>
           <Text
             className="text-xl font-semibold text-center"
             style={{ color: theme.foreground }}
           >
-            Upload Vaccination Document
+            Upload Lab Result
           </Text>
           <Text
             className="text-sm text-center mt-2"
@@ -261,8 +319,8 @@ export default function VaccinationUploadModal() {
               style={{ color: theme.foreground }}
             >
               {status === "uploading" && "Uploading"}
-              {status === "extracting" && "Extracting Data"}
-              {status === "inserting" && "Saving Vaccinations"}
+              {status === "extracting" && "Processing"}
+              {status === "inserting" && "Saving"}
               {status === "success" && "Success!"}
               {status === "error" && "Error"}
             </Text>
@@ -312,5 +370,18 @@ export default function VaccinationUploadModal() {
         </View>
       )}
     </View>
+
+      {/* Review Modal */}
+      {extractedData && (
+        <LabResultReviewModal
+          visible={showReviewModal}
+          onClose={handleCloseReview}
+          onSave={handleSaveLabResult}
+          initialData={extractedData}
+          loading={isSaving}
+        />
+      )}
+    </>
   );
 }
+

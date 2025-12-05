@@ -1,7 +1,9 @@
-import { Tables, TablesInsert } from "@/database.types";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import {
   createVaccination,
+  deleteVaccination,
   getVaccinationsByPetId,
+  updateVaccination,
 } from "@/services/vaccinations";
 import {
   useMutation,
@@ -25,6 +27,14 @@ interface VaccinationsContextType {
     Error,
     TablesInsert<"vaccinations">
   >;
+  /** Update an existing vaccination */
+  updateVaccinationMutation: UseMutationResult<
+    Tables<"vaccinations">,
+    Error,
+    { id: string; data: TablesUpdate<"vaccinations"> }
+  >;
+  /** Delete a vaccination */
+  deleteVaccinationMutation: UseMutationResult<void, Error, string>;
 
   //   /** Upload vaccination document */
   //   uploadDocument: (documentUrl: string) => Promise<string>;
@@ -68,6 +78,38 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     },
   });
 
+  // Update vaccination mutation
+  const updateVaccinationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TablesUpdate<"vaccinations"> }) =>
+      updateVaccination(id, data),
+    onSuccess: (updatedVaccination: Tables<"vaccinations">) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<Tables<"vaccinations">[]>(
+        ["vaccinations", pet.id],
+        (old = []) =>
+          old.map((v) => (v.id === updatedVaccination.id ? updatedVaccination : v))
+      );
+    },
+    onError: (err) => {
+      console.error("Error updating vaccination:", err);
+    },
+  });
+
+  // Delete vaccination mutation
+  const deleteVaccinationMutation = useMutation({
+    mutationFn: deleteVaccination,
+    onSuccess: (_, deletedId) => {
+      // Optimistically update the cache
+      queryClient.setQueryData<Tables<"vaccinations">[]>(
+        ["vaccinations", pet.id],
+        (old = []) => old.filter((v) => v.id !== deletedId)
+      );
+    },
+    onError: (err) => {
+      console.error("Error deleting vaccination:", err);
+    },
+  });
+
   // Upload document mutation
   //   const uploadDocumentMutation = useMutation({
   //     mutationFn: ({ fileUri, petId }: { fileUri: string; petId: string }) =>
@@ -86,6 +128,8 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
   const error =
     queryError?.message ||
     addVaccinationMutation.error?.message ||
+    updateVaccinationMutation.error?.message ||
+    deleteVaccinationMutation.error?.message ||
     // uploadDocumentMutation.error?.message ||
     null;
 
@@ -96,6 +140,8 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
         isLoading,
         error,
         addVaccinationMutation,
+        updateVaccinationMutation,
+        deleteVaccinationMutation,
         // uploadDocument,
       }}
     >

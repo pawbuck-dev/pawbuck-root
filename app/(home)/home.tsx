@@ -96,7 +96,7 @@ export default function Home() {
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Header */}
-      <View className="px-6 pt-24 pb-3 flex-row items-center justify-between">
+      <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
         <Ionicons name="paw" size={32} color="#5FC4C0" />
         <Text
           className="text-3xl font-bold"
