@@ -1,6 +1,9 @@
+import { MiloChatButton } from "@/components/chat/MiloChatButton";
+import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import AddPetCard from "@/components/home/AddPetCard";
 import PetCard from "@/components/home/PetCard";
 import { useAuth } from "@/context/authContext";
+import { ChatProvider } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -89,73 +92,79 @@ export default function Home() {
   }
 
   return (
-    <GestureHandlerRootView
-      className="flex-1"
-      style={{ backgroundColor: theme.background }}
-    >
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+    <ChatProvider>
+      <GestureHandlerRootView
+        className="flex-1"
+        style={{ backgroundColor: theme.background }}
+      >
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-      {/* Header */}
-      <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
-        <Ionicons name="paw" size={32} color="#5FC4C0" />
-        <Text
-          className="text-3xl font-bold"
-          style={{ color: theme.foreground }}
-        >
-          Your Pets
-        </Text>
-        <View className="flex-row items-center gap-4">
-          <TouchableOpacity
-            onPress={toggleTheme}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+        {/* Header */}
+        <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
+          <Ionicons name="paw" size={32} color="#5FC4C0" />
+          <Text
+            className="text-3xl font-bold"
+            style={{ color: theme.foreground }}
           >
-            <Ionicons
-              name={mode === "dark" ? "sunny" : "moon"}
-              size={20}
-              color="#5FC4C0"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleSignOut}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: "#5FC4C0" }}
-          >
-            <Text className="text-xl font-bold text-gray-900">
-              {getUserInitial()}
-            </Text>
-          </TouchableOpacity>
+            Your Pets
+          </Text>
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity
+              onPress={toggleTheme}
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+            >
+              <Ionicons
+                name={mode === "dark" ? "sunny" : "moon"}
+                size={20}
+                color="#5FC4C0"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSignOut}
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: "#5FC4C0" }}
+            >
+              <Text className="text-xl font-bold text-gray-900">
+                {getUserInitial()}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      <View className="flex-1 flex-col items-center justify-center px-6">
-        <Carousel
-          data={carouselData}
-          height={Dimensions.get("window").height * 0.8}
-          loop={false}
-          pagingEnabled={true}
-          width={Dimensions.get("window").width}
-          mode="parallax"
-          modeConfig={{
-            parallaxScrollingScale: 0.95,
-            parallaxScrollingOffset: 23,
-          }}
-          onProgressChange={progress}
-          renderItem={({ item, index }: { item: Pet; index: number }) => {
-            if (index === carouselData.length - 1) {
-              return <AddPetCard />;
-            }
-            return <PetCard pet={item as Pet} />;
-          }}
-        />
-        <Pagination.Basic
-          progress={progress}
-          data={carouselData}
-          dotStyle={{ backgroundColor: theme.secondary, borderRadius: 100 }}
-          activeDotStyle={{ backgroundColor: theme.primary }}
-          containerStyle={{ gap: 7 }}
-        />
-      </View>
-    </GestureHandlerRootView>
+        <View className="flex-1 flex-col items-center justify-center px-6">
+          <Carousel
+            data={carouselData}
+            height={Dimensions.get("window").height * 0.8}
+            loop={false}
+            pagingEnabled={true}
+            width={Dimensions.get("window").width}
+            mode="parallax"
+            modeConfig={{
+              parallaxScrollingScale: 0.95,
+              parallaxScrollingOffset: 23,
+            }}
+            onProgressChange={progress}
+            renderItem={({ item, index }: { item: Pet; index: number }) => {
+              if (index === carouselData.length - 1) {
+                return <AddPetCard />;
+              }
+              return <PetCard pet={item as Pet} />;
+            }}
+          />
+          <Pagination.Basic
+            progress={progress}
+            data={carouselData}
+            dotStyle={{ backgroundColor: theme.secondary, borderRadius: 100 }}
+            activeDotStyle={{ backgroundColor: theme.primary }}
+            containerStyle={{ gap: 7 }}
+          />
+        </View>
+
+        {/* Milo Chat */}
+        <MiloChatButton />
+        <MiloChatModal />
+      </GestureHandlerRootView>
+    </ChatProvider>
   );
 }
