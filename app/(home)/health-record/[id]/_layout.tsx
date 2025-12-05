@@ -1,7 +1,8 @@
+import { ClinicalExamsProvider } from "@/context/clinicalExamsContext";
+import { LabResultsProvider } from "@/context/labResultsContext";
+import { MedicinesProvider } from "@/context/medicinesContext";
 import { SelectedPetProvider } from "@/context/selectedPetContext";
 import { VaccinationsProvider } from "@/context/vaccinationsContext";
-import { MedicinesProvider } from "@/context/medicinesContext";
-import { LabResultsProvider } from "@/context/labResultsContext";
 import { Stack, useLocalSearchParams } from "expo-router";
 
 export default function HealthRecordLayout() {
@@ -12,7 +13,8 @@ export default function HealthRecordLayout() {
       <VaccinationsProvider>
         <MedicinesProvider>
           <LabResultsProvider>
-            <Stack>
+            <ClinicalExamsProvider>
+              <Stack>
             <Stack.Screen
               name="(tabs)"
               options={{
@@ -40,7 +42,15 @@ export default function HealthRecordLayout() {
                 headerShown: false,
               }}
             />
-          </Stack>
+            <Stack.Screen
+              name="exam-upload-modal"
+              options={{
+                presentation: "pageSheet",
+                headerShown: false,
+              }}
+            />
+              </Stack>
+            </ClinicalExamsProvider>
           </LabResultsProvider>
         </MedicinesProvider>
       </VaccinationsProvider>

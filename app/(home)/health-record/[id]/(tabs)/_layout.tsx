@@ -2,16 +2,16 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  MaterialTopTabNavigationEventMap,
-  MaterialTopTabNavigationOptions,
-  createMaterialTopTabNavigator,
+    MaterialTopTabNavigationEventMap,
+    MaterialTopTabNavigationOptions,
+    createMaterialTopTabNavigator,
 } from "@react-navigation/material-top-tabs";
 import { ParamListBase, TabNavigationState } from "@react-navigation/native";
 import {
-  router,
-  useLocalSearchParams,
-  useSegments,
-  withLayoutContext,
+    router,
+    useLocalSearchParams,
+    useSegments,
+    withLayoutContext,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -57,8 +57,7 @@ export default function HealthRecordsLayout() {
         router.push(`/health-record/${id}/medication-upload-modal`);
         break;
       case "exams":
-        // TODO: Add exam logic
-        console.log("Add Exam");
+        router.push(`/health-record/${id}/exam-upload-modal`);
         break;
       case "lab-results":
         router.push(`/health-record/${id}/lab-result-upload-modal`);

@@ -367,3 +367,15 @@ entrypoint = "./functions/vaccination-ocr/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/vaccination-ocr/*.html" ]
+
+[functions.clinical-exam-ocr]
+enabled = true
+verify_jwt = true
+import_map = "./functions/clinical-exam-ocr/deno.json"
+entrypoint = "./functions/clinical-exam-ocr/index.ts"
+
+[functions.milo-chat]
+enabled = true
+verify_jwt = true
+import_map = "./functions/milo-chat/deno.json"
+entrypoint = "./functions/milo-chat/index.ts"
