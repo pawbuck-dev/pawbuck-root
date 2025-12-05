@@ -1,37 +1,4 @@
-/**
- * Auth Context for managing authentication state
- *
- * This context provides:
- * - Current authenticated user
- * - Loading and error states for authentication
- * - Sign out functionality
- * - Convenience isAuthenticated flag
- *
- * Usage example:
- * ```tsx
- * import { useAuth } from "@/context/authContext";
- *
- * function MyComponent() {
- *   const { user, loading, isAuthenticated, signOut } = useAuth();
- *
- *   if (loading) return <ActivityIndicator />;
- *
- *   return (
- *     <View>
- *       {isAuthenticated ? (
- *         <>
- *           <Text>Welcome {user?.email}</Text>
- *           <Button title="Sign Out" onPress={signOut} />
- *         </>
- *       ) : (
- *         <Text>Please sign in</Text>
- *       )}
- *     </View>
- *   );
- * }
- * ```
- */
-
+import { useNotificationHandlers } from "@/hooks/useNotificationHandler";
 import { supabase } from "@/utils/supabase";
 import { User } from "@supabase/supabase-js";
 import React, {
@@ -90,6 +57,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
   }, []);
 
+  const { deviceId, pushToken } = useNotificationHandlers();
+
   // Initialize authentication state
   useEffect(() => {
     // Listen for auth state changes
@@ -108,6 +77,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const updatePushToken = async () => {
+      if (pushToken && deviceId && user) {
+        const { data, error } = await supabase.from("push_tokens").insert({
+          device_id: deviceId,
+          push_token: pushToken,
+          user_id: user.id,
+        });
+
+        if (error) {
+          console.error("Error updating push token:", error);
+        }
+
+        if (data) {
+          console.log("Push token updated successfully");
+        }
+      }
+    };
+
+    updatePushToken();
+  }, [pushToken, deviceId, user]);
 
   return (
     <AuthContext.Provider

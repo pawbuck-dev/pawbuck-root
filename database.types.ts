@@ -7,13 +7,135 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
+      lab_results: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          document_url: string | null
+          id: string
+          lab_name: string
+          ordered_by: string | null
+          pet_id: string
+          results: Json
+          test_date: string | null
+          test_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          document_url?: string | null
+          id?: string
+          lab_name: string
+          ordered_by?: string | null
+          pet_id: string
+          results?: Json
+          test_date?: string | null
+          test_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          document_url?: string | null
+          id?: string
+          lab_name?: string
+          ordered_by?: string | null
+          pet_id?: string
+          results?: Json
+          test_date?: string | null
+          test_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_results_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medicines: {
+        Row: {
+          created_at: string
+          custom_frequency_unit: string | null
+          custom_frequency_value: number | null
+          dosage: string
+          end_date: string | null
+          frequency: string
+          id: string
+          last_given_at: string | null
+          name: string
+          next_due_date: string | null
+          pet_id: string
+          prescribed_by: string | null
+          purpose: string | null
+          reminder_enabled: boolean
+          reminder_timing: string | null
+          start_date: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_frequency_unit?: string | null
+          custom_frequency_value?: number | null
+          dosage: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          last_given_at?: string | null
+          name: string
+          next_due_date?: string | null
+          pet_id: string
+          prescribed_by?: string | null
+          purpose?: string | null
+          reminder_enabled?: boolean
+          reminder_timing?: string | null
+          start_date?: string | null
+          type: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          custom_frequency_unit?: string | null
+          custom_frequency_value?: number | null
+          dosage?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          last_given_at?: string | null
+          name?: string
+          next_due_date?: string | null
+          pet_id?: string
+          prescribed_by?: string | null
+          purpose?: string | null
+          reminder_enabled?: boolean
+          reminder_timing?: string | null
+          start_date?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicines_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           animal_type: string
@@ -59,6 +181,27 @@ export type Database = {
           user_id?: string
           weight_unit?: string
           weight_value?: number
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          created_at: string
+          device_id: string
+          last_seen: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          last_seen?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          last_seen?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -247,3 +390,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
