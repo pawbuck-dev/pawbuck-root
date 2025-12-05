@@ -102,3 +102,4 @@ Make sure these environment variables are set in your Supabase project:
 These are automatically available in Supabase Edge Functions.
 
 
+
