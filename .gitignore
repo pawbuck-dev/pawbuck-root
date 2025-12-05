@@ -44,3 +44,6 @@ app-example
 
 # supabase
 supabase/functions/.env*
+
+# google services
+google-services.json

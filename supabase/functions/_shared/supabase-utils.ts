@@ -1,4 +1,5 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { encodeBase64 } from "@std/encoding";
+import { createClient } from "supabase";
 
 /**
  * Create a Supabase client for use in Deno Edge Functions
@@ -126,10 +127,7 @@ export function getPublicFileUrl(bucket: string, path: string): string {
  * @param buffer - The ArrayBuffer to convert
  * @returns Base64 encoded string
  */
-export async function arrayBufferToBase64(
-  buffer: ArrayBuffer
-): Promise<string> {
-  const { encodeBase64 } = await import("jsr:@std/encoding");
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(buffer);
   return encodeBase64(uint8Array);
 }

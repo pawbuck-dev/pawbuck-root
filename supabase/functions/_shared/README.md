@@ -25,6 +25,15 @@ Provides CORS utilities for Edge Functions:
 - **`jsonResponse(data, status?)`** - Create JSON response with CORS headers
 - **`errorResponse(error, status?)`** - Create error response with CORS headers
 
+### `notification.ts`
+
+Provides push notification utilities using Expo Push API:
+
+- **`sendNotificationToUser(userId, notification)`** - Send notification to a specific user
+- **`sendNotificationToUsers(userIds, notification)`** - Send notification to multiple users
+- **`sendPushNotifications(tokens, notification)`** - Send to specific push tokens
+- **`getUserPushTokens(userId)`** - Get all push tokens for a user
+
 ## Usage Examples
 
 ### Using Signed URLs
@@ -36,10 +45,10 @@ import { jsonResponse, errorResponse } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   try {
     const { bucket, path } = await req.json();
-    
+
     // Generate signed URL with 1 hour expiry
     const signedUrl = await getSignedImageUrl(bucket, path, 3600);
-    
+
     return jsonResponse({ url: signedUrl });
   } catch (error) {
     return errorResponse(error);
@@ -50,10 +59,10 @@ Deno.serve(async (req) => {
 ### Using CORS Utilities
 
 ```typescript
-import { 
-  handleCorsRequest, 
-  jsonResponse, 
-  errorResponse 
+import {
+  handleCorsRequest,
+  jsonResponse,
+  errorResponse,
 } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -74,14 +83,14 @@ Deno.serve(async (req) => {
 ### Working with Images
 
 ```typescript
-import { 
+import {
   getImageAsBase64DataUrl,
-  downloadImage 
+  downloadImage,
 } from "../_shared/supabase-utils.ts";
 
 // Get image as base64 for Vision/Gemini APIs
 const base64Image = await getImageAsBase64DataUrl(
-  "vaccination-images", 
+  "vaccination-images",
   "pet-123/vaccine-cert.jpg"
 );
 
@@ -92,6 +101,41 @@ const imageBuffer = await downloadImage(
 );
 ```
 
+### Sending Push Notifications
+
+```typescript
+import {
+  sendNotificationToUser,
+  sendNotificationToUsers,
+} from "../_shared/notification.ts";
+import { jsonResponse, errorResponse } from "../_shared/cors.ts";
+
+Deno.serve(async (req) => {
+  try {
+    const { userId, title, body, data } = await req.json();
+
+    // Send notification to a single user
+    const result = await sendNotificationToUser(userId, {
+      title,
+      body,
+      data,
+      sound: "default",
+    });
+
+    return jsonResponse(result);
+  } catch (error) {
+    return errorResponse(error);
+  }
+});
+
+// Send to multiple users
+const results = await sendNotificationToUsers(["user-id-1", "user-id-2"], {
+  title: "New Update",
+  body: "Check out the latest features!",
+  data: { screen: "home" },
+});
+```
+
 ## Environment Variables Required
 
 Make sure these environment variables are set in your Supabase project:
@@ -100,8 +144,3 @@ Make sure these environment variables are set in your Supabase project:
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key for admin access
 
 These are automatically available in Supabase Edge Functions.
-
-
-
-
-
