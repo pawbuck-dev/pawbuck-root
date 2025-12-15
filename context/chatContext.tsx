@@ -10,6 +10,7 @@ export interface ChatMessage {
 }
 
 interface PetContext {
+  id: string;
   name: string;
   animal_type: string;
   breed: string;
@@ -71,8 +72,9 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
 
     try {
-      // Build pet context if selected
+      // Build pet context if selected (including id for health record queries)
       const petContext: PetContext | null = selectedPet ? {
+        id: selectedPet.id,
         name: selectedPet.name,
         animal_type: selectedPet.animal_type,
         breed: selectedPet.breed,
@@ -82,8 +84,8 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         weight_unit: selectedPet.weight_unit,
       } : null;
 
-      // Build history (last 10 messages for context)
-      const history = messages.slice(-10).map((msg) => ({
+      // Build history (last 10 messages for context, including current user message)
+      const history = [...messages, userMessage].slice(-10).map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
