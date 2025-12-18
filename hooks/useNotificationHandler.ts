@@ -10,7 +10,6 @@ export function useNotificationHandlers() {
   useEffect(() => {
     const registerForPushToken = async () => {
       const token = await registerForPush();
-      console.log("Push token:", token);
       setPushToken(token);
     };
 

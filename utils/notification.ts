@@ -24,7 +24,22 @@ export async function registerForPush() {
 
   console.log("Final status:", finalStatus);
 
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  // const projectId =
+  //   Constants.expoConfig?.extra?.eas?.projectId ??
+  //   Constants.easConfig?.projectId;
+
+  // if (!projectId) {
+  //   console.error("Project ID not found");
+  //   return null;
+  // }
+
+  // console.log("Project ID:", projectId);
+
+  const token = (
+    await Notifications.getExpoPushTokenAsync({
+      projectId: "9f01360a-9174-4a74-9f8c-87ce6293b8c5",
+    })
+  ).data;
 
   console.log("Expo Push Token:", token);
   return token;
