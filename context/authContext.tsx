@@ -81,9 +81,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const updatePushToken = async () => {
       if (pushToken && deviceId && user) {
-        const { data, error } = await supabase.from("push_tokens").insert({
+        const { data, error } = await supabase.from("push_tokens").upsert({
           device_id: deviceId,
-          push_token: pushToken,
+          token: pushToken,
           user_id: user.id,
         });
 
