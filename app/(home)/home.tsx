@@ -6,6 +6,7 @@ import { useAuth } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -46,9 +47,10 @@ export default function Home() {
         style: "destructive",
         onPress: async () => {
           try {
-            await signOut();
+            // await signOut();
+            await supabase.functions.invoke("read-mails");
             // Navigate back to welcome screen
-            router.replace("/");
+            // router.replace("/");
           } catch (error: any) {
             console.error("Error signing out:", error);
             Alert.alert("Error", error.message || "Failed to sign out");

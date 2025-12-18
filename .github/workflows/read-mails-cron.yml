@@ -1,0 +1,20 @@
+# .github/workflows/read-mails-cron.yml
+name: Read Mails Cron
+
+on:
+  schedule:
+    # Runs at 8 AM and 8 PM UTC
+    - cron: "0 8 * * *"
+    - cron: "0 20 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  call-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Supabase Edge Function
+        run: |
+          curl -X POST \
+            'https://${{ vars.SUPABASE_URL }}/functions/v1/read-mails' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
+            -H 'Content-Type: application/json'

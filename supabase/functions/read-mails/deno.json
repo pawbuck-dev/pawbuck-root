@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "imap": "npm:imap@0.8.19",
+    "mailparser": "npm:mailparser@3.9.1"
+  }
+}
