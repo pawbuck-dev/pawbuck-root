@@ -23,9 +23,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      
+      - name: Set environment variables
+        run: |
+          echo "ZOHO_MAIL=${{ secrets.ZOHO_MAIL }}" >> .env.local
+          echo "ZOHO_MAIL_PASSWORD=${{ secrets.ZOHO_MAIL_PASSWORD }}" >> .env.local
 
       - name: Run read-mails script
-        env:
-          ZOHO_MAIL: ${{ secrets.ZOHO_MAIL }}
-          ZOHO_MAIL_PASSWORD: ${{ secrets.ZOHO_MAIL_PASSWORD }}
         run: npm run read-mails
