@@ -9,12 +9,23 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  call-function:
+  read-mails:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Supabase Edge Function
-        run: |
-          curl -X POST \
-            'https://${{ vars.SUPABASE_URL }}/functions/v1/read-mails' \
-            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_KEY }}' \
-            -H 'Content-Type: application/json'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run read-mails script
+        env:
+          ZOHO_MAIL: ${{ secrets.ZOHO_MAIL }}
+          ZOHO_MAIL_PASSWORD: ${{ secrets.ZOHO_MAIL_PASSWORD }}
+        run: npm run read-mails

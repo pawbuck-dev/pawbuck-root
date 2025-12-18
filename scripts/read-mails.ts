@@ -1,4 +1,7 @@
-// supabase/functions/read-mails/index.ts
+// scripts/read-mails.ts
+// Standalone script to read emails from Zoho Mail via IMAP
+// Run with: npx tsx scripts/read-mails.ts
+
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 
@@ -6,9 +9,21 @@ const readMails = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     console.log("Starting mail read...");
 
+    const user = process.env.ZOHO_MAIL;
+    const password = process.env.ZOHO_MAIL_PASSWORD;
+
+    if (!user || !password) {
+      reject(
+        new Error(
+          "ZOHO_MAIL and ZOHO_MAIL_PASSWORD environment variables are required"
+        )
+      );
+      return;
+    }
+
     const imap = new Imap({
-      user: Deno.env.get("ZOHO_MAIL")!,
-      password: Deno.env.get("ZOHO_MAIL_PASSWORD")!,
+      user,
+      password,
       host: "imap.zoho.com",
       port: 993,
       tls: true,
@@ -55,7 +70,7 @@ const readMails = (): Promise<void> => {
       });
     });
 
-    imap.once("error", (err) => {
+    imap.once("error", (err: Error) => {
       console.error("IMAP Error:", err);
       reject(err);
     });
@@ -69,22 +84,14 @@ const readMails = (): Promise<void> => {
   });
 };
 
-Deno.serve(async (req) => {
+// Main execution
+(async () => {
   try {
     await readMails();
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Emails processed successfully",
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
+    console.log("✅ Emails processed successfully");
+    process.exit(0);
   } catch (error) {
-    console.error("Error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.error("❌ Error:", error);
+    process.exit(1);
   }
-});
+})();

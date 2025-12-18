@@ -13,7 +13,8 @@
     "prebuild:clean": "expo prebuild --clean",
     "postprebuild": "cp debug.keystore android/app/debug.keystore",
     "generate:types": "supabase gen types typescript --local > database.types.ts",
-    "generate:migration": "supabase db diff"
+    "generate:migration": "supabase db diff",
+    "read-mails": "npx tsx --env-file .env.local scripts/read-mails.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -68,7 +69,12 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "tsx": "^4.19.2",
+    "imap": "^0.8.19",
+    "@types/imap": "^0.8.40",
+    "mailparser": "^3.7.1",
+    "@types/mailparser": "^3.4.5"
   },
   "private": true
 }
