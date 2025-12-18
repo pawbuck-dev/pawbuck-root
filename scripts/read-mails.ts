@@ -24,12 +24,9 @@ const readMails = (): Promise<void> => {
     const imap = new Imap({
       user,
       password,
-      host: "imap.zoho.com",
+      host: "imap.zohocloud.ca",
       port: 993,
       tls: true,
-      tlsOptions: {
-        servername: "imap.zoho.com",
-      },
     });
 
     function openInbox(cb: (err: Error | null, box: Imap.Box) => void) {

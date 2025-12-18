@@ -2,6 +2,7 @@ import { registerForPush } from "@/utils/notification";
 import * as Application from "expo-application";
 import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 
 export function useNotificationHandlers() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -19,8 +20,9 @@ export function useNotificationHandlers() {
   useEffect(() => {
     const getDeviceId = async () => {
       const deviceId =
-        Application.getAndroidId() ||
-        (await Application.getIosIdForVendorAsync());
+        Platform.OS === "android"
+          ? Application.getAndroidId()
+          : await Application.getIosIdForVendorAsync();
       setDeviceId(deviceId);
     };
 

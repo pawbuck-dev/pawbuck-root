@@ -79,8 +79,13 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Update pet mutation
   const updatePetMutation = useMutation({
-    mutationFn: ({ petId, petData }: { petId: string; petData: TablesUpdate<"pets"> }) =>
-      updatePet(petId, petData),
+    mutationFn: ({
+      petId,
+      petData,
+    }: {
+      petId: string;
+      petData: TablesUpdate<"pets">;
+    }) => updatePet(petId, petData),
     onSuccess: (updatedPet) => {
       // Optimistically update the cache
       queryClient.setQueryData<Pet[]>(["pets", userId], (old = []) =>
@@ -91,14 +96,6 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Error updating pet:", err);
     },
   });
-
-  useEffect(() => {
-    console.log("pets context mounted");
-
-    return () => {
-      console.log("pets context unmounted");
-    };
-  }, []);
 
   // Add a new pet
   const addPet = useCallback(
@@ -147,7 +144,11 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     handlePetData();
   }, [isOnboardingComplete, addPetMutation, resetOnboarding, petData]);
 
-  const error = queryError?.message || addPetMutation.error?.message || updatePetMutation.error?.message || null;
+  const error =
+    queryError?.message ||
+    addPetMutation.error?.message ||
+    updatePetMutation.error?.message ||
+    null;
 
   return (
     <PetsContext.Provider

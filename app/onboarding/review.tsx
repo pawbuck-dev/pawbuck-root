@@ -52,18 +52,14 @@ export default function OnboardingReview() {
 
   const handleConfirm = () => {
     completeOnboarding();
-    console.log(navigation.getState());
     if (user) {
       // Already authenticated → clear onboarding stack and go back to where onboarding started
       const parent = navigation.getParent();
-      console.log(parent?.getState());
       parent?.dispatch(StackActions.pop());
     } else {
       // Not authenticated → go to complete screen first
       router.push("/onboarding/complete");
     }
-
-    console.log(navigation.getState());
   };
 
   const formatDate = (dateString?: string) => {
