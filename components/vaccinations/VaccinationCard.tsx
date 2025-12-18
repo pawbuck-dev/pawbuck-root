@@ -1,3 +1,4 @@
+import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { Tables, TablesUpdate } from "@/database.types";
@@ -17,6 +18,9 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   const { updateVaccinationMutation, deleteVaccinationMutation } =
     useVaccinations();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+
+  const hasDocument = !!vaccination.document_url;
 
   const handleDelete = () => {
     Alert.alert(
@@ -66,25 +70,44 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
     );
   };
 
+  const handleViewDocument = () => {
+    setShowDocumentModal(true);
+  };
+
   const handleLongPress = () => {
+    const options: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: "cancel" | "destructive";
+    }> = [];
+
+    if (hasDocument) {
+      options.push({
+        text: "View Document",
+        onPress: handleViewDocument,
+      });
+    }
+
+    options.push(
+      {
+        text: "Edit",
+        onPress: handleEdit,
+      },
+      {
+        text: "Delete",
+        onPress: handleDelete,
+        style: "destructive",
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      }
+    );
+
     Alert.alert(
       vaccination.name,
       "What would you like to do?",
-      [
-        {
-          text: "Edit",
-          onPress: handleEdit,
-        },
-        {
-          text: "Delete",
-          onPress: handleDelete,
-          style: "destructive",
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ],
+      options,
       { cancelable: true }
     );
   };
@@ -119,6 +142,16 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               {vaccination.name}
             </Text>
           </View>
+          {hasDocument && (
+            <TouchableOpacity
+              className="w-9 h-9 rounded-full items-center justify-center ml-2"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              onPress={handleViewDocument}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="document-attach" size={18} color={theme.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Date Information */}
@@ -189,6 +222,14 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
         onSave={handleSaveEdit}
         vaccination={vaccination}
         loading={updateVaccinationMutation.isPending}
+      />
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        documentPath={vaccination.document_url}
+        title="Vaccination Document"
       />
     </>
   );

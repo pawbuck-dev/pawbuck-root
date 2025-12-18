@@ -18,15 +18,15 @@ import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type ProcessingStatus =
@@ -89,7 +89,7 @@ export default function VaccinationUploadModal() {
         return;
       }
 
-      const supabaseVaccines = parseVaccinationOCRResponse(pet.id, ocrData!);
+      const supabaseVaccines = parseVaccinationOCRResponse(pet.id, ocrData!, data.path);
 
       // Store extracted data and switch to review mode
       setExtractedVaccinations(supabaseVaccines);

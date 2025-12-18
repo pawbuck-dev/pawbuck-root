@@ -163,6 +163,7 @@ export type Database = {
           created_at: string;
           custom_frequency_unit: string | null;
           custom_frequency_value: number | null;
+          document_url: string | null;
           dosage: string;
           end_date: string | null;
           frequency: string;
@@ -184,6 +185,7 @@ export type Database = {
           created_at?: string;
           custom_frequency_unit?: string | null;
           custom_frequency_value?: number | null;
+          document_url?: string | null;
           dosage: string;
           end_date?: string | null;
           frequency: string;
@@ -205,6 +207,7 @@ export type Database = {
           created_at?: string;
           custom_frequency_unit?: string | null;
           custom_frequency_value?: number | null;
+          document_url?: string | null;
           dosage?: string;
           end_date?: string | null;
           frequency?: string;

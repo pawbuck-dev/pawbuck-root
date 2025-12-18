@@ -18,6 +18,7 @@ export interface Medicine {
   next_due_date?: string | null;
   reminder_enabled: boolean;
   reminder_timing?: string | null;
+  document_url?: string | null;
   created_at: string;
   updated_at: string;
 }

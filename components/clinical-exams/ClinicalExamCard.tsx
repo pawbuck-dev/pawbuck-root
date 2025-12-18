@@ -1,3 +1,4 @@
+import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
@@ -14,6 +15,9 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
   const { theme } = useTheme();
   const { updateClinicalExamMutation, deleteClinicalExamMutation } = useClinicalExams();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+
+  const hasDocument = !!exam.document_url;
 
   const hasValue = (value: number | null | undefined): boolean => {
     return value !== null && value !== undefined && value !== 0;
@@ -84,15 +88,34 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
     );
   };
 
+  const handleViewDocument = () => {
+    setShowDocumentModal(true);
+  };
+
   const handleLongPress = () => {
+    const options: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: "cancel" | "destructive";
+    }> = [];
+
+    if (hasDocument) {
+      options.push({
+        text: "View Document",
+        onPress: handleViewDocument,
+      });
+    }
+
+    options.push(
+      { text: "Edit", onPress: handleEdit },
+      { text: "Delete", onPress: handleDelete, style: "destructive" },
+      { text: "Cancel", style: "cancel" }
+    );
+
     Alert.alert(
       exam.exam_type || "Clinical Exam",
       "What would you like to do?",
-      [
-        { text: "Edit", onPress: handleEdit },
-        { text: "Delete", onPress: handleDelete, style: "destructive" },
-        { text: "Cancel", style: "cancel" },
-      ],
+      options,
       { cancelable: true }
     );
   };
@@ -127,6 +150,16 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
               {new Date(exam.exam_date).toLocaleDateString()}
             </Text>
           </View>
+          {hasDocument && (
+            <TouchableOpacity
+              className="w-9 h-9 rounded-full items-center justify-center ml-2"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              onPress={handleViewDocument}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="document-attach" size={18} color={theme.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Exam Details */}
@@ -230,6 +263,14 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
         onSave={handleSaveEdit}
         exam={exam}
         loading={updateClinicalExamMutation.isPending}
+      />
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        documentPath={exam.document_url}
+        title="Exam Document"
       />
     </>
   );
