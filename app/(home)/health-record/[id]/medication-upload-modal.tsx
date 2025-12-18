@@ -17,15 +17,15 @@ import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type ProcessingStatus =
@@ -77,6 +77,7 @@ export default function MedicationUploadModal() {
   // OCR extracted medications
   const [extractedMedications, setExtractedMedications] = useState<MedicationData[]>([]);
   const [extractionConfidence, setExtractionConfidence] = useState<number>(0);
+  const [documentPath, setDocumentPath] = useState<string | null>(null);
 
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
   const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
@@ -94,6 +95,9 @@ export default function MedicationUploadModal() {
         file,
         `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/medications/${Date.now()}.${extension}`
       );
+
+      // Store the document path for later use
+      setDocumentPath(data.path);
 
       // Step 2: Extracting
       setStatus("extracting");
@@ -237,6 +241,7 @@ export default function MedicationUploadModal() {
         purpose: med.purposeNotes || null,
         reminder_enabled: true,
         reminder_timing: 'Day of',
+        document_url: documentPath,
       }));
 
       const { error: insertError } = await supabase

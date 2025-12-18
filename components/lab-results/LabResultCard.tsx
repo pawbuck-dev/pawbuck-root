@@ -1,13 +1,14 @@
-import { useTheme } from "@/context/themeContext";
+import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useLabResults } from "@/context/labResultsContext";
+import { useTheme } from "@/context/themeContext";
 import { LabResult } from "@/services/labResults";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { LabResultEditModal } from "./LabResultEditModal";
 
@@ -19,31 +20,53 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
   const { theme } = useTheme();
   const { updateLabResultMutation, deleteLabResultMutation } = useLabResults();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+
+  const hasDocument = !!labResult.document_url;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Date not specified";
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleViewDocument = () => {
+    setShowDocumentModal(true);
+  };
+
   const handleLongPress = () => {
+    const options: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: "cancel" | "destructive";
+    }> = [];
+
+    if (hasDocument) {
+      options.push({
+        text: "View Document",
+        onPress: handleViewDocument,
+      });
+    }
+
+    options.push(
+      {
+        text: "Edit",
+        onPress: () => setShowEditModal(true),
+      },
+      {
+        text: "Delete",
+        onPress: () => handleDelete(),
+        style: "destructive",
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      }
+    );
+
     Alert.alert(
       labResult.test_type,
       "Choose an action",
-      [
-        {
-          text: "Edit",
-          onPress: () => setShowEditModal(true),
-        },
-        {
-          text: "Delete",
-          onPress: () => handleDelete(),
-          style: "destructive",
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ],
+      options,
       { cancelable: true }
     );
   };
@@ -142,6 +165,16 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
               </View>
             </View>
           </View>
+          {hasDocument && (
+            <TouchableOpacity
+              className="w-9 h-9 rounded-full items-center justify-center ml-2"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              onPress={handleViewDocument}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="document-attach" size={18} color={theme.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Details */}
@@ -253,6 +286,14 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
         onClose={() => setShowEditModal(false)}
         onSave={handleSaveEdit}
         loading={updateLabResultMutation.isPending}
+      />
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        documentPath={labResult.document_url || null}
+        title="Lab Result Document"
       />
     </>
   );

@@ -1,5 +1,6 @@
-import { useTheme } from "@/context/themeContext";
+import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useMedicines } from "@/context/medicinesContext";
+import { useTheme } from "@/context/themeContext";
 import { Medicine } from "@/services/medicines";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -14,6 +15,9 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const { theme } = useTheme();
   const { updateMedicineMutation, deleteMedicineMutation } = useMedicines();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+
+  const hasDocument = !!medicine.document_url;
 
   const handleDelete = () => {
     Alert.alert(
@@ -63,25 +67,44 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     );
   };
 
+  const handleViewDocument = () => {
+    setShowDocumentModal(true);
+  };
+
   const handleLongPress = () => {
+    const options: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: "cancel" | "destructive";
+    }> = [];
+
+    if (hasDocument) {
+      options.push({
+        text: "View Document",
+        onPress: handleViewDocument,
+      });
+    }
+
+    options.push(
+      {
+        text: "Edit",
+        onPress: handleEdit,
+      },
+      {
+        text: "Delete",
+        onPress: handleDelete,
+        style: "destructive",
+      },
+      {
+        text: "Cancel",
+        style: "cancel",
+      }
+    );
+
     Alert.alert(
       medicine.name,
       "What would you like to do?",
-      [
-        {
-          text: "Edit",
-          onPress: handleEdit,
-        },
-        {
-          text: "Delete",
-          onPress: handleDelete,
-          style: "destructive",
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ],
+      options,
       { cancelable: true }
     );
   };
@@ -169,6 +192,16 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               </View>
             </View>
           </View>
+          {hasDocument && (
+            <TouchableOpacity
+              className="w-9 h-9 rounded-full items-center justify-center ml-2"
+              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              onPress={handleViewDocument}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="document-attach" size={18} color={theme.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Medication Details */}
@@ -239,6 +272,14 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
         onClose={() => setShowEditModal(false)}
         onSave={handleSaveEdit}
         loading={updateMedicineMutation.isPending}
+      />
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={showDocumentModal}
+        onClose={() => setShowDocumentModal(false)}
+        documentPath={medicine.document_url || null}
+        title="Prescription Document"
       />
     </>
   );

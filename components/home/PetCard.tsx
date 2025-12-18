@@ -1,10 +1,14 @@
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { fetchClinicalExams } from "@/services/clinicalExams";
+import { fetchLabResults } from "@/services/labResults";
+import { fetchMedicines } from "@/services/medicines";
+import { generateAndSharePetPassport } from "@/services/pdfGenerator";
+import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import QRCode from "react-native-qrcode-svg";
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { PetEditModal } from "./PetEditModal";
 import PetImage from "./PetImage";
 
@@ -17,9 +21,39 @@ export default function PetCard({ pet }: PetCardProps) {
   const { theme } = useTheme();
   const { updatePet, updatingPet } = usePets();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const handleUpdatePet = async (petId: string, petData: any) => {
     await updatePet(petId, petData);
+  };
+
+  const handleDownloadPassport = async () => {
+    try {
+      setGeneratingPDF(true);
+      // Fetch all health records for this pet in parallel
+      const [vaccinations, medicines, clinicalExams, labResults] = await Promise.all([
+        getVaccinationsByPetId(pet.id),
+        fetchMedicines(pet.id),
+        fetchClinicalExams(pet.id),
+        fetchLabResults(pet.id),
+      ]);
+      // Generate and share the PDF with all documents
+      await generateAndSharePetPassport({
+        pet,
+        vaccinations: vaccinations || [],
+        medicines: medicines || [],
+        clinicalExams: clinicalExams || [],
+        labResults: labResults || [],
+      });
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to generate health passport"
+      );
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   const calculateAge = (dateOfBirth: string): number => {
@@ -90,28 +124,6 @@ export default function PetCard({ pet }: PetCardProps) {
         )}
       </View>
 
-      {/* QR Code */}
-      <View className="items-center mb-5">
-        <View
-          className="w-32 h-32 rounded-lg items-center justify-center p-3"
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}
-        >
-          <QRCode
-            value={`https://pawbuck.app/pet/${pet.id}`}
-            size={104}
-            backgroundColor="#FFFFFF"
-            color="#000000"
-          />
-        </View>
-        <Text className="mt-3 text-xs" style={{ color: theme.secondary }}>
-          Scan for health passport
-        </Text>
-      </View>
-
       {/* Health at a Glance */}
       <View
         className="rounded-2xl p-4 mb-4"
@@ -169,35 +181,68 @@ export default function PetCard({ pet }: PetCardProps) {
         </View>
       </View>
 
-      {/* Health Records Button */}
-      <TouchableOpacity
-        className="rounded-2xl py-4 items-center"
-        style={{
-          backgroundColor: theme.primary,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}
-        onPress={() =>
-          router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
-        }
-      >
-        <View className="flex-row items-center gap-2">
-          <Ionicons
-            name="document-text-outline"
-            size={20}
-            color={theme.primaryForeground}
-          />
-          <Text
-            className="font-semibold text-base"
-            style={{ color: theme.primaryForeground }}
-          >
-            Health Records
-          </Text>
-        </View>
-      </TouchableOpacity>
+      {/* Action Buttons */}
+      <View className="gap-3">
+        {/* Health Records Button */}
+        <TouchableOpacity
+          className="rounded-2xl py-4 items-center"
+          style={{
+            backgroundColor: theme.primary,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
+          onPress={() =>
+            router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
+          }
+        >
+          <View className="flex-row items-center gap-2">
+            <Ionicons
+              name="document-text-outline"
+              size={20}
+              color={theme.primaryForeground}
+            />
+            <Text
+              className="font-semibold text-base"
+              style={{ color: theme.primaryForeground }}
+            >
+              Health Records
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Download Passport Button */}
+        <TouchableOpacity
+          className="rounded-2xl py-4 items-center flex-row justify-center"
+          style={{
+            backgroundColor: theme.dashedCard,
+            borderWidth: 1,
+            borderColor: theme.primary,
+          }}
+          onPress={handleDownloadPassport}
+          disabled={generatingPDF}
+        >
+          {generatingPDF ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <View className="flex-row items-center gap-2">
+              <Ionicons
+                name="download-outline"
+                size={20}
+                color={theme.primary}
+              />
+              <Text
+                className="font-semibold text-base"
+                style={{ color: theme.primary }}
+              >
+                Download Passport
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
 
       {/* Edit Modal */}
       {showEditModal && (
