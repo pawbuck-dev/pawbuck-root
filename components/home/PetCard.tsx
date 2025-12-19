@@ -18,46 +18,7 @@ type PetCardProps = {
   pet: Pet;
 };
 
-// Status colors
-const STATUS_COLORS = {
-  upToDate: "#34C759", // Green
-  dueSoon: "#F59E0B", // Orange
-  dueToday: "#F59E0B", // Orange
-  overdue: "#FF3B30", // Red
-  active: "#34C759", // Green
-  due: "#F59E0B", // Orange
-  scheduled: "#3B82F6", // Blue
-  completed: "#9CA3AF", // Gray
-};
-
-// Vaccination status helpers
-type VaccinationStatus = "Up-to-date" | "Due Today" | "Due Soon" | "Overdue";
-
-const getVaccinationStatus = (nextDueDate: string | null): VaccinationStatus => {
-  if (!nextDueDate) return "Up-to-date";
-  
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const dueDate = new Date(nextDueDate);
-  dueDate.setHours(0, 0, 0, 0);
-  
-  const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  
-  if (diffDays < 0) return "Overdue";
-  if (diffDays === 0) return "Due Today";
-  if (diffDays <= 7) return "Due Soon";
-  return "Up-to-date";
-};
-
-const getVaccinationStatusColor = (status: VaccinationStatus): string => {
-  switch (status) {
-    case "Up-to-date": return STATUS_COLORS.upToDate;
-    case "Due Today": return STATUS_COLORS.dueToday;
-    case "Due Soon": return STATUS_COLORS.dueSoon;
-    case "Overdue": return STATUS_COLORS.overdue;
-  }
-};
-
+// Vaccination helpers
 const getNearestUpcomingVaccination = (vaccinations: Tables<"vaccinations">[]): Tables<"vaccinations"> | null => {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -84,8 +45,6 @@ const getNearestUpcomingVaccination = (vaccinations: Tables<"vaccinations">[]): 
 };
 
 // Medication helpers
-type MedicationStatus = "Active" | "Due" | "Scheduled" | "Completed";
-
 const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
   const { frequency, scheduled_day } = medicine;
   
@@ -189,51 +148,12 @@ const getNextMedicationDose = (medicine: Medicine): Date | null => {
   return getNextMedicationDose({ ...medicine, start_date: tomorrow.toISOString() });
 };
 
-const getMedicationStatus = (medicine: Medicine): MedicationStatus => {
+const isMedicationCompleted = (medicine: Medicine): boolean => {
+  if (!medicine.end_date) return false;
   const now = new Date();
-  
-  // Check if medication hasn't started yet (Scheduled)
-  if (medicine.start_date) {
-    const startDate = new Date(medicine.start_date);
-    startDate.setHours(0, 0, 0, 0);
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    if (startDate > todayStart) return "Scheduled";
-  }
-  
-  // Check if medication has ended (Completed)
-  if (medicine.end_date) {
-    const endDate = new Date(medicine.end_date);
-    endDate.setHours(23, 59, 59, 999);
-    if (endDate < now) return "Completed";
-  }
-  
-  // Check if dose is due
-  if (medicine.frequency !== "As Needed" && medicine.scheduled_times?.length) {
-    if (isTodayScheduledDay(medicine, now)) {
-      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-      
-      for (const time of medicine.scheduled_times) {
-        const [hours, minutes] = time.split(":");
-        const scheduledMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
-        
-        if (scheduledMinutes <= currentTimeMinutes && currentTimeMinutes - scheduledMinutes <= 30) {
-          return "Due";
-        }
-      }
-    }
-  }
-  
-  return "Active";
-};
-
-const getMedicationStatusColor = (status: MedicationStatus): string => {
-  switch (status) {
-    case "Active": return STATUS_COLORS.active;
-    case "Due": return STATUS_COLORS.due;
-    case "Scheduled": return STATUS_COLORS.scheduled;
-    case "Completed": return STATUS_COLORS.completed;
-  }
+  const endDate = new Date(medicine.end_date);
+  endDate.setHours(23, 59, 59, 999);
+  return endDate < now;
 };
 
 const getNearestMedicationDose = (medicines: Medicine[]): { medicine: Medicine; nextDose: Date } | null => {
@@ -241,7 +161,7 @@ const getNearestMedicationDose = (medicines: Medicine[]): { medicine: Medicine; 
   
   for (const medicine of medicines) {
     // Skip completed medications
-    if (getMedicationStatus(medicine) === "Completed") continue;
+    if (isMedicationCompleted(medicine)) continue;
     
     const nextDose = getNextMedicationDose(medicine);
     if (nextDose) {
@@ -301,26 +221,11 @@ export default function PetCard({ pet }: PetCardProps) {
   // Compute health at a glance data
   const healthData = useMemo(() => {
     const nearestVaccination = getNearestUpcomingVaccination(vaccinations);
-    const vaccinationStatus = nearestVaccination
-      ? getVaccinationStatus(nearestVaccination.next_due_date)
-      : "Up-to-date";
-    const vaccinationStatusColor = getVaccinationStatusColor(vaccinationStatus);
-
     const nearestMedication = getNearestMedicationDose(medicines);
-    const medicationStatus = nearestMedication
-      ? getMedicationStatus(nearestMedication.medicine)
-      : null;
-    const medicationStatusColor = medicationStatus
-      ? getMedicationStatusColor(medicationStatus)
-      : null;
 
     return {
       nearestVaccination,
-      vaccinationStatus,
-      vaccinationStatusColor,
       nearestMedication,
-      medicationStatus,
-      medicationStatusColor,
     };
   }, [vaccinations, medicines]);
 
@@ -442,30 +347,17 @@ export default function PetCard({ pet }: PetCardProps) {
           <View className="flex-row items-center">
             <View
               className="w-8 h-8 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: healthData.vaccinationStatusColor + "20" }}
+              style={{ backgroundColor: theme.primary + "20" }}
             >
-              <Ionicons name="medical" size={16} color={healthData.vaccinationStatusColor} />
+              <Ionicons name="medical" size={16} color={theme.primary} />
             </View>
             <View className="flex-1">
-              <View className="flex-row items-center gap-2 mb-0.5">
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: theme.cardForeground }}
-                >
-                  Vaccines
-                </Text>
-                <View
-                  className="px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: healthData.vaccinationStatusColor + "20" }}
-                >
-                  <Text
-                    className="text-[10px] font-semibold"
-                    style={{ color: healthData.vaccinationStatusColor }}
-                  >
-                    {healthData.vaccinationStatus}
-                  </Text>
-                </View>
-              </View>
+              <Text
+                className="text-xs font-semibold mb-0.5"
+                style={{ color: theme.cardForeground }}
+              >
+                Vaccines
+              </Text>
               <Text className="text-xs" style={{ color: theme.secondary }}>
                 {healthData.nearestVaccination
                   ? `Next: ${healthData.nearestVaccination.name} on ${formatDate(new Date(healthData.nearestVaccination.next_due_date!), true)}`
@@ -478,38 +370,17 @@ export default function PetCard({ pet }: PetCardProps) {
           <View className="flex-row items-center">
             <View
               className="w-8 h-8 rounded-full items-center justify-center mr-3"
-              style={{
-                backgroundColor: (healthData.medicationStatusColor || "#FF9800") + "20",
-              }}
+              style={{ backgroundColor: "#FF980020" }}
             >
-              <Ionicons
-                name="medkit"
-                size={16}
-                color={healthData.medicationStatusColor || "#FF9800"}
-              />
+              <Ionicons name="medkit" size={16} color="#FF9800" />
             </View>
             <View className="flex-1">
-              <View className="flex-row items-center gap-2 mb-0.5">
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: theme.cardForeground }}
-                >
-                  Medicines
-                </Text>
-                {healthData.medicationStatus && healthData.medicationStatusColor && (
-                  <View
-                    className="px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: healthData.medicationStatusColor + "20" }}
-                  >
-                    <Text
-                      className="text-[10px] font-semibold"
-                      style={{ color: healthData.medicationStatusColor }}
-                    >
-                      {healthData.medicationStatus}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              <Text
+                className="text-xs font-semibold mb-0.5"
+                style={{ color: theme.cardForeground }}
+              >
+                Medicines
+              </Text>
               <Text className="text-xs" style={{ color: theme.secondary }}>
                 {healthData.nearestMedication
                   ? `Next: ${healthData.nearestMedication.medicine.name} ${formatDate(healthData.nearestMedication.nextDose) === "Today" ? "at" : "on"} ${formatDate(healthData.nearestMedication.nextDose) === "Today" ? formatTime(healthData.nearestMedication.nextDose) : formatDate(healthData.nearestMedication.nextDose)}`

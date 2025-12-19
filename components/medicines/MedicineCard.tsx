@@ -73,58 +73,6 @@ const formatScheduleDisplay = (medicine: Medicine): string => {
   return times;
 };
 
-// Helper function to check if today is the scheduled day for the medication
-const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
-  const { frequency, scheduled_day } = medicine;
-  
-  if (scheduled_day === null || scheduled_day === undefined) {
-    return true; // No specific day required, so it's always the scheduled day
-  }
-
-  if (requiresDayOfWeek(frequency)) {
-    // Weekly: check day of week (0 = Sunday, 6 = Saturday)
-    return now.getDay() === scheduled_day;
-  }
-
-  if (requiresDayOfMonth(frequency)) {
-    // Monthly: check day of month (1-31)
-    return now.getDate() === scheduled_day;
-  }
-
-  return true;
-};
-
-// Helper function to check if any dose is due today
-const checkIfDoseIsDue = (medicine: Medicine, now: Date): boolean => {
-  const { scheduled_times } = medicine;
-  
-  // First check if today is the scheduled day
-  if (!isTodayScheduledDay(medicine, now)) {
-    return false;
-  }
-
-  if (!scheduled_times || scheduled_times.length === 0) {
-    return false;
-  }
-
-  const currentHours = now.getHours();
-  const currentMinutes = now.getMinutes();
-  const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-
-  // Check if any scheduled time has passed today
-  for (const time of scheduled_times) {
-    const [hours, minutes] = time.split(":");
-    const scheduledTimeInMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
-    
-    // If the scheduled time has passed and it's within 30 minutes window, it's due
-    if (scheduledTimeInMinutes <= currentTimeInMinutes && 
-        currentTimeInMinutes - scheduledTimeInMinutes <= 30) {
-      return true;
-    }
-  }
-  return false;
-};
-
 export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const { theme } = useTheme();
   const { updateMedicineMutation, deleteMedicineMutation } = useMedicines();
@@ -231,57 +179,6 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const getStatusBadge = () => {
     const now = new Date();
 
-    // "As Needed" medications are always just "Active" if within date range
-    if (medicine.frequency === "As Needed") {
-      // Check if medication hasn't started yet
-      if (medicine.start_date) {
-        const startDate = new Date(medicine.start_date);
-        startDate.setHours(0, 0, 0, 0);
-        const todayStart = new Date(now);
-        todayStart.setHours(0, 0, 0, 0);
-        if (startDate > todayStart) {
-          return {
-            label: "Scheduled",
-            color: "#3B82F6",
-            bgColor: "rgba(59, 130, 246, 0.2)",
-          };
-        }
-      }
-      // Check if ended
-      if (medicine.end_date) {
-        const endDate = new Date(medicine.end_date);
-        endDate.setHours(23, 59, 59, 999);
-        if (endDate < now) {
-          return {
-            label: "Completed",
-            color: theme.secondary,
-            bgColor: "rgba(156, 163, 175, 0.2)",
-          };
-        }
-      }
-      return {
-        label: "Active",
-        color: theme.primary,
-        bgColor: "rgba(95, 196, 192, 0.2)",
-      };
-    }
-
-    // Check if medication hasn't started yet (Scheduled)
-    if (medicine.start_date) {
-      const startDate = new Date(medicine.start_date);
-      startDate.setHours(0, 0, 0, 0);
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      
-      if (startDate > todayStart) {
-        return {
-          label: "Scheduled",
-          color: "#3B82F6", // Blue
-          bgColor: "rgba(59, 130, 246, 0.2)",
-        };
-      }
-    }
-
     // Check if medication has ended (Completed)
     if (medicine.end_date) {
       const endDate = new Date(medicine.end_date);
@@ -291,18 +188,6 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
           label: "Completed",
           color: theme.secondary,
           bgColor: "rgba(156, 163, 175, 0.2)",
-        };
-      }
-    }
-
-    // Check if a dose is due today based on scheduled_times and scheduled_day
-    if (requiresScheduledTime(medicine.frequency)) {
-      const isDue = checkIfDoseIsDue(medicine, now);
-      if (isDue) {
-        return {
-          label: "Due",
-          color: "#F59E0B", // Orange/amber
-          bgColor: "rgba(245, 158, 11, 0.2)",
         };
       }
     }
