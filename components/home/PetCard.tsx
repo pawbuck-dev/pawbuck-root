@@ -93,7 +93,7 @@ const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
     return true;
   }
   
-  if (frequency === "Weekly" || frequency === "Bi-weekly") {
+  if (frequency === "Weekly") {
     return now.getDay() === scheduled_day;
   }
   
@@ -135,12 +135,11 @@ const getNextMedicationDose = (medicine: Medicine): Date | null => {
   // Check if today is a scheduled day
   if (!isTodayScheduledDay(medicine, now)) {
     // Find next scheduled day
-    if (frequency === "Weekly" || frequency === "Bi-weekly") {
+    if (frequency === "Weekly") {
       const targetDay = scheduled_day!;
       const currentDay = now.getDay();
       let daysUntil = targetDay - currentDay;
       if (daysUntil <= 0) daysUntil += 7;
-      if (frequency === "Bi-weekly" && daysUntil === 7) daysUntil += 7;
       
       const nextDate = new Date(now);
       nextDate.setDate(now.getDate() + daysUntil);

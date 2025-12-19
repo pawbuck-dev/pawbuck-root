@@ -27,7 +27,7 @@ const formatDayOfMonth = (day: number): string => {
 
 // Helper function to check if frequency requires day of week
 const requiresDayOfWeek = (frequency: string): boolean => {
-  return frequency === "Weekly" || frequency === "Bi-weekly";
+  return frequency === "Weekly";
 };
 
 // Helper function to check if frequency requires day of month
@@ -60,9 +60,6 @@ const formatScheduleDisplay = (medicine: Medicine): string => {
     return `Every ${daysOfWeek[scheduled_day]}${times ? ` at ${times}` : ""}`;
   }
   
-  if (frequency === "Bi-weekly" && scheduled_day !== null && scheduled_day !== undefined) {
-    return `Every other ${daysOfWeek[scheduled_day]}${times ? ` at ${times}` : ""}`;
-  }
   
   if (frequency === "Monthly" && scheduled_day !== null && scheduled_day !== undefined) {
     return `${formatDayOfMonth(scheduled_day)} of each month${times ? ` at ${times}` : ""}`;
@@ -85,7 +82,7 @@ const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
   }
 
   if (requiresDayOfWeek(frequency)) {
-    // Weekly or Bi-weekly: check day of week (0 = Sunday, 6 = Saturday)
+    // Weekly: check day of week (0 = Sunday, 6 = Saturday)
     return now.getDay() === scheduled_day;
   }
 
@@ -409,7 +406,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
             </Text>
           </View>
 
-          {/* Schedule display - shows day + time for Weekly/Bi-weekly/Monthly, just times for daily frequencies */}
+          {/* Schedule display - shows day + time for Weekly/Monthly, just times for daily frequencies */}
           {requiresScheduledTime(medicine.frequency) && formatScheduleDisplay(medicine) && (
             <View className="flex-row items-center mb-2">
               <Ionicons name="alarm-outline" size={14} color={theme.secondary} />
