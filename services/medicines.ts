@@ -19,6 +19,8 @@ export interface Medicine {
   reminder_enabled: boolean;
   reminder_timing?: string | null;
   document_url?: string | null;
+  scheduled_times?: string[] | null;
+  scheduled_day?: number | null;
   created_at: string;
   updated_at: string;
 }

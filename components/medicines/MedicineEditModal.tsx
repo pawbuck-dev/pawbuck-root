@@ -23,6 +23,110 @@ interface MedicineEditModalProps {
   loading?: boolean;
 }
 
+// Days of week for Weekly/Bi-weekly
+const daysOfWeek = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
+
+// Helper to format day of month with ordinal suffix
+const formatDayOfMonth = (day: number): string => {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}st`;
+    case 2: return `${day}nd`;
+    case 3: return `${day}rd`;
+    default: return `${day}th`;
+  }
+};
+
+// Helper function to check if frequency requires day of week
+const requiresDayOfWeek = (frequency: string): boolean => {
+  return frequency === "Weekly" || frequency === "Bi-weekly";
+};
+
+// Helper function to check if frequency requires day of month
+const requiresDayOfMonth = (frequency: string): boolean => {
+  return frequency === "Monthly";
+};
+
+// Helper function to check if frequency requires scheduled time
+const requiresScheduledTime = (frequency: string): boolean => {
+  return frequency !== "As Needed";
+};
+
+// Helper function to get time slot labels based on frequency
+const getTimeSlotLabels = (frequency: string): string[] => {
+  switch (frequency) {
+    case "Twice Daily":
+      return ["Morning Dose", "Evening Dose"];
+    case "Three Times Daily":
+      return ["Morning Dose", "Afternoon Dose", "Evening Dose"];
+    case "As Needed":
+      return []; // No scheduled times for "As Needed"
+    default:
+      return ["Dose Time"];
+  }
+};
+
+// Helper function to get number of time slots based on frequency
+const getTimeSlotCount = (frequency: string): number => {
+  switch (frequency) {
+    case "Twice Daily":
+      return 2;
+    case "Three Times Daily":
+      return 3;
+    case "As Needed":
+      return 0; // No scheduled times for "As Needed"
+    default:
+      return 1;
+  }
+};
+
+// Helper function to format time for display (24h to 12h)
+const formatTimeForDisplay = (time: string | null): string => {
+  if (!time) return "Select time";
+  const [hours, minutes] = time.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
+// Helper function to convert Date to 24h time string
+const dateToTimeString = (date: Date): string => {
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+// Helper function to convert 24h time string to Date
+const timeStringToDate = (time: string | null): Date => {
+  const date = new Date();
+  if (time) {
+    const [hours, minutes] = time.split(":");
+    date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+  }
+  return date;
+};
+
+// Helper to initialize scheduled times from medicine data
+const initializeScheduledTimes = (medicine: Medicine): (string | null)[] => {
+  const requiredSlots = getTimeSlotCount(medicine.frequency);
+  const existingTimes = medicine.scheduled_times || [];
+  // Pad with nulls if existing times are less than required
+  const times: (string | null)[] = [...existingTimes];
+  while (times.length < requiredSlots) {
+    times.push(null);
+  }
+  return times.slice(0, requiredSlots);
+};
+
 export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   visible,
   onClose,
@@ -39,6 +143,10 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   const [endDate, setEndDate] = useState(medicine.end_date);
   const [prescribedBy, setPrescribedBy] = useState(medicine.prescribed_by || "");
   const [purpose, setPurpose] = useState(medicine.purpose || "");
+  const [scheduledTimes, setScheduledTimes] = useState<(string | null)[]>(
+    initializeScheduledTimes(medicine)
+  );
+  const [scheduledDay, setScheduledDay] = useState<number | null>(medicine.scheduled_day ?? null);
 
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -46,6 +154,10 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [tempStartDate, setTempStartDate] = useState(medicine.start_date);
   const [tempEndDate, setTempEndDate] = useState(medicine.end_date);
+  const [editingTimeSlotIndex, setEditingTimeSlotIndex] = useState<number | null>(null);
+  const [tempTime, setTempTime] = useState<Date>(new Date());
+  const [showDayOfWeekPicker, setShowDayOfWeekPicker] = useState(false);
+  const [showDayOfMonthPicker, setShowDayOfMonthPicker] = useState(false);
 
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
   const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
@@ -61,6 +173,30 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
       return;
     }
 
+    // Validate day of week for Weekly/Bi-weekly
+    if (requiresDayOfWeek(frequency) && scheduledDay === null) {
+      Alert.alert("Required Field", "Please select a day of week");
+      return;
+    }
+
+    // Validate day of month for Monthly
+    if (requiresDayOfMonth(frequency) && scheduledDay === null) {
+      Alert.alert("Required Field", "Please select a day of month");
+      return;
+    }
+
+    // Validate scheduled times (skip for "As Needed")
+    if (requiresScheduledTime(frequency)) {
+      const validScheduledTimes = scheduledTimes.filter((t): t is string => t !== null);
+      const requiredTimeSlots = getTimeSlotCount(frequency);
+      if (validScheduledTimes.length < requiredTimeSlots) {
+        Alert.alert("Required Field", "Please set all scheduled times for doses");
+        return;
+      }
+    }
+
+    const validScheduledTimes = scheduledTimes.filter((t): t is string => t !== null);
+
     const updateData: Partial<Medicine> = {
       name,
       type,
@@ -70,6 +206,8 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
       end_date: endDate,
       prescribed_by: prescribedBy || null,
       purpose: purpose || null,
+      scheduled_times: requiresScheduledTime(frequency) ? validScheduledTimes : null,
+      scheduled_day: scheduledDay,
     };
 
     onSave(medicine.id, updateData);
@@ -212,6 +350,107 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
               <Ionicons name="chevron-down" size={20} color={theme.secondary} />
             </TouchableOpacity>
           </View>
+
+          {/* Day of Week (for Weekly/Bi-weekly) */}
+          {requiresDayOfWeek(frequency) && (
+            <View className="mb-4">
+              <Text
+                className="text-sm font-medium mb-2"
+                style={{ color: theme.secondary }}
+              >
+                Day of Week *
+              </Text>
+              <TouchableOpacity
+                className="p-4 rounded-xl flex-row items-center justify-between"
+                style={{ backgroundColor: theme.card }}
+                onPress={() => setShowDayOfWeekPicker(true)}
+                disabled={loading}
+              >
+                <Text
+                  className="text-base"
+                  style={{
+                    color: scheduledDay !== null ? theme.foreground : theme.secondary,
+                  }}
+                >
+                  {scheduledDay !== null
+                    ? daysOfWeek.find((d) => d.value === scheduledDay)?.label
+                    : "Select day"}
+                </Text>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Day of Month (for Monthly) */}
+          {requiresDayOfMonth(frequency) && (
+            <View className="mb-4">
+              <Text
+                className="text-sm font-medium mb-2"
+                style={{ color: theme.secondary }}
+              >
+                Day of Month *
+              </Text>
+              <TouchableOpacity
+                className="p-4 rounded-xl flex-row items-center justify-between"
+                style={{ backgroundColor: theme.card }}
+                onPress={() => setShowDayOfMonthPicker(true)}
+                disabled={loading}
+              >
+                <Text
+                  className="text-base"
+                  style={{
+                    color: scheduledDay !== null ? theme.foreground : theme.secondary,
+                  }}
+                >
+                  {scheduledDay !== null
+                    ? formatDayOfMonth(scheduledDay)
+                    : "Select day"}
+                </Text>
+                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Scheduled Times (hide for "As Needed") */}
+          {requiresScheduledTime(frequency) && (
+            <View className="mb-4">
+              <Text
+                className="text-sm font-medium mb-2"
+                style={{ color: theme.secondary }}
+              >
+                Scheduled Times *
+              </Text>
+              {getTimeSlotLabels(frequency).map((label, index) => (
+                <View key={index} className="mb-2">
+                  <Text
+                    className="text-xs mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    {label}
+                  </Text>
+                  <TouchableOpacity
+                    className="p-4 rounded-xl flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.card }}
+                    onPress={() => {
+                      setTempTime(timeStringToDate(scheduledTimes[index]));
+                      setEditingTimeSlotIndex(index);
+                    }}
+                    disabled={loading}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{
+                        color: scheduledTimes[index] ? theme.foreground : theme.secondary,
+                      }}
+                    >
+                      {formatTimeForDisplay(scheduledTimes[index])}
+                    </Text>
+                    <Ionicons name="time-outline" size={20} color={theme.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Start Date */}
           <View className="mb-4">
@@ -400,6 +639,16 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     className="py-4 border-b"
                     style={{ borderBottomColor: theme.card }}
                     onPress={() => {
+                      // Reset scheduled times and day when frequency changes
+                      const newTimeSlotCount = getTimeSlotCount(freq);
+                      const currentTimes = [...scheduledTimes];
+                      // Keep existing times if possible, otherwise fill with null
+                      const newTimes: (string | null)[] = [];
+                      for (let i = 0; i < newTimeSlotCount; i++) {
+                        newTimes.push(currentTimes[i] || null);
+                      }
+                      setScheduledTimes(newTimes);
+                      setScheduledDay(null);
                       setFrequency(freq);
                       setShowFrequencyPicker(false);
                     }}
@@ -412,6 +661,112 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                       }}
                     >
                       {freq}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Day of Week Picker Modal */}
+        <Modal
+          visible={showDayOfWeekPicker}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowDayOfWeekPicker(false)}
+        >
+          <View
+            className="flex-1 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          >
+            <View
+              className="w-11/12 max-w-md rounded-3xl p-6"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: theme.foreground }}
+                >
+                  Select Day
+                </Text>
+                <TouchableOpacity onPress={() => setShowDayOfWeekPicker(false)}>
+                  <Ionicons name="close" size={28} color={theme.foreground} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {daysOfWeek.map((day) => (
+                  <TouchableOpacity
+                    key={day.value}
+                    className="py-4 border-b"
+                    style={{ borderBottomColor: theme.card }}
+                    onPress={() => {
+                      setScheduledDay(day.value);
+                      setShowDayOfWeekPicker(false);
+                    }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{
+                        color: scheduledDay === day.value ? theme.primary : theme.foreground,
+                        fontWeight: scheduledDay === day.value ? "600" : "normal",
+                      }}
+                    >
+                      {day.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Day of Month Picker Modal */}
+        <Modal
+          visible={showDayOfMonthPicker}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowDayOfMonthPicker(false)}
+        >
+          <View
+            className="flex-1 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          >
+            <View
+              className="w-11/12 max-w-md rounded-3xl p-6"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: theme.foreground }}
+                >
+                  Select Day of Month
+                </Text>
+                <TouchableOpacity onPress={() => setShowDayOfMonthPicker(false)}>
+                  <Ionicons name="close" size={28} color={theme.foreground} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <TouchableOpacity
+                    key={day}
+                    className="py-4 border-b"
+                    style={{ borderBottomColor: theme.card }}
+                    onPress={() => {
+                      setScheduledDay(day);
+                      setShowDayOfMonthPicker(false);
+                    }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{
+                        color: scheduledDay === day ? theme.primary : theme.foreground,
+                        fontWeight: scheduledDay === day ? "600" : "normal",
+                      }}
+                    >
+                      {formatDayOfMonth(day)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -510,6 +865,67 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                 setEndDate(selectedDate.toISOString());
               }
               setShowEndDatePicker(false);
+            }}
+          />
+        )}
+
+        {/* Time Picker Modal */}
+        {editingTimeSlotIndex !== null && Platform.OS === "ios" && (
+          <Modal
+            transparent
+            animationType="slide"
+            visible={editingTimeSlotIndex !== null}
+          >
+            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <View style={{ backgroundColor: theme.background }}>
+                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingTimeSlotIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (editingTimeSlotIndex !== null) {
+                        const newScheduledTimes = [...scheduledTimes];
+                        newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(tempTime);
+                        setScheduledTimes(newScheduledTimes);
+                      }
+                      setEditingTimeSlotIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setTempTime(selectedDate);
+                    }
+                  }}
+                  textColor={theme.foreground}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {editingTimeSlotIndex !== null && Platform.OS === "android" && (
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display="default"
+            onChange={(event, selectedDate) => {
+              if (event.type === "set" && selectedDate && editingTimeSlotIndex !== null) {
+                const newScheduledTimes = [...scheduledTimes];
+                newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(selectedDate);
+                setScheduledTimes(newScheduledTimes);
+              }
+              setEditingTimeSlotIndex(null);
             }}
           />
         )}
