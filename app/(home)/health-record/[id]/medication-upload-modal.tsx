@@ -17,15 +17,15 @@ import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type ProcessingStatus =
@@ -51,7 +51,7 @@ interface MedicationData {
   scheduledDay: number | null;
 }
 
-// Days of week for Weekly/Bi-weekly
+// Days of week for Weekly
 const daysOfWeek = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },
@@ -75,7 +75,7 @@ const formatDayOfMonth = (day: number): string => {
 
 // Helper function to check if frequency requires day of week
 const requiresDayOfWeek = (frequency: string): boolean => {
-  return frequency === "Weekly" || frequency === "Bi-weekly";
+  return frequency === "Weekly";
 };
 
 // Helper function to check if frequency requires day of month
@@ -181,7 +181,7 @@ export default function MedicationUploadModal() {
   const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
 
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
-  const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
+  const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Monthly", "As Needed"];
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
@@ -328,7 +328,7 @@ export default function MedicationUploadModal() {
     for (let i = 0; i < extractedMedications.length; i++) {
       const med = extractedMedications[i];
       
-      // Validate day of week for Weekly/Bi-weekly
+      // Validate day of week for Weekly
       if (requiresDayOfWeek(med.frequency) && med.scheduledDay === null) {
         Alert.alert(
           "Validation Error",
@@ -434,7 +434,7 @@ export default function MedicationUploadModal() {
       return;
     }
 
-    // Validate day of week for Weekly/Bi-weekly
+    // Validate day of week for Weekly
     if (requiresDayOfWeek(medicationData.frequency) && medicationData.scheduledDay === null) {
       Alert.alert("Validation Error", "Please select a day of week");
       return;
@@ -710,7 +710,7 @@ export default function MedicationUploadModal() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Day of Week (for Weekly/Bi-weekly) */}
+                {/* Day of Week (for Weekly) */}
                 {requiresDayOfWeek(medication.frequency) && (
                   <View className="mb-3">
                     <Text
@@ -1235,7 +1235,7 @@ export default function MedicationUploadModal() {
               </TouchableOpacity>
             </View>
 
-            {/* Day of Week (for Weekly/Bi-weekly) */}
+            {/* Day of Week (for Weekly) */}
             {requiresDayOfWeek(medicationData.frequency) && (
               <View>
                 <Text

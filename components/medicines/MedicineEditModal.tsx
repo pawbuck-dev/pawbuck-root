@@ -4,15 +4,15 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface MedicineEditModalProps {
@@ -23,7 +23,7 @@ interface MedicineEditModalProps {
   loading?: boolean;
 }
 
-// Days of week for Weekly/Bi-weekly
+// Days of week for Weekly
 const daysOfWeek = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },
@@ -47,7 +47,7 @@ const formatDayOfMonth = (day: number): string => {
 
 // Helper function to check if frequency requires day of week
 const requiresDayOfWeek = (frequency: string): boolean => {
-  return frequency === "Weekly" || frequency === "Bi-weekly";
+  return frequency === "Weekly";
 };
 
 // Helper function to check if frequency requires day of month
@@ -160,7 +160,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   const [showDayOfMonthPicker, setShowDayOfMonthPicker] = useState(false);
 
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
-  const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
+  const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Monthly", "As Needed"];
 
   const handleSave = () => {
     // Validate required fields
@@ -173,7 +173,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
       return;
     }
 
-    // Validate day of week for Weekly/Bi-weekly
+    // Validate day of week for Weekly
     if (requiresDayOfWeek(frequency) && scheduledDay === null) {
       Alert.alert("Required Field", "Please select a day of week");
       return;
@@ -351,7 +351,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Day of Week (for Weekly/Bi-weekly) */}
+          {/* Day of Week (for Weekly) */}
           {requiresDayOfWeek(frequency) && (
             <View className="mb-4">
               <Text
