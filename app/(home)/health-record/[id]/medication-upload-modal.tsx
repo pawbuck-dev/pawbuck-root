@@ -47,7 +47,101 @@ interface MedicationData {
   endDate: string | null;
   prescribedBy: string;
   purposeNotes: string;
+  scheduledTimes: string[];
+  scheduledDay: number | null;
 }
+
+// Days of week for Weekly/Bi-weekly
+const daysOfWeek = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
+
+// Helper to format day of month with ordinal suffix
+const formatDayOfMonth = (day: number): string => {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}st`;
+    case 2: return `${day}nd`;
+    case 3: return `${day}rd`;
+    default: return `${day}th`;
+  }
+};
+
+// Helper function to check if frequency requires day of week
+const requiresDayOfWeek = (frequency: string): boolean => {
+  return frequency === "Weekly" || frequency === "Bi-weekly";
+};
+
+// Helper function to check if frequency requires day of month
+const requiresDayOfMonth = (frequency: string): boolean => {
+  return frequency === "Monthly";
+};
+
+// Helper function to check if frequency requires scheduled time
+const requiresScheduledTime = (frequency: string): boolean => {
+  return frequency !== "As Needed";
+};
+
+// Helper function to get time slot labels based on frequency
+const getTimeSlotLabels = (frequency: string): string[] => {
+  switch (frequency) {
+    case "Twice Daily":
+      return ["Morning Dose", "Evening Dose"];
+    case "Three Times Daily":
+      return ["Morning Dose", "Afternoon Dose", "Evening Dose"];
+    case "As Needed":
+      return []; // No scheduled times for "As Needed"
+    default:
+      return ["Dose Time"];
+  }
+};
+
+// Helper function to get number of time slots based on frequency
+const getTimeSlotCount = (frequency: string): number => {
+  switch (frequency) {
+    case "Twice Daily":
+      return 2;
+    case "Three Times Daily":
+      return 3;
+    case "As Needed":
+      return 0; // No scheduled times for "As Needed"
+    default:
+      return 1;
+  }
+};
+
+// Helper function to format time for display (24h to 12h)
+const formatTimeForDisplay = (time: string | null): string => {
+  if (!time) return "Select time";
+  const [hours, minutes] = time.split(":");
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
+// Helper function to convert Date to 24h time string
+const dateToTimeString = (date: Date): string => {
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+// Helper function to convert 24h time string to Date
+const timeStringToDate = (time: string | null): Date => {
+  const date = new Date();
+  if (time) {
+    const [hours, minutes] = time.split(":");
+    date.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+  }
+  return date;
+};
 
 export default function MedicationUploadModal() {
   const { theme } = useTheme();
@@ -68,16 +162,23 @@ export default function MedicationUploadModal() {
     endDate: null,
     prescribedBy: "",
     purposeNotes: "",
+    scheduledTimes: [null as unknown as string], // Initialize with null for one time slot
+    scheduledDay: null,
   });
   const [editingDateType, setEditingDateType] = useState<"startDate" | "endDate" | null>(null);
   const [tempDate, setTempDate] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
+  const [editingTimeSlotIndex, setEditingTimeSlotIndex] = useState<number | null>(null);
+  const [tempTime, setTempTime] = useState<Date>(new Date());
+  const [showDayOfWeekPicker, setShowDayOfWeekPicker] = useState(false);
+  const [showDayOfMonthPicker, setShowDayOfMonthPicker] = useState(false);
 
   // OCR extracted medications
   const [extractedMedications, setExtractedMedications] = useState<MedicationData[]>([]);
   const [extractionConfidence, setExtractionConfidence] = useState<number>(0);
   const [documentPath, setDocumentPath] = useState<string | null>(null);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<number | null>(null);
 
   const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
   const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Bi-weekly", "Monthly", "As Needed"];
@@ -140,6 +241,8 @@ export default function MedicationUploadModal() {
         endDate: med.end_date || null,
         prescribedBy: med.prescribed_by || "",
         purposeNotes: med.purpose_notes || "",
+        scheduledTimes: Array(getTimeSlotCount(med.frequency)).fill(null),
+        scheduledDay: null,
       }));
 
       // Store extracted data and switch to review mode
@@ -221,6 +324,42 @@ export default function MedicationUploadModal() {
   };
 
   const handleSaveExtractedMedications = async () => {
+    // Validate all medications have required fields set
+    for (let i = 0; i < extractedMedications.length; i++) {
+      const med = extractedMedications[i];
+      
+      // Validate day of week for Weekly/Bi-weekly
+      if (requiresDayOfWeek(med.frequency) && med.scheduledDay === null) {
+        Alert.alert(
+          "Validation Error",
+          `Please select a day of week for "${med.name}" (Medicine ${i + 1})`
+        );
+        return;
+      }
+      
+      // Validate day of month for Monthly
+      if (requiresDayOfMonth(med.frequency) && med.scheduledDay === null) {
+        Alert.alert(
+          "Validation Error",
+          `Please select a day of month for "${med.name}" (Medicine ${i + 1})`
+        );
+        return;
+      }
+      
+      // Validate scheduled times (skip for "As Needed")
+      if (requiresScheduledTime(med.frequency)) {
+        const requiredTimeSlots = getTimeSlotCount(med.frequency);
+        const validTimes = med.scheduledTimes.filter((t) => t !== null);
+        if (validTimes.length < requiredTimeSlots) {
+          Alert.alert(
+            "Validation Error",
+            `Please set all scheduled times for "${med.name}" (Medicine ${i + 1})`
+          );
+          return;
+        }
+      }
+    }
+
     try {
       setStatus("inserting");
       setStatusMessage(
@@ -242,6 +381,10 @@ export default function MedicationUploadModal() {
         reminder_enabled: true,
         reminder_timing: 'Day of',
         document_url: documentPath,
+        scheduled_times: requiresScheduledTime(med.frequency) 
+          ? med.scheduledTimes.filter((t) => t !== null) 
+          : null,
+        scheduled_day: med.scheduledDay,
       }));
 
       const { error: insertError } = await supabase
@@ -291,9 +434,33 @@ export default function MedicationUploadModal() {
       return;
     }
 
+    // Validate day of week for Weekly/Bi-weekly
+    if (requiresDayOfWeek(medicationData.frequency) && medicationData.scheduledDay === null) {
+      Alert.alert("Validation Error", "Please select a day of week");
+      return;
+    }
+
+    // Validate day of month for Monthly
+    if (requiresDayOfMonth(medicationData.frequency) && medicationData.scheduledDay === null) {
+      Alert.alert("Validation Error", "Please select a day of month");
+      return;
+    }
+
+    // Validate scheduled times (skip for "As Needed")
+    if (requiresScheduledTime(medicationData.frequency)) {
+      const validScheduledTimes = medicationData.scheduledTimes.filter((t) => t !== null);
+      const requiredTimeSlots = getTimeSlotCount(medicationData.frequency);
+      if (validScheduledTimes.length < requiredTimeSlots) {
+        Alert.alert("Validation Error", "Please set all scheduled times for doses");
+        return;
+      }
+    }
+
     try {
       setStatus("inserting");
       setStatusMessage("Saving medicine...");
+
+      const validScheduledTimes = medicationData.scheduledTimes.filter((t) => t !== null);
 
       const { error: insertError } = await supabase
         .from("medicines")
@@ -310,6 +477,8 @@ export default function MedicationUploadModal() {
           purpose: medicationData.purposeNotes || null,
           reminder_enabled: true,
           reminder_timing: 'Day of',
+          scheduled_times: requiresScheduledTime(medicationData.frequency) ? validScheduledTimes : null,
+          scheduled_day: medicationData.scheduledDay,
         });
 
       if (insertError) {
@@ -541,6 +710,116 @@ export default function MedicationUploadModal() {
                   </TouchableOpacity>
                 </View>
 
+                {/* Day of Week (for Weekly/Bi-weekly) */}
+                {requiresDayOfWeek(medication.frequency) && (
+                  <View className="mb-3">
+                    <Text
+                      className="text-xs font-medium mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Day of Week *
+                    </Text>
+                    <TouchableOpacity
+                      className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                      style={{ backgroundColor: theme.background }}
+                      onPress={() => {
+                        setEditingMedicationIndex(index);
+                        setShowDayOfWeekPicker(true);
+                      }}
+                      disabled={isProcessing}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{
+                          color: medication.scheduledDay !== null ? theme.foreground : theme.secondary,
+                        }}
+                      >
+                        {medication.scheduledDay !== null
+                          ? daysOfWeek.find((d) => d.value === medication.scheduledDay)?.label
+                          : "Select day"}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Day of Month (for Monthly) */}
+                {requiresDayOfMonth(medication.frequency) && (
+                  <View className="mb-3">
+                    <Text
+                      className="text-xs font-medium mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Day of Month *
+                    </Text>
+                    <TouchableOpacity
+                      className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                      style={{ backgroundColor: theme.background }}
+                      onPress={() => {
+                        setEditingMedicationIndex(index);
+                        setShowDayOfMonthPicker(true);
+                      }}
+                      disabled={isProcessing}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{
+                          color: medication.scheduledDay !== null ? theme.foreground : theme.secondary,
+                        }}
+                      >
+                        {medication.scheduledDay !== null
+                          ? formatDayOfMonth(medication.scheduledDay)
+                          : "Select day"}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Scheduled Times (hide for "As Needed") */}
+                {requiresScheduledTime(medication.frequency) && (
+                  <View className="mb-3">
+                    <Text
+                      className="text-xs font-medium mb-2"
+                      style={{ color: theme.secondary }}
+                    >
+                      Scheduled Times *
+                    </Text>
+                    {getTimeSlotLabels(medication.frequency).map((label, timeIndex) => (
+                      <View key={timeIndex} className="mb-2">
+                        <Text
+                          className="text-xs mb-1"
+                          style={{ color: theme.secondary }}
+                        >
+                          {label}
+                        </Text>
+                        <TouchableOpacity
+                          className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                          style={{ backgroundColor: theme.background }}
+                          onPress={() => {
+                            setTempTime(timeStringToDate(medication.scheduledTimes[timeIndex]));
+                            setEditingMedicationIndex(index);
+                            setEditingTimeSlotIndex(timeIndex);
+                          }}
+                          disabled={isProcessing}
+                        >
+                          <Text
+                            className="text-base"
+                            style={{
+                              color: medication.scheduledTimes[timeIndex]
+                                ? theme.foreground
+                                : theme.secondary,
+                            }}
+                          >
+                            {formatTimeForDisplay(medication.scheduledTimes[timeIndex])}
+                          </Text>
+                          <Ionicons name="time-outline" size={20} color={theme.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 {/* Start Date */}
                 <View className="mb-3">
                   <Text
@@ -678,6 +957,80 @@ export default function MedicationUploadModal() {
           </TouchableOpacity>
         </View>
 
+        {/* Time Picker Modal for Review Mode */}
+        {editingTimeSlotIndex !== null && editingMedicationIndex !== null && Platform.OS === "ios" && (
+          <Modal
+            transparent
+            animationType="slide"
+            visible={editingTimeSlotIndex !== null}
+          >
+            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <View style={{ backgroundColor: theme.background }}>
+                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingTimeSlotIndex(null);
+                      setEditingMedicationIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (editingTimeSlotIndex !== null && editingMedicationIndex !== null) {
+                        const updated = [...extractedMedications];
+                        const newScheduledTimes = [...updated[editingMedicationIndex].scheduledTimes];
+                        newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(tempTime);
+                        updated[editingMedicationIndex] = {
+                          ...updated[editingMedicationIndex],
+                          scheduledTimes: newScheduledTimes,
+                        };
+                        setExtractedMedications(updated);
+                      }
+                      setEditingTimeSlotIndex(null);
+                      setEditingMedicationIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setTempTime(selectedDate);
+                    }
+                  }}
+                  textColor={theme.foreground}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {editingTimeSlotIndex !== null && editingMedicationIndex !== null && Platform.OS === "android" && (
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display="default"
+            onChange={(event, selectedDate) => {
+              if (event.type === "set" && selectedDate && editingTimeSlotIndex !== null && editingMedicationIndex !== null) {
+                const updated = [...extractedMedications];
+                const newScheduledTimes = [...updated[editingMedicationIndex].scheduledTimes];
+                newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(selectedDate);
+                updated[editingMedicationIndex] = {
+                  ...updated[editingMedicationIndex],
+                  scheduledTimes: newScheduledTimes,
+                };
+                setExtractedMedications(updated);
+              }
+              setEditingTimeSlotIndex(null);
+              setEditingMedicationIndex(null);
+            }}
+          />
+        )}
+
         {/* Processing Overlay */}
         {isProcessing && (
           <View
@@ -755,6 +1108,8 @@ export default function MedicationUploadModal() {
                   endDate: null,
                   prescribedBy: "",
                   purposeNotes: "",
+                  scheduledTimes: [null as unknown as string],
+                  scheduledDay: null,
                 });
               }}
               disabled={isProcessing}
@@ -879,6 +1234,109 @@ export default function MedicationUploadModal() {
                 <Ionicons name="chevron-down" size={20} color={theme.secondary} />
               </TouchableOpacity>
             </View>
+
+            {/* Day of Week (for Weekly/Bi-weekly) */}
+            {requiresDayOfWeek(medicationData.frequency) && (
+              <View>
+                <Text
+                  className="text-xs font-medium mb-1"
+                  style={{ color: theme.secondary }}
+                >
+                  Day of Week *
+                </Text>
+                <TouchableOpacity
+                  className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                  style={{ backgroundColor: theme.card }}
+                  onPress={() => setShowDayOfWeekPicker(true)}
+                  disabled={isProcessing}
+                >
+                  <Text
+                    className="text-base"
+                    style={{
+                      color: medicationData.scheduledDay !== null ? theme.foreground : theme.secondary,
+                    }}
+                  >
+                    {medicationData.scheduledDay !== null
+                      ? daysOfWeek.find((d) => d.value === medicationData.scheduledDay)?.label
+                      : "Select day"}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Day of Month (for Monthly) */}
+            {requiresDayOfMonth(medicationData.frequency) && (
+              <View>
+                <Text
+                  className="text-xs font-medium mb-1"
+                  style={{ color: theme.secondary }}
+                >
+                  Day of Month *
+                </Text>
+                <TouchableOpacity
+                  className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                  style={{ backgroundColor: theme.card }}
+                  onPress={() => setShowDayOfMonthPicker(true)}
+                  disabled={isProcessing}
+                >
+                  <Text
+                    className="text-base"
+                    style={{
+                      color: medicationData.scheduledDay !== null ? theme.foreground : theme.secondary,
+                    }}
+                  >
+                    {medicationData.scheduledDay !== null
+                      ? formatDayOfMonth(medicationData.scheduledDay)
+                      : "Select day"}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Scheduled Times (hide for "As Needed") */}
+            {requiresScheduledTime(medicationData.frequency) && (
+              <View>
+                <Text
+                  className="text-xs font-medium mb-2"
+                  style={{ color: theme.secondary }}
+                >
+                  Scheduled Times *
+                </Text>
+                {getTimeSlotLabels(medicationData.frequency).map((label, index) => (
+                  <View key={index} className="mb-2">
+                    <Text
+                      className="text-xs mb-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      {label}
+                    </Text>
+                    <TouchableOpacity
+                      className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                      style={{ backgroundColor: theme.card }}
+                      onPress={() => {
+                        setTempTime(timeStringToDate(medicationData.scheduledTimes[index]));
+                        setEditingTimeSlotIndex(index);
+                      }}
+                      disabled={isProcessing}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{
+                          color: medicationData.scheduledTimes[index]
+                            ? theme.foreground
+                            : theme.secondary,
+                        }}
+                      >
+                        {formatTimeForDisplay(medicationData.scheduledTimes[index])}
+                      </Text>
+                      <Ionicons name="time-outline" size={20} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {/* Start Date */}
             <View>
@@ -1087,7 +1545,14 @@ export default function MedicationUploadModal() {
                     className="py-4 border-b"
                     style={{ borderBottomColor: theme.card }}
                     onPress={() => {
-                      setMedicationData({ ...medicationData, frequency });
+                      // Reset scheduled times and scheduled day when frequency changes
+                      const newTimeSlotCount = getTimeSlotCount(frequency);
+                      setMedicationData({
+                        ...medicationData,
+                        frequency,
+                        scheduledTimes: Array(newTimeSlotCount).fill(null),
+                        scheduledDay: null,
+                      });
                       setShowFrequencyPicker(false);
                     }}
                   >
@@ -1102,6 +1567,164 @@ export default function MedicationUploadModal() {
                     </Text>
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Day of Week Picker Modal */}
+        <Modal
+          visible={showDayOfWeekPicker}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => {
+            setShowDayOfWeekPicker(false);
+            setEditingMedicationIndex(null);
+          }}
+        >
+          <View
+            className="flex-1 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          >
+            <View
+              className="w-11/12 max-w-md rounded-3xl p-6"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: theme.foreground }}
+                >
+                  Select Day
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDayOfWeekPicker(false);
+                    setEditingMedicationIndex(null);
+                  }}
+                  className="w-10 h-10 items-center justify-center"
+                >
+                  <Ionicons name="close" size={28} color={theme.foreground} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {daysOfWeek.map((day) => {
+                  const currentDay = editingMedicationIndex !== null
+                    ? extractedMedications[editingMedicationIndex]?.scheduledDay
+                    : medicationData.scheduledDay;
+                  return (
+                    <TouchableOpacity
+                      key={day.value}
+                      className="py-4 border-b"
+                      style={{ borderBottomColor: theme.card }}
+                      onPress={() => {
+                        if (editingMedicationIndex !== null) {
+                          // Review mode - update extracted medication
+                          const updated = [...extractedMedications];
+                          updated[editingMedicationIndex] = {
+                            ...updated[editingMedicationIndex],
+                            scheduledDay: day.value,
+                          };
+                          setExtractedMedications(updated);
+                        } else {
+                          // Manual mode - update medicationData
+                          setMedicationData({ ...medicationData, scheduledDay: day.value });
+                        }
+                        setShowDayOfWeekPicker(false);
+                        setEditingMedicationIndex(null);
+                      }}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{
+                          color: currentDay === day.value ? theme.primary : theme.foreground,
+                          fontWeight: currentDay === day.value ? "600" : "normal",
+                        }}
+                      >
+                        {day.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Day of Month Picker Modal */}
+        <Modal
+          visible={showDayOfMonthPicker}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => {
+            setShowDayOfMonthPicker(false);
+            setEditingMedicationIndex(null);
+          }}
+        >
+          <View
+            className="flex-1 items-center justify-center"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+          >
+            <View
+              className="w-11/12 max-w-md rounded-3xl p-6"
+              style={{ backgroundColor: theme.background }}
+            >
+              <View className="flex-row justify-between items-center mb-6">
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: theme.foreground }}
+                >
+                  Select Day of Month
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDayOfMonthPicker(false);
+                    setEditingMedicationIndex(null);
+                  }}
+                  className="w-10 h-10 items-center justify-center"
+                >
+                  <Ionicons name="close" size={28} color={theme.foreground} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                  const currentDay = editingMedicationIndex !== null
+                    ? extractedMedications[editingMedicationIndex]?.scheduledDay
+                    : medicationData.scheduledDay;
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      className="py-4 border-b"
+                      style={{ borderBottomColor: theme.card }}
+                      onPress={() => {
+                        if (editingMedicationIndex !== null) {
+                          // Review mode - update extracted medication
+                          const updated = [...extractedMedications];
+                          updated[editingMedicationIndex] = {
+                            ...updated[editingMedicationIndex],
+                            scheduledDay: day,
+                          };
+                          setExtractedMedications(updated);
+                        } else {
+                          // Manual mode - update medicationData
+                          setMedicationData({ ...medicationData, scheduledDay: day });
+                        }
+                        setShowDayOfMonthPicker(false);
+                        setEditingMedicationIndex(null);
+                      }}
+                    >
+                      <Text
+                        className="text-base"
+                        style={{
+                          color: currentDay === day ? theme.primary : theme.foreground,
+                          fontWeight: currentDay === day ? "600" : "normal",
+                        }}
+                      >
+                        {formatDayOfMonth(day)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
           </View>
@@ -1165,6 +1788,67 @@ export default function MedicationUploadModal() {
               }
               setEditingDateType(null);
               setTempDate(null);
+            }}
+          />
+        )}
+
+        {/* Time Picker Modal */}
+        {editingTimeSlotIndex !== null && Platform.OS === "ios" && (
+          <Modal
+            transparent
+            animationType="slide"
+            visible={editingTimeSlotIndex !== null}
+          >
+            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <View style={{ backgroundColor: theme.background }}>
+                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingTimeSlotIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (editingTimeSlotIndex !== null) {
+                        const newScheduledTimes = [...medicationData.scheduledTimes];
+                        newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(tempTime);
+                        setMedicationData({ ...medicationData, scheduledTimes: newScheduledTimes });
+                      }
+                      setEditingTimeSlotIndex(null);
+                    }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (selectedDate) {
+                      setTempTime(selectedDate);
+                    }
+                  }}
+                  textColor={theme.foreground}
+                />
+              </View>
+            </View>
+          </Modal>
+        )}
+        {editingTimeSlotIndex !== null && Platform.OS === "android" && (
+          <DateTimePicker
+            value={tempTime}
+            mode="time"
+            display="default"
+            onChange={(event, selectedDate) => {
+              if (event.type === "set" && selectedDate && editingTimeSlotIndex !== null) {
+                const newScheduledTimes = [...medicationData.scheduledTimes];
+                newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(selectedDate);
+                setMedicationData({ ...medicationData, scheduledTimes: newScheduledTimes });
+              }
+              setEditingTimeSlotIndex(null);
             }}
           />
         )}
