@@ -1,5 +1,3 @@
-alter table "public"."medicines" drop column "document_url";
-
 alter table "public"."push_tokens" add column "token" text not null;
 
 CREATE UNIQUE INDEX push_tokens_token_key ON public.push_tokens USING btree (token);
