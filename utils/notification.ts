@@ -1,8 +1,18 @@
+import Constants from "expo-constants";
 import { isDevice } from "expo-device";
 import * as Notifications from "expo-notifications";
-import { NotificationBehavior } from "expo-notifications";
+import { Platform } from "react-native";
 
 export async function registerForPush() {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default channel",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+    });
+  }
+
   if (!isDevice) {
     console.log("Not a device");
     return null;
@@ -24,32 +34,21 @@ export async function registerForPush() {
 
   console.log("Final status:", finalStatus);
 
-  // const projectId =
-  //   Constants.expoConfig?.extra?.eas?.projectId ??
-  //   Constants.easConfig?.projectId;
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ??
+    Constants.easConfig?.projectId;
+  if (!projectId) {
+    throw new Error("rrProject ID not found");
+  }
 
-  // if (!projectId) {
-  //   console.error("Project ID not found");
-  //   return null;
-  // }
-
-  // console.log("Project ID:", projectId);
+  console.log("Project ID:", projectId);
 
   const token = (
     await Notifications.getExpoPushTokenAsync({
-      projectId: "9f01360a-9174-4a74-9f8c-87ce6293b8c5",
+      projectId,
     })
   ).data;
 
   console.log("Expo Push Token:", token);
   return token;
 }
-
-Notifications.setNotificationHandler({
-  handleNotification: async (): Promise<NotificationBehavior> => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
