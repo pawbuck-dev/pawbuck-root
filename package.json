@@ -13,8 +13,8 @@
     "prebuild:clean": "expo prebuild --clean",
     "postprebuild": "cp debug.keystore android/app/debug.keystore",
     "generate:types": "supabase gen types typescript --local > database.types.ts",
-    "generate:migration": "supabase db diff",
-    "read-mails": "npx tsx --env-file .env.local scripts/read-mails.ts"
+    "generate:migration": "supabase db diff --local -f",
+    "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
