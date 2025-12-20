@@ -16,8 +16,10 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
   const { updateClinicalExamMutation, deleteClinicalExamMutation } = useClinicalExams();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const hasDocument = !!exam.document_url;
+  const hasDetails = exam.findings || exam.notes || exam.follow_up_date;
 
   const hasValue = (value: number | null | undefined): boolean => {
     return value !== null && value !== undefined && value !== 0;
@@ -42,6 +44,33 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
     if (!hasValue(rate)) return null;
     return `${rate} br/min`;
   };
+
+  // Check if this is a travel document
+  const isTravelDocument = exam.exam_type?.toLowerCase().includes("travel");
+
+  // Get validity status for travel documents
+  const getValidityStatus = (): { isValid: boolean; text: string } | null => {
+    if (!isTravelDocument || !exam.validity_date) return null;
+    
+    const validityDate = new Date(exam.validity_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    validityDate.setHours(0, 0, 0, 0);
+    
+    const isValid = validityDate >= today;
+    const formattedDate = validityDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    
+    return {
+      isValid,
+      text: isValid ? `Valid until ${formattedDate}` : "Expired",
+    };
+  };
+
+  const validityStatus = getValidityStatus();
 
   const handleDelete = () => {
     Alert.alert(
@@ -137,12 +166,34 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
             <Ionicons name="clipboard" size={20} color={theme.primary} />
           </View>
           <View className="flex-1">
-            <Text
-              className="text-base font-semibold"
-              style={{ color: theme.foreground }}
-            >
-              {exam.exam_type || "Clinical Exam"}
-            </Text>
+            <View className="flex-row items-center flex-wrap gap-2">
+              <Text
+                className="text-base font-semibold"
+                style={{ color: theme.foreground }}
+              >
+                {exam.exam_type || "Clinical Exam"}
+              </Text>
+              {/* Validity Status Tag for Travel Documents */}
+              {validityStatus && (
+                <View
+                  className="px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: validityStatus.isValid
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : "rgba(239, 68, 68, 0.15)",
+                  }}
+                >
+                  <Text
+                    className="text-xs font-medium"
+                    style={{
+                      color: validityStatus.isValid ? "#22c55e" : "#ef4444",
+                    }}
+                  >
+                    {validityStatus.text}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text
               className="text-sm mt-0.5"
               style={{ color: theme.secondary }}
@@ -212,47 +263,98 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
             </View>
           )}
 
-          {/* Findings */}
-          {exam.findings && (
-            <View className="mb-2">
-              <Text className="text-xs font-semibold mb-1" style={{ color: theme.primary }}>
-                FINDINGS
+          {/* View Details Button */}
+          {hasDetails && !showDetails && (
+            <TouchableOpacity
+              className="flex-row items-center justify-between py-3 mt-1"
+              onPress={() => setShowDetails(true)}
+              activeOpacity={0.7}
+            >
+              <Text
+                className="text-sm font-medium"
+                style={{ color: theme.foreground }}
+              >
+                View details
               </Text>
-              <Text className="text-sm" style={{ color: theme.foreground }}>
-                {exam.findings}
-              </Text>
-            </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={theme.secondary}
+              />
+            </TouchableOpacity>
           )}
 
-          {/* Recommendations/Notes */}
-          {exam.notes && (
-            <View className="mb-2">
-              <Text className="text-xs font-semibold mb-1" style={{ color: theme.primary }}>
-                RECOMMENDATIONS
-              </Text>
-              <Text className="text-sm" style={{ color: theme.foreground }}>
-                {exam.notes}
-              </Text>
-            </View>
-          )}
+          {/* Collapsible Details Section */}
+          {showDetails && (
+            <View className="mt-4">
+              {/* Findings */}
+              {exam.findings && (
+                <View className="mb-3">
+                  <Text className="text-xs font-semibold mb-1" style={{ color: theme.primary }}>
+                    FINDINGS
+                  </Text>
+                  <Text className="text-sm" style={{ color: theme.foreground }}>
+                    {exam.findings}
+                  </Text>
+                </View>
+              )}
 
-          {/* Follow-up Date */}
-          {exam.follow_up_date && (
-            <View className="flex-row items-center mt-2">
-              <Ionicons name="calendar-outline" size={14} color={theme.primary} />
-              <Text className="text-sm ml-2" style={{ color: theme.primary }}>
-                Follow-up: {new Date(exam.follow_up_date).toLocaleDateString()}
-              </Text>
+              {/* Recommendations/Notes */}
+              {exam.notes && (
+                <View className="mb-3">
+                  <Text className="text-xs font-semibold mb-1" style={{ color: theme.primary }}>
+                    RECOMMENDATIONS
+                  </Text>
+                  <Text className="text-sm" style={{ color: theme.foreground }}>
+                    {exam.notes}
+                  </Text>
+                </View>
+              )}
+
+              {/* Follow-up Date */}
+              {exam.follow_up_date && (
+                <View className="flex-row items-center mb-3">
+                  <Ionicons name="calendar-outline" size={14} color={theme.primary} />
+                  <Text className="text-sm ml-2" style={{ color: theme.primary }}>
+                    Follow-up: {new Date(exam.follow_up_date).toLocaleDateString()}
+                  </Text>
+                </View>
+              )}
+
+              {/* Hide Details Button */}
+              <TouchableOpacity
+                className="flex-row items-center justify-center py-3 px-5 rounded-full self-center mt-2"
+                style={{ backgroundColor: theme.background }}
+                onPress={() => setShowDetails(false)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  className="text-sm font-medium mr-2"
+                  style={{ color: theme.secondary }}
+                >
+                  Hide details
+                </Text>
+                <View
+                  className="w-6 h-6 rounded-full items-center justify-center"
+                  style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+                >
+                  <Ionicons
+                    name="chevron-up"
+                    size={14}
+                    color={theme.secondary}
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
         {/* Long press hint */}
         <Text
-          className="text-xs text-center mt-3"
+          className="text-xs text-center mt-3 tracking-wider"
           style={{ color: theme.secondary, opacity: 0.6 }}
         >
-          Long press to edit or delete
+          LONG PRESS TO EDIT
         </Text>
       </TouchableOpacity>
 

@@ -142,6 +142,7 @@ export default function ExamUploadModal() {
         notes: ocrData!.exam.notes,
         follow_up_date: ocrData!.exam.follow_up_date,
         document_url: data.path,
+        validity_date: ocrData?.exam.validity_date || null,
       };
 
       setExtractedData(examData);
@@ -207,6 +208,7 @@ export default function ExamUploadModal() {
         follow_up_date: data.follow_up_date,
         document_url: data.document_url,
         created_at: new Date().toISOString(),
+        validity_date: data.validity_date ?? null,
       });
 
       // Refresh clinical exams list

@@ -4,15 +4,15 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 interface ClinicalExamReviewModalProps {
@@ -34,8 +34,13 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
   const [data, setData] = useState<ClinicalExamData>(initialData);
   const [showExamDatePicker, setShowExamDatePicker] = useState(false);
   const [showFollowUpDatePicker, setShowFollowUpDatePicker] = useState(false);
+  const [showValidityDatePicker, setShowValidityDatePicker] = useState(false);
   const [tempExamDate, setTempExamDate] = useState(initialData.exam_date);
   const [tempFollowUpDate, setTempFollowUpDate] = useState(initialData.follow_up_date);
+  const [tempValidityDate, setTempValidityDate] = useState(initialData.validity_date);
+
+  // Check if this is a travel document
+  const isTravelDocument = data.exam_type?.toLowerCase().includes("travel");
 
   const handleSave = () => {
     // Validate required fields
@@ -511,6 +516,102 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
               />
             )}
           </View>
+
+          {/* Validity Date - Only for Travel Documents */}
+          {isTravelDocument && (
+            <View className="mb-6">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: theme.secondary }}
+                >
+                  Valid Until
+                </Text>
+                {data.validity_date && (
+                  <TouchableOpacity
+                    onPress={() => setData({ ...data, validity_date: null })}
+                    disabled={loading}
+                  >
+                    <Text className="text-xs" style={{ color: theme.primary }}>
+                      Clear
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View
+                className="p-4 rounded-xl flex-row items-center justify-between"
+                style={{ backgroundColor: theme.card }}
+              >
+                <Text className="text-base" style={{ color: theme.foreground }}>
+                  {formatDate(data.validity_date)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setTempValidityDate(data.validity_date);
+                    setShowValidityDatePicker(true);
+                  }}
+                  disabled={loading}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+              {showValidityDatePicker && Platform.OS === "ios" && (
+                <Modal
+                  transparent
+                  animationType="slide"
+                  visible={showValidityDatePicker}
+                >
+                  <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                    <View style={{ backgroundColor: theme.background }}>
+                      <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setShowValidityDatePicker(false);
+                            setTempValidityDate(data.validity_date);
+                          }}
+                        >
+                          <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setData({ ...data, validity_date: tempValidityDate });
+                            setShowValidityDatePicker(false);
+                          }}
+                        >
+                          <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={tempValidityDate ? new Date(tempValidityDate) : new Date()}
+                        mode="date"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            setTempValidityDate(selectedDate.toISOString());
+                          }
+                        }}
+                        textColor={theme.foreground}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              )}
+              {showValidityDatePicker && Platform.OS === "android" && (
+                <DateTimePicker
+                  value={data.validity_date ? new Date(data.validity_date) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowValidityDatePicker(false);
+                    if (event.type === "set" && selectedDate) {
+                      setData({ ...data, validity_date: selectedDate.toISOString() });
+                    }
+                  }}
+                />
+              )}
+            </View>
+          )}
 
           <View className="h-20" />
         </ScrollView>

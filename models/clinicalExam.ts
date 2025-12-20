@@ -18,6 +18,7 @@ export interface ClinicalExamOCRExtraction {
   findings: string | null;
   notes: string | null;
   follow_up_date: string | null;
+  validity_date: string | null;
 }
 
 export interface ClinicalExamOCRResponse {
@@ -39,6 +40,7 @@ export interface ClinicalExamData {
   findings: string | null;
   notes: string | null;
   follow_up_date: string | null;
+  validity_date: string | null;
   document_url: string | null;
 }
 
@@ -64,6 +66,7 @@ export function parseClinicalExamOCRResponse(
     findings: exam.findings,
     notes: exam.notes,
     follow_up_date: exam.follow_up_date,
+    validity_date: exam.validity_date,
     document_url: documentUrl,
     created_at: new Date().toISOString(),
   };

@@ -1,13 +1,13 @@
 // Clinical Exam OCR using Gemini Vision API
 // Analyzes clinical exam documents and extracts structured data
 import {
-  errorResponse,
-  handleCorsRequest,
-  jsonResponse,
+    errorResponse,
+    handleCorsRequest,
+    jsonResponse,
 } from "../_shared/cors.ts";
 import {
-  getFileAsBase64,
-  getMimeTypeFromPath,
+    getFileAsBase64,
+    getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
 
 interface ClinicalExamExtraction {
@@ -23,6 +23,7 @@ interface ClinicalExamExtraction {
   findings: string | null;
   notes: string | null;
   follow_up_date: string | null;
+  validity_date: string | null;
 }
 
 interface ClinicalExamOCRResponse {
@@ -96,6 +97,7 @@ IMPORTANT GUIDELINES:
 - Extract findings/observations from the examination
 - Extract notes, recommendations, or treatment instructions
 - Extract follow-up date if mentioned
+- For TRAVEL DOCUMENTS/CERTIFICATES: Extract the validity/expiry date (validity_date) - this is the date until which the travel certificate is valid
 
 DATE HANDLING:
 - If date looks like DD/MM/YYYY or DD/MM/YY, convert to YYYY-MM-DD
@@ -189,6 +191,10 @@ Return structured JSON with confidence score and exam data.`,
                       type: "string",
                       description: "Follow-up date in YYYY-MM-DD format if mentioned",
                     },
+                    validity_date: {
+                      type: "string",
+                      description: "Validity/expiry date in YYYY-MM-DD format for travel documents/certificates",
+                    },
                   },
                   required: ["exam_type"],
                 },
@@ -249,11 +255,34 @@ Return structured JSON with confidence score and exam data.`,
       }
     };
 
+    // Validate dates for validity (validity_date can be further in the future)
+    const fixValidityDate = (dateStr: string | null): string | null => {
+      if (!dateStr) return null;
+      
+      try {
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        
+        // Validity dates can be up to 5 years in the future for travel documents
+        if (isNaN(date.getTime()) || year < 2020 || year > currentYear + 5) {
+          console.log(`Invalid validity date ${dateStr}, setting to null`);
+          return null;
+        }
+        
+        return date.toISOString().split('T')[0];
+      } catch {
+        return null;
+      }
+    };
+
     if (result.exam.exam_date) {
       result.exam.exam_date = fixDate(result.exam.exam_date);
     }
     if (result.exam.follow_up_date) {
       result.exam.follow_up_date = fixDate(result.exam.follow_up_date);
+    }
+    if (result.exam.validity_date) {
+      result.exam.validity_date = fixValidityDate(result.exam.validity_date);
     }
 
     console.log(

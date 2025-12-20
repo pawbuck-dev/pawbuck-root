@@ -51,6 +51,7 @@ export type Database = {
           temperature: number | null
           updated_at: string
           user_id: string
+          validity_date: string | null
           vet_name: string | null
           weight_unit: string | null
           weight_value: number | null
@@ -71,6 +72,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_id?: string
+          validity_date?: string | null
           vet_name?: string | null
           weight_unit?: string | null
           weight_value?: number | null
@@ -91,6 +93,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_id?: string
+          validity_date?: string | null
           vet_name?: string | null
           weight_unit?: string | null
           weight_value?: number | null
@@ -379,6 +382,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vet_information: {
+        Row: {
+          id: string
+          clinic_name: string
+          vet_name: string
+          address: string
+          phone: string
+          email: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_name: string
+          vet_name: string
+          address: string
+          phone: string
+          email: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_name?: string
+          vet_name?: string
+          address?: string
+          phone?: string
+          email?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       weekly_medication_schedules: {
         Row: {
