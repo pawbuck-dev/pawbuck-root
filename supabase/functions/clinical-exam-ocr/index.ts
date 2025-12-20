@@ -1,13 +1,13 @@
 // Clinical Exam OCR using Gemini Vision API
 // Analyzes clinical exam documents and extracts structured data
 import {
-    errorResponse,
-    handleCorsRequest,
-    jsonResponse,
+  errorResponse,
+  handleCorsRequest,
+  jsonResponse,
 } from "../_shared/cors.ts";
 import {
-    getFileAsBase64,
-    getMimeTypeFromPath,
+  getFileAsBase64,
+  getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
 
 interface ClinicalExamExtraction {

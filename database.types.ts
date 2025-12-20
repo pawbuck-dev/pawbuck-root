@@ -275,6 +275,7 @@ export type Database = {
           photo_url: string | null;
           sex: string;
           user_id: string;
+          vet_information_id: string | null;
           weight_unit: string;
           weight_value: number;
         };
@@ -291,6 +292,7 @@ export type Database = {
           photo_url?: string | null;
           sex: string;
           user_id?: string;
+          vet_information_id?: string | null;
           weight_unit: string;
           weight_value: number;
         };
@@ -307,10 +309,19 @@ export type Database = {
           photo_url?: string | null;
           sex?: string;
           user_id?: string;
+          vet_information_id?: string | null;
           weight_unit?: string;
           weight_value?: number;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "pets_vet_information_id_fkey";
+            columns: ["vet_information_id"];
+            isOneToOne: false;
+            referencedRelation: "vet_information";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       push_tokens: {
         Row: {

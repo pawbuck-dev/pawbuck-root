@@ -86,3 +86,28 @@ export const deletePet = async (petId: string) => {
 
   return data;
 };
+
+/**
+ * Link a vet information record to a pet
+ */
+export const linkVetToPet = async (petId: string, vetInformationId: string | null) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User must be authenticated to link vet to pet");
+  }
+
+  const { data, error } = await supabase
+    .from("pets")
+    .update({ vet_information_id: vetInformationId })
+    .eq("id", petId)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+};

@@ -1,18 +1,26 @@
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { Tables } from "@/database.types";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { fetchClinicalExams } from "@/services/clinicalExams";
 import { fetchLabResults } from "@/services/labResults";
 import { fetchMedicines, Medicine } from "@/services/medicines";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
+import { linkVetToPet } from "@/services/pets";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
+import {
+  createVetInformation,
+  deleteVetInformation,
+  getVetInformation,
+  updateVetInformation
+} from "@/services/vetInformation";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Text, TouchableOpacity, View } from "react-native";
 import { PetEditModal } from "./PetEditModal";
 import PetImage from "./PetImage";
+import { VetInfoModal } from "./VetInfoModal";
 
 type PetCardProps = {
   pet: Pet;
@@ -200,7 +208,9 @@ export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
   const { theme } = useTheme();
   const { updatePet, updatingPet, deletePet, deletingPet } = usePets();
+  const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showVetModal, setShowVetModal] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // Fetch vaccinations for health at a glance
@@ -213,6 +223,50 @@ export default function PetCard({ pet }: PetCardProps) {
   const { data: medicines = [] } = useQuery({
     queryKey: ["medicines", pet.id],
     queryFn: () => fetchMedicines(pet.id),
+  });
+
+  // Fetch vet information if pet has one linked
+  const { data: vetInfo, isLoading: loadingVetInfo } = useQuery({
+    queryKey: ["vet_information", pet.vet_information_id],
+    queryFn: () => getVetInformation(pet.vet_information_id!),
+    enabled: !!pet.vet_information_id,
+  });
+
+  // Mutation to create vet info and link to pet
+  const createVetMutation = useMutation({
+    mutationFn: async (vetData: TablesInsert<"vet_information">) => {
+      const newVet = await createVetInformation(vetData);
+      await linkVetToPet(pet.id, newVet.id);
+      return newVet;
+    },
+    onSuccess: (newVet) => {
+      queryClient.setQueryData(["vet_information", newVet.id], newVet);
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+    },
+  });
+
+  // Mutation to update vet info
+  const updateVetMutation = useMutation({
+    mutationFn: async (vetData: TablesUpdate<"vet_information">) => {
+      if (!pet.vet_information_id) throw new Error("No vet info to update");
+      return updateVetInformation(pet.vet_information_id, vetData);
+    },
+    onSuccess: (updatedVet) => {
+      queryClient.setQueryData(["vet_information", updatedVet.id], updatedVet);
+    },
+  });
+
+  // Mutation to delete vet info
+  const deleteVetMutation = useMutation({
+    mutationFn: async () => {
+      if (!pet.vet_information_id) throw new Error("No vet info to delete");
+      await deleteVetInformation(pet.vet_information_id);
+      await linkVetToPet(pet.id, null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      queryClient.removeQueries({ queryKey: ["vet_information", pet.vet_information_id] });
+    },
   });
 
   // Compute health at a glance data
@@ -232,6 +286,32 @@ export default function PetCard({ pet }: PetCardProps) {
 
   const handleDeletePet = async (petId: string) => {
     await deletePet(petId);
+  };
+
+  const handleSaveVetInfo = async (
+    vetData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">
+  ) => {
+    if (pet.vet_information_id && vetInfo) {
+      await updateVetMutation.mutateAsync(vetData as TablesUpdate<"vet_information">);
+    } else {
+      await createVetMutation.mutateAsync(vetData as TablesInsert<"vet_information">);
+    }
+  };
+
+  const handleDeleteVetInfo = async () => {
+    await deleteVetMutation.mutateAsync();
+  };
+
+  const handleCallVet = () => {
+    if (vetInfo?.phone) {
+      Linking.openURL(`tel:${vetInfo.phone}`);
+    }
+  };
+
+  const handleEmailVet = () => {
+    if (vetInfo?.email) {
+      Linking.openURL(`mailto:${vetInfo.email}`);
+    }
   };
 
   const handleDownloadPassport = async () => {
@@ -392,6 +472,114 @@ export default function PetCard({ pet }: PetCardProps) {
         </View>
       </View>
 
+      {/* Veterinary Information */}
+      <View
+        className="rounded-2xl p-4 mb-4"
+        style={{
+          backgroundColor: theme.dashedCard,
+          borderWidth: 1,
+          borderColor: theme.border,
+        }}
+      >
+        <Text
+          className="text-sm font-bold mb-3"
+          style={{ color: theme.cardForeground, letterSpacing: 0.5 }}
+        >
+          VETERINARY INFORMATION
+        </Text>
+
+        {loadingVetInfo ? (
+          <View className="items-center py-4">
+            <ActivityIndicator size="small" color={theme.primary} />
+          </View>
+        ) : vetInfo ? (
+          <TouchableOpacity
+            className="gap-2"
+            onPress={() => setShowVetModal(true)}
+            activeOpacity={0.7}
+          >
+            {/* Clinic Name */}
+            <View className="flex-row items-center">
+              <View
+                className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: theme.primary + "20" }}
+              >
+                <Ionicons name="business" size={16} color={theme.primary} />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-sm font-semibold"
+                  style={{ color: theme.cardForeground }}
+                >
+                  {vetInfo.clinic_name}
+                </Text>
+                <Text className="text-xs" style={{ color: theme.secondary }}>
+                  {vetInfo.vet_name}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.secondary} />
+            </View>
+
+            {/* Contact Actions */}
+            <View className="flex-row gap-2 mt-2">
+              <TouchableOpacity
+                className="flex-1 flex-row items-center justify-center py-2 rounded-lg"
+                style={{ backgroundColor: theme.primary + "15" }}
+                onPress={handleCallVet}
+              >
+                <Ionicons name="call" size={14} color={theme.primary} />
+                <Text
+                  className="text-xs font-medium ml-1"
+                  style={{ color: theme.primary }}
+                >
+                  Call
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 flex-row items-center justify-center py-2 rounded-lg"
+                style={{ backgroundColor: theme.primary + "15" }}
+                onPress={handleEmailVet}
+              >
+                <Ionicons name="mail" size={14} color={theme.primary} />
+                <Text
+                  className="text-xs font-medium ml-1"
+                  style={{ color: theme.primary }}
+                >
+                  Email
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View className="items-center py-2">
+            <Text
+              className="text-sm text-center mb-3"
+              style={{ color: theme.secondary }}
+            >
+              No veterinary contact information added yet.
+            </Text>
+            <TouchableOpacity
+              className="flex-row items-center justify-center py-3 px-6 rounded-xl"
+              style={{
+                backgroundColor: theme.primary + "15",
+                borderWidth: 1,
+                borderColor: theme.primary,
+                borderStyle: "dashed",
+              }}
+              onPress={() => setShowVetModal(true)}
+            >
+              <Ionicons name="add" size={18} color={theme.primary} />
+              <Text
+                className="text-sm font-semibold ml-1"
+                style={{ color: theme.primary }}
+              >
+                Add Vet
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Action Buttons */}
       <View className="gap-3">
         {/* Health Records Button */}
@@ -465,6 +653,18 @@ export default function PetCard({ pet }: PetCardProps) {
           pet={pet}
           loading={updatingPet}
           deleting={deletingPet}
+        />
+      )}
+
+      {/* Vet Info Modal */}
+      {showVetModal && (
+        <VetInfoModal
+          visible={showVetModal}
+          onClose={() => setShowVetModal(false)}
+          onSave={handleSaveVetInfo}
+          onDelete={vetInfo ? handleDeleteVetInfo : undefined}
+          vetInfo={vetInfo}
+          loading={createVetMutation.isPending || updateVetMutation.isPending}
         />
       )}
     </View>
