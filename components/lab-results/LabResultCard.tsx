@@ -5,10 +5,11 @@ import { LabResult } from "@/services/labResults";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-    Alert,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { LabResultEditModal } from "./LabResultEditModal";
 
@@ -21,6 +22,7 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
   const { updateLabResultMutation, deleteLabResultMutation } = useLabResults();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
 
   const hasDocument = !!labResult.document_url;
 
@@ -228,44 +230,114 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
           {/* Sample of Results */}
           {labResult.results.length > 0 && (
             <View className="mt-2 pt-2 border-t" style={{ borderTopColor: theme.background }}>
-              {labResult.results.slice(0, 3).map((result, index) => (
-                <View key={index} className="flex-row items-center justify-between mb-1">
-                  <Text
-                    className="text-xs flex-1"
-                    style={{ color: theme.secondary }}
-                    numberOfLines={1}
+              {showAllResults ? (
+                <>
+                  <View 
+                    style={{ 
+                      maxHeight: 300,
+                      borderRadius: 8,
+                      backgroundColor: theme.background,
+                      padding: 8,
+                    }}
                   >
-                    {result.testName}
-                  </Text>
-                  <View className="flex-row items-center gap-1">
+                    <ScrollView 
+                      showsVerticalScrollIndicator={true}
+                      nestedScrollEnabled={true}
+                      scrollEnabled={true}
+                      contentContainerStyle={{ paddingBottom: 4 }}
+                    >
+                      {labResult.results.map((result, index) => (
+                        <View key={index} className="flex-row items-center justify-between mb-2">
+                          <Text
+                            className="text-xs flex-1"
+                            style={{ color: theme.secondary }}
+                            numberOfLines={1}
+                          >
+                            {result.testName}
+                          </Text>
+                          <View className="flex-row items-center gap-1">
+                            <Text
+                              className="text-xs font-medium"
+                              style={{
+                                color:
+                                  result.status === "high" || result.status === "low"
+                                    ? "#ef4444"
+                                    : theme.foreground,
+                              }}
+                            >
+                              {result.value} {result.unit}
+                            </Text>
+                            {result.status !== "normal" && (
+                              <Ionicons
+                                name={result.status === "high" ? "arrow-up" : "arrow-down"}
+                                size={12}
+                                color="#ef4444"
+                              />
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => setShowAllResults(false)}
+                    className="mt-2 py-1"
+                  >
                     <Text
                       className="text-xs font-medium"
-                      style={{
-                        color:
-                          result.status === "high" || result.status === "low"
-                            ? "#ef4444"
-                            : theme.foreground,
-                      }}
+                      style={{ color: theme.primary }}
                     >
-                      {result.value} {result.unit}
+                      Show less
                     </Text>
-                    {result.status !== "normal" && (
-                      <Ionicons
-                        name={result.status === "high" ? "arrow-up" : "arrow-down"}
-                        size={12}
-                        color="#ef4444"
-                      />
-                    )}
-                  </View>
-                </View>
-              ))}
-              {labResult.results.length > 3 && (
-                <Text
-                  className="text-xs mt-1 italic"
-                  style={{ color: theme.secondary }}
-                >
-                  +{labResult.results.length - 3} more
-                </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {labResult.results.slice(0, 3).map((result, index) => (
+                    <View key={index} className="flex-row items-center justify-between mb-1">
+                      <Text
+                        className="text-xs flex-1"
+                        style={{ color: theme.secondary }}
+                        numberOfLines={1}
+                      >
+                        {result.testName}
+                      </Text>
+                      <View className="flex-row items-center gap-1">
+                        <Text
+                          className="text-xs font-medium"
+                          style={{
+                            color:
+                              result.status === "high" || result.status === "low"
+                                ? "#ef4444"
+                                : theme.foreground,
+                          }}
+                        >
+                          {result.value} {result.unit}
+                        </Text>
+                        {result.status !== "normal" && (
+                          <Ionicons
+                            name={result.status === "high" ? "arrow-up" : "arrow-down"}
+                            size={12}
+                            color="#ef4444"
+                          />
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                  {labResult.results.length > 3 && (
+                    <TouchableOpacity 
+                      onPress={() => setShowAllResults(true)}
+                      className="mt-1 py-1"
+                    >
+                      <Text
+                        className="text-xs font-medium"
+                        style={{ color: theme.primary }}
+                      >
+                        +{labResult.results.length - 3} more
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
           )}
