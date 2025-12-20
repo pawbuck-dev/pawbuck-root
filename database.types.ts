@@ -258,6 +258,44 @@ export type Database = {
           },
         ]
       }
+      monthy_medication_schedules: {
+        Row: {
+          created_at: string
+          day_of_month: number
+          id: number
+          medication_id: string
+          time: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_month: number
+          id?: number
+          medication_id: string
+          time: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_month?: number
+          id?: number
+          medication_id?: string
+          time?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthy_medication_schedules_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           animal_type: string
@@ -385,6 +423,7 @@ export type Database = {
           medication_id: string
           time: string
           updated_at: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -393,6 +432,7 @@ export type Database = {
           medication_id: string
           time: string
           updated_at?: string | null
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -401,6 +441,7 @@ export type Database = {
           medication_id?: string
           time?: string
           updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {

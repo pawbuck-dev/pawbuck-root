@@ -1,3 +1,4 @@
+import { ScheduleFrequency } from "@/constants/schedules";
 import { useTheme } from "@/context/themeContext";
 import { Medicine } from "@/services/medicines";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,10 +39,14 @@ const daysOfWeek = [
 const formatDayOfMonth = (day: number): string => {
   if (day >= 11 && day <= 13) return `${day}th`;
   switch (day % 10) {
-    case 1: return `${day}st`;
-    case 2: return `${day}nd`;
-    case 3: return `${day}rd`;
-    default: return `${day}th`;
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
   }
 };
 
@@ -141,12 +146,16 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   const [frequency, setFrequency] = useState(medicine.frequency);
   const [startDate, setStartDate] = useState(medicine.start_date);
   const [endDate, setEndDate] = useState(medicine.end_date);
-  const [prescribedBy, setPrescribedBy] = useState(medicine.prescribed_by || "");
+  const [prescribedBy, setPrescribedBy] = useState(
+    medicine.prescribed_by || ""
+  );
   const [purpose, setPurpose] = useState(medicine.purpose || "");
   const [scheduledTimes, setScheduledTimes] = useState<(string | null)[]>(
     initializeScheduledTimes(medicine)
   );
-  const [scheduledDay, setScheduledDay] = useState<number | null>(medicine.scheduled_day ?? null);
+  const [scheduledDay, setScheduledDay] = useState<number | null>(
+    medicine.scheduled_day ?? null
+  );
 
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -154,13 +163,22 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [tempStartDate, setTempStartDate] = useState(medicine.start_date);
   const [tempEndDate, setTempEndDate] = useState(medicine.end_date);
-  const [editingTimeSlotIndex, setEditingTimeSlotIndex] = useState<number | null>(null);
+  const [editingTimeSlotIndex, setEditingTimeSlotIndex] = useState<
+    number | null
+  >(null);
   const [tempTime, setTempTime] = useState<Date>(new Date());
   const [showDayOfWeekPicker, setShowDayOfWeekPicker] = useState(false);
   const [showDayOfMonthPicker, setShowDayOfMonthPicker] = useState(false);
 
-  const medicationTypes = ["Tablet", "Capsule", "Liquid", "Injection", "Topical", "Chewable", "Other"];
-  const frequencies = ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Monthly", "As Needed"];
+  const medicationTypes = [
+    "Tablet",
+    "Capsule",
+    "Liquid",
+    "Injection",
+    "Topical",
+    "Chewable",
+    "Other",
+  ];
 
   const handleSave = () => {
     // Validate required fields
@@ -187,15 +205,22 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
 
     // Validate scheduled times (skip for "As Needed")
     if (requiresScheduledTime(frequency)) {
-      const validScheduledTimes = scheduledTimes.filter((t): t is string => t !== null);
+      const validScheduledTimes = scheduledTimes.filter(
+        (t): t is string => t !== null
+      );
       const requiredTimeSlots = getTimeSlotCount(frequency);
       if (validScheduledTimes.length < requiredTimeSlots) {
-        Alert.alert("Required Field", "Please set all scheduled times for doses");
+        Alert.alert(
+          "Required Field",
+          "Please set all scheduled times for doses"
+        );
         return;
       }
     }
 
-    const validScheduledTimes = scheduledTimes.filter((t): t is string => t !== null);
+    const validScheduledTimes = scheduledTimes.filter(
+      (t): t is string => t !== null
+    );
 
     const updateData: Partial<Medicine> = {
       name,
@@ -206,7 +231,9 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
       end_date: endDate,
       prescribed_by: prescribedBy || null,
       purpose: purpose || null,
-      scheduled_times: requiresScheduledTime(frequency) ? validScheduledTimes : null,
+      scheduled_times: requiresScheduledTime(frequency)
+        ? validScheduledTimes
+        : null,
       scheduled_day: scheduledDay,
     };
 
@@ -369,14 +396,21 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                 <Text
                   className="text-base"
                   style={{
-                    color: scheduledDay !== null ? theme.foreground : theme.secondary,
+                    color:
+                      scheduledDay !== null
+                        ? theme.foreground
+                        : theme.secondary,
                   }}
                 >
                   {scheduledDay !== null
                     ? daysOfWeek.find((d) => d.value === scheduledDay)?.label
                     : "Select day"}
                 </Text>
-                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={theme.primary}
+                />
               </TouchableOpacity>
             </View>
           )}
@@ -399,14 +433,21 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                 <Text
                   className="text-base"
                   style={{
-                    color: scheduledDay !== null ? theme.foreground : theme.secondary,
+                    color:
+                      scheduledDay !== null
+                        ? theme.foreground
+                        : theme.secondary,
                   }}
                 >
                   {scheduledDay !== null
                     ? formatDayOfMonth(scheduledDay)
                     : "Select day"}
                 </Text>
-                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={theme.primary}
+                />
               </TouchableOpacity>
             </View>
           )}
@@ -440,12 +481,18 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     <Text
                       className="text-base"
                       style={{
-                        color: scheduledTimes[index] ? theme.foreground : theme.secondary,
+                        color: scheduledTimes[index]
+                          ? theme.foreground
+                          : theme.secondary,
                       }}
                     >
                       {formatTimeForDisplay(scheduledTimes[index])}
                     </Text>
-                    <Ionicons name="time-outline" size={20} color={theme.primary} />
+                    <Ionicons
+                      name="time-outline"
+                      size={20}
+                      color={theme.primary}
+                    />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -472,7 +519,11 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
               <Text className="text-base" style={{ color: theme.foreground }}>
                 {formatDate(startDate)}
               </Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={theme.primary}
+              />
             </TouchableOpacity>
           </View>
 
@@ -499,7 +550,11 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
               >
                 {formatDate(endDate)}
               </Text>
-              <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={theme.primary}
+              />
             </TouchableOpacity>
           </View>
 
@@ -593,7 +648,8 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     <Text
                       className="text-base"
                       style={{
-                        color: type === medType ? theme.primary : theme.foreground,
+                        color:
+                          type === medType ? theme.primary : theme.foreground,
                         fontWeight: type === medType ? "600" : "normal",
                       }}
                     >
@@ -633,7 +689,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                 </TouchableOpacity>
               </View>
               <ScrollView showsVerticalScrollIndicator={false}>
-                {frequencies.map((freq) => (
+                {Object.values(ScheduleFrequency).map((freq) => (
                   <TouchableOpacity
                     key={freq}
                     className="py-4 border-b"
@@ -656,7 +712,8 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     <Text
                       className="text-base"
                       style={{
-                        color: frequency === freq ? theme.primary : theme.foreground,
+                        color:
+                          frequency === freq ? theme.primary : theme.foreground,
                         fontWeight: frequency === freq ? "600" : "normal",
                       }}
                     >
@@ -709,8 +766,12 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     <Text
                       className="text-base"
                       style={{
-                        color: scheduledDay === day.value ? theme.primary : theme.foreground,
-                        fontWeight: scheduledDay === day.value ? "600" : "normal",
+                        color:
+                          scheduledDay === day.value
+                            ? theme.primary
+                            : theme.foreground,
+                        fontWeight:
+                          scheduledDay === day.value ? "600" : "normal",
                       }}
                     >
                       {day.label}
@@ -744,11 +805,16 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                 >
                   Select Day of Month
                 </Text>
-                <TouchableOpacity onPress={() => setShowDayOfMonthPicker(false)}>
+                <TouchableOpacity
+                  onPress={() => setShowDayOfMonthPicker(false)}
+                >
                   <Ionicons name="close" size={28} color={theme.foreground} />
                 </TouchableOpacity>
               </View>
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: 300 }}
+              >
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                   <TouchableOpacity
                     key={day}
@@ -762,7 +828,10 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                     <Text
                       className="text-base"
                       style={{
-                        color: scheduledDay === day ? theme.primary : theme.foreground,
+                        color:
+                          scheduledDay === day
+                            ? theme.primary
+                            : theme.foreground,
                         fontWeight: scheduledDay === day ? "600" : "normal",
                       }}
                     >
@@ -778,11 +847,21 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
         {/* Start Date Picker */}
         {showStartDatePicker && Platform.OS === "ios" && (
           <Modal transparent animationType="slide">
-            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View
+              className="flex-1 justify-end"
+              style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+            >
               <View style={{ backgroundColor: theme.background }}>
-                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
-                  <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
-                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                <View
+                  className="flex-row justify-between items-center px-4 py-2 border-b"
+                  style={{ borderBottomColor: theme.card }}
+                >
+                  <TouchableOpacity
+                    onPress={() => setShowStartDatePicker(false)}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -790,7 +869,15 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                       setShowStartDatePicker(false);
                     }}
                   >
-                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                    <Text
+                      style={{
+                        color: theme.primary,
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Done
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -825,11 +912,19 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
         {/* End Date Picker */}
         {showEndDatePicker && Platform.OS === "ios" && (
           <Modal transparent animationType="slide">
-            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View
+              className="flex-1 justify-end"
+              style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+            >
               <View style={{ backgroundColor: theme.background }}>
-                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                <View
+                  className="flex-row justify-between items-center px-4 py-2 border-b"
+                  style={{ borderBottomColor: theme.card }}
+                >
                   <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -837,7 +932,15 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
                       setShowEndDatePicker(false);
                     }}
                   >
-                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                    <Text
+                      style={{
+                        color: theme.primary,
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Done
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -876,27 +979,44 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
             animationType="slide"
             visible={editingTimeSlotIndex !== null}
           >
-            <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View
+              className="flex-1 justify-end"
+              style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+            >
               <View style={{ backgroundColor: theme.background }}>
-                <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
+                <View
+                  className="flex-row justify-between items-center px-4 py-2 border-b"
+                  style={{ borderBottomColor: theme.card }}
+                >
                   <TouchableOpacity
                     onPress={() => {
                       setEditingTimeSlotIndex(null);
                     }}
                   >
-                    <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                    <Text style={{ color: theme.primary, fontSize: 16 }}>
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
                       if (editingTimeSlotIndex !== null) {
                         const newScheduledTimes = [...scheduledTimes];
-                        newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(tempTime);
+                        newScheduledTimes[editingTimeSlotIndex] =
+                          dateToTimeString(tempTime);
                         setScheduledTimes(newScheduledTimes);
                       }
                       setEditingTimeSlotIndex(null);
                     }}
                   >
-                    <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+                    <Text
+                      style={{
+                        color: theme.primary,
+                        fontSize: 16,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Done
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -920,9 +1040,14 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
             mode="time"
             display="default"
             onChange={(event, selectedDate) => {
-              if (event.type === "set" && selectedDate && editingTimeSlotIndex !== null) {
+              if (
+                event.type === "set" &&
+                selectedDate &&
+                editingTimeSlotIndex !== null
+              ) {
                 const newScheduledTimes = [...scheduledTimes];
-                newScheduledTimes[editingTimeSlotIndex] = dateToTimeString(selectedDate);
+                newScheduledTimes[editingTimeSlotIndex] =
+                  dateToTimeString(selectedDate);
                 setScheduledTimes(newScheduledTimes);
               }
               setEditingTimeSlotIndex(null);
@@ -933,4 +1058,3 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
     </Modal>
   );
 };
-
