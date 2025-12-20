@@ -20,9 +20,10 @@ import PrivateImage from "../PrivateImage";
 
 type PetImageProps = {
   pet: Pet;
+  style?: "default" | "hero";
 };
 
-export default function PetImage({ pet }: PetImageProps) {
+export default function PetImage({ pet, style = "default" }: PetImageProps) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -90,6 +91,57 @@ export default function PetImage({ pet }: PetImageProps) {
     );
   };
 
+  // Hero style - large image for the card
+  if (style === "hero") {
+    return (
+      <TouchableOpacity
+        onPress={handlePhotoUpload}
+        activeOpacity={0.9}
+        disabled={uploading}
+        className="w-full aspect-[4/2.8] items-center justify-center"
+        style={{
+          backgroundColor: theme.dashedCard,
+        }}
+      >
+        {uploading && (
+          <View className="absolute inset-0 items-center justify-center z-10 bg-black/30">
+            <ActivityIndicator size="large" color="#fff" />
+          </View>
+        )}
+
+        {pet.photo_url ? (
+          <PrivateImage
+            bucketName="pets"
+            filePath={pet.photo_url}
+            className="w-full h-full"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="items-center justify-center flex-1">
+            <View
+              className="w-24 h-24 rounded-2xl items-center justify-center mb-3"
+              style={{
+                backgroundColor: theme.border,
+                borderWidth: 2,
+                borderStyle: "dashed",
+                borderColor: theme.secondary,
+              }}
+            >
+              <Ionicons name="camera-outline" size={40} color={theme.secondary} />
+            </View>
+            <Text
+              className="text-base font-medium"
+              style={{ color: theme.secondary }}
+            >
+              Add Photo
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }
+
+  // Default style - circular avatar
   return (
     <View className="items-center mb-5">
       <TouchableOpacity
