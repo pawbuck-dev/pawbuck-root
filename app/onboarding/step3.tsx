@@ -23,7 +23,7 @@ export default function OnboardingStep3() {
     }, 300);
   };
 
-  const progressPercent = (2 / 8) * 100;
+  const progressPercent = (2 / 9) * 100;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -35,7 +35,7 @@ export default function OnboardingStep3() {
             className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
-            Question 2 of 8
+            Question 2 of 9
           </Text>
         </View>
 

@@ -393,16 +393,17 @@ export default function PetCard({ pet }: PetCardProps) {
         <Text className="text-sm mb-2" style={{ color: theme.secondary }}>
           {pet.breed} • {calculateAge(pet.date_of_birth)} years • {pet.sex.charAt(0).toUpperCase() + pet.sex.slice(1) as "Male" | "Female"}
         </Text>
-        {pet.microchip_number && (
+        {pet.email_id && (
           <View
-            className="px-3 py-1.5 rounded-full mt-1"
+            className="px-3 py-1.5 rounded-full mt-1 flex-row items-center justify-center gap-2"
             style={{ backgroundColor: theme.dashedCard }}
           >
+            <Ionicons name="mail" size={14} color={theme.primary} />
             <Text
               className="text-xs font-medium"
               style={{ color: theme.secondary, letterSpacing: 0.5 }}
             >
-              MICROCHIP {pet.microchip_number}
+              {pet.email_id}@pawbuck.app
             </Text>
           </View>
         )}

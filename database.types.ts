@@ -269,6 +269,7 @@ export type Database = {
           created_at: string;
           date_of_birth: string;
           deleted_at: string | null;
+          email_id: string;
           id: string;
           microchip_number: string | null;
           name: string;
@@ -286,6 +287,7 @@ export type Database = {
           created_at?: string;
           date_of_birth: string;
           deleted_at?: string | null;
+          email_id: string;
           id?: string;
           microchip_number?: string | null;
           name: string;
@@ -303,6 +305,7 @@ export type Database = {
           created_at?: string;
           date_of_birth?: string;
           deleted_at?: string | null;
+          email_id?: string;
           id?: string;
           microchip_number?: string | null;
           name?: string;
@@ -467,7 +470,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_email_id_available: {
+        Args: {
+          p_email_id: string
+          p_exclude_pet_id?: string | null
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

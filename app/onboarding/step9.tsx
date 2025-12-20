@@ -29,7 +29,7 @@ export default function OnboardingStep9() {
     microchipNumber.trim().length === maxLength;
   const canProceed = isValidMicrochip;
 
-  const progressPercent = 100; // Final question, 8/8 = 100%
+  const progressPercent = 100; // Final question, 9/9 = 100%
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -42,7 +42,7 @@ export default function OnboardingStep9() {
             className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
-            Question 8 of 8
+            Question 9 of 9
           </Text>
         </View>
 

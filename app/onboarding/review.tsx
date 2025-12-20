@@ -7,13 +7,23 @@ import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
+import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
 import { Ionicons } from "@expo/vector-icons";
 import { StackActions } from "@react-navigation/native";
 import { useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import DatePicker from "react-native-date-picker";
+
+const EMAIL_DOMAIN = "@pawbuck.com";
 
 type EditingField = keyof TablesInsert<"pets"> | null;
 
@@ -47,6 +57,61 @@ export default function OnboardingReview() {
   const [tempBirthDate, setTempBirthDate] = useState(
     petData!.date_of_birth ? new Date(petData!.date_of_birth) : new Date()
   );
+  const [tempEmailId, setTempEmailId] = useState(petData!.email_id || "");
+
+  // Email validation states
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isEmailAvailable, setIsEmailAvailable] = useState<boolean | null>(
+    petData?.email_id ? true : null
+  );
+  const [emailValidationError, setEmailValidationError] = useState<
+    string | null
+  >(null);
+  const [emailCheckError, setEmailCheckError] = useState<string | null>(null);
+
+  // Debounced email availability check when editing
+  useEffect(() => {
+    if (editingField !== "email_id") return;
+
+    const trimmedEmailId = tempEmailId.trim().toLowerCase();
+
+    // Reset states
+    setIsEmailAvailable(null);
+    setEmailCheckError(null);
+
+    // If email hasn't changed from the original, mark as available
+    if (trimmedEmailId === petData?.email_id?.toLowerCase()) {
+      setEmailValidationError(null);
+      setIsEmailAvailable(true);
+      return;
+    }
+
+    // Validate format first
+    const { isValid, error } = validateEmailIdFormat(trimmedEmailId);
+    if (!isValid) {
+      setEmailValidationError(error || null);
+      return;
+    }
+    setEmailValidationError(null);
+
+    // Check availability after a delay
+    const timeoutId = setTimeout(async () => {
+      setIsCheckingEmail(true);
+      try {
+        const available = await checkEmailIdAvailable(trimmedEmailId);
+        setIsEmailAvailable(available);
+        if (!available) {
+          setEmailCheckError("This email ID is already taken");
+        }
+      } catch {
+        setEmailCheckError("Failed to check availability");
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [tempEmailId, editingField, petData?.email_id]);
 
   const petName = petData!.name || "your pet";
 
@@ -87,6 +152,17 @@ export default function OnboardingReview() {
       updatePetData({ microchip_number: tempMicrochip });
     } else if (field === "date_of_birth") {
       updatePetData({ date_of_birth: tempBirthDate.toISOString() });
+    } else if (field === "email_id") {
+      if (
+        isEmailAvailable &&
+        !emailValidationError &&
+        !emailCheckError &&
+        !isCheckingEmail
+      ) {
+        updatePetData({ email_id: tempEmailId.trim().toLowerCase() });
+      } else {
+        return; // Don't save if email is invalid
+      }
     }
     setEditingField(null);
   };
@@ -100,6 +176,11 @@ export default function OnboardingReview() {
     setTempBirthDate(
       petData?.date_of_birth ? new Date(petData.date_of_birth) : new Date()
     );
+    setTempEmailId(petData?.email_id || "");
+    // Reset email validation states
+    setEmailValidationError(null);
+    setEmailCheckError(null);
+    setIsEmailAvailable(petData?.email_id ? true : null);
     setEditingField(null);
   };
 
@@ -246,6 +327,79 @@ export default function OnboardingReview() {
                       mode === "dark" ? "#6B7280" : "#9CA3AF"
                     }
                   />
+                )}
+                {field === "email_id" && (
+                  <View>
+                    <View
+                      className="flex-row items-center rounded-lg"
+                      style={{
+                        backgroundColor: theme.background,
+                        borderWidth: 1,
+                        borderColor:
+                          emailValidationError || emailCheckError
+                            ? "#EF4444"
+                            : isEmailAvailable
+                              ? "#22C55E"
+                              : theme.primary,
+                      }}
+                    >
+                      <TextInput
+                        className="flex-1 text-lg font-semibold px-3 py-2"
+                        style={{
+                          color: theme.foreground,
+                        }}
+                        value={tempEmailId}
+                        onChangeText={(text) =>
+                          setTempEmailId(text.toLowerCase())
+                        }
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoFocus
+                        placeholder="e.g., buddy"
+                        placeholderTextColor={
+                          mode === "dark" ? "#6B7280" : "#9CA3AF"
+                        }
+                      />
+                      <Text
+                        className="pr-2"
+                        style={{ color: theme.foreground, opacity: 0.6 }}
+                      >
+                        {EMAIL_DOMAIN}
+                      </Text>
+                      <View className="pr-2">
+                        {isCheckingEmail ? (
+                          <ActivityIndicator size="small" color={theme.primary} />
+                        ) : emailValidationError || emailCheckError ? (
+                          <Ionicons
+                            name="close-circle"
+                            size={20}
+                            color="#EF4444"
+                          />
+                        ) : isEmailAvailable ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color="#22C55E"
+                          />
+                        ) : null}
+                      </View>
+                    </View>
+                    {(emailValidationError || emailCheckError) && (
+                      <Text className="text-xs mt-1" style={{ color: "#EF4444" }}>
+                        {emailValidationError || emailCheckError}
+                      </Text>
+                    )}
+                    {isEmailAvailable &&
+                      !emailValidationError &&
+                      !emailCheckError && (
+                        <Text
+                          className="text-xs mt-1"
+                          style={{ color: "#22C55E" }}
+                        >
+                          Email ID is available
+                        </Text>
+                      )}
+                  </View>
                 )}
                 <View className="flex-row gap-2 mt-2">
                   <Pressable
@@ -395,6 +549,16 @@ export default function OnboardingReview() {
             label="Name"
             value={petData?.name || "Not set"}
             field="name"
+          />
+
+          <ProfileField
+            label="Email ID"
+            value={
+              petData?.email_id
+                ? `${petData.email_id}${EMAIL_DOMAIN}`
+                : "Not set"
+            }
+            field="email_id"
           />
 
           <ProfileField

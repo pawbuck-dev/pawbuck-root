@@ -31,7 +31,7 @@ export default function OnboardingStep1() {
             className="text-lg text-center mb-12 leading-7"
             style={{ color: theme.foreground, opacity: 0.6 }}
           >
-            We'll ask you 8 quick questions to create your pet's health profile
+            We'll ask you 9 quick questions to create your pet's health profile
           </Text>
 
           {/* Let's Go Button */}

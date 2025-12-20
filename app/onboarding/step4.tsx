@@ -29,7 +29,7 @@ export default function OnboardingStep4() {
     setBreed(selectedBreed);
   };
 
-  const progressPercent = (3 / 8) * 100;
+  const progressPercent = (3 / 9) * 100;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -42,7 +42,7 @@ export default function OnboardingStep4() {
             className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
-            Question 3 of 8
+            Question 3 of 9
           </Text>
         </View>
 
