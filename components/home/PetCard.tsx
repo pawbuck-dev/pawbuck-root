@@ -14,7 +14,7 @@ import {
   getVetInformation,
   updateVetInformation,
 } from "@/services/vetInformation";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -612,7 +612,7 @@ export default function PetCard({
               className="w-12 h-12 rounded-xl items-center justify-center mb-3"
               style={{ backgroundColor: "#FF980020" }}
             >
-              <Ionicons name="medkit" size={24} color="#FF9800" />
+              <MaterialCommunityIcons name="pill" size={24} color="#FF9800" />
             </View>
             <Text
               className="text-xs mb-1"

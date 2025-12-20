@@ -1,6 +1,6 @@
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
     MaterialTopTabNavigationEventMap,
     MaterialTopTabNavigationOptions,
@@ -138,7 +138,7 @@ export default function HealthRecordsLayout() {
           options={{
             title: "Vaccinations",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="medical" size={24} color={color} />
+              <MaterialCommunityIcons name="needle" size={24} color={color} />
             ),
           }}
         />
@@ -147,7 +147,7 @@ export default function HealthRecordsLayout() {
           options={{
             title: "Medications",
             tabBarIcon: ({ color }) => (
-              <Ionicons name="medkit" size={24} color={color} />
+              <MaterialCommunityIcons name="pill" size={24} color={color} />
             ),
           }}
         />

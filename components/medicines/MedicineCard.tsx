@@ -2,7 +2,7 @@ import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useMedicines } from "@/context/medicinesContext";
 import { useTheme } from "@/context/themeContext";
 import { Medicine } from "@/services/medicines";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { MedicineEditModal } from "./MedicineEditModal";
@@ -217,7 +217,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
             >
-              <Ionicons name="medkit" size={20} color={theme.primary} />
+              <MaterialCommunityIcons name="pill" size={20} color={theme.primary} />
             </View>
             <View className="flex-1">
               <Text

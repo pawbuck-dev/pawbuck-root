@@ -1,7 +1,7 @@
-import { useTheme } from "@/context/themeContext";
-import { useMedicines } from "@/context/medicinesContext";
 import { MedicineCard } from "@/components/medicines/MedicineCard";
-import { Ionicons } from "@expo/vector-icons";
+import { useMedicines } from "@/context/medicinesContext";
+import { useTheme } from "@/context/themeContext";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
@@ -32,7 +32,7 @@ export default function MedicationsScreen() {
           className="w-24 h-24 rounded-full items-center justify-center mb-6"
           style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
         >
-          <Ionicons name="medkit" size={40} color={theme.primary} />
+          <MaterialCommunityIcons name="pill" size={40} color={theme.primary} />
         </View>
         <Text
           className="text-xl font-semibold mb-2 text-center"
