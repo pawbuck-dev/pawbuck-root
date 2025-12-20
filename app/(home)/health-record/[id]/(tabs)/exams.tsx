@@ -14,6 +14,15 @@ import {
 const EXAM_CATEGORIES = ["All", "Routine Checkup", "Invoice", "Travel"] as const;
 type ExamCategory = (typeof EXAM_CATEGORIES)[number];
 
+// Helper function to check if exam belongs to category
+const examMatchesCategory = (examType: string | null, category: ExamCategory): boolean => {
+  if (!examType) return false;
+  if (category === "Travel") {
+    return examType.toLowerCase().includes("travel");
+  }
+  return examType === category;
+};
+
 export default function ExamsScreen() {
   const { theme } = useTheme();
   const { clinicalExams, isLoading } = useClinicalExams();
@@ -22,13 +31,13 @@ export default function ExamsScreen() {
   // Filter exams based on selected category
   const filteredExams = useMemo(() => {
     if (selectedCategory === "All") return clinicalExams;
-    return clinicalExams.filter((exam) => exam.exam_type === selectedCategory);
+    return clinicalExams.filter((exam) => examMatchesCategory(exam.exam_type, selectedCategory));
   }, [clinicalExams, selectedCategory]);
 
   // Count exams per category
   const getCategoryCount = (category: ExamCategory) => {
     if (category === "All") return clinicalExams.length;
-    return clinicalExams.filter((exam) => exam.exam_type === category).length;
+    return clinicalExams.filter((exam) => examMatchesCategory(exam.exam_type, category)).length;
   };
 
   if (isLoading) {

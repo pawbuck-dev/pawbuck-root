@@ -166,12 +166,18 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
             <Ionicons name="clipboard" size={20} color={theme.primary} />
           </View>
           <View className="flex-1">
-            <View className="flex-row items-center flex-wrap gap-2">
+            <Text
+              className="text-base font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              {exam.exam_type || "Clinical Exam"}
+            </Text>
+            <View className="flex-row items-center mt-0.5 gap-2">
               <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
+                className="text-sm"
+                style={{ color: theme.secondary }}
               >
-                {exam.exam_type || "Clinical Exam"}
+                {new Date(exam.exam_date).toLocaleDateString()}
               </Text>
               {/* Validity Status Tag for Travel Documents */}
               {validityStatus && (
@@ -194,12 +200,6 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
                 </View>
               )}
             </View>
-            <Text
-              className="text-sm mt-0.5"
-              style={{ color: theme.secondary }}
-            >
-              {new Date(exam.exam_date).toLocaleDateString()}
-            </Text>
           </View>
           {hasDocument && (
             <TouchableOpacity
