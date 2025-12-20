@@ -1,6 +1,6 @@
 import { useAuth } from "@/context/authContext";
 import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
-import { createPet, getPets, updatePet } from "@/services/pets";
+import { createPet, deletePet, getPets, updatePet } from "@/services/pets";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, {
   createContext,
@@ -31,6 +31,10 @@ interface PetsContextType {
   updatePet: (petId: string, petData: TablesUpdate<"pets">) => Promise<Pet>;
   /** Loading state for pet update */
   updatingPet: boolean;
+  /** Delete a pet (soft delete) */
+  deletePet: (petId: string) => Promise<void>;
+  /** Loading state for pet deletion */
+  deletingPet: boolean;
 }
 
 const PetsContext = createContext<PetsContextType | undefined>(undefined);
@@ -97,6 +101,20 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
   });
 
+  // Delete pet mutation (soft delete)
+  const deletePetMutation = useMutation({
+    mutationFn: (petId: string) => deletePet(petId),
+    onSuccess: (_, petId) => {
+      // Remove the deleted pet from the cache
+      queryClient.setQueryData<Pet[]>(["pets", userId], (old = []) =>
+        old.filter((pet) => pet.id !== petId)
+      );
+    },
+    onError: (err) => {
+      console.error("Error deleting pet:", err);
+    },
+  });
+
   // Add a new pet
   const addPet = useCallback(
     async (petData: TablesInsert<"pets">): Promise<Pet> =>
@@ -109,6 +127,14 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     async (petId: string, petData: TablesUpdate<"pets">): Promise<Pet> =>
       updatePetMutation.mutateAsync({ petId, petData }),
     [updatePetMutation]
+  );
+
+  // Delete a pet (soft delete)
+  const deletePetCallback = useCallback(
+    async (petId: string): Promise<void> => {
+      await deletePetMutation.mutateAsync(petId);
+    },
+    [deletePetMutation]
   );
 
   // Reset the sync tracker when onboarding is reset
@@ -148,6 +174,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     queryError?.message ||
     addPetMutation.error?.message ||
     updatePetMutation.error?.message ||
+    deletePetMutation.error?.message ||
     null;
 
   return (
@@ -160,6 +187,8 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
         addPet,
         updatePet: updatePetCallback,
         updatingPet: updatePetMutation.isPending,
+        deletePet: deletePetCallback,
+        deletingPet: deletePetMutation.isPending,
       }}
     >
       {children}

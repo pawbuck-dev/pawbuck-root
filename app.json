@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "pawbuck",
-    "slug": "pawbuck",
+    "name": "Pawbuck",
+    "slug": "Pawbuck",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pawbuck",
+    "scheme": "Pawbuck",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

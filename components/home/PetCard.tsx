@@ -23,25 +23,22 @@ const getNearestUpcomingVaccination = (vaccinations: Tables<"vaccinations">[]): 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   
-  // Filter vaccinations with next_due_date and sort by date
-  const withDueDates = vaccinations
-    .filter((v) => v.next_due_date)
+  // Filter vaccinations with future due dates only and sort by date (nearest first)
+  const futureVaccinations = vaccinations
+    .filter((v) => {
+      if (!v.next_due_date) return false;
+      const dueDate = new Date(v.next_due_date);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate >= now; // Only future or today
+    })
     .sort((a, b) => {
       const dateA = new Date(a.next_due_date!);
       const dateB = new Date(b.next_due_date!);
       return dateA.getTime() - dateB.getTime();
     });
   
-  if (withDueDates.length === 0) return null;
-  
-  // First check for overdue or due soon (within 30 days)
-  const urgentVaccination = withDueDates.find((v) => {
-    const dueDate = new Date(v.next_due_date!);
-    const diffDays = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= 30; // Include overdue and within 30 days
-  });
-  
-  return urgentVaccination || withDueDates[0];
+  // Return the nearest future vaccination
+  return futureVaccinations.length > 0 ? futureVaccinations[0] : null;
 };
 
 // Medication helpers
@@ -202,7 +199,7 @@ const formatTime = (date: Date): string => {
 export default function PetCard({ pet }: PetCardProps) {
   const router = useRouter();
   const { theme } = useTheme();
-  const { updatePet, updatingPet } = usePets();
+  const { updatePet, updatingPet, deletePet, deletingPet } = usePets();
   const [showEditModal, setShowEditModal] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
@@ -231,6 +228,10 @@ export default function PetCard({ pet }: PetCardProps) {
 
   const handleUpdatePet = async (petId: string, petData: any) => {
     await updatePet(petId, petData);
+  };
+
+  const handleDeletePet = async (petId: string) => {
+    await deletePet(petId);
   };
 
   const handleDownloadPassport = async () => {
@@ -310,7 +311,7 @@ export default function PetCard({ pet }: PetCardProps) {
           {pet.name}
         </Text>
         <Text className="text-sm mb-2" style={{ color: theme.secondary }}>
-          {pet.breed} • {calculateAge(pet.date_of_birth)} years • {pet.sex}
+          {pet.breed} • {calculateAge(pet.date_of_birth)} years • {pet.sex.charAt(0).toUpperCase() + pet.sex.slice(1) as "Male" | "Female"}
         </Text>
         {pet.microchip_number && (
           <View
@@ -460,8 +461,10 @@ export default function PetCard({ pet }: PetCardProps) {
           visible={showEditModal}
           onClose={() => setShowEditModal(false)}
           onSave={handleUpdatePet}
+          onDelete={handleDeletePet}
           pet={pet}
           loading={updatingPet}
+          deleting={deletingPet}
         />
       )}
     </View>

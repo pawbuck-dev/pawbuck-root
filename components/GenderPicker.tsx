@@ -90,7 +90,7 @@ export default function GenderPicker({
               </Text>
             </Pressable>
 
-            {/* Female Option */}
+            {/* female Option */}
             <Pressable
               onPress={() => setTempSelection("female")}
               className="flex-row items-center active:opacity-70"
@@ -109,7 +109,7 @@ export default function GenderPicker({
                 )}
               </View>
               <Text className="text-lg" style={{ color: theme.foreground }}>
-                Female
+                female
               </Text>
             </Pressable>
           </View>

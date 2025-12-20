@@ -84,7 +84,7 @@ export default function OnboardingStep6() {
               className="text-4xl font-bold text-center mb-4"
               style={{ color: theme.foreground }}
             >
-              Male or Female?
+              Male or female?
             </Text>
 
             {/* Subtitle with pet name */}
@@ -136,7 +136,7 @@ export default function OnboardingStep6() {
                 </Text>
               </Pressable>
 
-              {/* Female Card */}
+              {/* female Card */}
               <Pressable
                 onPress={() => handleSelectGender("female")}
                 className="flex-1 rounded-3xl py-8 items-center active:opacity-80"
@@ -148,7 +148,7 @@ export default function OnboardingStep6() {
                   maxWidth: 180,
                 }}
               >
-                {/* Female Symbol */}
+                {/* female Symbol */}
                 <Text
                   className="text-6xl mb-4"
                   style={{
@@ -171,7 +171,7 @@ export default function OnboardingStep6() {
                         : theme.foreground,
                   }}
                 >
-                  Female
+                  female
                 </Text>
               </Pressable>
             </View>

@@ -7,6 +7,7 @@ import { ChatProvider } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
@@ -101,7 +102,11 @@ export default function Home() {
 
         {/* Header */}
         <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
-          <Ionicons name="paw" size={32} color="#5FC4C0" />
+          <Image
+            source={require("@/assets/images/icon.png")}
+            style={{ width: 32, height: 32 }}
+            contentFit="contain"
+          />
           <Text
             className="text-3xl font-bold"
             style={{ color: theme.foreground }}

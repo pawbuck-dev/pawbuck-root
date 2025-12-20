@@ -8,32 +8,36 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface PetEditModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (petId: string, petData: TablesUpdate<"pets">) => Promise<void>;
+  onDelete: (petId: string) => Promise<void>;
   pet: Pet;
   loading?: boolean;
+  deleting?: boolean;
 }
 
 export const PetEditModal: React.FC<PetEditModalProps> = ({
   visible,
   onClose,
   onSave,
+  onDelete,
   pet,
   loading = false,
+  deleting = false,
 }) => {
   const { theme } = useTheme();
   const [name, setName] = useState(pet.name);
@@ -99,6 +103,32 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Pet",
+      `Are you sure you want to delete ${pet.name}? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await onDelete(pet.id);
+              onClose();
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete pet. Please try again.");
+              console.error("Error deleting pet:", error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Modal
       visible={visible}
@@ -120,7 +150,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
           }}
         >
           <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={onClose} disabled={saving}>
+            <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
               <Text className="text-base" style={{ color: theme.primary }}>
                 Cancel
               </Text>
@@ -131,10 +161,10 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             >
               Edit Pet
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving}>
+            <TouchableOpacity onPress={handleSave} disabled={saving || deleting}>
               <Text
                 className="text-base font-semibold"
-                style={{ color: saving ? theme.secondary : theme.primary }}
+                style={{ color: saving || deleting ? theme.secondary : theme.primary }}
               >
                 {saving ? "Saving..." : "Save"}
               </Text>
@@ -164,7 +194,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               onChangeText={setName}
               placeholder="e.g., Max, Bella"
               placeholderTextColor={theme.secondary}
-              editable={!saving}
+              editable={!saving && !deleting}
             />
           </View>
 
@@ -180,7 +210,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowAnimalTypePicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
                 {animalType === "dog" ? "Dog" : "Cat"}
@@ -201,7 +231,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowBreedPicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
                 {breed || "Select breed"}
@@ -230,7 +260,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
                   setTempDate(dateOfBirth);
                   setShowDatePicker(true);
                 }}
-                disabled={saving}
+                disabled={saving || deleting}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons name="calendar-outline" size={20} color={theme.primary} />
@@ -306,7 +336,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowGenderPicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base capitalize" style={{ color: theme.foreground }}>
                 {sex || "Select gender"}
@@ -333,15 +363,37 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               onChangeText={setMicrochipNumber}
               placeholder="Optional"
               placeholderTextColor={theme.secondary}
-              editable={!saving}
+              editable={!saving && !deleting}
             />
           </View>
+
+          {/* Delete Pet Button */}
+          <TouchableOpacity
+            className="p-4 rounded-xl items-center mb-6"
+            style={{
+              backgroundColor: "transparent",
+              borderWidth: 1,
+              borderColor: "#EF4444",
+            }}
+            onPress={handleDelete}
+            disabled={saving || deleting}
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              <Text
+                className="text-base font-medium"
+                style={{ color: "#EF4444" }}
+              >
+                Delete Pet
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           <View className="h-20" />
         </ScrollView>
 
         {/* Loading Overlay */}
-        {saving && (
+        {(saving || deleting) && (
           <View
             className="absolute inset-0 items-center justify-center"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
@@ -350,12 +402,12 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-6 rounded-2xl items-center"
               style={{ backgroundColor: theme.card }}
             >
-              <ActivityIndicator size="large" color={theme.primary} />
+              <ActivityIndicator size="large" color={deleting ? "#EF4444" : theme.primary} />
               <Text
                 className="text-base font-semibold mt-4"
                 style={{ color: theme.foreground }}
               >
-                Updating Pet...
+                {deleting ? "Deleting Pet..." : "Updating Pet..."}
               </Text>
             </View>
           </View>

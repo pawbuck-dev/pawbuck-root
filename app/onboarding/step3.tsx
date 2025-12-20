@@ -1,10 +1,10 @@
 import Header from "@/components/Header";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
 
 type PetType = "dog" | "cat";
 
@@ -86,18 +86,26 @@ export default function OnboardingStep3() {
                   backgroundColor:
                     selectedPet === "dog"
                       ? "rgba(255, 255, 255, 0.2)"
-                      : theme.secondary,
+                      : theme.dashedCard,
                 }}
               >
-                <Ionicons
-                  name="paw"
-                  size={40}
-                  color={
+                <Svg
+                  width={48}
+                  height={48}
+                  viewBox="0 0 64 64"
+                  fill={
                     selectedPet === "dog"
                       ? theme.primaryForeground
                       : theme.primary
                   }
-                />
+                >
+                  <Path d="M32 8c-8 0-14 4-18 10-2 3-4 7-4 11 0 2 0 4 1 6 1 3 3 5 5 7 3 2 6 3 10 3h12c4 0 7-1 10-3 2-2 4-4 5-7 1-2 1-4 1-6 0-4-2-8-4-11-4-6-10-10-18-10z" />
+                  <Circle cx="23" cy="26" r="3" />
+                  <Circle cx="41" cy="26" r="3" />
+                  <Path d="M32 32c-3 0-5 1-7 3l2 2c1-1 3-2 5-2s4 1 5 2l2-2c-2-2-4-3-7-3z" />
+                  <Path d="M16 14c-2-1-4-2-6-2-2 0-3 1-3 3 0 3 2 5 4 6l5-7z" />
+                  <Path d="M48 14c2-1 4-2 6-2 2 0 3 1 3 3 0 3-2 5-4 6l-5-7z" />
+                </Svg>
               </View>
 
               {/* Label */}
@@ -133,18 +141,24 @@ export default function OnboardingStep3() {
                   backgroundColor:
                     selectedPet === "cat"
                       ? "rgba(255, 255, 255, 0.2)"
-                      : theme.secondary,
+                      : theme.dashedCard,
                 }}
               >
-                <Ionicons
-                  name="paw"
-                  size={40}
-                  color={
+                <Svg
+                  width={48}
+                  height={48}
+                  viewBox="0 0 64 64"
+                  fill={
                     selectedPet === "cat"
                       ? theme.primaryForeground
                       : theme.primary
                   }
-                />
+                >
+                  <Path d="M14 8l-4 12c0 3 1 5 3 7l-1 8c0 3 2 5 5 5h30c3 0 5-2 5-5l-1-8c2-2 3-4 3-7l-4-12-8 4c-3-2-6-3-10-3s-7 1-10 3l-8-4z" />
+                  <Circle cx="24" cy="26" r="2.5" />
+                  <Circle cx="40" cy="26" r="2.5" />
+                  <Path d="M26 32c0 1 1 2 2 2h8c1 0 2-1 2-2v-1h-12v1z" />
+                </Svg>
               </View>
 
               {/* Label */}

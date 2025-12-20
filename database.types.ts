@@ -260,52 +260,55 @@ export type Database = {
       }
       pets: {
         Row: {
-          animal_type: string
-          breed: string
-          country: string
-          created_at: string
-          date_of_birth: string
-          id: string
-          microchip_number: string | null
-          name: string
-          photo_url: string | null
-          sex: string
-          user_id: string
-          weight_unit: string
-          weight_value: number
-        }
+          animal_type: string;
+          breed: string;
+          country: string;
+          created_at: string;
+          date_of_birth: string;
+          deleted_at: string | null;
+          id: string;
+          microchip_number: string | null;
+          name: string;
+          photo_url: string | null;
+          sex: string;
+          user_id: string;
+          weight_unit: string;
+          weight_value: number;
+        };
         Insert: {
-          animal_type: string
-          breed: string
-          country: string
-          created_at?: string
-          date_of_birth: string
-          id?: string
-          microchip_number?: string | null
-          name: string
-          photo_url?: string | null
-          sex: string
-          user_id?: string
-          weight_unit: string
-          weight_value: number
-        }
+          animal_type: string;
+          breed: string;
+          country: string;
+          created_at?: string;
+          date_of_birth: string;
+          deleted_at?: string | null;
+          id?: string;
+          microchip_number?: string | null;
+          name: string;
+          photo_url?: string | null;
+          sex: string;
+          user_id?: string;
+          weight_unit: string;
+          weight_value: number;
+        };
         Update: {
-          animal_type?: string
-          breed?: string
-          country?: string
-          created_at?: string
-          date_of_birth?: string
-          id?: string
-          microchip_number?: string | null
-          name?: string
-          photo_url?: string | null
-          sex?: string
-          user_id?: string
-          weight_unit?: string
-          weight_value?: number
-        }
-        Relationships: []
-      }
+          animal_type?: string;
+          breed?: string;
+          country?: string;
+          created_at?: string;
+          date_of_birth?: string;
+          deleted_at?: string | null;
+          id?: string;
+          microchip_number?: string | null;
+          name?: string;
+          photo_url?: string | null;
+          sex?: string;
+          user_id?: string;
+          weight_unit?: string;
+          weight_value?: number;
+        };
+        Relationships: [];
+      };
       push_tokens: {
         Row: {
           created_at: string
