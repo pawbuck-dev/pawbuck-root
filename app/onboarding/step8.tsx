@@ -36,7 +36,7 @@ export default function OnboardingStep8() {
     }
   };
 
-  const progressPercent = (7 / 8) * 100;
+  const progressPercent = (8 / 9) * 100;
 
   return (
     <KeyboardAvoidingView
@@ -54,7 +54,7 @@ export default function OnboardingStep8() {
                 className="text-start font-medium"
                 style={{ color: theme.foreground }}
               >
-                Question 7 of 8
+                Question 8 of 9
               </Text>
             </View>
 

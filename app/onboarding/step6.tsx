@@ -25,7 +25,7 @@ export default function OnboardingStep6() {
     }, 300);
   };
 
-  const progressPercent = (5 / 8) * 100;
+  const progressPercent = (6 / 9) * 100;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -37,7 +37,7 @@ export default function OnboardingStep6() {
             className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
-            Question 5 of 8
+            Question 6 of 9
           </Text>
         </View>
 
@@ -84,7 +84,7 @@ export default function OnboardingStep6() {
               className="text-4xl font-bold text-center mb-4"
               style={{ color: theme.foreground }}
             >
-              Male or Female?
+              Male or female?
             </Text>
 
             {/* Subtitle with pet name */}
@@ -136,7 +136,7 @@ export default function OnboardingStep6() {
                 </Text>
               </Pressable>
 
-              {/* Female Card */}
+              {/* female Card */}
               <Pressable
                 onPress={() => handleSelectGender("female")}
                 className="flex-1 rounded-3xl py-8 items-center active:opacity-80"
@@ -148,7 +148,7 @@ export default function OnboardingStep6() {
                   maxWidth: 180,
                 }}
               >
-                {/* Female Symbol */}
+                {/* female Symbol */}
                 <Text
                   className="text-6xl mb-4"
                   style={{
@@ -171,7 +171,7 @@ export default function OnboardingStep6() {
                         : theme.foreground,
                   }}
                 >
-                  Female
+                  female
                 </Text>
               </Pressable>
             </View>

@@ -1,7 +1,7 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
@@ -30,7 +30,7 @@ export default function VaccinationsScreen() {
           className="w-24 h-24 rounded-full items-center justify-center mb-6"
           style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
         >
-          <Ionicons name="medical" size={40} color={theme.primary} />
+          <MaterialCommunityIcons name="needle" size={24} color={theme.primary} />
         </View>
         <Text
           className="text-xl font-semibold mb-2 text-center"

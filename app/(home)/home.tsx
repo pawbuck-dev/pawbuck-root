@@ -2,20 +2,15 @@ import { MiloChatButton } from "@/components/chat/MiloChatButton";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import AddPetCard from "@/components/home/AddPetCard";
 import PetCard from "@/components/home/PetCard";
-import { useAuth } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -23,10 +18,7 @@ import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination } from "react-native-reanimated-carousel";
 
 export default function Home() {
-  const router = useRouter();
-
-  const { theme, mode, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { theme, mode } = useTheme();
   const { pets, loadingPets, addingPet } = usePets();
   const progress = useSharedValue<number>(0);
 
@@ -34,33 +26,6 @@ export default function Home() {
   const carouselData = useMemo<any[]>(() => {
     return [...pets, { isAddCard: true }];
   }, [pets]);
-
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-            // Navigate back to welcome screen
-            router.replace("/");
-          } catch (error: any) {
-            console.error("Error signing out:", error);
-            Alert.alert("Error", error.message || "Failed to sign out");
-          }
-        },
-      },
-    ]);
-  };
-
-  const getUserInitial = () => {
-    return user?.email?.charAt(0).toUpperCase() || "U";
-  };
 
   if (addingPet) {
     return (
@@ -99,43 +64,13 @@ export default function Home() {
       >
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-        {/* Header */}
-        <View className="px-6 pt-16 pb-3 flex-row items-center justify-between">
-          <Ionicons name="paw" size={32} color="#5FC4C0" />
-          <Text
-            className="text-3xl font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Your Pets
-          </Text>
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity
-              onPress={toggleTheme}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
-            >
-              <Ionicons
-                name={mode === "dark" ? "sunny" : "moon"}
-                size={20}
-                color="#5FC4C0"
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleSignOut}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: "#5FC4C0" }}
-            >
-              <Text className="text-xl font-bold text-gray-900">
-                {getUserInitial()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Minimal spacer for status bar */}
+        <View className="pt-4" />
 
-        <View className="flex-1 flex-col items-center justify-center px-6">
+        <View className="flex-1 flex-col items-center justify-center">
           <Carousel
             data={carouselData}
-            height={Dimensions.get("window").height * 0.8}
+            height={Dimensions.get("window").height * 0.85}
             loop={false}
             pagingEnabled={true}
             width={Dimensions.get("window").width}
@@ -149,7 +84,11 @@ export default function Home() {
               if (index === carouselData.length - 1) {
                 return <AddPetCard />;
               }
-              return <PetCard pet={item as Pet} />;
+              return (
+                <View className="flex-1 px-5">
+                  <PetCard pet={item as Pet} />
+                </View>
+              );
             }}
           />
           <Pagination.Basic
@@ -157,7 +96,7 @@ export default function Home() {
             data={carouselData}
             dotStyle={{ backgroundColor: theme.secondary, borderRadius: 100 }}
             activeDotStyle={{ backgroundColor: theme.primary }}
-            containerStyle={{ gap: 7 }}
+            containerStyle={{ gap: 7, marginBottom: 10 }}
           />
         </View>
 

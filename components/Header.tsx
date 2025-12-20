@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 
 const Header = () => {
   const { theme, mode, toggleTheme } = useTheme();
@@ -11,12 +11,16 @@ const Header = () => {
     <View className="px-6 pt-14 pb-4">
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
       <View className="flex-row justify-between items-center">
-        {/* Paw Icon */}
+        {/* Logo */}
         <Pressable
           onPress={() => router.back()}
-          className="w-12 h-12 items-center justify-center active:opacity-70"
+          className="items-center justify-center active:opacity-70"
         >
-          <Ionicons name="paw" size={28} color={theme.primary} />
+          <Image
+            source={require("@/assets/images/icon.png")}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
         </Pressable>
 
         {/* Theme Toggle */}

@@ -9,7 +9,7 @@ import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { supabase } from "@/utils/supabase";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
@@ -1933,7 +1933,7 @@ export default function MedicationUploadModal() {
             className="w-16 h-16 rounded-full items-center justify-center mb-4"
             style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
           >
-            <Ionicons name="medkit" size={32} color={theme.primary} />
+            <MaterialCommunityIcons name="pill" size={32} color={theme.primary} />
           </View>
           <Text
             className="text-xl font-semibold text-center"

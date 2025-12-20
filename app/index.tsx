@@ -46,13 +46,12 @@ export default function Index() {
         {/* Main Content Container */}
         <View className={`w-full max-w-lg items-center`}>
           {/* Logo */}
-          <View className="mb-8">
-            <Image
-              source={require("@/assets/images/pawbuck-logo.png")}
-              className="w-36 h-36"
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require("@/assets/images/icon.png")}
+            style={{ width: 100, height: 100, marginBottom: 24 }}
+            resizeMode="contain"
+          />
+
           {/* Headline */}
           <View className="mb-12 items-center">
             <Text

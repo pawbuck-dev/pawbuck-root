@@ -51,6 +51,7 @@ export type Database = {
           temperature: number | null
           updated_at: string
           user_id: string
+          validity_date: string | null
           vet_name: string | null
           weight_unit: string | null
           weight_value: number | null
@@ -71,6 +72,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_id?: string
+          validity_date?: string | null
           vet_name?: string | null
           weight_unit?: string | null
           weight_value?: number | null
@@ -91,6 +93,7 @@ export type Database = {
           temperature?: number | null
           updated_at?: string
           user_id?: string
+          validity_date?: string | null
           vet_name?: string | null
           weight_unit?: string | null
           weight_value?: number | null
@@ -298,52 +301,69 @@ export type Database = {
       }
       pets: {
         Row: {
-          animal_type: string
-          breed: string
-          country: string
-          created_at: string
-          date_of_birth: string
-          id: string
-          microchip_number: string | null
-          name: string
-          photo_url: string | null
-          sex: string
-          user_id: string
-          weight_unit: string
-          weight_value: number
-        }
+          animal_type: string;
+          breed: string;
+          country: string;
+          created_at: string;
+          date_of_birth: string;
+          deleted_at: string | null;
+          email_id: string;
+          id: string;
+          microchip_number: string | null;
+          name: string;
+          photo_url: string | null;
+          sex: string;
+          user_id: string;
+          vet_information_id: string | null;
+          weight_unit: string;
+          weight_value: number;
+        };
         Insert: {
-          animal_type: string
-          breed: string
-          country: string
-          created_at?: string
-          date_of_birth: string
-          id?: string
-          microchip_number?: string | null
-          name: string
-          photo_url?: string | null
-          sex: string
-          user_id?: string
-          weight_unit: string
-          weight_value: number
-        }
+          animal_type: string;
+          breed: string;
+          country: string;
+          created_at?: string;
+          date_of_birth: string;
+          deleted_at?: string | null;
+          email_id: string;
+          id?: string;
+          microchip_number?: string | null;
+          name: string;
+          photo_url?: string | null;
+          sex: string;
+          user_id?: string;
+          vet_information_id?: string | null;
+          weight_unit: string;
+          weight_value: number;
+        };
         Update: {
-          animal_type?: string
-          breed?: string
-          country?: string
-          created_at?: string
-          date_of_birth?: string
-          id?: string
-          microchip_number?: string | null
-          name?: string
-          photo_url?: string | null
-          sex?: string
-          user_id?: string
-          weight_unit?: string
-          weight_value?: number
-        }
-        Relationships: []
-      }
+          animal_type?: string;
+          breed?: string;
+          country?: string;
+          created_at?: string;
+          date_of_birth?: string;
+          deleted_at?: string | null;
+          email_id?: string;
+          id?: string;
+          microchip_number?: string | null;
+          name?: string;
+          photo_url?: string | null;
+          sex?: string;
+          user_id?: string;
+          vet_information_id?: string | null;
+          weight_unit?: string;
+          weight_value?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pets_vet_information_id_fkey";
+            columns: ["vet_information_id"];
+            isOneToOne: false;
+            referencedRelation: "vet_information";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       push_tokens: {
         Row: {
           created_at: string
@@ -415,6 +435,39 @@ export type Database = {
           },
         ]
       }
+      vet_information: {
+        Row: {
+          id: string
+          clinic_name: string
+          vet_name: string
+          address: string
+          phone: string
+          email: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_name: string
+          vet_name: string
+          address: string
+          phone: string
+          email: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_name?: string
+          vet_name?: string
+          address?: string
+          phone?: string
+          email?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       weekly_medication_schedules: {
         Row: {
           created_at: string
@@ -458,7 +511,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_email_id_available: {
+        Args: {
+          p_email_id: string
+          p_exclude_pet_id?: string | null
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

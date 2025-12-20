@@ -15,11 +15,11 @@ export default function OnboardingStep5() {
   const handleNext = () => {
     if (petName.trim()) {
       updatePetData({ name: petName.trim() });
-      router.push("/onboarding/step6");
+      router.push("/onboarding/step5b");
     }
   };
 
-  const progressPercent = (4 / 8) * 100;
+  const progressPercent = (4 / 9) * 100;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -31,7 +31,7 @@ export default function OnboardingStep5() {
             className="text-start font-medium"
             style={{ color: theme.foreground }}
           >
-            Question 4 of 8
+            Question 4 of 9
           </Text>
         </View>
 

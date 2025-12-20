@@ -4,36 +4,46 @@ import GenderPicker from "@/components/GenderPicker";
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesUpdate } from "@/database.types";
+import {
+  checkEmailIdAvailable,
+  validateEmailIdFormat,
+} from "@/services/pets";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
+const EMAIL_DOMAIN = "@pawbuck.com";
 
 interface PetEditModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (petId: string, petData: TablesUpdate<"pets">) => Promise<void>;
+  onDelete: (petId: string) => Promise<void>;
   pet: Pet;
   loading?: boolean;
+  deleting?: boolean;
 }
 
 export const PetEditModal: React.FC<PetEditModalProps> = ({
   visible,
   onClose,
   onSave,
+  onDelete,
   pet,
   loading = false,
+  deleting = false,
 }) => {
   const { theme } = useTheme();
   const [name, setName] = useState(pet.name);
@@ -42,12 +52,61 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   const [dateOfBirth, setDateOfBirth] = useState(pet.date_of_birth);
   const [sex, setSex] = useState(pet.sex);
   const [microchipNumber, setMicrochipNumber] = useState(pet.microchip_number || "");
+  const [emailId, setEmailId] = useState(pet.email_id || "");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(pet.date_of_birth);
   const [saving, setSaving] = useState(false);
   const [showAnimalTypePicker, setShowAnimalTypePicker] = useState(false);
   const [showBreedPicker, setShowBreedPicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
+
+  // Email validation states
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isEmailAvailable, setIsEmailAvailable] = useState<boolean | null>(null);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
+  const [emailCheckError, setEmailCheckError] = useState<string | null>(null);
+
+  // Debounced email availability check
+  useEffect(() => {
+    const trimmedEmailId = emailId.trim().toLowerCase();
+
+    // Reset states
+    setIsEmailAvailable(null);
+    setEmailCheckError(null);
+
+    // If email hasn't changed from the original, mark as available
+    if (trimmedEmailId === pet.email_id?.toLowerCase()) {
+      setEmailValidationError(null);
+      setIsEmailAvailable(true);
+      return;
+    }
+
+    // Validate format first
+    const { isValid, error } = validateEmailIdFormat(trimmedEmailId);
+    if (!isValid) {
+      setEmailValidationError(error || null);
+      return;
+    }
+    setEmailValidationError(null);
+
+    // Check availability after a delay
+    const timeoutId = setTimeout(async () => {
+      setIsCheckingEmail(true);
+      try {
+        const available = await checkEmailIdAvailable(trimmedEmailId, pet.id);
+        setIsEmailAvailable(available);
+        if (!available) {
+          setEmailCheckError("This email ID is already taken");
+        }
+      } catch {
+        setEmailCheckError("Failed to check availability");
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [emailId, pet.email_id, pet.id]);
 
   const handleSave = async () => {
     // Validate required fields
@@ -71,6 +130,22 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       Alert.alert("Required Field", "Please select the gender");
       return;
     }
+    if (!emailId.trim()) {
+      Alert.alert("Required Field", "Please enter an email ID");
+      return;
+    }
+    if (emailValidationError || emailCheckError) {
+      Alert.alert("Invalid Email ID", emailValidationError || emailCheckError || "Please fix the email ID");
+      return;
+    }
+    if (isCheckingEmail) {
+      Alert.alert("Please Wait", "Checking email availability...");
+      return;
+    }
+    if (!isEmailAvailable) {
+      Alert.alert("Email Unavailable", "This email ID is not available");
+      return;
+    }
 
     const updateData: TablesUpdate<"pets"> = {
       name,
@@ -79,6 +154,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       date_of_birth: dateOfBirth,
       sex,
       microchip_number: microchipNumber || null,
+      email_id: emailId.trim().toLowerCase(),
     };
 
     setSaving(true);
@@ -97,6 +173,32 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Not set";
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Pet",
+      `Are you sure you want to delete ${pet.name}? This action cannot be undone.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await onDelete(pet.id);
+              onClose();
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete pet. Please try again.");
+              console.error("Error deleting pet:", error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -120,7 +222,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
           }}
         >
           <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={onClose} disabled={saving}>
+            <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
               <Text className="text-base" style={{ color: theme.primary }}>
                 Cancel
               </Text>
@@ -131,10 +233,10 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             >
               Edit Pet
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving}>
+            <TouchableOpacity onPress={handleSave} disabled={saving || deleting}>
               <Text
                 className="text-base font-semibold"
-                style={{ color: saving ? theme.secondary : theme.primary }}
+                style={{ color: saving || deleting ? theme.secondary : theme.primary }}
               >
                 {saving ? "Saving..." : "Save"}
               </Text>
@@ -164,8 +266,66 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               onChangeText={setName}
               placeholder="e.g., Max, Bella"
               placeholderTextColor={theme.secondary}
-              editable={!saving}
+              editable={!saving && !deleting}
             />
+          </View>
+
+          {/* Email ID */}
+          <View className="mb-4">
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              Email ID *
+            </Text>
+            <View
+              className="rounded-xl flex-row items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: emailValidationError || emailCheckError ? 1 : 0,
+                borderColor: emailValidationError || emailCheckError ? "#EF4444" : "transparent",
+              }}
+            >
+              <TextInput
+                className="flex-1 py-4 px-4 text-start"
+                style={{
+                  color: theme.foreground,
+                }}
+                value={emailId}
+                onChangeText={(text) => setEmailId(text.toLowerCase())}
+                placeholder="e.g., buddy, max123"
+                placeholderTextColor={theme.secondary}
+                editable={!saving && !deleting}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+              />
+              <Text
+                className="pr-2"
+                style={{ color: theme.secondary }}
+              >
+                {EMAIL_DOMAIN}
+              </Text>
+              <View className="pr-4">
+                {isCheckingEmail ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : emailValidationError || emailCheckError ? (
+                  <Ionicons name="close-circle" size={20} color="#EF4444" />
+                ) : isEmailAvailable ? (
+                  <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+                ) : null}
+              </View>
+            </View>
+            {(emailValidationError || emailCheckError) && (
+              <Text className="text-xs mt-1" style={{ color: "#EF4444" }}>
+                {emailValidationError || emailCheckError}
+              </Text>
+            )}
+            {isEmailAvailable && !emailValidationError && !emailCheckError && (
+              <Text className="text-xs mt-1" style={{ color: "#22C55E" }}>
+                Email ID is available
+              </Text>
+            )}
           </View>
 
           {/* Animal Type */}
@@ -180,7 +340,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowAnimalTypePicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
                 {animalType === "dog" ? "Dog" : "Cat"}
@@ -201,7 +361,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowBreedPicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
                 {breed || "Select breed"}
@@ -230,7 +390,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
                   setTempDate(dateOfBirth);
                   setShowDatePicker(true);
                 }}
-                disabled={saving}
+                disabled={saving || deleting}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons name="calendar-outline" size={20} color={theme.primary} />
@@ -306,7 +466,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
               onPress={() => setShowGenderPicker(true)}
-              disabled={saving}
+              disabled={saving || deleting}
             >
               <Text className="text-base capitalize" style={{ color: theme.foreground }}>
                 {sex || "Select gender"}
@@ -333,15 +493,37 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               onChangeText={setMicrochipNumber}
               placeholder="Optional"
               placeholderTextColor={theme.secondary}
-              editable={!saving}
+              editable={!saving && !deleting}
             />
           </View>
+
+          {/* Delete Pet Button */}
+          <TouchableOpacity
+            className="p-4 rounded-xl items-center mb-6"
+            style={{
+              backgroundColor: "transparent",
+              borderWidth: 1,
+              borderColor: "#EF4444",
+            }}
+            onPress={handleDelete}
+            disabled={saving || deleting}
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              <Text
+                className="text-base font-medium"
+                style={{ color: "#EF4444" }}
+              >
+                Delete Pet
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           <View className="h-20" />
         </ScrollView>
 
         {/* Loading Overlay */}
-        {saving && (
+        {(saving || deleting) && (
           <View
             className="absolute inset-0 items-center justify-center"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
@@ -350,12 +532,12 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="p-6 rounded-2xl items-center"
               style={{ backgroundColor: theme.card }}
             >
-              <ActivityIndicator size="large" color={theme.primary} />
+              <ActivityIndicator size="large" color={deleting ? "#EF4444" : theme.primary} />
               <Text
                 className="text-base font-semibold mt-4"
                 style={{ color: theme.foreground }}
               >
-                Updating Pet...
+                {deleting ? "Deleting Pet..." : "Updating Pet..."}
               </Text>
             </View>
           </View>

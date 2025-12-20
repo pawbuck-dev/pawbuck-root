@@ -2,7 +2,7 @@ import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { Tables, TablesUpdate } from "@/database.types";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { VaccinationEditModal } from "./VaccinationEditModal";
@@ -132,7 +132,7 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
             >
-              <Ionicons name="medical" size={20} color={theme.primary} />
+              <MaterialCommunityIcons name="needle" size={20} color={theme.primary} />
             </View>
             <Text
               className="text-base font-semibold flex-1"
