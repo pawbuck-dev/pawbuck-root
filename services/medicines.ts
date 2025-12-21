@@ -1,31 +1,9 @@
+import { Tables, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
-export interface Medicine {
-  id: string;
-  pet_id: string;
-  user_id: string;
-  name: string;
-  type: string;
-  dosage: string;
-  frequency: string;
-  custom_frequency_value?: number | null;
-  custom_frequency_unit?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  prescribed_by?: string | null;
-  purpose?: string | null;
-  last_given_at?: string | null;
-  next_due_date?: string | null;
-  reminder_enabled: boolean;
-  reminder_timing?: string | null;
-  document_url?: string | null;
-  scheduled_times?: string[] | null;
-  scheduled_day?: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export const fetchMedicines = async (petId: string): Promise<Medicine[]> => {
+export const fetchMedicines = async (
+  petId: string
+): Promise<Tables<"medicines">[]> => {
   const { data, error } = await supabase
     .from("medicines")
     .select("*")
@@ -54,7 +32,7 @@ export const deleteMedicine = async (medicineId: string): Promise<void> => {
 
 export const updateMedicine = async (
   medicineId: string,
-  updates: Partial<Medicine>
+  updates: TablesUpdate<"medicines">
 ): Promise<void> => {
   const { error } = await supabase
     .from("medicines")
@@ -66,4 +44,3 @@ export const updateMedicine = async (
     throw error;
   }
 };
-

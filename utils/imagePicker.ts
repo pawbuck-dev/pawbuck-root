@@ -54,6 +54,8 @@ export const takePhoto =
       if (!result.canceled && result.assets[0]) {
         return result.assets[0];
       }
+
+      Alert.alert("Error", "No photo taken. Please try again.");
       return null;
     } catch (error) {
       console.error("Error taking photo:", error);
@@ -83,6 +85,8 @@ export const pickImageFromLibrary =
       if (!result.canceled && result.assets[0]) {
         return result.assets[0];
       }
+
+      Alert.alert("Error", "No photo selected. Please try again.");
       return null;
     } catch (error) {
       console.error("Error selecting photo:", error);

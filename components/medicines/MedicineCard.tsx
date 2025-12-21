@@ -1,77 +1,15 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useMedicines } from "@/context/medicinesContext";
 import { useTheme } from "@/context/themeContext";
-import { Medicine } from "@/services/medicines";
+import { Tables, TablesInsert } from "@/database.types";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { MedicineEditModal } from "./MedicineEditModal";
 
 interface MedicineCardProps {
-  medicine: Medicine;
+  medicine: Tables<"medicines">;
 }
-
-// Days of week
-const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-// Helper to format day of month with ordinal suffix
-const formatDayOfMonth = (day: number): string => {
-  if (day >= 11 && day <= 13) return `${day}th`;
-  switch (day % 10) {
-    case 1: return `${day}st`;
-    case 2: return `${day}nd`;
-    case 3: return `${day}rd`;
-    default: return `${day}th`;
-  }
-};
-
-// Helper function to check if frequency requires day of week
-const requiresDayOfWeek = (frequency: string): boolean => {
-  return frequency === "Weekly";
-};
-
-// Helper function to check if frequency requires day of month
-const requiresDayOfMonth = (frequency: string): boolean => {
-  return frequency === "Monthly";
-};
-
-// Helper function to check if frequency requires scheduled time
-const requiresScheduledTime = (frequency: string): boolean => {
-  return frequency !== "As Needed";
-};
-
-// Helper function to format time for display (24h to 12h)
-const formatTimeForDisplay = (time: string): string => {
-  const [hours, minutes] = time.split(":");
-  const hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${ampm}`;
-};
-
-// Helper function to format schedule display
-const formatScheduleDisplay = (medicine: Medicine): string => {
-  const { frequency, scheduled_day, scheduled_times } = medicine;
-  const times = scheduled_times && scheduled_times.length > 0
-    ? scheduled_times.map(formatTimeForDisplay).join(", ")
-    : "";
-
-  if (frequency === "Weekly" && scheduled_day !== null && scheduled_day !== undefined) {
-    return `Every ${daysOfWeek[scheduled_day]}${times ? ` at ${times}` : ""}`;
-  }
-  
-  
-  if (frequency === "Monthly" && scheduled_day !== null && scheduled_day !== undefined) {
-    return `${formatDayOfMonth(scheduled_day)} of each month${times ? ` at ${times}` : ""}`;
-  }
-
-  if (frequency === "As Needed") {
-    return ""; // No schedule display for "As Needed"
-  }
-
-  // For Daily, Twice Daily, Three Times Daily - just show times
-  return times;
-};
 
 export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const { theme } = useTheme();
@@ -113,7 +51,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (id: string, data: Partial<Medicine>) => {
+  const handleSaveEdit = (id: string, data: TablesInsert<"medicines">) => {
     updateMedicineMutation.mutate(
       { id, data },
       {
@@ -134,11 +72,11 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   };
 
   const handleLongPress = () => {
-    const options: Array<{
+    const options: {
       text: string;
       onPress?: () => void;
       style?: "cancel" | "destructive";
-    }> = [];
+    }[] = [];
 
     if (hasDocument) {
       options.push({
@@ -163,12 +101,9 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
       }
     );
 
-    Alert.alert(
-      medicine.name,
-      "What would you like to do?",
-      options,
-      { cancelable: true }
-    );
+    Alert.alert(medicine.name, "What would you like to do?", options, {
+      cancelable: true,
+    });
   };
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -217,7 +152,11 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
             >
-              <MaterialCommunityIcons name="pill" size={20} color={theme.primary} />
+              <MaterialCommunityIcons
+                name="pill"
+                size={20}
+                color={theme.primary}
+              />
             </View>
             <View className="flex-1">
               <Text
@@ -261,7 +200,11 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               onPress={handleViewDocument}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="document-attach" size={18} color={theme.primary} />
+              <Ionicons
+                name="document-attach"
+                size={18}
+                color={theme.primary}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -290,16 +233,6 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               {medicine.frequency}
             </Text>
           </View>
-
-          {/* Schedule display - shows day + time for Weekly/Monthly, just times for daily frequencies */}
-          {requiresScheduledTime(medicine.frequency) && formatScheduleDisplay(medicine) && (
-            <View className="flex-row items-center mb-2">
-              <Ionicons name="alarm-outline" size={14} color={theme.secondary} />
-              <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
-                {formatScheduleDisplay(medicine)}
-              </Text>
-            </View>
-          )}
 
           {medicine.start_date && (
             <View className="flex-row items-center mb-2">
@@ -356,4 +289,3 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     </>
   );
 };
-

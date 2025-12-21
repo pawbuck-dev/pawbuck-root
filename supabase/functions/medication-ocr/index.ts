@@ -12,9 +12,22 @@ import {
 
 interface MedicationExtraction {
   name: string;
-  type: "tablet" | "capsule" | "liquid" | "injection" | "topical" | "chewable" | "other";
+  type:
+    | "tablet"
+    | "capsule"
+    | "liquid"
+    | "injection"
+    | "topical"
+    | "chewable"
+    | "other";
   dosage: string;
-  frequency: "Daily" | "Twice Daily" | "Three Times Daily" | "Weekly" | "Monthly" | "As Needed";
+  frequency:
+    | "Daily"
+    | "Twice Daily"
+    | "Three Times Daily"
+    | "Weekly"
+    | "Monthly"
+    | "As Needed";
   purpose_notes?: string;
   prescribed_by?: string;
   start_date?: string | null;
@@ -127,7 +140,15 @@ Return a structured JSON response with confidence score and medicines array.`,
                       },
                       type: {
                         type: "string",
-                        enum: ["tablet", "capsule", "liquid", "injection", "topical", "chewable", "other"],
+                        enum: [
+                          "tablet",
+                          "capsule",
+                          "liquid",
+                          "injection",
+                          "topical",
+                          "chewable",
+                          "other",
+                        ],
                         description: "Type of medication",
                       },
                       dosage: {
@@ -136,10 +157,17 @@ Return a structured JSON response with confidence score and medicines array.`,
                       },
                       frequency: {
                         type: "string",
-                        enum: ["Daily", "Twice Daily", "Three Times Daily", "Weekly", "Monthly", "As Needed"],
+                        enum: [
+                          "Daily",
+                          "Twice Daily",
+                          "Three Times Daily",
+                          "Weekly",
+                          "Monthly",
+                          "As Needed",
+                        ],
                         description: "How often to take",
                       },
-                      purpose_notes: {
+                      purpose: {
                         type: "string",
                         description: "Purpose or notes about the medication",
                       },
@@ -170,14 +198,16 @@ Return a structured JSON response with confidence score and medicines array.`,
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error("Gemini API error:", errorText);
-      
+
       if (geminiResponse.status === 429) {
         throw new Error("Rate limit exceeded. Please try again later.");
       }
       if (geminiResponse.status === 402) {
-        throw new Error("AI usage limit reached. Please add credits to continue.");
+        throw new Error(
+          "AI usage limit reached. Please add credits to continue."
+        );
       }
-      
+
       throw new Error(`AI parsing error: ${geminiResponse.status}`);
     }
 
@@ -241,7 +271,7 @@ Return a structured JSON response with confidence score and medicines array.`,
     console.log(
       `[Medication OCR] Successfully extracted ${result.medicines.length} medicines with ${result.confidence}% confidence`
     );
-    
+
     return jsonResponse(result);
   } catch (error) {
     console.error("[Medication OCR] Error:", error);
@@ -266,4 +296,3 @@ Return a structured JSON response with confidence score and medicines array.`,
   medication extraction from prescription images.
 
 */
-
