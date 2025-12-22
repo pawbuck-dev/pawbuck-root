@@ -4,7 +4,7 @@ import { useTheme } from "@/context/themeContext";
 import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { fetchClinicalExams } from "@/services/clinicalExams";
 import { fetchLabResults } from "@/services/labResults";
-import { fetchMedicines, Medicine } from "@/services/medicines";
+import { fetchMedicines } from "@/services/medicines";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
 import { linkVetToPet } from "@/services/pets";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
@@ -64,7 +64,10 @@ const getNearestUpcomingVaccination = (
 };
 
 // Medication helpers
-const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
+const isTodayScheduledDay = (
+  medicine: Tables<"medicines">,
+  now: Date
+): boolean => {
   const { frequency, scheduled_day } = medicine;
 
   if (scheduled_day === null || scheduled_day === undefined) {
@@ -82,7 +85,7 @@ const isTodayScheduledDay = (medicine: Medicine, now: Date): boolean => {
   return true;
 };
 
-const getNextMedicationDose = (medicine: Medicine): Date | null => {
+const getNextMedicationDose = (medicine: Tables<"medicines">): Date | null => {
   const now = new Date();
   const { frequency, scheduled_times, scheduled_day, start_date, end_date } =
     medicine;
@@ -166,7 +169,7 @@ const getNextMedicationDose = (medicine: Medicine): Date | null => {
   });
 };
 
-const isMedicationCompleted = (medicine: Medicine): boolean => {
+const isMedicationCompleted = (medicine: Tables<"medicines">): boolean => {
   if (!medicine.end_date) return false;
   const now = new Date();
   const endDate = new Date(medicine.end_date);
@@ -175,9 +178,9 @@ const isMedicationCompleted = (medicine: Medicine): boolean => {
 };
 
 const getNearestMedicationDose = (
-  medicines: Medicine[]
-): { medicine: Medicine; nextDose: Date } | null => {
-  let nearest: { medicine: Medicine; nextDose: Date } | null = null;
+  medicines: Tables<"medicines">[]
+): { medicine: Tables<"medicines">; nextDose: Date } | null => {
+  let nearest: { medicine: Tables<"medicines">; nextDose: Date } | null = null;
 
   for (const medicine of medicines) {
     if (isMedicationCompleted(medicine)) continue;
@@ -207,7 +210,10 @@ const formatDate = (date: Date, includeYear: boolean = false): string => {
   if (targetDate.getTime() === now.getTime()) return "Today";
   if (targetDate.getTime() === tomorrow.getTime()) return "Tomorrow";
 
-  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+  };
   if (includeYear) {
     options.year = "numeric";
   }
@@ -215,7 +221,10 @@ const formatDate = (date: Date, includeYear: boolean = false): string => {
 };
 
 const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 export default function PetCard({
@@ -409,8 +418,8 @@ export default function PetCard({
 
   return (
     <View className="flex-1">
-      <ScrollView 
-        className="flex-1" 
+      <ScrollView
+        className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
       >
@@ -450,14 +459,17 @@ export default function PetCard({
                   className="w-10 h-10 rounded-full items-center justify-center"
                   style={{ backgroundColor: theme.primary }}
                 >
-                  <Text className="text-base font-bold" style={{ color: "#fff" }}>
+                  <Text
+                    className="text-base font-bold"
+                    style={{ color: "#fff" }}
+                  >
                     {getUserInitial()}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Right side - Edit */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleEditPress}
                 className="px-4 py-2 rounded-full"
                 style={{ backgroundColor: "rgba(255,255,255,0.9)" }}
@@ -543,7 +555,8 @@ export default function PetCard({
                     className="text-xs font-bold"
                     style={{ color: "#fff", letterSpacing: 1 }}
                   >
-                    {pet.weight_value} {pet.weight_unit === "kilograms" ? "kg" : "lb"}
+                    {pet.weight_value}{" "}
+                    {pet.weight_unit === "kilograms" ? "kg" : "lb"}
                   </Text>
                 </View>
               </View>
@@ -551,238 +564,248 @@ export default function PetCard({
           </View>
         </View>
 
-      {/* Health at a Glance Section */}
-      <View className="mb-6">
-        <View className="flex-row items-center justify-between mb-4">
-          <Text
-            className="text-lg font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Health at a Glance
-          </Text>
-          <TouchableOpacity>
-            <Ionicons name="heart-outline" size={22} color={theme.secondary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Vertical Stat Cards Row */}
-        <View className="flex-row gap-3">
-          {/* Next Vaccination Card */}
-          <View
-            className="flex-1 rounded-2xl p-4 items-center"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-              style={{ backgroundColor: "#22C55E20" }}
-            >
-              <Ionicons name="shield-checkmark" size={24} color="#22C55E" />
-            </View>
+        {/* Health at a Glance Section */}
+        <View className="mb-6">
+          <View className="flex-row items-center justify-between mb-4">
             <Text
-              className="text-xs mb-1"
-              style={{ color: theme.secondary }}
-            >
-              Next Vaccination
-            </Text>
-            <Text
-              className="text-sm font-bold text-center"
+              className="text-lg font-bold"
               style={{ color: theme.foreground }}
-              numberOfLines={2}
             >
-              {healthData.nearestVaccination
-                ? formatDate(new Date(healthData.nearestVaccination.next_due_date!), true)
-                : "Up to date"}
+              Health at a Glance
             </Text>
-          </View>
-
-          {/* Next Medication Card */}
-          <View
-            className="flex-1 rounded-2xl p-4 items-center"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-              style={{ backgroundColor: "#FF980020" }}
-            >
-              <MaterialCommunityIcons name="pill" size={24} color="#FF9800" />
-            </View>
-            <Text
-              className="text-xs mb-1"
-              style={{ color: theme.secondary }}
-            >
-              Next Medication
-            </Text>
-            <Text
-              className="text-sm font-bold text-center"
-              style={{ color: theme.foreground }}
-              numberOfLines={2}
-            >
-              {healthData.nearestMedication
-                ? formatDate(healthData.nearestMedication.nextDose, true) === "Today"
-                  ? formatTime(healthData.nearestMedication.nextDose)
-                  : formatDate(healthData.nearestMedication.nextDose)
-                : "None"}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Veterinary Information Section */}
-      <View className="mb-6">
-        <Text
-          className="text-lg font-bold mb-4"
-          style={{ color: theme.foreground }}
-        >
-          Veterinary Information
-        </Text>
-
-        {loadingVetInfo ? (
-          <View
-            className="rounded-2xl p-4 items-center"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <ActivityIndicator size="small" color={theme.primary} />
-          </View>
-        ) : vetInfo ? (
-          <TouchableOpacity
-            className="rounded-2xl p-4 flex-row items-center"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-            onPress={() => setShowVetModal(true)}
-            activeOpacity={0.7}
-          >
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-              style={{ backgroundColor: theme.primary + "20" }}
-            >
-              <Ionicons name="add" size={24} color={theme.primary} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                {vetInfo.clinic_name}
-              </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
-                {vetInfo.vet_name}
-              </Text>
-            </View>
-            <TouchableOpacity
-              className="w-12 h-12 rounded-full items-center justify-center"
-              style={{ backgroundColor: theme.primary }}
-              onPress={handleCallVet}
-            >
-              <Ionicons name="call" size={20} color="#fff" />
+            <TouchableOpacity>
+              <Ionicons
+                name="heart-outline"
+                size={22}
+                color={theme.secondary}
+              />
             </TouchableOpacity>
-          </TouchableOpacity>
-        ) : (
+          </View>
+
+          {/* Vertical Stat Cards Row */}
+          <View className="flex-row gap-3">
+            {/* Next Vaccination Card */}
+            <View
+              className="flex-1 rounded-2xl p-4 items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mb-3"
+                style={{ backgroundColor: "#22C55E20" }}
+              >
+                <Ionicons name="shield-checkmark" size={24} color="#22C55E" />
+              </View>
+              <Text className="text-xs mb-1" style={{ color: theme.secondary }}>
+                Next Vaccination
+              </Text>
+              <Text
+                className="text-sm font-bold text-center"
+                style={{ color: theme.foreground }}
+                numberOfLines={2}
+              >
+                {healthData.nearestVaccination
+                  ? formatDate(
+                      new Date(healthData.nearestVaccination.next_due_date!),
+                      true
+                    )
+                  : "Up to date"}
+              </Text>
+            </View>
+
+            {/* Next Medication Card */}
+            <View
+              className="flex-1 rounded-2xl p-4 items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mb-3"
+                style={{ backgroundColor: "#FF980020" }}
+              >
+                <MaterialCommunityIcons name="pill" size={24} color="#FF9800" />
+              </View>
+              <Text className="text-xs mb-1" style={{ color: theme.secondary }}>
+                Next Medication
+              </Text>
+              <Text
+                className="text-sm font-bold text-center"
+                style={{ color: theme.foreground }}
+                numberOfLines={2}
+              >
+                {healthData.nearestMedication
+                  ? formatDate(healthData.nearestMedication.nextDose, true) ===
+                    "Today"
+                    ? formatTime(healthData.nearestMedication.nextDose)
+                    : formatDate(healthData.nearestMedication.nextDose)
+                  : "None"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Veterinary Information Section */}
+        <View className="mb-6">
+          <Text
+            className="text-lg font-bold mb-4"
+            style={{ color: theme.foreground }}
+          >
+            Veterinary Information
+          </Text>
+
+          {loadingVetInfo ? (
+            <View
+              className="rounded-2xl p-4 items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <ActivityIndicator size="small" color={theme.primary} />
+            </View>
+          ) : vetInfo ? (
+            <TouchableOpacity
+              className="rounded-2xl p-4 flex-row items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+              onPress={() => setShowVetModal(true)}
+              activeOpacity={0.7}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                style={{ backgroundColor: theme.primary + "20" }}
+              >
+                <Ionicons name="add" size={24} color={theme.primary} />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-base font-semibold"
+                  style={{ color: theme.foreground }}
+                >
+                  {vetInfo.clinic_name}
+                </Text>
+                <Text className="text-sm" style={{ color: theme.secondary }}>
+                  {vetInfo.vet_name}
+                </Text>
+              </View>
+              <TouchableOpacity
+                className="w-12 h-12 rounded-full items-center justify-center"
+                style={{ backgroundColor: theme.primary }}
+                onPress={handleCallVet}
+              >
+                <Ionicons name="call" size={20} color="#fff" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              className="rounded-2xl p-4 flex-row items-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderStyle: "dashed",
+              }}
+              onPress={() => setShowVetModal(true)}
+              activeOpacity={0.7}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                style={{ backgroundColor: theme.primary + "20" }}
+              >
+                <Ionicons name="add" size={24} color={theme.primary} />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-base font-semibold"
+                  style={{ color: theme.foreground }}
+                >
+                  Add Veterinary Info
+                </Text>
+                <Text className="text-sm" style={{ color: theme.secondary }}>
+                  Add your vet's contact details
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        <View className="gap-3">
+          {/* View Full Health Records */}
           <TouchableOpacity
             className="rounded-2xl p-4 flex-row items-center"
             style={{
               backgroundColor: theme.card,
               borderWidth: 1,
               borderColor: theme.border,
-              borderStyle: "dashed",
             }}
-            onPress={() => setShowVetModal(true)}
-            activeOpacity={0.7}
+            onPress={() =>
+              router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
+            }
           >
             <View
               className="w-12 h-12 rounded-xl items-center justify-center mr-4"
               style={{ backgroundColor: theme.primary + "20" }}
             >
-              <Ionicons name="add" size={24} color={theme.primary} />
+              <Ionicons name="folder-open" size={22} color={theme.primary} />
             </View>
-            <View className="flex-1">
-              <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Add Veterinary Info
-              </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
-                Add your vet's contact details
-              </Text>
-            </View>
+            <Text
+              className="flex-1 text-base font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              View Full Health Records
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={22}
+              color={theme.secondary}
+            />
           </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Action Buttons */}
-      <View className="gap-3">
-        {/* View Full Health Records */}
-        <TouchableOpacity
-          className="rounded-2xl p-4 flex-row items-center"
-          style={{
-            backgroundColor: theme.card,
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}
-          onPress={() =>
-            router.push(`/(home)/health-record/${pet.id}/(tabs)/vaccinations`)
-          }
-        >
-          <View
-            className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-            style={{ backgroundColor: theme.primary + "20" }}
+          {/* Download Passport */}
+          <TouchableOpacity
+            className="rounded-2xl p-4 flex-row items-center"
+            style={{
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+            onPress={handleDownloadPassport}
+            disabled={generatingPDF}
           >
-            <Ionicons name="folder-open" size={22} color={theme.primary} />
-          </View>
-          <Text
-            className="flex-1 text-base font-semibold"
-            style={{ color: theme.foreground }}
-          >
-            View Full Health Records
-          </Text>
-          <Ionicons name="chevron-forward" size={22} color={theme.secondary} />
-        </TouchableOpacity>
-
-        {/* Download Passport */}
-        <TouchableOpacity
-          className="rounded-2xl p-4 flex-row items-center"
-          style={{
-            backgroundColor: theme.card,
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}
-          onPress={handleDownloadPassport}
-          disabled={generatingPDF}
-        >
-          <View
-            className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-            style={{ backgroundColor: theme.primary + "20" }}
-          >
-            <Ionicons name="document-text" size={22} color={theme.primary} />
-          </View>
-          <Text
-            className="flex-1 text-base font-semibold"
-            style={{ color: theme.foreground }}
-          >
-            Download Passport (PDF)
-          </Text>
-          {generatingPDF ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <Ionicons name="download-outline" size={22} color={theme.secondary} />
-          )}
-        </TouchableOpacity>
-      </View>
+            <View
+              className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+              style={{ backgroundColor: theme.primary + "20" }}
+            >
+              <Ionicons name="document-text" size={22} color={theme.primary} />
+            </View>
+            <Text
+              className="flex-1 text-base font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              Download Passport (PDF)
+            </Text>
+            {generatingPDF ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Ionicons
+                name="download-outline"
+                size={22}
+                color={theme.secondary}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Edit Modal */}
