@@ -108,41 +108,6 @@ export type Database = {
           },
         ]
       }
-      daily_medication_schedules: {
-        Row: {
-          created_at: string
-          id: string
-          medication_id: string
-          time: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          medication_id?: string
-          time: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          medication_id?: string
-          time?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "daily_medication_schedules_medication_id_fkey"
-            columns: ["medication_id"]
-            isOneToOne: false
-            referencedRelation: "medicines"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lab_results: {
         Row: {
           confidence: number | null
@@ -229,7 +194,7 @@ export type Database = {
           purpose?: string | null
           scheduled_day?: number | null
           scheduled_times?: string[] | null
-          schedules: Json
+          schedules?: Json
           start_date?: string | null
           type: string
           updated_at?: string
@@ -260,44 +225,6 @@ export type Database = {
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      monthly_medication_schedules: {
-        Row: {
-          created_at: string
-          day_of_month: number
-          id: number
-          medication_id: string
-          time: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          day_of_month: number
-          id?: number
-          medication_id: string
-          time: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
-          day_of_month?: number
-          id?: number
-          medication_id?: string
-          time?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "monthly_medication_schedules_medication_id_fkey"
-            columns: ["medication_id"]
-            isOneToOne: false
-            referencedRelation: "medicines"
             referencedColumns: ["id"]
           },
         ]
@@ -470,44 +397,6 @@ export type Database = {
           vet_name?: string
         }
         Relationships: []
-      }
-      weekly_medication_schedules: {
-        Row: {
-          created_at: string
-          day_number: number
-          id: string
-          medication_id: string
-          time: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          day_number: number
-          id?: string
-          medication_id: string
-          time: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Update: {
-          created_at?: string
-          day_number?: number
-          id?: string
-          medication_id?: string
-          time?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weekly_medication_schedules_medication_id_fkey"
-            columns: ["medication_id"]
-            isOneToOne: false
-            referencedRelation: "medicines"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
