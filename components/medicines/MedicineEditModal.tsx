@@ -1,5 +1,5 @@
 import { useMedicines } from "@/context/medicinesContext";
-import { Tables, TablesInsert } from "@/database.types";
+import { MedicineData } from "@/models/medication";
 import React from "react";
 import { Modal } from "react-native";
 import MedicineForm from "./MedicineForm";
@@ -7,9 +7,8 @@ import MedicineForm from "./MedicineForm";
 interface MedicineEditModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (id: string, data: TablesInsert<"medicines">) => void;
-  medicine: Tables<"medicines">;
-  loading?: boolean;
+  onSave: () => void;
+  medicine: MedicineData;
 }
 
 export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
@@ -17,7 +16,6 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   onClose,
   onSave,
   medicine,
-  loading = false,
 }) => {
   const { updateMedicineMutation } = useMedicines();
 
@@ -30,15 +28,16 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
     >
       <MedicineForm
         onClose={onClose}
-        loading={loading}
+        loading={updateMedicineMutation.isPending}
         actionTitle="Edit"
-        isProcessing={loading}
-        onSave={(data) =>
-          updateMedicineMutation.mutate({
-            id: medicine.id,
+        isProcessing={updateMedicineMutation.isPending}
+        onSave={async (data) => {
+          await updateMedicineMutation.mutateAsync({
+            id: medicine.medicine.id || "",
             data,
-          })
-        }
+          });
+          onSave();
+        }}
         initialData={medicine}
       />
     </Modal>

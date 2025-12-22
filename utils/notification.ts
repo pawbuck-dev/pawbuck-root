@@ -14,16 +14,12 @@ export async function registerForPush() {
   }
 
   if (!isDevice) {
-    console.log("Not a device");
+    console.error("Not a device");
     return null;
   }
 
-  console.log("Device is device");
-
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
-
-  console.log("Existing status:", existingStatus);
 
   if (existingStatus !== "granted") {
     const { status } = await Notifications.requestPermissionsAsync();
@@ -32,8 +28,6 @@ export async function registerForPush() {
 
   if (finalStatus !== "granted") return null;
 
-  console.log("Final status:", finalStatus);
-
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ??
     Constants.easConfig?.projectId;
@@ -41,14 +35,11 @@ export async function registerForPush() {
     throw new Error("rrProject ID not found");
   }
 
-  console.log("Project ID:", projectId);
-
   const token = (
     await Notifications.getExpoPushTokenAsync({
       projectId,
     })
   ).data;
 
-  console.log("Expo Push Token:", token);
   return token;
 }

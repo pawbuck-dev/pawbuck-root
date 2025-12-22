@@ -79,7 +79,6 @@ export async function uploadFile(
       throw error;
     }
 
-    console.log("File uploaded successfully", data);
     return data;
   } catch (error) {
     console.error("Upload error:", error);
@@ -93,7 +92,6 @@ export const deleteFile = async (path: string) => {
 
     if (error) throw error;
 
-    console.log("Image deleted successfully");
     return true;
   } catch (error) {
     console.error("Delete error:", error);

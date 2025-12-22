@@ -40,9 +40,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setError(null);
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
-
-      // User state will be updated by the auth state listener
-      console.log("User signed out successfully");
     } catch (err) {
       console.error("Error signing out:", err);
       const errorMessage =
@@ -65,8 +62,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email);
-
       setUser(session?.user || null);
 
       // Clear loading state when auth state changes
@@ -81,7 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const updatePushToken = async () => {
       if (pushToken && deviceId && user) {
-        const { data, error } = await supabase.from("push_tokens").upsert({
+        const { error } = await supabase.from("push_tokens").upsert({
           device_id: deviceId,
           token: pushToken,
           user_id: user.id,
@@ -89,10 +84,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
         if (error) {
           console.error("Error updating push token:", error);
-        }
-
-        if (data) {
-          console.log("Push token updated successfully");
         }
       }
     };

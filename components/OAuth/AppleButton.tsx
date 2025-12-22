@@ -24,14 +24,13 @@ export default function AppleButton({ onSuccess }: { onSuccess?: () => void }) {
             if (!credential.identityToken) {
               throw new Error("No identity token returned from Apple Sign-In");
             }
-            const { data, error } = await supabase.auth.signInWithIdToken({
+            const { error } = await supabase.auth.signInWithIdToken({
               provider: "apple",
               token: credential.identityToken,
             });
             if (error) {
               throw error;
             }
-            console.log("Successfully signed in with Apple:", data);
             onSuccess?.();
           } catch (e: any) {
             console.error("Error signing in with Apple:", e);

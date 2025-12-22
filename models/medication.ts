@@ -21,18 +21,18 @@ export type MedicationSchedule =
 
 export type MedicationScheduleFormData =
   | {
-      frequency: "Daily";
+      type: "Daily";
       schedules: TablesInsert<"daily_medication_schedules">[];
     }
   | {
-      frequency: "Weekly";
+      type: "Weekly";
       schedules: TablesInsert<"weekly_medication_schedules">[];
     }
   | {
-      frequency: "Monthly";
+      type: "Monthly";
       schedules: TablesInsert<"monthly_medication_schedules">[];
     }
-  | { frequency: "As Needed"; schedules: [] };
+  | { type: "As Needed"; schedules: [] };
 
 export type MedicineData = {
   medicine: Tables<"medicines">;

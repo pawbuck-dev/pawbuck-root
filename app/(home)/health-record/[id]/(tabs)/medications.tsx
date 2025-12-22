@@ -57,10 +57,7 @@ export default function MedicationsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {medicines.map((medicine) => (
-          <MedicineCard
-            key={medicine.medicine.id}
-            medicine={medicine.medicine}
-          />
+          <MedicineCard key={medicine.medicine.id} medicine={medicine} />
         ))}
 
         <View className="h-20" />

@@ -38,7 +38,7 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
       }
 
       // Sign in to Supabase with Google ID token
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: userInfo.data.idToken,
       });
@@ -47,17 +47,15 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
         throw error;
       }
 
-      console.log("Successfully signed in with Google:", data);
-
       // Call onSuccess callback to navigate to home
       if (onSuccess) {
         await onSuccess();
       }
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log("User cancelled the login flow");
+        console.error("User cancelled the login flow");
       } else if (error.code === statusCodes.IN_PROGRESS) {
-        console.log("Sign in is in progress already");
+        console.error("Sign in is in progress already");
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         Alert.alert(
           "Error",

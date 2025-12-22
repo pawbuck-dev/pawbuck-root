@@ -61,15 +61,16 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
 
   // Enrich medicines with schedules from the schedules context
   const medicinesWithSchedules = useMemo(() => {
-    const medicinesWithSchedules = medicinesData.map((medicineData) => ({
-      medicine: medicineData.medicine,
-      schedule: schedulesMap[medicineData.medicine.id] || {
-        type: ScheduleFrequency.AS_NEEDED,
-        schedules: [],
-      },
-    }));
+    const medicinesWithSchedules: MedicineData[] = medicinesData.map(
+      (medicineData) => ({
+        medicine: medicineData.medicine,
+        schedule: schedulesMap[medicineData.medicine.id] || {
+          type: ScheduleFrequency.AS_NEEDED,
+          schedules: [],
+        },
+      })
+    );
 
-    console.log("medicinesWithSchedules", medicinesWithSchedules);
     return medicinesWithSchedules;
   }, [medicinesData, schedulesMap]);
 
@@ -125,6 +126,10 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
           queryKey: ["medicineSchedules", user.id],
         });
       }
+    },
+    onError: (error) => {
+      console.error("Error updating medicine:", error);
+      Alert.alert("Error", "Failed to update medicine");
     },
   });
 

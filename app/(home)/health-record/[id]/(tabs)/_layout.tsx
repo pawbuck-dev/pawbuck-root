@@ -2,20 +2,20 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-    MaterialTopTabNavigationEventMap,
-    MaterialTopTabNavigationOptions,
-    createMaterialTopTabNavigator,
+  MaterialTopTabNavigationEventMap,
+  MaterialTopTabNavigationOptions,
+  createMaterialTopTabNavigator,
 } from "@react-navigation/material-top-tabs";
 import { ParamListBase, TabNavigationState } from "@react-navigation/native";
 import {
-    router,
-    useLocalSearchParams,
-    useSegments,
-    withLayoutContext,
+  router,
+  useLocalSearchParams,
+  useSegments,
+  withLayoutContext,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -63,7 +63,8 @@ export default function HealthRecordsLayout() {
         router.push(`/health-record/${id}/lab-result-upload-modal`);
         break;
       default:
-        console.log("Unknown tab");
+        Alert.alert("Error", "Unknown tab");
+        break;
     }
   };
 

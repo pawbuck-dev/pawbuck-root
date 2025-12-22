@@ -25,7 +25,7 @@ import ScheduleInput from "./ScheduleInput";
 interface MedicineFormProps {
   isProcessing: boolean;
   onSave: (data: MedicineFormData) => void;
-  initialData?: TablesInsert<"medicines">;
+  initialData?: MedicineFormData;
   onClose: () => void;
   loading: boolean;
   actionTitle: "Edit" | "Add";
@@ -44,20 +44,28 @@ const MedicineForm = ({
 
   if (!initialData) {
     initialData = {
-      pet_id: pet?.id || "",
-      name: "",
-      start_date: new Date().toISOString(),
-      end_date: null,
-      document_url: null,
-      dosage: "",
-      frequency: "",
-      prescribed_by: null,
-      purpose: null,
-      type: "",
+      medicine: {
+        pet_id: pet?.id || "",
+        name: "",
+        start_date: new Date().toISOString(),
+        end_date: null,
+        document_url: null,
+        dosage: "",
+        frequency: "",
+        prescribed_by: null,
+        purpose: null,
+        type: "",
+      },
+      schedule: {
+        type: ScheduleFrequency.AS_NEEDED,
+        schedules: [],
+      },
     };
   }
 
-  const [data, setData] = useState<TablesInsert<"medicines">>(initialData);
+  const [data, setData] = useState<TablesInsert<"medicines">>(
+    initialData.medicine
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editingDateType, setEditingDateType] = useState<
     "startDate" | "endDate" | null
@@ -68,13 +76,25 @@ const MedicineForm = ({
 
   const [dailyScheduledTimes, setDailyScheduledTimes] = useState<
     TablesInsert<"daily_medication_schedules">[]
-  >([]);
+  >(
+    initialData.schedule.type === ScheduleFrequency.DAILY
+      ? initialData.schedule.schedules
+      : []
+  );
   const [weeklyScheduledTimes, setWeeklyScheduledTimes] = useState<
     TablesInsert<"weekly_medication_schedules">[]
-  >([]);
+  >(
+    initialData.schedule.type === ScheduleFrequency.WEEKLY
+      ? initialData.schedule.schedules
+      : []
+  );
   const [monthlyScheduledTimes, setMonthlyScheduledTimes] = useState<
     TablesInsert<"monthly_medication_schedules">[]
-  >([]);
+  >(
+    initialData.schedule.type === ScheduleFrequency.MONTHLY
+      ? initialData.schedule.schedules
+      : []
+  );
 
   const handleSave = () => {
     // Validate schedule based on frequency
@@ -108,18 +128,18 @@ const MedicineForm = ({
       medicine: data,
       schedule:
         data.frequency === ScheduleFrequency.DAILY
-          ? { frequency: "Daily", schedules: dailyScheduledTimes }
+          ? { type: "Daily", schedules: dailyScheduledTimes }
           : data.frequency === ScheduleFrequency.WEEKLY
             ? {
-                frequency: "Weekly",
+                type: "Weekly",
                 schedules: weeklyScheduledTimes,
               }
             : data.frequency === ScheduleFrequency.MONTHLY
               ? {
-                  frequency: "Monthly",
+                  type: "Monthly",
                   schedules: monthlyScheduledTimes,
                 }
-              : { frequency: "As Needed", schedules: [] },
+              : { type: "As Needed", schedules: [] },
     };
     onSave(scheduleData);
   };
@@ -153,7 +173,7 @@ const MedicineForm = ({
             </Text>
             <TouchableOpacity onPress={handleSave} disabled={loading}>
               <Text className="text-base" style={{ color: theme.primary }}>
-                Done
+                {isProcessing ? "Saving..." : "Save"}
               </Text>
             </TouchableOpacity>
           </View>

@@ -478,7 +478,7 @@ export const updateMedicationSchedules = async (
   schedules: MedicationScheduleFormData
 ): Promise<void> => {
   schedules.schedules.forEach((s) => (s.medication_id = medicationId));
-  switch (schedules.frequency) {
+  switch (schedules.type) {
     case ScheduleFrequency.DAILY:
       await replaceDailySchedules(medicationId, schedules.schedules);
       break;

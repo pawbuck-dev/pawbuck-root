@@ -38,8 +38,6 @@ function Login() {
 
       if (error) throw error;
 
-      console.log("Successfully signed in:", data);
-
       // Navigate to home screen after successful login - clear stack
       router.dismissAll();
       router.replace("/home");

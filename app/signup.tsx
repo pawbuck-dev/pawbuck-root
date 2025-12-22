@@ -44,16 +44,13 @@ function SignUp() {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
       });
 
       if (error) throw error;
 
-      console.log("Successfully signed up:", data);
-
-      console.log("params", params);
       // Clear navigation stack before going to home
       while (router.canGoBack()) {
         router.back();
@@ -108,7 +105,6 @@ function SignUp() {
               <OAuthLogins
                 onSuccess={() => {
                   // Navigate to home with pet - clear stack first
-                  console.log("signup params", params);
 
                   router.dismissAll();
                   router.replace({

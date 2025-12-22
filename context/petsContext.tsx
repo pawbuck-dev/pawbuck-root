@@ -151,7 +151,6 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
 
     const handlePetData = async () => {
       hasSyncedRef.current = true;
-      console.log("syncing pet data");
       try {
         // Call the mutation directly to avoid dependency issues
         await addPetMutation.mutateAsync(petData as Pet);
@@ -162,7 +161,6 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
           "There was an issue saving your pet's profile. Please try adding it again from the home page."
         );
       } finally {
-        console.log("resetting onboarding");
         resetOnboarding();
       }
     };
