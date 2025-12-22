@@ -2,8 +2,10 @@ import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useMedicines } from "@/context/medicinesContext";
 import { useTheme } from "@/context/themeContext";
 import { MedicineData } from "@/models/medication";
+import { formatDateWithRelative } from "@/utils/dates";
+import { getNextMedicationDose } from "@/utils/medication";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { MedicineEditModal } from "./MedicineEditModal";
 
@@ -18,6 +20,11 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   const hasDocument = !!medicine.document_url;
+
+  // Calculate next dose
+  const nextDose = useMemo(() => {
+    return getNextMedicationDose(medicine);
+  }, [medicine]);
 
   const handleDelete = () => {
     Alert.alert(
@@ -217,6 +224,15 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
               {medicine.frequency}
             </Text>
           </View>
+
+          {nextDose && (
+            <View className="flex-row items-center mb-2">
+              <Ionicons name="alarm-outline" size={14} color={theme.primary} />
+              <Text className="text-sm ml-2" style={{ color: theme.primary }}>
+                Next dose: {formatDateWithRelative(nextDose, true, true)}
+              </Text>
+            </View>
+          )}
 
           {medicine.start_date && (
             <View className="flex-row items-center mb-2">

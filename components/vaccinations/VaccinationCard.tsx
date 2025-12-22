@@ -2,6 +2,7 @@ import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { Tables, TablesUpdate } from "@/database.types";
+import { formatDate } from "@/utils/dates";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
@@ -75,11 +76,11 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   };
 
   const handleLongPress = () => {
-    const options: Array<{
+    const options: {
       text: string;
       onPress?: () => void;
       style?: "cancel" | "destructive";
-    }> = [];
+    }[] = [];
 
     if (hasDocument) {
       options.push({
@@ -104,17 +105,9 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
       }
     );
 
-    Alert.alert(
-      vaccination.name,
-      "What would you like to do?",
-      options,
-      { cancelable: true }
-    );
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Not set";
-    return new Date(dateString).toLocaleDateString();
+    Alert.alert(vaccination.name, "What would you like to do?", options, {
+      cancelable: true,
+    });
   };
 
   return (
@@ -132,7 +125,11 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
             >
-              <MaterialCommunityIcons name="needle" size={20} color={theme.primary} />
+              <MaterialCommunityIcons
+                name="needle"
+                size={20}
+                color={theme.primary}
+              />
             </View>
             <Text
               className="text-base font-semibold flex-1"
@@ -149,7 +146,11 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               onPress={handleViewDocument}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="document-attach" size={18} color={theme.primary} />
+              <Ionicons
+                name="document-attach"
+                size={18}
+                color={theme.primary}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -157,7 +158,11 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
         {/* Date Information */}
         <View className="ml-13">
           <View className="flex-row items-center mb-2">
-            <Ionicons name="calendar-outline" size={14} color={theme.secondary} />
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={theme.secondary}
+            />
             <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
               Administered: {formatDate(vaccination.date)}
             </Text>
@@ -234,10 +239,3 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
     </>
   );
 };
-
-
-
-
-
-
-

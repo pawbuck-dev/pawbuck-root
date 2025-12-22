@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/authContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { TablesInsert, TablesUpdate } from "@/database.types";
 import { fetchClinicalExams } from "@/services/clinicalExams";
 import { fetchLabResults } from "@/services/labResults";
 import { fetchMedicines } from "@/services/medicines";
@@ -14,6 +14,9 @@ import {
   getVetInformation,
   updateVetInformation,
 } from "@/services/vetInformation";
+import { formatDateWithRelative, formatTime } from "@/utils/dates";
+import { getNearestMedicationDose } from "@/utils/medication";
+import { getNearestUpcomingVaccination } from "@/utils/vaccinationHelpers";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,193 +41,6 @@ type PetCardProps = {
   onNext?: () => void;
   showNavigation?: boolean;
   onEditPress?: () => void;
-};
-
-// Vaccination helpers
-const getNearestUpcomingVaccination = (
-  vaccinations: Tables<"vaccinations">[]
-): Tables<"vaccinations"> | null => {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  const futureVaccinations = vaccinations
-    .filter((v) => {
-      if (!v.next_due_date) return false;
-      const dueDate = new Date(v.next_due_date);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate >= now;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.next_due_date!);
-      const dateB = new Date(b.next_due_date!);
-      return dateA.getTime() - dateB.getTime();
-    });
-
-  return futureVaccinations.length > 0 ? futureVaccinations[0] : null;
-};
-
-// Medication helpers
-const isTodayScheduledDay = (
-  medicine: Tables<"medicines">,
-  now: Date
-): boolean => {
-  const { frequency, scheduled_day } = medicine;
-
-  if (scheduled_day === null || scheduled_day === undefined) {
-    return true;
-  }
-
-  if (frequency === "Weekly") {
-    return now.getDay() === scheduled_day;
-  }
-
-  if (frequency === "Monthly") {
-    return now.getDate() === scheduled_day;
-  }
-
-  return true;
-};
-
-const getNextMedicationDose = (medicine: Tables<"medicines">): Date | null => {
-  const now = new Date();
-  const { frequency, scheduled_times, scheduled_day, start_date, end_date } =
-    medicine;
-
-  if (frequency === "As Needed") return null;
-
-  if (start_date) {
-    const startDate = new Date(start_date);
-    startDate.setHours(0, 0, 0, 0);
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    if (startDate > todayStart) {
-      return startDate;
-    }
-  }
-
-  if (end_date) {
-    const endDate = new Date(end_date);
-    endDate.setHours(23, 59, 59, 999);
-    if (endDate < now) return null;
-  }
-
-  if (!scheduled_times || scheduled_times.length === 0) return null;
-
-  if (!isTodayScheduledDay(medicine, now)) {
-    if (frequency === "Weekly") {
-      const targetDay = scheduled_day!;
-      const currentDay = now.getDay();
-      let daysUntil = targetDay - currentDay;
-      if (daysUntil <= 0) daysUntil += 7;
-
-      const nextDate = new Date(now);
-      nextDate.setDate(now.getDate() + daysUntil);
-      const [hours, minutes] = scheduled_times[0].split(":");
-      nextDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-      return nextDate;
-    }
-
-    if (frequency === "Monthly") {
-      const targetDay = scheduled_day!;
-      const nextDate = new Date(now);
-      if (now.getDate() >= targetDay) {
-        nextDate.setMonth(nextDate.getMonth() + 1);
-      }
-      nextDate.setDate(targetDay);
-      const [hours, minutes] = scheduled_times[0].split(":");
-      nextDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-      return nextDate;
-    }
-  }
-
-  const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-
-  for (const time of scheduled_times) {
-    const [hours, minutes] = time.split(":");
-    const timeMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
-
-    if (timeMinutes > currentTimeMinutes) {
-      const nextDose = new Date(now);
-      nextDose.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-      return nextDose;
-    }
-  }
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  if (
-    frequency === "Daily" ||
-    frequency === "Twice Daily" ||
-    frequency === "Three Times Daily"
-  ) {
-    const [hours, minutes] = scheduled_times[0].split(":");
-    tomorrow.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-    return tomorrow;
-  }
-
-  return getNextMedicationDose({
-    ...medicine,
-    start_date: tomorrow.toISOString(),
-  });
-};
-
-const isMedicationCompleted = (medicine: Tables<"medicines">): boolean => {
-  if (!medicine.end_date) return false;
-  const now = new Date();
-  const endDate = new Date(medicine.end_date);
-  endDate.setHours(23, 59, 59, 999);
-  return endDate < now;
-};
-
-const getNearestMedicationDose = (
-  medicines: Tables<"medicines">[]
-): { medicine: Tables<"medicines">; nextDose: Date } | null => {
-  let nearest: { medicine: Tables<"medicines">; nextDose: Date } | null = null;
-
-  for (const medicine of medicines) {
-    if (isMedicationCompleted(medicine)) continue;
-
-    const nextDose = getNextMedicationDose(medicine);
-    if (nextDose) {
-      if (!nearest || nextDose < nearest.nextDose) {
-        nearest = { medicine, nextDose };
-      }
-    }
-  }
-
-  return nearest;
-};
-
-// Format helpers
-const formatDate = (date: Date, includeYear: boolean = false): string => {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  now.setHours(0, 0, 0, 0);
-  tomorrow.setHours(0, 0, 0, 0);
-  const targetDate = new Date(date);
-  targetDate.setHours(0, 0, 0, 0);
-
-  if (targetDate.getTime() === now.getTime()) return "Today";
-  if (targetDate.getTime() === tomorrow.getTime()) return "Tomorrow";
-
-  const options: Intl.DateTimeFormatOptions = {
-    month: "short",
-    day: "numeric",
-  };
-  if (includeYear) {
-    options.year = "numeric";
-  }
-  return date.toLocaleDateString("en-US", options);
-};
-
-const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 };
 
 export default function PetCard({
@@ -330,9 +146,7 @@ export default function PetCard({
   // Compute health at a glance data
   const healthData = useMemo(() => {
     const nearestVaccination = getNearestUpcomingVaccination(vaccinations);
-    // TODO: Implement nearest medication dose
-    // const nearestMedication = getNearestMedicationDose(medicines);
-    const nearestMedication = null;
+    const nearestMedication = getNearestMedicationDose(medicines);
 
     return {
       nearestVaccination,
@@ -587,68 +401,100 @@ export default function PetCard({
           {/* Vertical Stat Cards Row */}
           <View className="flex-row gap-3">
             {/* Next Vaccination Card */}
-            <View
-              className="flex-1 rounded-2xl p-4 items-center"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() =>
+                router.push(
+                  `/(home)/health-record/${pet.id}/(tabs)/vaccinations`
+                )
+              }
             >
               <View
-                className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-                style={{ backgroundColor: "#22C55E20" }}
+                className="rounded-2xl p-4 items-center"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
               >
-                <Ionicons name="shield-checkmark" size={24} color="#22C55E" />
+                <View
+                  className="w-12 h-12 rounded-xl items-center justify-center mb-3"
+                  style={{ backgroundColor: "#22C55E20" }}
+                >
+                  <Ionicons name="shield-checkmark" size={24} color="#22C55E" />
+                </View>
+                <Text
+                  className="text-xs mb-1"
+                  style={{ color: theme.secondary }}
+                >
+                  Next Vaccination
+                </Text>
+                <Text
+                  className="text-sm font-bold text-center"
+                  style={{ color: theme.foreground }}
+                  numberOfLines={2}
+                >
+                  {healthData.nearestVaccination
+                    ? formatDateWithRelative(
+                        new Date(healthData.nearestVaccination.next_due_date!),
+                        true
+                      )
+                    : "Up to date"}
+                </Text>
               </View>
-              <Text className="text-xs mb-1" style={{ color: theme.secondary }}>
-                Next Vaccination
-              </Text>
-              <Text
-                className="text-sm font-bold text-center"
-                style={{ color: theme.foreground }}
-                numberOfLines={2}
-              >
-                {healthData.nearestVaccination
-                  ? formatDate(
-                      new Date(healthData.nearestVaccination.next_due_date!),
-                      true
-                    )
-                  : "Up to date"}
-              </Text>
-            </View>
+            </TouchableOpacity>
 
             {/* Next Medication Card */}
-            <View
-              className="flex-1 rounded-2xl p-4 items-center"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() =>
+                router.push(
+                  `/(home)/health-record/${pet.id}/(tabs)/medications`
+                )
+              }
             >
               <View
-                className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-                style={{ backgroundColor: "#FF980020" }}
+                className="flex-1 rounded-2xl p-4 items-center"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
               >
-                <MaterialCommunityIcons name="pill" size={24} color="#FF9800" />
+                <View
+                  className="w-12 h-12 rounded-xl items-center justify-center mb-3"
+                  style={{ backgroundColor: "#FF980020" }}
+                >
+                  <MaterialCommunityIcons
+                    name="pill"
+                    size={24}
+                    color="#FF9800"
+                  />
+                </View>
+                <Text
+                  className="text-xs mb-1"
+                  style={{ color: theme.secondary }}
+                >
+                  Next Medication
+                </Text>
+                <Text
+                  className="text-sm font-bold text-center"
+                  style={{ color: theme.foreground }}
+                  numberOfLines={2}
+                >
+                  {healthData.nearestMedication
+                    ? formatDateWithRelative(
+                        healthData.nearestMedication.nextDose,
+                        true
+                      ) === "Today"
+                      ? formatTime(healthData.nearestMedication.nextDose)
+                      : formatDateWithRelative(
+                          healthData.nearestMedication.nextDose
+                        )
+                    : "None"}
+                </Text>
               </View>
-              <Text className="text-xs mb-1" style={{ color: theme.secondary }}>
-                Next Medication
-              </Text>
-              <Text
-                className="text-sm font-bold text-center"
-                style={{ color: theme.foreground }}
-                numberOfLines={2}
-              >
-                {/* {healthData.nearestMedication
-                  ? formatDate(healthData.nearestMedication.nextDose, true) ===
-                    "Today"
-                    ? formatTime(healthData.nearestMedication.nextDose)
-                    : formatDate(healthData.nearestMedication.nextDose)
-                  : "None"} */}
-              </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
