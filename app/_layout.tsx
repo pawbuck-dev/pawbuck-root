@@ -1,5 +1,7 @@
 import { AuthProvider } from "@/context/authContext";
+import { MedicationNotificationsProvider } from "@/context/medicationNotificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
+import { PetsProvider } from "@/context/petsContext";
 import { ThemeProvider } from "@/context/themeContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
@@ -68,12 +70,16 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <OnboardingProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: "none",
-              }}
-            />
+            <PetsProvider>
+              <MedicationNotificationsProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    animation: "none",
+                  }}
+                />
+              </MedicationNotificationsProvider>
+            </PetsProvider>
           </OnboardingProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -9,6 +9,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { createContext, ReactNode, useContext } from "react";
 import { Alert } from "react-native";
+import { useMedicationNotifications } from "./medicationNotificationsContext";
 import { useSelectedPet } from "./selectedPetContext";
 
 interface MedicinesContextType {
@@ -34,6 +35,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pet } = useSelectedPet();
   const queryClient = useQueryClient();
+  const { refreshNotifications } = useMedicationNotifications();
 
   const {
     data: medicines = [],
@@ -61,6 +63,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      refreshNotifications();
     },
     onError: (error) => {
       console.error("Error adding medicine:", error);
@@ -74,6 +77,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      refreshNotifications();
     },
 
     onError: (error) => {
@@ -86,6 +90,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     mutationFn: (id) => deleteMedicine(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      refreshNotifications();
     },
   });
 
