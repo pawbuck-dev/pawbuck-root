@@ -54,7 +54,7 @@ const scheduleWeeklyNotification = async (
         type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
         hour: parseInt(hour),
         minute: parseInt(minute),
-        weekday: schedule.day_of_week,
+        weekday: schedule.day_of_week + 1,
       },
     });
     notificationIds.push(id);

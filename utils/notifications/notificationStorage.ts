@@ -78,3 +78,4 @@ export const clearAllNotificationIds = async (): Promise<void> => {
     throw error;
   }
 };
+

@@ -13,7 +13,7 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 /**
  * Formats a date to HH:mm format (12-hour format)
  */
-export const formatTime = (date: Date): string => {
+export const formatTime = (date: Date | string): string => {
   return moment(date).format("hh:mm A");
 };
 
@@ -29,10 +29,9 @@ export const formatDateWithRelative = (
   const now = moment().startOf("day");
   const target = moment(date).startOf("day");
 
-  if (target.isSame(now, "day"))
-    return "Today at " + formatTime(target.toDate());
+  if (target.isSame(now, "day")) return "Today at " + formatTime(date);
   if (target.isSame(moment(now).add(1, "day"), "day"))
-    return "Tomorrow at " + formatTime(target.toDate());
+    return "Tomorrow at " + formatTime(date);
 
   const formatString = includeYear ? "MMM D, YYYY" : "MMM D";
   if (includeTime) {
