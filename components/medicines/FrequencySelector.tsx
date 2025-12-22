@@ -1,22 +1,20 @@
 import { ScheduleFrequency } from "@/constants/schedules";
 import { useTheme } from "@/context/themeContext";
-import { Tables } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 type FrequencySelectorProps = {
-  medication: Tables<"medicines">;
   showFrequencyPicker: boolean;
   setShowFrequencyPicker: (show: boolean) => void;
+  selectedFrequency: ScheduleFrequency;
   onSelectFrequency: (frequency: ScheduleFrequency) => void;
 };
 
 const FrequencySelector: React.FC<FrequencySelectorProps> = ({
-  medication,
   showFrequencyPicker,
   setShowFrequencyPicker,
-
+  selectedFrequency,
   onSelectFrequency,
 }) => {
   const { theme } = useTheme();
@@ -64,11 +62,11 @@ const FrequencySelector: React.FC<FrequencySelectorProps> = ({
                   className="text-base"
                   style={{
                     color:
-                      medication.frequency === frequency
+                      selectedFrequency === frequency
                         ? theme.primary
                         : theme.foreground,
                     fontWeight:
-                      medication.frequency === frequency ? "600" : "normal",
+                      selectedFrequency === frequency ? "600" : "normal",
                   }}
                 >
                   {frequency}

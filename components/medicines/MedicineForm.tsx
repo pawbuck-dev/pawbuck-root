@@ -1,4 +1,5 @@
 import { MEDICATION_TYPES } from "@/constants/medicines";
+import { ScheduleFrequency } from "@/constants/schedules";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
@@ -15,7 +16,9 @@ import {
   View,
 } from "react-native";
 import DateTimePicker from "../common/DateTimePicker";
+import FrequencySelector from "./FrequencySelector";
 import MedicineTypePicker from "./MedicineTypePicker";
+import ScheduleInput from "./ScheduleInput";
 
 interface MedicineFormProps {
   isProcessing: boolean;
@@ -52,16 +55,6 @@ const MedicineForm = ({
     };
   }
 
-  //   const [dailyScheduledTimes, setDailyScheduledTimes] = useState<
-  //     TablesInsert<"daily_medication_schedules">[]
-  //   >([]);
-  //   const [weeklyScheduledTimes, setWeeklyScheduledTimes] = useState<
-  //     TablesInsert<"weekly_medication_schedules">[]
-  //   >([]);
-  //   const [monthlyScheduledTimes, setMonthlyScheduledTimes] = useState<
-  //     TablesInsert<"monthly_medication_schedules">[]
-  //   >([]);
-
   const [data, setData] = useState<TablesInsert<"medicines">>(initialData);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editingDateType, setEditingDateType] = useState<
@@ -69,6 +62,17 @@ const MedicineForm = ({
   >(null);
   const [editingDate, setEditingDate] = useState<Date | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+
+  const [dailyScheduledTimes, setDailyScheduledTimes] = useState<
+    TablesInsert<"daily_medication_schedules">[]
+  >([]);
+  const [weeklyScheduledTimes, setWeeklyScheduledTimes] = useState<
+    TablesInsert<"weekly_medication_schedules">[]
+  >([]);
+  const [monthlyScheduledTimes, setMonthlyScheduledTimes] = useState<
+    TablesInsert<"monthly_medication_schedules">[]
+  >([]);
 
   return (
     <>
@@ -309,6 +313,36 @@ const MedicineForm = ({
                 editable={!isProcessing}
               />
             </View>
+
+            {/* Frequency Input */}
+            <View>
+              <Text
+                className="text-xs font-medium mb-1"
+                style={{ color: theme.secondary }}
+              >
+                Frequency *
+              </Text>
+              <TouchableOpacity
+                className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                style={{
+                  backgroundColor: theme.card,
+                }}
+                onPress={() => setShowSchedulePicker(true)}
+                disabled={isProcessing}
+              >
+                <Text className="text-base" style={{ color: theme.foreground }}>
+                  {data.frequency}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={theme.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Schedule Input */}
+            <ScheduleInput frequency={data.frequency as ScheduleFrequency} />
           </View>
         </ScrollView>
 
@@ -343,6 +377,17 @@ const MedicineForm = ({
             setShowTypePicker(false);
           }}
           selectedType={data.type as MEDICATION_TYPES}
+        />
+
+        {/* Frequency Picker */}
+        <FrequencySelector
+          selectedFrequency={data.frequency as ScheduleFrequency}
+          showFrequencyPicker={showSchedulePicker}
+          setShowFrequencyPicker={setShowSchedulePicker}
+          onSelectFrequency={(frequency) => {
+            setData({ ...data, frequency });
+            setShowSchedulePicker(false);
+          }}
         />
       </KeyboardAvoidingView>
     </>
