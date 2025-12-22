@@ -261,7 +261,7 @@ export type Database = {
           },
         ]
       }
-      monthy_medication_schedules: {
+      monthly_medication_schedules: {
         Row: {
           created_at: string
           day_of_month: number
@@ -291,7 +291,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "monthy_medication_schedules_medication_id_fkey"
+            foreignKeyName: "monthly_medication_schedules_medication_id_fkey"
             columns: ["medication_id"]
             isOneToOne: false
             referencedRelation: "medicines"
