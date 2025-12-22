@@ -13,21 +13,15 @@ import {
 interface MedicationExtraction {
   name: string;
   type:
-    | "tablet"
-    | "capsule"
-    | "liquid"
-    | "injection"
-    | "topical"
+    | "Tablet"
+    | "Capsule"
+    | "Liquid"
+    | "Injection"
+    | "Topical"
     | "chewable"
-    | "other";
+    | "Other";
   dosage: string;
-  frequency:
-    | "Daily"
-    | "Twice Daily"
-    | "Three Times Daily"
-    | "Weekly"
-    | "Monthly"
-    | "As Needed";
+  frequency: "Daily" | "Weekly" | "Monthly" | "As Needed";
   purpose_notes?: string;
   prescribed_by?: string;
   start_date?: string | null;
@@ -95,9 +89,9 @@ IMPORTANT DATE GUIDELINES:
 
 For each medicine, extract:
 - name: Medicine name (required)
-- type: tablet/capsule/liquid/injection/topical/chewable/other (required)
+- type: Tablet/Capsule/Liquid/Injection/Topical/Chewable/Other (required)
 - dosage: Amount with unit like "250mg", "5ml", "1 tablet" (required)
-- frequency: Daily/Twice Daily/Three Times Daily/Weekly/Monthly/As Needed (required)
+- frequency: Daily/Weekly/Monthly/As Needed (required)
 - purpose_notes: Purpose/reason for prescription if visible (optional)
 - prescribed_by: Doctor/clinic name if visible (optional)
 - start_date: Start date in YYYY-MM-DD format (only if clearly visible)
@@ -141,13 +135,13 @@ Return a structured JSON response with confidence score and medicines array.`,
                       type: {
                         type: "string",
                         enum: [
-                          "tablet",
-                          "capsule",
-                          "liquid",
-                          "injection",
-                          "topical",
-                          "chewable",
-                          "other",
+                          "Tablet",
+                          "Capsule",
+                          "Liquid",
+                          "Injection",
+                          "Topical",
+                          "Chewable",
+                          "Other",
                         ],
                         description: "Type of medication",
                       },
@@ -157,14 +151,7 @@ Return a structured JSON response with confidence score and medicines array.`,
                       },
                       frequency: {
                         type: "string",
-                        enum: [
-                          "Daily",
-                          "Twice Daily",
-                          "Three Times Daily",
-                          "Weekly",
-                          "Monthly",
-                          "As Needed",
-                        ],
+                        enum: ["Daily", "Weekly", "Monthly", "As Needed"],
                         description: "How often to take",
                       },
                       purpose: {

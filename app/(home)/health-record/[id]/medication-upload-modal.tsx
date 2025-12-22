@@ -4,10 +4,10 @@ import ProcessingOverlay, {
 } from "@/components/medicines/ProcessingOverlay";
 import ReviewMedicines from "@/components/medicines/ReviewMedicines";
 import UploadOptions from "@/components/medicines/UploadOptions";
-import { useSelectedPet } from "@/context/selectedPetContext";
+import { useMedicines } from "@/context/medicinesContext";
 import { Tables, TablesInsert } from "@/database.types";
+import { MedicineFormData } from "@/models/medication";
 import { supabase } from "@/utils/supabase";
-import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import { Alert } from "react-native";
@@ -15,9 +15,7 @@ import { Alert } from "react-native";
 export type ViewMode = "upload" | "manual" | "review";
 
 export default function MedicationUploadModal() {
-  const queryClient = useQueryClient();
-
-  const { pet } = useSelectedPet();
+  const { addMedicinesMutation } = useMedicines();
 
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -59,32 +57,15 @@ export default function MedicationUploadModal() {
     setViewMode("review");
   };
 
-  const handleSaveMedications = async (
-    medications: TablesInsert<"medicines">[]
-  ) => {
+  const handleSaveMedications = async (medications: MedicineFormData[]) => {
     try {
       setStatus("inserting");
       setStatusMessage(
         `Saving ${medications.length} medicine${medications.length !== 1 ? "s" : ""}...`
       );
 
-      const { error: insertError } = await supabase
-        .from("medicines")
-        .insert(medications);
-
-      if (insertError) {
-        console.error("Error inserting medicines:", insertError);
-        setStatus("error");
-        setStatusMessage("Failed to save medicines");
-        Alert.alert("Error", "Failed to save medicines");
-        setTimeout(() => setStatus("idle"), 2000);
-        return;
-      }
-
-      // Invalidate medicines query to trigger refetch
-      await queryClient.invalidateQueries({
-        queryKey: ["medicines", pet.id],
-      });
+      // Save all medications in parallel
+      await addMedicinesMutation.mutateAsync(medications);
 
       // Success
       setStatus("success");

@@ -330,7 +330,9 @@ export default function PetCard({
   // Compute health at a glance data
   const healthData = useMemo(() => {
     const nearestVaccination = getNearestUpcomingVaccination(vaccinations);
-    const nearestMedication = getNearestMedicationDose(medicines);
+    // TODO: Implement nearest medication dose
+    // const nearestMedication = getNearestMedicationDose(medicines);
+    const nearestMedication = null;
 
     return {
       nearestVaccination,
@@ -639,12 +641,12 @@ export default function PetCard({
                 style={{ color: theme.foreground }}
                 numberOfLines={2}
               >
-                {healthData.nearestMedication
+                {/* {healthData.nearestMedication
                   ? formatDate(healthData.nearestMedication.nextDose, true) ===
                     "Today"
                     ? formatTime(healthData.nearestMedication.nextDose)
                     : formatDate(healthData.nearestMedication.nextDose)
-                  : "None"}
+                  : "None"} */}
               </Text>
             </View>
           </View>

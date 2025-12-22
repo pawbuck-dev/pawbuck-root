@@ -11,4 +11,5 @@ export type Theme = {
   border: string;
   ring: string;
   dashedCard: string;
+  error: string;
 };

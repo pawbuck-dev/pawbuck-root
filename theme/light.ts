@@ -17,4 +17,6 @@ export const lightTheme: Theme = {
   border: "#E5E7EB",
   ring: "#5FC4C0",
   dashedCard: "#E8F7F6",
+
+  error: "#EF4444",
 };

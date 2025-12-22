@@ -1,3 +1,4 @@
+import { useMedicines } from "@/context/medicinesContext";
 import { Tables, TablesInsert } from "@/database.types";
 import React from "react";
 import { Modal } from "react-native";
@@ -18,6 +19,8 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
   medicine,
   loading = false,
 }) => {
+  const { updateMedicineMutation } = useMedicines();
+
   return (
     <Modal
       visible={visible}
@@ -30,7 +33,12 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
         loading={loading}
         actionTitle="Edit"
         isProcessing={loading}
-        onSave={(data) => onSave(medicine.id, data)}
+        onSave={(data) =>
+          updateMedicineMutation.mutate({
+            id: medicine.id,
+            data,
+          })
+        }
         initialData={medicine}
       />
     </Modal>

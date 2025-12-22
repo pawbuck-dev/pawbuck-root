@@ -3,10 +3,12 @@ import { ScheduleFrequency } from "@/constants/schedules";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
+import { MedicineFormData } from "@/models/medication";
 import { formatDate } from "@/utils/dates";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,7 +24,7 @@ import ScheduleInput from "./ScheduleInput";
 
 interface MedicineFormProps {
   isProcessing: boolean;
-  onSave: (data: TablesInsert<"medicines">) => void;
+  onSave: (data: MedicineFormData) => void;
   initialData?: TablesInsert<"medicines">;
   onClose: () => void;
   loading: boolean;
@@ -74,6 +76,54 @@ const MedicineForm = ({
     TablesInsert<"monthly_medication_schedules">[]
   >([]);
 
+  const handleSave = () => {
+    // Validate schedule based on frequency
+    if (data.frequency === ScheduleFrequency.DAILY) {
+      if (dailyScheduledTimes.length === 0) {
+        Alert.alert(
+          "Schedule Required",
+          "Please add at least one schedule for daily medication."
+        );
+        return;
+      }
+    } else if (data.frequency === ScheduleFrequency.WEEKLY) {
+      if (weeklyScheduledTimes.length === 0) {
+        Alert.alert(
+          "Schedule Required",
+          "Please add at least one schedule for weekly medication."
+        );
+        return;
+      }
+    } else if (data.frequency === ScheduleFrequency.MONTHLY) {
+      if (monthlyScheduledTimes.length === 0) {
+        Alert.alert(
+          "Schedule Required",
+          "Please add at least one schedule for monthly medication."
+        );
+        return;
+      }
+    }
+
+    const scheduleData: MedicineFormData = {
+      medicine: data,
+      schedule:
+        data.frequency === ScheduleFrequency.DAILY
+          ? { frequency: "Daily", schedules: dailyScheduledTimes }
+          : data.frequency === ScheduleFrequency.WEEKLY
+            ? {
+                frequency: "Weekly",
+                schedules: weeklyScheduledTimes,
+              }
+            : data.frequency === ScheduleFrequency.MONTHLY
+              ? {
+                  frequency: "Monthly",
+                  schedules: monthlyScheduledTimes,
+                }
+              : { frequency: "As Needed", schedules: [] },
+    };
+    onSave(scheduleData);
+  };
+
   return (
     <>
       <KeyboardAvoidingView
@@ -101,7 +151,7 @@ const MedicineForm = ({
             >
               {actionTitle} Medicine
             </Text>
-            <TouchableOpacity onPress={() => onSave(data)} disabled={loading}>
+            <TouchableOpacity onPress={handleSave} disabled={loading}>
               <Text className="text-base" style={{ color: theme.primary }}>
                 Done
               </Text>
@@ -342,7 +392,17 @@ const MedicineForm = ({
             </View>
 
             {/* Schedule Input */}
-            <ScheduleInput frequency={data.frequency as ScheduleFrequency} />
+            {data.frequency && (
+              <ScheduleInput
+                frequency={data.frequency as ScheduleFrequency}
+                dailySchedules={dailyScheduledTimes}
+                weeklySchedules={weeklyScheduledTimes}
+                monthlySchedules={monthlyScheduledTimes}
+                onDailyChange={setDailyScheduledTimes}
+                onWeeklyChange={setWeeklyScheduledTimes}
+                onMonthlyChange={setMonthlyScheduledTimes}
+              />
+            )}
           </View>
         </ScrollView>
 
@@ -386,6 +446,18 @@ const MedicineForm = ({
           setShowFrequencyPicker={setShowSchedulePicker}
           onSelectFrequency={(frequency) => {
             setData({ ...data, frequency });
+
+            // Clear schedules when frequency changes
+            if (frequency !== ScheduleFrequency.DAILY) {
+              setDailyScheduledTimes([]);
+            }
+            if (frequency !== ScheduleFrequency.WEEKLY) {
+              setWeeklyScheduledTimes([]);
+            }
+            if (frequency !== ScheduleFrequency.MONTHLY) {
+              setMonthlyScheduledTimes([]);
+            }
+
             setShowSchedulePicker(false);
           }}
         />

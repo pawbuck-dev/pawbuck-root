@@ -1,7 +1,7 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useMedicines } from "@/context/medicinesContext";
 import { useTheme } from "@/context/themeContext";
-import { Tables, TablesInsert } from "@/database.types";
+import { Tables } from "@/database.types";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
@@ -49,22 +49,6 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
 
   const handleEdit = () => {
     setShowEditModal(true);
-  };
-
-  const handleSaveEdit = (id: string, data: TablesInsert<"medicines">) => {
-    updateMedicineMutation.mutate(
-      { id, data },
-      {
-        onSuccess: () => {
-          setShowEditModal(false);
-          Alert.alert("Success", "Medicine updated successfully");
-        },
-        onError: (error) => {
-          Alert.alert("Error", "Failed to update medicine");
-          console.error("Update error:", error);
-        },
-      }
-    );
   };
 
   const handleViewDocument = () => {
@@ -275,7 +259,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
         visible={showEditModal}
         medicine={medicine}
         onClose={() => setShowEditModal(false)}
-        onSave={handleSaveEdit}
+        onSave={() => {}}
         loading={updateMedicineMutation.isPending}
       />
 

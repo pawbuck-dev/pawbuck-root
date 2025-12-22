@@ -1,9 +1,28 @@
-import { Tables, TablesUpdate } from "@/database.types";
+import { ScheduleFrequency } from "@/constants/schedules";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { MedicineData } from "@/models/medication";
 import { supabase } from "@/utils/supabase";
+
+export const addMedicine = async (
+  medicine: TablesInsert<"medicines">
+): Promise<Tables<"medicines">> => {
+  const { error: insertError, data: insertedMedicine } = await supabase
+    .from("medicines")
+    .insert(medicine)
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error("Error inserting medicine:", insertError);
+    throw insertError;
+  }
+
+  return insertedMedicine;
+};
 
 export const fetchMedicines = async (
   petId: string
-): Promise<Tables<"medicines">[]> => {
+): Promise<MedicineData[]> => {
   const { data, error } = await supabase
     .from("medicines")
     .select("*")
@@ -15,7 +34,15 @@ export const fetchMedicines = async (
     throw error;
   }
 
-  return data || [];
+  return (
+    data?.map((medicine) => ({
+      medicine,
+      schedule: {
+        type: ScheduleFrequency.AS_NEEDED,
+        schedules: [],
+      },
+    })) || []
+  );
 };
 
 export const deleteMedicine = async (medicineId: string): Promise<void> => {
