@@ -2,7 +2,7 @@ import { MEDICATION_TYPES } from "@/constants/medicines";
 import { ScheduleFrequency } from "@/constants/schedules";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { MedicineFormData } from "@/models/medication";
+import { MedicationSchedule, MedicineFormData } from "@/models/medication";
 import { formatDate } from "@/utils/dates";
 import {
   transformMedicationsWithSchedules,
@@ -486,18 +486,18 @@ const ReviewMedicines = ({
                 {/* Schedule Input */}
                 {medication.frequency && (
                   <ScheduleInput
-                    frequency={medication.frequency as ScheduleFrequency}
-                    dailySchedules={medicationSchedules[index]?.daily || []}
-                    weeklySchedules={medicationSchedules[index]?.weekly || []}
-                    monthlySchedules={medicationSchedules[index]?.monthly || []}
-                    onDailyChange={(schedules) =>
-                      updateDailySchedule(index, schedules)
+                    schedules={
+                      {
+                        frequency: medication.frequency,
+                        schedules: medicationSchedules[index]?.daily || [],
+                      } as MedicationSchedule
                     }
-                    onWeeklyChange={(schedules) =>
-                      updateWeeklySchedule(index, schedules)
-                    }
-                    onMonthlyChange={(schedules) =>
-                      updateMonthlySchedule(index, schedules)
+                    onChange={(schedules) =>
+                      handleUpdateMedication(
+                        index,
+                        "schedules",
+                        schedules as any
+                      )
                     }
                   />
                 )}

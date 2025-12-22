@@ -1,7 +1,5 @@
-import { ScheduleFrequency } from "@/constants/schedules";
 import { Tables } from "@/database.types";
 import { MedicineData, MedicineFormData } from "@/models/medication";
-import { updateMedicationSchedules } from "@/services/medicationSchedules";
 import {
   addMedicine,
   deleteMedicine,
@@ -9,10 +7,8 @@ import {
   updateMedicine,
 } from "@/services/medicines";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { createContext, ReactNode, useContext, useMemo } from "react";
+import React, { createContext, ReactNode, useContext } from "react";
 import { Alert } from "react-native";
-import { useAuth } from "./authContext";
-import { useMedicineSchedules } from "./medicineSchedulesContext";
 import { useSelectedPet } from "./selectedPetContext";
 
 interface MedicinesContextType {
@@ -21,14 +17,7 @@ interface MedicinesContextType {
   error: Error | null;
   refetch: () => void;
   updateMedicineMutation: ReturnType<
-    typeof useMutation<
-      [void, void],
-      Error,
-      {
-        id: string;
-        data: MedicineFormData;
-      }
-    >
+    typeof useMutation<void, Error, MedicineFormData>
   >;
   addMedicinesMutation: ReturnType<
     typeof useMutation<Tables<"medicines">[], Error, MedicineFormData[]>
@@ -44,12 +33,10 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { pet } = useSelectedPet();
-  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { schedulesMap } = useMedicineSchedules();
 
   const {
-    data: medicinesData = [],
+    data: medicines = [],
     isLoading,
     error,
     refetch,
@@ -59,43 +46,20 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     enabled: !!pet.id,
   });
 
-  // Enrich medicines with schedules from the schedules context
-  const medicinesWithSchedules = useMemo(() => {
-    const medicinesWithSchedules: MedicineData[] = medicinesData.map(
-      (medicineData) => ({
-        medicine: medicineData.medicine,
-        schedule: schedulesMap[medicineData.medicine.id] || {
-          type: ScheduleFrequency.AS_NEEDED,
-          schedules: [],
-        },
-      })
-    );
-
-    return medicinesWithSchedules;
-  }, [medicinesData, schedulesMap]);
-
   const addMedicinesMutation = useMutation<
     Tables<"medicines">[],
     Error,
     MedicineFormData[]
   >({
-    mutationFn: async (medications) => {
-      medications.map(async (medication) => {
-        medication.medicine.pet_id = pet.id;
-      });
-      const insertedMedications = await Promise.all(
-        medications.map(async (medication) => {
-          const insertedMedicine = await addMedicine(medication.medicine);
-          updateMedicationSchedules(insertedMedicine.id, medication.schedule);
-          return insertedMedicine;
+    mutationFn: async (medicines) => {
+      const insertedMedicines = await Promise.all(
+        medicines.map(async (medicine) => {
+          return addMedicine(medicine);
         })
       );
-      return insertedMedications;
+      return insertedMedicines;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["medicineSchedules", user!.id],
-      });
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
     },
     onError: (error) => {
@@ -104,29 +68,14 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     },
   });
 
-  const updateMedicineMutation = useMutation<
-    [void, void],
-    Error,
-    {
-      id: string;
-      data: MedicineFormData;
-    }
-  >({
-    mutationFn: ({ id, data }) => {
-      return Promise.all([
-        updateMedicine(id, data.medicine),
-        updateMedicationSchedules(id, data.schedule),
-      ]);
+  const updateMedicineMutation = useMutation<void, Error, MedicineFormData>({
+    mutationFn: (medicine) => {
+      return updateMedicine(medicine);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
-      // Also invalidate schedules to refetch updated schedule data
-      if (user?.id) {
-        queryClient.invalidateQueries({
-          queryKey: ["medicineSchedules", user.id],
-        });
-      }
     },
+
     onError: (error) => {
       console.error("Error updating medicine:", error);
       Alert.alert("Error", "Failed to update medicine");
@@ -137,19 +86,13 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     mutationFn: (id) => deleteMedicine(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
-      // Also invalidate schedules to clean up deleted medicine's schedules
-      if (user?.id) {
-        queryClient.invalidateQueries({
-          queryKey: ["medicineSchedules", user.id],
-        });
-      }
     },
   });
 
   return (
     <MedicinesContext.Provider
       value={{
-        medicines: medicinesWithSchedules,
+        medicines,
         isLoading,
         error,
         refetch,

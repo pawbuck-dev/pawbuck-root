@@ -13,11 +13,11 @@ interface MedicineCardProps {
 
 export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
   const { theme } = useTheme();
-  const { updateMedicineMutation, deleteMedicineMutation } = useMedicines();
+  const { deleteMedicineMutation } = useMedicines();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
 
-  const hasDocument = !!medicine.medicine.document_url;
+  const hasDocument = !!medicine.document_url;
 
   const handleDelete = () => {
     Alert.alert(
@@ -32,7 +32,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            deleteMedicineMutation.mutate(medicine.medicine.id || "", {
+            deleteMedicineMutation.mutate(medicine.id || "", {
               onSuccess: () => {
                 Alert.alert("Success", "Medicine deleted successfully");
               },
@@ -85,7 +85,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
       }
     );
 
-    Alert.alert(medicine.medicine.name, "What would you like to do?", options, {
+    Alert.alert(medicine.name, "What would you like to do?", options, {
       cancelable: true,
     });
   };
@@ -99,8 +99,8 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     const now = new Date();
 
     // Check if medication has ended (Completed)
-    if (medicine.medicine.end_date) {
-      const endDate = new Date(medicine.medicine.end_date);
+    if (medicine.end_date) {
+      const endDate = new Date(medicine.end_date);
       endDate.setHours(23, 59, 59, 999);
       if (endDate < now) {
         return {
@@ -148,7 +148,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
                 style={{ color: theme.foreground }}
                 numberOfLines={1}
               >
-                {medicine.medicine.name}
+                {medicine.name}
               </Text>
               <View className="flex-row items-center gap-2 mt-1">
                 <View
@@ -171,7 +171,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
                   style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
                 >
                   <Text className="text-xs" style={{ color: theme.secondary }}>
-                    {medicine.medicine.type}
+                    {medicine.type}
                   </Text>
                 </View>
               </View>
@@ -195,30 +195,30 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
 
         {/* Medication Details */}
         <View className="ml-13">
-          {medicine.medicine.purpose && (
+          {medicine.purpose && (
             <Text
               className="text-sm mb-2 italic"
               style={{ color: theme.secondary }}
             >
-              {medicine.medicine.purpose}
+              {medicine.purpose}
             </Text>
           )}
 
           <View className="flex-row items-center mb-2">
             <Ionicons name="water-outline" size={14} color={theme.secondary} />
             <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
-              {medicine.medicine.dosage}
+              {medicine.dosage}
             </Text>
           </View>
 
           <View className="flex-row items-center mb-2">
             <Ionicons name="time-outline" size={14} color={theme.secondary} />
             <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
-              {medicine.medicine.frequency}
+              {medicine.frequency}
             </Text>
           </View>
 
-          {medicine.medicine.start_date && (
+          {medicine.start_date && (
             <View className="flex-row items-center mb-2">
               <Ionicons
                 name="calendar-outline"
@@ -226,14 +226,13 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
                 color={theme.secondary}
               />
               <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
-                Started: {formatDate(medicine.medicine.start_date)}
-                {medicine.medicine.end_date &&
-                  ` - ${formatDate(medicine.medicine.end_date)}`}
+                Started: {formatDate(medicine.start_date)}
+                {medicine.end_date && ` - ${formatDate(medicine.end_date)}`}
               </Text>
             </View>
           )}
 
-          {medicine.medicine.prescribed_by && (
+          {medicine.prescribed_by && (
             <View className="flex-row items-center">
               <Ionicons
                 name="person-outline"
@@ -241,7 +240,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
                 color={theme.secondary}
               />
               <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
-                {medicine.medicine.prescribed_by}
+                {medicine.prescribed_by}
               </Text>
             </View>
           )}
@@ -269,7 +268,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
       <DocumentViewerModal
         visible={showDocumentModal}
         onClose={() => setShowDocumentModal(false)}
-        documentPath={medicine.medicine.document_url || null}
+        documentPath={medicine.document_url || null}
         title="Prescription Document"
       />
     </>

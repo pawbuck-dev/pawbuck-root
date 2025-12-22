@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
+import { MonthlyMedicationSchedule } from "@/models/medication";
 import {
   formatTimeForDisplay,
   formatTimeToString,
@@ -18,8 +18,8 @@ import {
 import DateTimePicker from "../../common/DateTimePicker";
 
 type MonthlyScheduleInputProps = {
-  schedules: TablesInsert<"monthly_medication_schedules">[];
-  onChange: (schedules: TablesInsert<"monthly_medication_schedules">[]) => void;
+  schedules: MonthlyMedicationSchedule[];
+  onChange: (schedules: MonthlyMedicationSchedule[]) => void;
 };
 
 const MonthlyScheduleInput = ({
@@ -55,10 +55,7 @@ const MonthlyScheduleInput = ({
     );
 
     if (!exists) {
-      onChange([
-        ...schedules,
-        { day_of_month: dayNumber, time: timeString, medication_id: "" },
-      ]);
+      onChange([...schedules, { day_of_month: dayNumber, time: timeString }]);
     }
 
     setShowAddModal(false);

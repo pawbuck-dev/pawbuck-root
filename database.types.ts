@@ -210,6 +210,7 @@ export type Database = {
           purpose: string | null
           scheduled_day: number | null
           scheduled_times: string[] | null
+          schedules: Json
           start_date: string | null
           type: string
           updated_at: string
@@ -228,6 +229,7 @@ export type Database = {
           purpose?: string | null
           scheduled_day?: number | null
           scheduled_times?: string[] | null
+          schedules: Json
           start_date?: string | null
           type: string
           updated_at?: string
@@ -246,6 +248,7 @@ export type Database = {
           purpose?: string | null
           scheduled_day?: number | null
           scheduled_times?: string[] | null
+          schedules?: Json
           start_date?: string | null
           type?: string
           updated_at?: string

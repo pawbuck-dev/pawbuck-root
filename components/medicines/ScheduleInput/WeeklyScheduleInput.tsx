@@ -1,6 +1,6 @@
 import { DAYS_OF_WEEK } from "@/constants/schedules";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
+import { WeeklyMedicationSchedule } from "@/models/medication";
 import {
   formatTimeForDisplay,
   formatTimeToString,
@@ -12,8 +12,8 @@ import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "../../common/DateTimePicker";
 
 type WeeklyScheduleInputProps = {
-  schedules: TablesInsert<"weekly_medication_schedules">[];
-  onChange: (schedules: TablesInsert<"weekly_medication_schedules">[]) => void;
+  schedules: WeeklyMedicationSchedule[];
+  onChange: (schedules: WeeklyMedicationSchedule[]) => void;
 };
 
 const WeeklyScheduleInput = ({
@@ -38,13 +38,16 @@ const WeeklyScheduleInput = ({
     // Check if this day/time combination already exists
     const exists = schedules.some(
       (schedule) =>
-        schedule.day_number === selectedDay && schedule.time === timeString
+        schedule.day_of_week === selectedDay && schedule.time === timeString
     );
 
     if (!exists) {
       onChange([
         ...schedules,
-        { day_number: selectedDay, time: timeString, medication_id: "" },
+        {
+          day_of_week: selectedDay,
+          time: timeString,
+        },
       ]);
     }
 
@@ -144,7 +147,7 @@ const WeeklyScheduleInput = ({
                     className="text-base font-medium"
                     style={{ color: theme.foreground }}
                   >
-                    {getDayName(schedule.day_number)}
+                    {getDayName(schedule.day_of_week)}
                   </Text>
                   <Text
                     className="text-sm mt-0.5"

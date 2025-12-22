@@ -2,8 +2,7 @@ import { MEDICATION_TYPES } from "@/constants/medicines";
 import { ScheduleFrequency } from "@/constants/schedules";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
-import { MedicineFormData } from "@/models/medication";
+import { MedicationSchedule, MedicineFormData } from "@/models/medication";
 import { formatDate } from "@/utils/dates";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -41,31 +40,26 @@ const MedicineForm = ({
 }: MedicineFormProps) => {
   const { theme } = useTheme();
   const { pet } = useSelectedPet();
+  console.log("initialData", JSON.stringify(initialData, null, 2));
 
   if (!initialData) {
     initialData = {
-      medicine: {
-        pet_id: pet?.id || "",
-        name: "",
-        start_date: new Date().toISOString(),
-        end_date: null,
-        document_url: null,
-        dosage: "",
-        frequency: "",
-        prescribed_by: null,
-        purpose: null,
-        type: "",
-      },
-      schedule: {
-        type: ScheduleFrequency.AS_NEEDED,
-        schedules: [],
-      },
+      pet_id: pet?.id || "",
+      name: "",
+      start_date: new Date().toISOString(),
+      end_date: null,
+      document_url: null,
+      dosage: "",
+      prescribed_by: null,
+      purpose: null,
+      type: "",
+
+      frequency: ScheduleFrequency.AS_NEEDED,
+      schedules: [],
     };
   }
 
-  const [data, setData] = useState<TablesInsert<"medicines">>(
-    initialData.medicine
-  );
+  const [data, setData] = useState<MedicineFormData>(initialData);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [editingDateType, setEditingDateType] = useState<
     "startDate" | "endDate" | null
@@ -74,74 +68,19 @@ const MedicineForm = ({
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
 
-  const [dailyScheduledTimes, setDailyScheduledTimes] = useState<
-    TablesInsert<"daily_medication_schedules">[]
-  >(
-    initialData.schedule.type === ScheduleFrequency.DAILY
-      ? initialData.schedule.schedules
-      : []
-  );
-  const [weeklyScheduledTimes, setWeeklyScheduledTimes] = useState<
-    TablesInsert<"weekly_medication_schedules">[]
-  >(
-    initialData.schedule.type === ScheduleFrequency.WEEKLY
-      ? initialData.schedule.schedules
-      : []
-  );
-  const [monthlyScheduledTimes, setMonthlyScheduledTimes] = useState<
-    TablesInsert<"monthly_medication_schedules">[]
-  >(
-    initialData.schedule.type === ScheduleFrequency.MONTHLY
-      ? initialData.schedule.schedules
-      : []
-  );
-
   const handleSave = () => {
     // Validate schedule based on frequency
-    if (data.frequency === ScheduleFrequency.DAILY) {
-      if (dailyScheduledTimes.length === 0) {
+    if (data.frequency !== ScheduleFrequency.AS_NEEDED) {
+      if (data.schedules.length === 0) {
         Alert.alert(
           "Schedule Required",
-          "Please add at least one schedule for daily medication."
-        );
-        return;
-      }
-    } else if (data.frequency === ScheduleFrequency.WEEKLY) {
-      if (weeklyScheduledTimes.length === 0) {
-        Alert.alert(
-          "Schedule Required",
-          "Please add at least one schedule for weekly medication."
-        );
-        return;
-      }
-    } else if (data.frequency === ScheduleFrequency.MONTHLY) {
-      if (monthlyScheduledTimes.length === 0) {
-        Alert.alert(
-          "Schedule Required",
-          "Please add at least one schedule for monthly medication."
+          "Please add at least one schedule for medication."
         );
         return;
       }
     }
 
-    const scheduleData: MedicineFormData = {
-      medicine: data,
-      schedule:
-        data.frequency === ScheduleFrequency.DAILY
-          ? { type: "Daily", schedules: dailyScheduledTimes }
-          : data.frequency === ScheduleFrequency.WEEKLY
-            ? {
-                type: "Weekly",
-                schedules: weeklyScheduledTimes,
-              }
-            : data.frequency === ScheduleFrequency.MONTHLY
-              ? {
-                  type: "Monthly",
-                  schedules: monthlyScheduledTimes,
-                }
-              : { type: "As Needed", schedules: [] },
-    };
-    onSave(scheduleData);
+    onSave(data);
   };
 
   return (
@@ -414,13 +353,15 @@ const MedicineForm = ({
             {/* Schedule Input */}
             {data.frequency && (
               <ScheduleInput
-                frequency={data.frequency as ScheduleFrequency}
-                dailySchedules={dailyScheduledTimes}
-                weeklySchedules={weeklyScheduledTimes}
-                monthlySchedules={monthlyScheduledTimes}
-                onDailyChange={setDailyScheduledTimes}
-                onWeeklyChange={setWeeklyScheduledTimes}
-                onMonthlyChange={setMonthlyScheduledTimes}
+                schedules={
+                  {
+                    frequency: data.frequency,
+                    schedules: data.schedules,
+                  } as MedicationSchedule
+                }
+                onChange={(schedules) =>
+                  setData({ ...data, schedules: schedules as any })
+                }
               />
             )}
           </View>
@@ -465,18 +406,7 @@ const MedicineForm = ({
           showFrequencyPicker={showSchedulePicker}
           setShowFrequencyPicker={setShowSchedulePicker}
           onSelectFrequency={(frequency) => {
-            setData({ ...data, frequency });
-
-            // Clear schedules when frequency changes
-            if (frequency !== ScheduleFrequency.DAILY) {
-              setDailyScheduledTimes([]);
-            }
-            if (frequency !== ScheduleFrequency.WEEKLY) {
-              setWeeklyScheduledTimes([]);
-            }
-            if (frequency !== ScheduleFrequency.MONTHLY) {
-              setMonthlyScheduledTimes([]);
-            }
+            setData({ ...data, frequency, schedules: [] });
 
             setShowSchedulePicker(false);
           }}

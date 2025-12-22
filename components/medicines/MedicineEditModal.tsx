@@ -32,10 +32,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
         actionTitle="Edit"
         isProcessing={updateMedicineMutation.isPending}
         onSave={async (data) => {
-          await updateMedicineMutation.mutateAsync({
-            id: medicine.medicine.id || "",
-            data,
-          });
+          await updateMedicineMutation.mutateAsync(data);
           onSave();
         }}
         initialData={medicine}

@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
+import { DailyMedicationSchedule } from "@/models/medication";
 import { formatTimeForDisplay, formatTimeToString } from "@/utils/schedules";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -7,8 +7,8 @@ import { Text, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "../../common/DateTimePicker";
 
 type DailyScheduleInputProps = {
-  schedules: TablesInsert<"daily_medication_schedules">[];
-  onChange: (schedules: TablesInsert<"daily_medication_schedules">[]) => void;
+  schedules: DailyMedicationSchedule[];
+  onChange: (schedules: DailyMedicationSchedule[]) => void;
 };
 
 const DailyScheduleInput = ({
@@ -30,7 +30,7 @@ const DailyScheduleInput = ({
     // Check if time already exists
     const exists = schedules.some((schedule) => schedule.time === timeString);
     if (!exists) {
-      onChange([...schedules, { time: timeString, medication_id: "" }]);
+      onChange([...schedules, { time: timeString }]);
     }
 
     setShowTimePicker(false);

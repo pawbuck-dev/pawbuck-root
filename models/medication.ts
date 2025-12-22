@@ -1,45 +1,40 @@
 import { ScheduleFrequency } from "@/constants/schedules";
 import { Tables, TablesInsert } from "@/database.types";
 
+export type DailyMedicationSchedule = {
+  time: string;
+};
+
+export type WeeklyMedicationSchedule = {
+  day_of_week: number;
+  time: string;
+};
+
+export type MonthlyMedicationSchedule = {
+  day_of_month: number;
+  time: string;
+};
+
 export type MedicationSchedule =
   | {
-      type: ScheduleFrequency.DAILY;
-      schedules: Tables<"daily_medication_schedules">[];
+      frequency: ScheduleFrequency.DAILY;
+      schedules: DailyMedicationSchedule[];
     }
   | {
-      type: ScheduleFrequency.WEEKLY;
-      schedules: Tables<"weekly_medication_schedules">[];
+      frequency: ScheduleFrequency.WEEKLY;
+      schedules: WeeklyMedicationSchedule[];
     }
   | {
-      type: ScheduleFrequency.MONTHLY;
-      schedules: Tables<"monthly_medication_schedules">[];
+      frequency: ScheduleFrequency.MONTHLY;
+      schedules: MonthlyMedicationSchedule[];
     }
   | {
-      type: ScheduleFrequency.AS_NEEDED;
+      frequency: ScheduleFrequency.AS_NEEDED;
       schedules: [];
     };
 
-export type MedicationScheduleFormData =
-  | {
-      type: "Daily";
-      schedules: TablesInsert<"daily_medication_schedules">[];
-    }
-  | {
-      type: "Weekly";
-      schedules: TablesInsert<"weekly_medication_schedules">[];
-    }
-  | {
-      type: "Monthly";
-      schedules: TablesInsert<"monthly_medication_schedules">[];
-    }
-  | { type: "As Needed"; schedules: [] };
+export type MedicineData = Omit<Tables<"medicines">, "schedules"> &
+  MedicationSchedule;
 
-export type MedicineData = {
-  medicine: Tables<"medicines">;
-  schedule: MedicationSchedule;
-};
-
-export type MedicineFormData = {
-  medicine: TablesInsert<"medicines">;
-  schedule: MedicationScheduleFormData;
-};
+export type MedicineFormData = Omit<TablesInsert<"medicines">, "schedules"> &
+  MedicationSchedule;
