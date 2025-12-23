@@ -358,7 +358,8 @@ export default function PetCard({
             />
 
             {/* Pet Name and Info Overlay */}
-            <View className="absolute bottom-0 left-0 right-0 p-5 mb-2">
+            
+            <View className="absolute bottom-0 left-0 right-0 pl-5 mb-2">
               <Text
                 className="text-4xl font-bold"
                 style={{ 
