@@ -14,16 +14,16 @@ import { useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import DatePicker from "react-native-date-picker";
 
-const EMAIL_DOMAIN = "@pawbuck.com";
+const EMAIL_DOMAIN = "@pawbuck.app";
 
 type EditingField = keyof TablesInsert<"pets"> | null;
 

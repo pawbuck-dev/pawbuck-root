@@ -24,7 +24,7 @@ import {
   View,
 } from "react-native";
 
-const EMAIL_DOMAIN = "@pawbuck.com";
+const EMAIL_DOMAIN = "@pawbuck.app";
 
 interface PetEditModalProps {
   visible: boolean;

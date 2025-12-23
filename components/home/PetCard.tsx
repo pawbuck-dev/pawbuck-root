@@ -19,13 +19,14 @@ import { getNearestMedicationDose } from "@/utils/medication";
 import { getNearestUpcomingVaccination } from "@/utils/vaccinationHelpers";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Linking from 'expo-linking';
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -58,6 +59,14 @@ export default function PetCard({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
+
+  const handleCopyEmail = useCallback(async () => {
+    const email = `${pet.email_id}@pawbuck.app`;
+    await Clipboard.setStringAsync(email);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2000);
+  }, [pet.email_id]);
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -180,9 +189,27 @@ export default function PetCard({
     await deleteVetMutation.mutateAsync();
   };
 
-  const handleCallVet = () => {
+  const handleCallVet = async () => {
     if (vetInfo?.phone) {
-      Linking.openURL(`tel:${vetInfo.phone}`);
+      const phoneUrl = `tel:${vetInfo.phone}`;
+      
+      try {
+        const canOpen = await Linking.canOpenURL(phoneUrl);
+        
+        if (canOpen) {
+          await Linking.openURL(phoneUrl);
+        } else {
+          // Simulator or device without phone capability
+          Alert.alert("Call Vet", `Phone: ${vetInfo.phone}`, [
+            { text: "OK", style: "cancel" },
+          ]);
+        }
+      } catch (error) {
+        // Fallback for any errors
+        Alert.alert("Call Vet", `Phone: ${vetInfo.phone}`, [
+          { text: "OK", style: "cancel" },
+        ]);
+      }
     }
   };
 
@@ -241,7 +268,7 @@ export default function PetCard({
       >
         {/* Hero Card with Pet Photo */}
         <View
-          className="rounded-3xl overflow-hidden mb-6"
+          className="rounded-3xl overflow-hidden mb-4"
           style={{
             backgroundColor: theme.card,
             shadowColor: "#000",
@@ -325,24 +352,32 @@ export default function PetCard({
 
             {/* Gradient Overlay for Text */}
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.8)"]}
-              className="absolute bottom-0 left-0 right-0 h-40"
+              colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.95)"]}
+              locations={[0, 0.5, 1]}
+              className="absolute bottom-0 left-0 right-0 h-48"
             />
 
             {/* Pet Name and Info Overlay */}
-            <View className="absolute bottom-0 left-0 right-0 p-5">
+            <View className="absolute bottom-0 left-0 right-0 p-5 mb-2">
               <Text
-                className="text-4xl font-bold mb-3"
-                style={{ color: "#fff", letterSpacing: -0.5 }}
+                className="text-4xl font-bold"
+                style={{ 
+                  color: "#fff", 
+                  letterSpacing: -0.5,
+                  textShadowColor: "rgba(0, 0, 0, 0.75)",
+                  textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 3,
+                }}
               >
                 {pet.name}
               </Text>
 
+
               {/* Breed and Age Pills */}
-              <View className="flex-row gap-2">
+              <View className="flex-row flex-wrap gap-2">
                 <View
                   className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
                 >
                   <Text
                     className="text-xs font-bold"
@@ -353,7 +388,7 @@ export default function PetCard({
                 </View>
                 <View
                   className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+                  style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
                 >
                   <Text
                     className="text-xs font-bold"
@@ -365,7 +400,7 @@ export default function PetCard({
 
                 <View
                   className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+                  style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
                 >
                   <Text
                     className="text-xs font-bold"
@@ -375,6 +410,26 @@ export default function PetCard({
                     {pet.weight_unit === "kilograms" ? "kg" : "lb"}
                   </Text>
                 </View>
+
+                {/* Pet Email */}
+                <TouchableOpacity
+                  className="flex-row items-center px-4 py-2 rounded-lg gap-1.5"
+                  style={{ backgroundColor: emailCopied ? "rgba(34, 197, 94, 0.5)" : "rgba(0, 0, 0, 0.3)" }}
+                  onPress={handleCopyEmail}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    className="text-xs font-bold"
+                    style={{ color: "#fff", letterSpacing: 1 }}
+                  >
+                    {pet.email_id}@pawbuck.app
+                  </Text>
+                  <Ionicons 
+                    name={emailCopied ? "checkmark" : "copy-outline"} 
+                    size={12} 
+                    color="#fff" 
+                  />
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -389,13 +444,6 @@ export default function PetCard({
             >
               Health at a Glance
             </Text>
-            <TouchableOpacity>
-              <Ionicons
-                name="heart-outline"
-                size={22}
-                color={theme.secondary}
-              />
-            </TouchableOpacity>
           </View>
 
           {/* Vertical Stat Cards Row */}

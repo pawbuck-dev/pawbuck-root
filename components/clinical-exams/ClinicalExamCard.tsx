@@ -166,12 +166,40 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
             <Ionicons name="clipboard" size={20} color={theme.primary} />
           </View>
           <View className="flex-1">
+            <View className="flex-row items-center gap-2">
             <Text
               className="text-base font-semibold"
               style={{ color: theme.foreground }}
             >
               {exam.exam_type || "Clinical Exam"}
             </Text>
+            {
+              exam.exam_type?.toLowerCase().includes("invoice") && (
+            <View
+                  className="flex-row items-center px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: "rgba(34, 197, 94, 0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(34, 197, 94, 0.25)",
+                  }}
+                >
+                  <View
+                    className="w-3.5 h-3.5 rounded-full items-center justify-center mr-1"
+                    style={{ backgroundColor: "#22c55e" }}
+                  >
+                    <Ionicons name="checkmark" size={10} color="#fff" />
+                  </View>
+                  <Text
+                    className="text-xs font-semibold"
+                    style={{
+                      color: "#22c55e",
+                    }}
+                  >
+                    Paid
+                  </Text>
+                </View>
+                )}
+            </View>
             <View className="flex-row items-center mt-0.5 gap-2">
               <Text
                 className="text-sm"
