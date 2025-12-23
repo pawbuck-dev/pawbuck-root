@@ -1,5 +1,5 @@
 import { AuthProvider } from "@/context/authContext";
-import { MedicationNotificationsProvider } from "@/context/medicationNotificationsContext";
+import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
 import { ThemeProvider } from "@/context/themeContext";
@@ -73,14 +73,14 @@ export default function RootLayout() {
           <OnboardingProvider>
             <PetsProvider>
               <UserPreferencesProvider>
-                <MedicationNotificationsProvider>
+                <NotificationsProvider>
                   <Stack
                     screenOptions={{
                       headerShown: false,
                       animation: "none",
                     }}
                   />
-                </MedicationNotificationsProvider>
+                </NotificationsProvider>
               </UserPreferencesProvider>
             </PetsProvider>
           </OnboardingProvider>

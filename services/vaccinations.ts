@@ -16,6 +16,20 @@ export const getVaccinationsByPetId = async (petId: string) => {
 };
 
 /**
+ * Fetch all vaccinations for a specific user
+ */
+export const getVaccinationsByUserId = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("vaccinations")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+/**
  * Create a new vaccination record
  */
 export const createVaccination = async (

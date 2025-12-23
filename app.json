@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Pawbuck",
-    "slug": "Pawbuck",
+    "slug": "pawbuck",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -29,9 +29,7 @@
       "predictiveBackGestureEnabled": false,
       "useNextNotificationsApi": true,
       "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "output": "static",

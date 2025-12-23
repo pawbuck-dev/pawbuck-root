@@ -76,11 +76,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     const updatePushToken = async () => {
       if (pushToken && deviceId && user) {
-        const { error } = await supabase.from("push_tokens").upsert({
-          device_id: deviceId,
-          token: pushToken,
-          user_id: user.id,
-        });
+        const { error } = await supabase.from("push_tokens").upsert(
+          {
+            device_id: deviceId,
+            token: pushToken,
+            user_id: user.id,
+          },
+          {
+            onConflict: "device_id, user_id",
+          }
+        );
 
         if (error) {
           console.error("Error updating push token:", error);

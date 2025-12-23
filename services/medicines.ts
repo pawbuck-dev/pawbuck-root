@@ -33,8 +33,6 @@ export const fetchMedicines = async (
     throw error;
   }
 
-  console.log("data", JSON.stringify(data, null, 2));
-
   return data as MedicineData[];
 };
 

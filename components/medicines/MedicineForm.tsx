@@ -40,7 +40,6 @@ const MedicineForm = ({
 }: MedicineFormProps) => {
   const { theme } = useTheme();
   const { pet } = useSelectedPet();
-  console.log("initialData", JSON.stringify(initialData, null, 2));
 
   if (!initialData) {
     initialData = {
