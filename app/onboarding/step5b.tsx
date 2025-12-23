@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 
-const EMAIL_DOMAIN = "@pawbuck.com";
+const EMAIL_DOMAIN = "@pawbuck.app";
 
 export default function OnboardingStep5b() {
   const router = useRouter();
@@ -228,7 +228,7 @@ export default function OnboardingStep5b() {
           {!statusMessage && <View className="mb-6" />}
 
           {/* Full Email Preview */}
-          {emailId.trim() && !validationError && (
+          {emailId.trim() && !validationError && isAvailable && (
             <View
               className="p-4 rounded-xl mb-8"
               style={{ backgroundColor: theme.card }}
