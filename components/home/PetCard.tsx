@@ -21,7 +21,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Linking from 'expo-linking';
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -53,7 +53,7 @@ export default function PetCard({
 }: PetCardProps) {
   const router = useRouter();
   const { theme, mode, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { updatePet, updatingPet, deletePet, deletingPet } = usePets();
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -67,28 +67,6 @@ export default function PetCard({
     setEmailCopied(true);
     setTimeout(() => setEmailCopied(false), 2000);
   }, [pet.email_id]);
-
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-            router.replace("/");
-          } catch (error: any) {
-            console.error("Error signing out:", error);
-            Alert.alert("Error", error.message || "Failed to sign out");
-          }
-        },
-      },
-    ]);
-  };
 
   const getUserInitial = () => {
     return user?.email?.charAt(0).toUpperCase() || "U";
@@ -192,10 +170,10 @@ export default function PetCard({
   const handleCallVet = async () => {
     if (vetInfo?.phone) {
       const phoneUrl = `tel:${vetInfo.phone}`;
-      
+
       try {
         const canOpen = await Linking.canOpenURL(phoneUrl);
-        
+
         if (canOpen) {
           await Linking.openURL(phoneUrl);
         } else {
@@ -298,7 +276,7 @@ export default function PetCard({
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={handleSignOut}
+                  onPress={() => router.push("/(home)/settings")}
                   className="w-10 h-10 rounded-full items-center justify-center"
                   style={{ backgroundColor: theme.primary }}
                 >
@@ -358,12 +336,12 @@ export default function PetCard({
             />
 
             {/* Pet Name and Info Overlay */}
-            
+
             <View className="absolute bottom-0 left-0 right-0 pl-5 mb-2">
               <Text
                 className="text-4xl font-bold"
-                style={{ 
-                  color: "#fff", 
+                style={{
+                  color: "#fff",
                   letterSpacing: -0.5,
                   textShadowColor: "rgba(0, 0, 0, 0.75)",
                   textShadowOffset: { width: 0, height: 1 },
@@ -372,7 +350,6 @@ export default function PetCard({
               >
                 {pet.name}
               </Text>
-
 
               {/* Breed and Age Pills */}
               <View className="flex-row flex-wrap gap-2">
@@ -415,7 +392,11 @@ export default function PetCard({
                 {/* Pet Email */}
                 <TouchableOpacity
                   className="flex-row items-center px-4 py-2 rounded-lg gap-1.5"
-                  style={{ backgroundColor: emailCopied ? "rgba(34, 197, 94, 0.5)" : "rgba(0, 0, 0, 0.3)" }}
+                  style={{
+                    backgroundColor: emailCopied
+                      ? "rgba(34, 197, 94, 0.5)"
+                      : "rgba(0, 0, 0, 0.3)",
+                  }}
                   onPress={handleCopyEmail}
                   activeOpacity={0.7}
                 >
@@ -425,10 +406,10 @@ export default function PetCard({
                   >
                     {pet.email_id}@pawbuck.app
                   </Text>
-                  <Ionicons 
-                    name={emailCopied ? "checkmark" : "copy-outline"} 
-                    size={12} 
-                    color="#fff" 
+                  <Ionicons
+                    name={emailCopied ? "checkmark" : "copy-outline"}
+                    size={12}
+                    color="#fff"
                   />
                 </TouchableOpacity>
               </View>

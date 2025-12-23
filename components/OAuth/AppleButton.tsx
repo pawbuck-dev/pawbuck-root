@@ -1,8 +1,13 @@
 import { supabase } from "@/utils/supabase";
+import { User } from "@supabase/supabase-js";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, View } from "react-native";
 
-export default function AppleButton({ onSuccess }: { onSuccess?: () => void }) {
+export default function AppleButton({
+  onSuccess,
+}: {
+  onSuccess: (user: User) => void;
+}) {
   return (
     <View className="w-full items-center justify-center">
       <AppleAuthentication.AppleAuthenticationButton
@@ -24,14 +29,14 @@ export default function AppleButton({ onSuccess }: { onSuccess?: () => void }) {
             if (!credential.identityToken) {
               throw new Error("No identity token returned from Apple Sign-In");
             }
-            const { error } = await supabase.auth.signInWithIdToken({
+            const { data, error } = await supabase.auth.signInWithIdToken({
               provider: "apple",
               token: credential.identityToken,
             });
             if (error) {
               throw error;
             }
-            onSuccess?.();
+            onSuccess(data.user);
           } catch (e: any) {
             console.error("Error signing in with Apple:", e);
             Alert.alert("Error", e.message);
@@ -41,15 +46,3 @@ export default function AppleButton({ onSuccess }: { onSuccess?: () => void }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  button: {
-    width: 200,
-    height: 44,
-  },
-});

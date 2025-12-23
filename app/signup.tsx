@@ -1,5 +1,6 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
 import { useTheme } from "@/context/themeContext";
+import { createUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -44,12 +45,17 @@ function SignUp() {
     try {
       setIsLoading(true);
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
       });
 
       if (error) throw error;
+
+      // Create user preferences
+      if (data?.user?.id) {
+        await createUserPreferences(data.user.id);
+      }
 
       // Clear navigation stack before going to home
       while (router.canGoBack()) {
@@ -103,14 +109,27 @@ function SignUp() {
 
               {/* Google Sign In */}
               <OAuthLogins
-                onSuccess={() => {
-                  // Navigate to home with pet - clear stack first
+                onSuccess={async (user) => {
+                  try {
+                    setIsLoading(true);
+                    // Create user preferences
+                    await createUserPreferences(user.id);
 
-                  router.dismissAll();
-                  router.replace({
-                    pathname: "/home",
-                    params,
-                  });
+                    // Navigate to home with pet - clear stack first
+                    router.dismissAll();
+                    router.replace({
+                      pathname: "/home",
+                      params,
+                    });
+                  } catch (error: any) {
+                    console.error("Error signing up with OAuth:", error);
+                    Alert.alert(
+                      "Error",
+                      error.message || "Failed to sign up with OAuth"
+                    );
+                  } finally {
+                    setIsLoading(false);
+                  }
                 }}
               />
 

@@ -3,6 +3,7 @@ import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { User } from "@supabase/supabase-js";
 import { Image } from "expo-image";
 import React, { useState } from "react";
 import { Alert, Pressable, Text } from "react-native";
@@ -15,7 +16,7 @@ GoogleSignin.configure({
 });
 
 type GoogleButtonProps = {
-  onSuccess?: () => Promise<void> | void;
+  onSuccess: (user: User) => Promise<void> | void;
 };
 
 const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
@@ -38,7 +39,7 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
       }
 
       // Sign in to Supabase with Google ID token
-      const { error } = await supabase.auth.signInWithIdToken({
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: userInfo.data.idToken,
       });
@@ -48,9 +49,7 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
       }
 
       // Call onSuccess callback to navigate to home
-      if (onSuccess) {
-        await onSuccess();
-      }
+      await onSuccess(data.user);
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         console.error("User cancelled the login flow");
