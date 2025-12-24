@@ -44,7 +44,7 @@ function generateStoragePath(
   const timestamp = Date.now();
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-  return `${pet.user_id}/pet_${pet.name}_${pet.id}/${documentType}/$email_${timestamp}_${sanitizedFilename}`;
+  return `${pet.user_id}/pet_${pet.name}_${pet.id}/${documentType}/email_${timestamp}_${sanitizedFilename}`;
 }
 
 /**
@@ -85,7 +85,7 @@ export async function uploadAttachment(
   }
 
   console.log(`Successfully uploaded to: ${storagePath}`);
-  return storagePath;
+  return data.path;
 }
 
 /**

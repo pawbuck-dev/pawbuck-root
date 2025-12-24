@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
         try {
           const ocrResponse = await triggerOCR(
             classification.type,
-            "pet",
+            "pets",
             storagePath
           );
 
