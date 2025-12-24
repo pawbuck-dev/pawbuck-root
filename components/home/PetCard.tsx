@@ -353,42 +353,6 @@ export default function PetCard({
 
               {/* Breed and Age Pills */}
               <View className="flex-row flex-wrap gap-2">
-                <View
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
-                >
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: "#fff", letterSpacing: 1 }}
-                  >
-                    {pet.breed.toUpperCase()}
-                  </Text>
-                </View>
-                <View
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
-                >
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: "#fff", letterSpacing: 1 }}
-                  >
-                    {calculateAge(pet.date_of_birth)} YEARS
-                  </Text>
-                </View>
-
-                <View
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
-                >
-                  <Text
-                    className="text-xs font-bold"
-                    style={{ color: "#fff", letterSpacing: 1 }}
-                  >
-                    {pet.weight_value}{" "}
-                    {pet.weight_unit === "kilograms" ? "kg" : "lb"}
-                  </Text>
-                </View>
-
                 {/* Pet Email */}
                 <TouchableOpacity
                   className="flex-row items-center px-4 py-2 rounded-lg gap-1.5"
