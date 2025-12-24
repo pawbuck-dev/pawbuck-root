@@ -54,6 +54,8 @@ export interface ProcessedAttachment {
   ocrTriggered: boolean;
   ocrResult?: any;
   ocrSuccess: boolean;
+  dbInserted: boolean;
+  dbRecordIds?: string[];
   error?: string;
 }
 

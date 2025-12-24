@@ -1,15 +1,32 @@
 import { LabResultCard } from "@/components/lab-results/LabResultCard";
 import { useLabResults } from "@/context/labResultsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
-import React from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 
 export default function LabResultsScreen() {
   const { theme } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { pet } = useSelectedPet();
   const { labResults, isLoading, error } = useLabResults();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
+    setRefreshing(false);
+  }, [queryClient, pet.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refetch lab results when screen comes into focus
+      queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
+    }, [queryClient, pet.id])
+  );
 
   if (isLoading) {
     return (
@@ -81,6 +98,14 @@ export default function LabResultsScreen() {
       <ScrollView
         className="flex-1 px-6 pt-4"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
       >
         {labResults.map((labResult) => (
           <LabResultCard key={labResult.id} labResult={labResult} />
