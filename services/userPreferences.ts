@@ -86,3 +86,4 @@ export const upsertUserPreferences = async (
 
   return data;
 };
+

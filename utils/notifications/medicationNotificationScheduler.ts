@@ -181,3 +181,4 @@ export const cancelAllNotifications = async (): Promise<void> => {
     console.error("Error canceling all notifications:", error);
   }
 };
+
