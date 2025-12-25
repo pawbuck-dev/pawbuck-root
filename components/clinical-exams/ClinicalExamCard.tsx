@@ -254,7 +254,9 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
           )}
 
           {/* Vitals */}
-          {(hasValue(exam.weight_value) || hasValue(exam.temperature) || hasValue(exam.heart_rate) || hasValue(exam.respiratory_rate)) && (
+          {
+            exam.exam_type?.toLowerCase().includes("checkup") && 
+          ((hasValue(exam.weight_value) || hasValue(exam.temperature) || hasValue(exam.heart_rate) || hasValue(exam.respiratory_rate))) && (
             <View className="flex-row flex-wrap mb-3 gap-3">
               {hasValue(exam.weight_value) && (
                 <View className="px-3 py-2 rounded-lg" style={{ backgroundColor: theme.background }}>
