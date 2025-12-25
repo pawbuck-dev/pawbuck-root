@@ -70,3 +70,28 @@ export interface ProcessingResult {
   processedAttachments: ProcessedAttachment[];
   error?: string;
 }
+
+// Email context for processing
+export interface EmailContext {
+  subject: string;
+  textBody: string | null;
+}
+
+// Sender verification result
+export interface SenderVerificationResult {
+  canProceed: boolean;
+  response?: Response;
+}
+
+// Email info for responses
+export interface EmailInfo {
+  from: string | null;
+  subject: string;
+  date: string | null;
+}
+
+// Pet info for responses
+export interface PetInfo {
+  id: string;
+  name: string;
+}

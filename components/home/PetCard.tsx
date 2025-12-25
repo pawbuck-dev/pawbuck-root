@@ -690,6 +690,7 @@ export default function PetCard({
           onSave={handleSaveVetInfo}
           onDelete={vetInfo ? handleDeleteVetInfo : undefined}
           vetInfo={vetInfo}
+          petId={pet.id}
           loading={createVetMutation.isPending || updateVetMutation.isPending}
         />
       )}

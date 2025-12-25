@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -164,15 +169,21 @@ export type Database = {
       medicines: {
         Row: {
           created_at: string
+          custom_frequency_unit: string | null
+          custom_frequency_value: number | null
           document_url: string | null
           dosage: string
           end_date: string | null
           frequency: string
           id: string
+          last_given_at: string | null
           name: string
+          next_due_date: string | null
           pet_id: string
           prescribed_by: string | null
           purpose: string | null
+          reminder_enabled: boolean
+          reminder_timing: string | null
           schedules: Json
           start_date: string | null
           type: string
@@ -181,15 +192,21 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_frequency_unit?: string | null
+          custom_frequency_value?: number | null
           document_url?: string | null
           dosage: string
           end_date?: string | null
           frequency: string
           id?: string
+          last_given_at?: string | null
           name: string
+          next_due_date?: string | null
           pet_id: string
           prescribed_by?: string | null
           purpose?: string | null
+          reminder_enabled?: boolean
+          reminder_timing?: string | null
           schedules?: Json
           start_date?: string | null
           type: string
@@ -198,15 +215,21 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_frequency_unit?: string | null
+          custom_frequency_value?: number | null
           document_url?: string | null
           dosage?: string
           end_date?: string | null
           frequency?: string
           id?: string
+          last_given_at?: string | null
           name?: string
+          next_due_date?: string | null
           pet_id?: string
           prescribed_by?: string | null
           purpose?: string | null
+          reminder_enabled?: boolean
+          reminder_timing?: string | null
           schedules?: Json
           start_date?: string | null
           type?: string
@@ -216,6 +239,82 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "medicines_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_email_approvals: {
+        Row: {
+          created_at: string
+          id: string
+          pet_id: string
+          s3_bucket: string
+          s3_key: string
+          sender_email: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pet_id: string
+          s3_bucket: string
+          s3_key: string
+          sender_email: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pet_id?: string
+          s3_bucket?: string
+          s3_key?: string
+          sender_email?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_email_approvals_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_email_list: {
+        Row: {
+          created_at: string
+          email_id: string
+          id: number
+          is_blocked: boolean
+          pet_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_id: string
+          id?: number
+          is_blocked?: boolean
+          pet_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_id?: string
+          id?: number
+          is_blocked?: boolean
+          pet_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_email_whitelist_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
@@ -560,4 +659,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
