@@ -1,15 +1,32 @@
 import { MedicineCard } from "@/components/medicines/MedicineCard";
 import { useMedicines } from "@/context/medicinesContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
-import React from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 
 export default function MedicationsScreen() {
   const { theme } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { pet } = useSelectedPet();
   const { medicines, isLoading } = useMedicines();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+    setRefreshing(false);
+  }, [queryClient, pet.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refetch medicines when screen comes into focus
+      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+    }, [queryClient, pet.id])
+  );
 
   if (isLoading) {
     return (
@@ -55,6 +72,14 @@ export default function MedicationsScreen() {
       <ScrollView
         className="flex-1 px-6 pt-4"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
       >
         {medicines.map((medicine) => (
           <MedicineCard key={medicine.id} medicine={medicine} />

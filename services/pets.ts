@@ -10,6 +10,7 @@ export const getPets = async () => {
     throw new Error("User must be authenticated to fetch pets");
   }
 
+  console.log("Fetching pets for userId:", user.id);
   const { data, error } = await supabase
     .from("pets")
     .select("*")

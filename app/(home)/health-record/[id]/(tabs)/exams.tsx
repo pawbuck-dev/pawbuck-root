@@ -1,10 +1,14 @@
 import { ClinicalExamCard } from "@/components/clinical-exams/ClinicalExamCard";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -25,8 +29,24 @@ const examMatchesCategory = (examType: string | null, category: ExamCategory): b
 
 export default function ExamsScreen() {
   const { theme } = useTheme();
+  const { pet } = useSelectedPet();
   const { clinicalExams, isLoading } = useClinicalExams();
   const [selectedCategory, setSelectedCategory] = useState<ExamCategory>("All");
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
+    setRefreshing(false);
+  }, [queryClient, pet.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Refetch clinical exams when screen comes into focus
+      queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
+    }, [queryClient, pet.id])
+  );
 
   // Filter exams based on selected category
   const filteredExams = useMemo(() => {
@@ -137,6 +157,14 @@ export default function ExamsScreen() {
       <ScrollView
         className="flex-1 px-6 pt-2"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
       >
         {filteredExams.length === 0 ? (
           <View className="items-center justify-center py-12">

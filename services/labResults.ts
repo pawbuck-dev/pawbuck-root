@@ -27,6 +27,7 @@ export interface LabResult {
  * Fetch all lab results for a specific pet
  */
 export async function fetchLabResults(petId: string): Promise<LabResult[]> {
+  console.log("Fetching lab results for petId:", petId);
   const { data, error } = await supabase
     .from("lab_results")
     .select("*")

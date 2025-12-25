@@ -5,6 +5,9 @@ import { supabase } from "@/utils/supabase";
  * Fetch all vaccinations for a specific pet
  */
 export const getVaccinationsByPetId = async (petId: string) => {
+
+  console.log("Fetching vaccinations for petId:", petId);
+  
   const { data, error } = await supabase
     .from("vaccinations")
     .select("*")

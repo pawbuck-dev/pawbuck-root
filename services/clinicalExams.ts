@@ -6,6 +6,7 @@ import { supabase } from "@/utils/supabase";
  * Fetch all clinical exams for a specific pet
  */
 export async function fetchClinicalExams(petId: string): Promise<ClinicalExam[]> {
+  console.log("Fetching clinical exams for petId:", petId);
   const { data, error } = await supabase
     .from("clinical_exams")
     .select("*")

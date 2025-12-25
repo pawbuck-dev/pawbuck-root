@@ -4,6 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { saveOCRResults } from "./dbPersistence.ts";
 import { parseEmail } from "./emailParser.ts";
 import { classifyAttachment } from "./geminiClassifier.ts";
 import { triggerOCR } from "./ocrTrigger.ts";
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
             uploaded: false,
             ocrTriggered: false,
             ocrSuccess: false,
+            dbInserted: false,
           });
           continue;
         }
@@ -172,6 +174,7 @@ Deno.serve(async (req) => {
             uploaded: false,
             ocrTriggered: false,
             ocrSuccess: false,
+            dbInserted: false,
             error: `Upload failed: ${errorMessage}`,
           });
           continue;
@@ -200,6 +203,34 @@ Deno.serve(async (req) => {
           console.error(`OCR trigger failed:`, ocrError);
         }
 
+        // Step 5e: Save OCR results to database if OCR was successful
+        let dbInserted = false;
+        let dbRecordIds: string[] | undefined;
+
+        if (ocrSuccess && ocrResult) {
+          try {
+            const saveResult = await saveOCRResults(
+              classification.type,
+              pet,
+              storagePath,
+              ocrResult
+            );
+
+            dbInserted = saveResult.success;
+            dbRecordIds = saveResult.recordIds;
+
+            if (dbInserted) {
+              console.log(
+                `DB insert successful: ${dbRecordIds?.length || 0} record(s) inserted`
+              );
+            } else {
+              console.error(`DB insert failed: ${saveResult.error}`);
+            }
+          } catch (dbError) {
+            console.error(`DB save failed:`, dbError);
+          }
+        }
+
         // Add processed attachment to results
         processedAttachments.push({
           filename: attachment.filename,
@@ -211,6 +242,8 @@ Deno.serve(async (req) => {
           ocrTriggered: true,
           ocrResult,
           ocrSuccess,
+          dbInserted,
+          dbRecordIds,
         });
       } catch (attachmentError) {
         const errorMessage =
@@ -233,6 +266,7 @@ Deno.serve(async (req) => {
           uploaded: false,
           ocrTriggered: false,
           ocrSuccess: false,
+          dbInserted: false,
           error: errorMessage,
         });
       }
@@ -257,6 +291,9 @@ Deno.serve(async (req) => {
     );
     console.log(
       `OCR success: ${processedAttachments.filter((a) => a.ocrSuccess).length}`
+    );
+    console.log(
+      `DB inserted: ${processedAttachments.filter((a) => a.dbInserted).length}`
     );
 
     return new Response(JSON.stringify(result), {

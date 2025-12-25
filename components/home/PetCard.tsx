@@ -27,6 +27,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -60,6 +61,16 @@ export default function PetCard({
   const [showVetModal, setShowVetModal] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] }),
+      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] }),
+    ]);
+    setRefreshing(false);
+  }, [queryClient, pet.id]);
 
   const handleCopyEmail = useCallback(async () => {
     const email = `${pet.email_id}@pawbuck.app`;
@@ -243,6 +254,14 @@ export default function PetCard({
         className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
       >
         {/* Hero Card with Pet Photo */}
         <View

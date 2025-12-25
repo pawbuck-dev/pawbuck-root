@@ -5,8 +5,10 @@ import PetCard from "@/components/home/PetCard";
 import { ChatProvider } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
-import { useMemo } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,12 +22,41 @@ import Carousel, { Pagination } from "react-native-reanimated-carousel";
 export default function Home() {
   const { theme, mode } = useTheme();
   const { pets, loadingPets, addingPet } = usePets();
+  const queryClient = useQueryClient();
   const progress = useSharedValue<number>(0);
+  const currentIndexRef = useRef<number>(0);
 
   // Add the "Add Pet" card to the carousel data
   const carouselData = useMemo<any[]>(() => {
     return [...pets, { isAddCard: true }];
   }, [pets]);
+
+  // Function to invalidate queries for a specific pet
+  const invalidatePetQueries = useCallback((pet: Pet) => {
+    if (pet) {
+      queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] });
+      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+    }
+  }, [queryClient]);
+
+  // Refetch data for the currently visible pet when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const currentPet = pets[currentIndexRef.current];
+      if (currentPet) {
+        invalidatePetQueries(currentPet);
+      }
+    }, [pets, invalidatePetQueries])
+  );
+
+  // Handle carousel snap to invalidate queries for the new pet
+  const handleSnapToItem = useCallback((index: number) => {
+    currentIndexRef.current = index;
+    const newPet = pets[index];
+    if (newPet) {
+      invalidatePetQueries(newPet);
+    }
+  }, [pets, invalidatePetQueries]);
 
   if (addingPet) {
     return (
@@ -80,6 +111,7 @@ export default function Home() {
               parallaxScrollingOffset: 23,
             }}
             onProgressChange={progress}
+            onSnapToItem={handleSnapToItem}
             renderItem={({ item, index }: { item: Pet; index: number }) => {
               if (index === carouselData.length - 1) {
                 return <AddPetCard />;

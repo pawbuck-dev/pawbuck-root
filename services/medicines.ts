@@ -22,6 +22,7 @@ export const addMedicine = async (
 export const fetchMedicines = async (
   petId: string
 ): Promise<MedicineData[]> => {
+  console.log("Fetching medicines for petId:", petId);
   const { data, error } = await supabase
     .from("medicines")
     .select("*")
