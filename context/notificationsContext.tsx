@@ -15,7 +15,6 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Alert } from "react-native";
 import { useAuth } from "./authContext";
 import { usePets } from "./petsContext";
 import { useUserPreferences } from "./userPreferencesContext";
@@ -118,8 +117,6 @@ export const NotificationsProvider: React.FC<{
           }
         }
       }
-
-      Alert.alert("Notifications refreshed successfully");
     } catch (error) {
       console.error("Error scheduling notifications:", error);
     } finally {
