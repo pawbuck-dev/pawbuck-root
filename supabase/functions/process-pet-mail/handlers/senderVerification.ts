@@ -65,6 +65,7 @@ export async function verifySender(
 
 /**
  * Handle unknown sender - save pending approval and send notification
+ * Only sends notification if this is a new approval (not a duplicate/retry)
  */
 async function handleUnknownSender(
   pet: Pet,
@@ -72,11 +73,15 @@ async function handleUnknownSender(
   s3Config: S3Config,
   emailInfo: EmailInfo
 ): Promise<Response> {
-  // Save to pending_email_approvals
-  const pendingApprovalId = await savePendingApproval(pet, senderEmail, s3Config);
+  // Save to pending_email_approvals (returns existing if duplicate)
+  const { id: pendingApprovalId, isNew } = await savePendingApproval(pet, senderEmail, s3Config);
 
-  // Send notification to user
-  await sendApprovalNotification(pet, senderEmail, pendingApprovalId);
+  // Only send notification if this is a NEW approval (not a retry/duplicate)
+  if (isNew) {
+    await sendApprovalNotification(pet, senderEmail, pendingApprovalId);
+  } else {
+    console.log(`Skipping notification - duplicate request for existing approval: ${pendingApprovalId}`);
+  }
 
   const petInfo: PetInfo = { id: pet.id, name: pet.name };
   return buildPendingApprovalResponse(

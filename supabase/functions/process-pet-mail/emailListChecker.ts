@@ -55,27 +55,51 @@ export async function checkSenderEmailStatus(
 }
 
 /**
+ * Result of saving a pending approval
+ */
+export interface SavePendingApprovalResult {
+  id: string;
+  isNew: boolean;
+}
+
+/**
  * Save a pending email approval to the database
+ * Returns existing approval ID if one already exists for this email (prevents duplicates)
  * @param pet - The pet record
  * @param senderEmail - The sender's email address
  * @param s3Config - The S3 bucket and key for the email
- * @returns The ID of the created pending approval record
+ * @returns Object with approval ID and whether it's a new record
  */
 export async function savePendingApproval(
   pet: Pet,
   senderEmail: string,
   s3Config: S3Config
-): Promise<string> {
+): Promise<SavePendingApprovalResult> {
   const supabase = createSupabaseClient();
+  const normalizedEmail = senderEmail.toLowerCase().trim();
 
-  console.log(`Saving pending approval for email from: ${senderEmail}`);
+  console.log(`Saving pending approval for email from: ${normalizedEmail}`);
 
+  // Check if approval already exists for this S3 key (same email file)
+  // This handles duplicate invocations from AWS retries
+  const { data: existing } = await supabase
+    .from("pending_email_approvals")
+    .select("id")
+    .eq("s3_key", s3Config.fileKey)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`Pending approval already exists with ID: ${existing.id} (duplicate request)`);
+    return { id: existing.id, isNew: false };
+  }
+
+  // Create new pending approval
   const { data, error } = await supabase
     .from("pending_email_approvals")
     .insert({
       pet_id: pet.id,
       user_id: pet.user_id,
-      sender_email: senderEmail.toLowerCase().trim(),
+      sender_email: normalizedEmail,
       s3_bucket: s3Config.bucket,
       s3_key: s3Config.fileKey,
       status: "pending",
@@ -84,12 +108,26 @@ export async function savePendingApproval(
     .single();
 
   if (error) {
+    // Handle race condition - if unique constraint violation, fetch existing record
+    if (error.code === "23505") {
+      console.log("Race condition detected - fetching existing approval");
+      const { data: existingAfterRace } = await supabase
+        .from("pending_email_approvals")
+        .select("id")
+        .eq("s3_key", s3Config.fileKey)
+        .single();
+
+      if (existingAfterRace) {
+        console.log(`Pending approval found after race condition: ${existingAfterRace.id}`);
+        return { id: existingAfterRace.id, isNew: false };
+      }
+    }
     console.error("Error saving pending approval:", error);
     throw new Error(`Failed to save pending approval: ${error.message}`);
   }
 
   console.log(`Pending approval saved with ID: ${data.id}`);
-  return data.id;
+  return { id: data.id, isNew: true };
 }
 
 /**
