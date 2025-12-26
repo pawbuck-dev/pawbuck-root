@@ -1,8 +1,11 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
+import { useOnboarding } from "@/context/onboardingContext";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
 import { createUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -18,13 +21,31 @@ import {
 
 function SignUp() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const { theme, mode } = useTheme();
+  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
+  const { addPet } = usePets();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper to create pet if onboarding data exists
+  const createPetIfNeeded = async () => {
+    if (isOnboardingComplete && petData?.name) {
+      try {
+        console.log("Creating pet from signup:", petData);
+        // Use addPet from usePets hook which properly updates React Query cache
+        await addPet(petData as TablesInsert<"pets">);
+        console.log("Pet created successfully from signup");
+      } catch (error) {
+        console.error("Error creating pet during signup:", error);
+        // Don't throw - continue to home even if pet creation fails
+      } finally {
+        resetOnboarding();
+      }
+    }
+  };
 
   const handleEmailSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -57,14 +78,12 @@ function SignUp() {
         await createUserPreferences(data.user.id);
       }
 
-      // Clear navigation stack before going to home
-      while (router.canGoBack()) {
-        router.back();
-      }
-      router.replace({
-        pathname: "/home",
-        params,
-      });
+      // Create pet if onboarding data exists (wait for completion before navigating)
+      await createPetIfNeeded();
+
+      // Navigate to home - clear stack first
+      router.dismissAll();
+      router.replace("/home");
     } catch (error: any) {
       console.error("Error signing up:", error);
       Alert.alert("Error", error.message || "Failed to create account");
@@ -115,12 +134,12 @@ function SignUp() {
                     // Create user preferences
                     await createUserPreferences(user.id);
 
-                    // Navigate to home with pet - clear stack first
+                    // Create pet if onboarding data exists (wait for completion before navigating)
+                    await createPetIfNeeded();
+
+                    // Navigate to home - clear stack first
                     router.dismissAll();
-                    router.replace({
-                      pathname: "/home",
-                      params,
-                    });
+                    router.replace("/home");
                   } catch (error: any) {
                     console.error("Error signing up with OAuth:", error);
                     Alert.alert(
