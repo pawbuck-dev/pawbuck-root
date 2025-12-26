@@ -146,27 +146,40 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Handle pet data from onboarding/signup using PetsContext
   useEffect(() => {
-    // Guard: only sync if onboarding is complete and we haven't synced yet
-    if (!isOnboardingComplete || hasSyncedRef.current) return;
+    // Guard: only sync if onboarding is complete, user is authenticated, 
+    // we haven't synced yet, and no mutation is in progress
+    if (
+      !isOnboardingComplete ||
+      !user ||
+      hasSyncedRef.current ||
+      addPetMutation.isPending
+    ) {
+      return;
+    }
+
+    // Set the ref synchronously to prevent race conditions from multiple effect runs
+    hasSyncedRef.current = true;
+
+    // Reset onboarding immediately to prevent re-triggering
+    // (we've captured petData above, so this is safe)
+    const petDataToSync = { ...petData };
+    resetOnboarding();
 
     const handlePetData = async () => {
-      hasSyncedRef.current = true;
       try {
         // Call the mutation directly to avoid dependency issues
-        await addPetMutation.mutateAsync(petData as Pet);
+        await addPetMutation.mutateAsync(petDataToSync as Pet);
       } catch (error) {
         console.error("Error syncing pet:", error);
         Alert.alert(
           "Error",
           "There was an issue saving your pet's profile. Please try adding it again from the home page."
         );
-      } finally {
-        resetOnboarding();
       }
     };
 
     handlePetData();
-  }, [isOnboardingComplete, addPetMutation, resetOnboarding, petData]);
+  }, [isOnboardingComplete, user, addPetMutation, resetOnboarding, petData]);
 
   const error =
     queryError?.message ||

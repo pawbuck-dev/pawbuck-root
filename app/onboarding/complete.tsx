@@ -18,6 +18,12 @@ export default function OnboardingComplete() {
     });
   };
 
+  const handleContinueToSignIn = () => {
+    router.push({
+      pathname: "/login",
+    });
+  };
+
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <Header />
@@ -73,6 +79,24 @@ export default function OnboardingComplete() {
               Continue to Sign Up
             </Text>
           </Pressable>
+
+          {/* Sign In Link */}
+          <View className="flex-row items-center justify-center gap-2 mb-6">
+            <Text
+              className="text-start"
+              style={{ color: theme.foreground, opacity: 0.7 }}
+            >
+              Already have an account?
+            </Text>
+            <Pressable onPress={handleContinueToSignIn}>
+              <Text
+                className="text-start font-semibold"
+                style={{ color: theme.primary }}
+              >
+                Sign in
+              </Text>
+            </Pressable>
+          </View>
 
           {/* Privacy Notice */}
           <Text
