@@ -82,7 +82,7 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
   );
 };
 
-const MILO_AVATAR = require("@/assets/images/milo-avatar.gif");
+const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 export const MiloChatModal: React.FC = () => {
   const { theme, mode } = useTheme();
@@ -135,12 +135,13 @@ export const MiloChatModal: React.FC = () => {
           alignItems: "center",
           justifyContent: "center",
           marginBottom: 16,
+          overflow: "hidden",
         }}
       >
         <Image
           source={MILO_AVATAR}
-          style={{ width: 100, height: 100 }}
-          contentFit="contain"
+          style={{ width: 100, height: 100, borderRadius: 50 }}
+          contentFit="cover"
         />
       </View>
       <Text
@@ -222,12 +223,13 @@ export const MiloChatModal: React.FC = () => {
                 alignItems: "center",
                 justifyContent: "center",
                 marginRight: 12,
+                overflow: "hidden",
               }}
             >
               <Image
                 source={MILO_AVATAR}
-                style={{ width: 36, height: 36 }}
-                contentFit="contain"
+                style={{ width: 36, height: 36, borderRadius: 18 }}
+                contentFit="cover"
               />
             </View>
             <View>
@@ -299,6 +301,33 @@ export const MiloChatModal: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Medical Disclaimer */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: "#4A3F1F",
+            borderRadius: 8,
+            marginHorizontal: 16,
+            marginTop: 12,
+          }}
+        >
+          <Text style={{ fontSize: 16, marginRight: 8 }}>⚠️</Text>
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 13,
+              color: "#D4A84B",
+              lineHeight: 18,
+            }}
+          >
+            <Text style={{ fontWeight: "600" }}>Medical Disclaimer: </Text>
+            All medical queries should be directed to a licensed veterinarian.
+          </Text>
+        </View>
+
         {/* Messages */}
         {messages.length === 0 ? (
           renderEmptyState()
@@ -326,12 +355,13 @@ export const MiloChatModal: React.FC = () => {
                   marginRight: 8,
                   alignItems: "center",
                   justifyContent: "center",
+                  overflow: "hidden",
                 }}
               >
                 <Image
                   source={MILO_AVATAR}
-                  style={{ width: 30, height: 30 }}
-                  contentFit="contain"
+                  style={{ width: 30, height: 30, borderRadius: 15 }}
+                  contentFit="cover"
                 />
               </View>
               <View

@@ -5,7 +5,7 @@ import React from "react";
 import { TouchableOpacity, View } from "react-native";
 
 // Milo mascot image
-const MILO_AVATAR = require("@/assets/images/milo-avatar.gif");
+const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 interface MiloChatButtonProps {
   onPress?: () => void;
@@ -52,8 +52,8 @@ export const MiloChatButton: React.FC<MiloChatButtonProps> = ({ onPress }) => {
       >
         <Image
           source={MILO_AVATAR}
-          style={{ width: 50, height: 50 }}
-          contentFit="contain"
+          style={{ width: 50, height: 50, borderRadius: 25 }}
+          contentFit="cover"
         />
       </View>
       

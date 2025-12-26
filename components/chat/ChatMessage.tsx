@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import React, { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 
-const MILO_AVATAR = require("@/assets/images/milo-avatar.gif");
+const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 interface ChatMessageProps {
   message: ChatMessageType;
