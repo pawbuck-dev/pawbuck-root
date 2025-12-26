@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Text,
@@ -101,6 +101,28 @@ export const MiloChatModal: React.FC = () => {
   const [inputText, setInputText] = useState("");
   const [showPetPicker, setShowPetPicker] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Handle keyboard show/hide on iOS for pageSheet modals
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      const showSubscription = Keyboard.addListener("keyboardWillShow", (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // Scroll to bottom when keyboard appears
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      });
+      const hideSubscription = Keyboard.addListener("keyboardWillHide", () => {
+        setKeyboardHeight(0);
+      });
+
+      return () => {
+        showSubscription.remove();
+        hideSubscription.remove();
+      };
+    }
+  }, []);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -195,10 +217,7 @@ export const MiloChatModal: React.FC = () => {
       presentationStyle="pageSheet"
       onRequestClose={closeChat}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: theme.background }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
         {/* Header */}
         <View
           style={{
@@ -328,68 +347,75 @@ export const MiloChatModal: React.FC = () => {
           </Text>
         </View>
 
-        {/* Messages */}
-        {messages.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ChatMessage message={item} />}
-            contentContainerStyle={{ paddingVertical: 16 }}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+        {/* Messages Container - Wrapped in flex container for proper keyboard handling */}
+        <View style={{ flex: 1 }}>
+          {messages.length === 0 ? (
+            renderEmptyState()
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => <ChatMessage message={item} />}
+              contentContainerStyle={{ 
+                paddingVertical: 16,
+                paddingBottom: 20,
+              }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            />
+          )}
 
-        {/* Loading indicator with typing dots */}
-        {isLoading && (
-          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: theme.card,
-                  marginRight: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                }}
-              >
-                <Image
-                  source={MILO_AVATAR}
-                  style={{ width: 30, height: 30, borderRadius: 15 }}
-                  contentFit="cover"
-                />
-              </View>
-              <View
-                style={{
-                  backgroundColor: theme.card,
-                  borderRadius: 16,
-                  borderTopLeftRadius: 4,
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                }}
-              >
-                <TypingDots color={theme.primary} />
+          {/* Loading indicator with typing dots */}
+          {isLoading && (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: theme.card,
+                    marginRight: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Image
+                    source={MILO_AVATAR}
+                    style={{ width: 30, height: 30, borderRadius: 15 }}
+                    contentFit="cover"
+                  />
+                </View>
+                <View
+                  style={{
+                    backgroundColor: theme.card,
+                    borderRadius: 16,
+                    borderTopLeftRadius: 4,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                  }}
+                >
+                  <TypingDots color={theme.primary} />
+                </View>
               </View>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
-        {/* Input */}
+        {/* Input - Positioned above keyboard */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 16,
             paddingVertical: 12,
-            paddingBottom: Platform.OS === "ios" ? 24 : 12,
+            paddingBottom: Platform.OS === "ios" ? 34 : 12,
             backgroundColor: theme.card,
             borderTopWidth: 1,
             borderTopColor: theme.background,
+            transform: Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
           <TextInput
@@ -537,7 +563,7 @@ export const MiloChatModal: React.FC = () => {
             </View>
           </TouchableOpacity>
         </Modal>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
