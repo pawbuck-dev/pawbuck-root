@@ -12,15 +12,20 @@ import {
   buildValidationErrorResponse,
   logProcessingSummary,
   processAttachments,
+  sendFailedNotification,
+  sendProcessedNotification,
   verifySender,
 } from "./handlers/index.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { fetchEmailFromS3 } from "./s3Client.ts";
-import type { EmailContext, EmailInfo, S3Config } from "./types.ts";
+import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
 
 Deno.serve(async (req) => {
+  let pet: Pet | null = null;
+  let senderEmail: string | null = null;
+
   try {
     // Step 1: Parse and validate request
     const s3Config = await parseRequest(req);
@@ -47,7 +52,7 @@ Deno.serve(async (req) => {
     const recipientEmail = parsedEmail.to[0].address;
     console.log(`Looking up pet by email: ${recipientEmail}`);
 
-    const pet = await findPetByEmail(recipientEmail);
+    pet = await findPetByEmail(recipientEmail);
     if (!pet) {
       return buildNotFoundResponse(
         `No pet found with email address: ${recipientEmail}`
@@ -57,7 +62,7 @@ Deno.serve(async (req) => {
     console.log(`Found pet: ${pet.name} (ID: ${pet.id})`);
 
     // Step 5: Validate sender email
-    const senderEmail = parsedEmail.from?.address;
+    senderEmail = parsedEmail.from?.address ?? null;
     if (!senderEmail) {
       return buildValidationErrorResponse(
         "No sender email found in parsed email"
@@ -103,10 +108,19 @@ Deno.serve(async (req) => {
     // Step 9: Log summary and return success
     logProcessingSummary(processedAttachments);
 
+    // Step 10: Send notification if records were successfully added
+    await sendProcessedNotification(pet, emailInfo, processedAttachments);
+
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error processing email:", error);
+
+    // Send failure notification if we have pet and sender info
+    if (pet && senderEmail) {
+      await sendFailedNotification(pet, senderEmail);
+    }
+
     return buildErrorResponse(errorMessage);
   }
 });
