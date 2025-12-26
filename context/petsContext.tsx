@@ -160,10 +160,8 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     // Set the ref synchronously to prevent race conditions from multiple effect runs
     hasSyncedRef.current = true;
 
-    // Reset onboarding immediately to prevent re-triggering
-    // (we've captured petData above, so this is safe)
+    // Capture pet data before any async operations
     const petDataToSync = { ...petData };
-    resetOnboarding();
 
     const handlePetData = async () => {
       try {
@@ -175,6 +173,9 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
           "Error",
           "There was an issue saving your pet's profile. Please try adding it again from the home page."
         );
+      } finally {
+        // Reset onboarding after mutation completes (success or failure)
+        resetOnboarding();
       }
     };
 
