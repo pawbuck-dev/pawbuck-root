@@ -3,6 +3,7 @@ import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import AddPetCard from "@/components/home/AddPetCard";
 import PetCard from "@/components/home/PetCard";
 import { ChatProvider } from "@/context/chatContext";
+import { useEmailApproval } from "@/context/emailApprovalContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { useFocusEffect } from "@react-navigation/native";
@@ -22,6 +23,7 @@ import Carousel, { Pagination } from "react-native-reanimated-carousel";
 export default function Home() {
   const { theme, mode } = useTheme();
   const { pets, loadingPets, addingPet } = usePets();
+  const { refreshPendingApprovals } = useEmailApproval();
   const queryClient = useQueryClient();
   const progress = useSharedValue<number>(0);
   const currentIndexRef = useRef<number>(0);
@@ -46,7 +48,9 @@ export default function Home() {
       if (currentPet) {
         invalidatePetQueries(currentPet);
       }
-    }, [pets, invalidatePetQueries])
+      // Check for pending email approvals
+      refreshPendingApprovals();
+    }, [pets, invalidatePetQueries, refreshPendingApprovals])
   );
 
   // Handle carousel snap to invalidate queries for the new pet
