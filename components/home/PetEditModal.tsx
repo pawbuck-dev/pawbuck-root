@@ -4,13 +4,9 @@ import GenderPicker from "@/components/GenderPicker";
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesUpdate } from "@/database.types";
-import {
-  checkEmailIdAvailable,
-  validateEmailIdFormat,
-} from "@/services/pets";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -52,7 +48,6 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   const [dateOfBirth, setDateOfBirth] = useState(pet.date_of_birth);
   const [sex, setSex] = useState(pet.sex);
   const [microchipNumber, setMicrochipNumber] = useState(pet.microchip_number || "");
-  const [emailId, setEmailId] = useState(pet.email_id || "");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(pet.date_of_birth);
   const [saving, setSaving] = useState(false);
@@ -60,53 +55,6 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   const [showBreedPicker, setShowBreedPicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
 
-  // Email validation states
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [isEmailAvailable, setIsEmailAvailable] = useState<boolean | null>(null);
-  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
-  const [emailCheckError, setEmailCheckError] = useState<string | null>(null);
-
-  // Debounced email availability check
-  useEffect(() => {
-    const trimmedEmailId = emailId.trim().toLowerCase();
-
-    // Reset states
-    setIsEmailAvailable(null);
-    setEmailCheckError(null);
-
-    // If email hasn't changed from the original, mark as available
-    if (trimmedEmailId === pet.email_id?.toLowerCase()) {
-      setEmailValidationError(null);
-      setIsEmailAvailable(true);
-      return;
-    }
-
-    // Validate format first
-    const { isValid, error } = validateEmailIdFormat(trimmedEmailId);
-    if (!isValid) {
-      setEmailValidationError(error || null);
-      return;
-    }
-    setEmailValidationError(null);
-
-    // Check availability after a delay
-    const timeoutId = setTimeout(async () => {
-      setIsCheckingEmail(true);
-      try {
-        const available = await checkEmailIdAvailable(trimmedEmailId, pet.id);
-        setIsEmailAvailable(available);
-        if (!available) {
-          setEmailCheckError("This email ID is already taken");
-        }
-      } catch {
-        setEmailCheckError("Failed to check availability");
-      } finally {
-        setIsCheckingEmail(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [emailId, pet.email_id, pet.id]);
 
   const handleSave = async () => {
     // Validate required fields
@@ -130,22 +78,6 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       Alert.alert("Required Field", "Please select the gender");
       return;
     }
-    if (!emailId.trim()) {
-      Alert.alert("Required Field", "Please enter an email ID");
-      return;
-    }
-    if (emailValidationError || emailCheckError) {
-      Alert.alert("Invalid Email ID", emailValidationError || emailCheckError || "Please fix the email ID");
-      return;
-    }
-    if (isCheckingEmail) {
-      Alert.alert("Please Wait", "Checking email availability...");
-      return;
-    }
-    if (!isEmailAvailable) {
-      Alert.alert("Email Unavailable", "This email ID is not available");
-      return;
-    }
 
     const updateData: TablesUpdate<"pets"> = {
       name,
@@ -154,7 +86,6 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       date_of_birth: dateOfBirth,
       sex,
       microchip_number: microchipNumber || null,
-      email_id: emailId.trim().toLowerCase(),
     };
 
     setSaving(true);
@@ -270,62 +201,39 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             />
           </View>
 
-          {/* Email ID */}
+          {/* Email ID (Read-only) */}
           <View className="mb-4">
             <Text
               className="text-sm font-medium mb-2"
               style={{ color: theme.secondary }}
             >
-              Email ID *
+              Email ID
             </Text>
             <View
               className="rounded-xl flex-row items-center"
               style={{
                 backgroundColor: theme.card,
-                borderWidth: emailValidationError || emailCheckError ? 1 : 0,
-                borderColor: emailValidationError || emailCheckError ? "#EF4444" : "transparent",
+                opacity: 0.7,
               }}
             >
               <TextInput
                 className="flex-1 py-4 px-4 text-start"
                 style={{
-                  color: theme.foreground,
+                  color: theme.secondary,
                 }}
-                value={emailId}
-                onChangeText={(text) => setEmailId(text.toLowerCase())}
-                placeholder="e.g., buddy, max123"
-                placeholderTextColor={theme.secondary}
-                editable={!saving && !deleting}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
+                value={pet.email_id || ""}
+                editable={false}
               />
               <Text
-                className="pr-2"
+                className="pr-4"
                 style={{ color: theme.secondary }}
               >
                 {EMAIL_DOMAIN}
               </Text>
-              <View className="pr-4">
-                {isCheckingEmail ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
-                ) : emailValidationError || emailCheckError ? (
-                  <Ionicons name="close-circle" size={20} color="#EF4444" />
-                ) : isEmailAvailable ? (
-                  <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
-                ) : null}
-              </View>
             </View>
-            {(emailValidationError || emailCheckError) && (
-              <Text className="text-xs mt-1" style={{ color: "#EF4444" }}>
-                {emailValidationError || emailCheckError}
-              </Text>
-            )}
-            {isEmailAvailable && !emailValidationError && !emailCheckError && (
-              <Text className="text-xs mt-1" style={{ color: "#22C55E" }}>
-                Email ID is available
-              </Text>
-            )}
+            <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+              Email ID cannot be changed after creation
+            </Text>
           </View>
 
           {/* Animal Type */}
