@@ -21,7 +21,6 @@ const COUNTRIES: Country[] = [
   { name: "United States", flag: "🇺🇸" },
   { name: "Canada", flag: "🇨🇦" },
   { name: "United Kingdom", flag: "🇬🇧" },
-  { name: "Australia", flag: "🇦🇺" },
   { name: "Argentina", flag: "🇦🇷" },
   { name: "Australia", flag: "🇦🇺" },
   { name: "Austria", flag: "🇦🇹" },
