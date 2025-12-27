@@ -3,7 +3,7 @@ import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { createUserPreferences } from "@/services/userPreferences";
+import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -73,9 +73,9 @@ function SignUp() {
 
       if (error) throw error;
 
-      // Create user preferences
+      // Create or update user preferences (handles existing users seamlessly)
       if (data?.user?.id) {
-        await createUserPreferences(data.user.id);
+        await upsertUserPreferences(data.user.id, {});
       }
 
       // Create pet if onboarding data exists (wait for completion before navigating)
@@ -131,8 +131,8 @@ function SignUp() {
                 onSuccess={async (user) => {
                   try {
                     setIsLoading(true);
-                    // Create user preferences
-                    await createUserPreferences(user.id);
+                    // Create or update user preferences (handles existing users seamlessly)
+                    await upsertUserPreferences(user.id, {});
 
                     // Create pet if onboarding data exists (wait for completion before navigating)
                     await createPetIfNeeded();
