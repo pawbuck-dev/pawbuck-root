@@ -128,9 +128,9 @@ export default function OnboardingReview() {
         console.error("Error creating pet:", error);
       }
     } else {
-      // Not authenticated → save to context and go to complete screen
+      // Not authenticated → save to context and go directly to signup
       completeOnboarding();
-      router.push("/onboarding/complete");
+      router.replace("/signup");
     }
   };
 
