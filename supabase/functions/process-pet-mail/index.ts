@@ -16,6 +16,10 @@ import {
   sendProcessedNotification,
   verifySender,
 } from "./handlers/index.ts";
+import {
+  markEmailAsCompleted,
+  tryAcquireProcessingLock,
+} from "./idempotencyChecker.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { fetchEmailFromS3 } from "./s3Client.ts";
 import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
@@ -32,6 +36,28 @@ Deno.serve(async (req) => {
     if (!s3Config) {
       return buildValidationErrorResponse(
         "Missing required parameters: bucket and fileKey"
+      );
+    }
+
+    // Step 1.5: Acquire processing lock (idempotency)
+    const lockResult = await tryAcquireProcessingLock(s3Config.fileKey);
+    if (!lockResult.acquired) {
+      const message = lockResult.status === "completed"
+        ? "Email already processed"
+        : "Email is currently being processed";
+      
+      console.log(`${message}: ${s3Config.fileKey} - skipping`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message,
+          status: lockResult.status,
+          s3Key: s3Config.fileKey,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
       );
     }
 
@@ -108,7 +134,15 @@ Deno.serve(async (req) => {
     // Step 9: Log summary and return success
     logProcessingSummary(processedAttachments);
 
-    // Step 10: Send notification if records were successfully added
+    // Step 10: Mark email as completed (idempotency)
+    await markEmailAsCompleted(
+      s3Config.fileKey,
+      pet.id,
+      processedAttachments.length,
+      true
+    );
+
+    // Step 11: Send notification if records were successfully added
     await sendProcessedNotification(pet, emailInfo, processedAttachments);
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
