@@ -90,36 +90,37 @@ Deno.serve(async (req) => {
             {
               parts: [
                 {
-                  text: `Analyze this veterinary vaccination certificate image and extract ALL vaccination records.
+                  text: `Analyze this veterinary vaccination certificate. Your goal is to extract every vaccine record into a specific JSON format.
 
-CRITICAL INSTRUCTIONS FOR DATE EXTRACTION:
-1. Look for a two-column structure with:
-   - Column 1: "Date de vaccination" / "Vaccination date" / "Given" / dates labeled "1."
-   - Column 2: "Valable jusqu'au" / "Valid until" / "Valid till" / "Expiry" / "Expires" / dates labeled "2."
+### EXTRACTION RULES:
+1.⁠ ⁠IDENTIFY THE TABLE: Look for the "Vaccinations Administered" and "Next Dose Due" columns.
+2.⁠ ⁠VACCINE NAME: Extract the name (e.g., DAPP, Bordetella, Leptospirosis, Rabies).
+3.⁠ ⁠DATE (Administered): Look for the date the vaccine was "Given". In this document, it is "11-10-2025".
+4.⁠ ⁠NEXT_DUE_DATE: Look at the "Next Dose Due" column. This is MANDATORY. 
+   - For DAPP: 10-10-2028
+   - For Bordetella/Lepto: 11-10-2026
+   - For Rabies: 07-04-2028
+5.⁠ ⁠CLINIC: Extract "Beach Avenue Animal Hospital".
+6.⁠ ⁠NOTES: Extract "Lot#" or "Batch" numbers.
 
-2. The document may be in French, English, or other languages. Common labels include:
-   - French: "Date de vaccination" and "Valable jusqu'au"
-   - English: "Vaccination date" and "Valid until"
-   - The valid until date is often in the SECOND date column or marked with "2."
+### DATE FORMATTING:
+•⁠  ⁠Convert all dates to YYYY-MM-DD.
+•⁠  ⁠Reference Date: The visit date is Oct 11, 2025. Use this to ensure 11-10 is parsed as Oct 11.
 
-3. Date formats to handle:
-   - DD/MM/YYYY (European format, e.g., 03/09/24 = September 3, 2024)
-   - DD/MM/YY (e.g., 03/09/24 = September 3, 2024)
-   - MM/DD/YYYY (US format)
-   - YYYY-MM-DD (ISO format)
-
-4. For EACH vaccine entry, extract:
-   - name: The vaccine product name (e.g., "Nobivac L4", "Nobivac DHPPi", "Nobivac Rabies")
-   - date: The date the vaccine was administered (YYYY-MM-DD format)
-   - next_due_date: The "valid until" date from column 2 or field labeled "2." (YYYY-MM-DD format) - THIS IS MANDATORY, look carefully for it
-   - clinic_name: Veterinary clinic name if visible
-   - notes: Batch numbers, lot numbers, or other details
-
-5. CRITICAL: If you see two dates next to each other, the FIRST is date (vaccination date) and the SECOND is next_due_date (valid until).
-
-Return ONLY valid JSON (no markdown, no code blocks): { "vaccines": [{ "name": "...", "date": "YYYY-MM-DD", "next_due_date": "YYYY-MM-DD", "clinic_name": "...", "notes": "...", "document_url": "" }] }
-
-Make absolutely sure to extract the next_due_date (valid until date) for every vaccine - it's the most important field!`,
+### OUTPUT FORMAT:
+Return ONLY a valid JSON object. No markdown blocks. 
+{
+  "vaccines": [
+    {
+      "name": "string",
+      "date": "YYYY-MM-DD",
+      "next_due_date": "YYYY-MM-DD",
+      "clinic_name": "string",
+      "notes": "string",
+      "document_url": "" 
+    }
+  ]
+}`,
                 },
                 {
                   inlineData: {
