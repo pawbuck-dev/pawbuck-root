@@ -108,3 +108,4 @@ export async function triggerOCRBatch(
 
   return await Promise.all(promises);
 }
+

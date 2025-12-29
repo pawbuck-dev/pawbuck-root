@@ -130,3 +130,4 @@ curl -X POST 'http://127.0.0.1:54321/functions/v1/process-pet-mail' \
 - Classification uses Gemini 2.0 Flash for speed and accuracy
 - Storage paths are organized by user → pet → document type for easy management
 
+
