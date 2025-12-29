@@ -1,11 +1,8 @@
-import AnimalTypePicker from "@/components/AnimalTypePicker";
-import BreedPicker from "@/components/BreedPicker";
-import GenderPicker from "@/components/GenderPicker";
+import CountryPicker from "@/components/CountryPicker";
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesUpdate } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -43,18 +40,14 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
 }) => {
   const { theme } = useTheme();
   const [name, setName] = useState(pet.name);
-  const [animalType, setAnimalType] = useState(pet.animal_type);
-  const [breed, setBreed] = useState(pet.breed);
-  const [dateOfBirth, setDateOfBirth] = useState(pet.date_of_birth);
-  const [sex, setSex] = useState(pet.sex);
   const [microchipNumber, setMicrochipNumber] = useState(pet.microchip_number || "");
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(pet.date_of_birth);
   const [saving, setSaving] = useState(false);
-  const [showAnimalTypePicker, setShowAnimalTypePicker] = useState(false);
-  const [showBreedPicker, setShowBreedPicker] = useState(false);
-  const [showGenderPicker, setShowGenderPicker] = useState(false);
-
+  
+  // New editable fields
+  const [country, setCountry] = useState(pet.country);
+  const [weightValue, setWeightValue] = useState(pet.weight_value?.toString() || "");
+  const [weightUnit, setWeightUnit] = useState(pet.weight_unit || "kg");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const handleSave = async () => {
     // Validate required fields
@@ -62,29 +55,24 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       Alert.alert("Required Field", "Please enter the pet's name");
       return;
     }
-    if (!animalType) {
-      Alert.alert("Required Field", "Please select the animal type");
+    if (!country) {
+      Alert.alert("Required Field", "Please select a country");
       return;
     }
-    if (!breed.trim()) {
-      Alert.alert("Required Field", "Please enter the breed");
+    if (!weightValue || isNaN(parseFloat(weightValue)) || parseFloat(weightValue) <= 0) {
+      Alert.alert("Required Field", "Please enter a valid weight");
       return;
     }
-    if (!dateOfBirth) {
-      Alert.alert("Required Field", "Please select the date of birth");
-      return;
-    }
-    if (!sex) {
-      Alert.alert("Required Field", "Please select the gender");
+    if (microchipNumber && microchipNumber.trim().length > 15) {
+      Alert.alert("Invalid Input", "Microchip number must be 15 characters or less");
       return;
     }
 
     const updateData: TablesUpdate<"pets"> = {
       name,
-      animal_type: animalType,
-      breed,
-      date_of_birth: dateOfBirth,
-      sex,
+      country,
+      weight_value: parseFloat(weightValue),
+      weight_unit: weightUnit,
       microchip_number: microchipNumber || null,
     };
 
@@ -162,7 +150,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               className="text-lg font-semibold"
               style={{ color: theme.foreground }}
             >
-              Edit Pet
+              {pet.name}'s Profile
             </Text>
             <TouchableOpacity onPress={handleSave} disabled={saving || deleting}>
               <Text
@@ -236,151 +224,170 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             </Text>
           </View>
 
-          {/* Animal Type */}
+          {/* Country (Editable) */}
           <View className="mb-4">
             <Text
               className="text-sm font-medium mb-2"
               style={{ color: theme.secondary }}
             >
-              Animal Type *
+              Country *
             </Text>
             <TouchableOpacity
               className="p-4 rounded-xl flex-row items-center justify-between"
               style={{ backgroundColor: theme.card }}
-              onPress={() => setShowAnimalTypePicker(true)}
+              onPress={() => setShowCountryPicker(true)}
               disabled={saving || deleting}
             >
               <Text className="text-base" style={{ color: theme.foreground }}>
-                {animalType === "dog" ? "Dog" : "Cat"}
+                {country || "Select country"}
               </Text>
               <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
             </TouchableOpacity>
           </View>
 
-          {/* Breed */}
+          {/* Weight (Editable) */}
           <View className="mb-4">
             <Text
               className="text-sm font-medium mb-2"
               style={{ color: theme.secondary }}
             >
-              Breed *
+              Weight *
             </Text>
-            <TouchableOpacity
-              className="p-4 rounded-xl flex-row items-center justify-between"
-              style={{ backgroundColor: theme.card }}
-              onPress={() => setShowBreedPicker(true)}
-              disabled={saving || deleting}
-            >
-              <Text className="text-base" style={{ color: theme.foreground }}>
-                {breed || "Select breed"}
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
-            </TouchableOpacity>
+            <View className="flex-row gap-2">
+              <TextInput
+                className="flex-1 rounded-xl py-4 px-4 text-start"
+                style={{
+                  backgroundColor: theme.card,
+                  color: theme.foreground,
+                }}
+                value={weightValue}
+                onChangeText={setWeightValue}
+                placeholder="e.g., 10"
+                placeholderTextColor={theme.secondary}
+                keyboardType="decimal-pad"
+                editable={!saving && !deleting}
+              />
+              <View className="flex-row rounded-xl overflow-hidden">
+                <TouchableOpacity
+                  className="px-4 py-4 items-center justify-center"
+                  style={{
+                    backgroundColor: weightUnit === "kg" ? theme.primary : theme.card,
+                  }}
+                  onPress={() => setWeightUnit("kg")}
+                  disabled={saving || deleting}
+                >
+                  <Text
+                    className="text-base font-medium"
+                    style={{
+                      color: weightUnit === "kg" ? theme.primaryForeground : theme.foreground,
+                    }}
+                  >
+                    kg
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="px-4 py-4 items-center justify-center"
+                  style={{
+                    backgroundColor: weightUnit === "lbs" ? theme.primary : theme.card,
+                  }}
+                  onPress={() => setWeightUnit("lbs")}
+                  disabled={saving || deleting}
+                >
+                  <Text
+                    className="text-base font-medium"
+                    style={{
+                      color: weightUnit === "lbs" ? theme.primaryForeground : theme.foreground,
+                    }}
+                  >
+                    lbs
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
-          {/* Date of Birth */}
+          {/* Animal Type (Read-only) */}
           <View className="mb-4">
             <Text
               className="text-sm font-medium mb-2"
               style={{ color: theme.secondary }}
             >
-              Date of Birth *
+              Animal Type
             </Text>
             <View
               className="p-4 rounded-xl flex-row items-center justify-between"
-              style={{ backgroundColor: theme.card }}
+              style={{ backgroundColor: theme.card, opacity: 0.7 }}
             >
-              <Text className="text-base" style={{ color: theme.foreground }}>
-                {formatDate(dateOfBirth)}
+              <Text className="text-base" style={{ color: theme.secondary }}>
+                {pet.animal_type === "dog" ? "Dog" : "Cat"}
               </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setTempDate(dateOfBirth);
-                  setShowDatePicker(true);
-                }}
-                disabled={saving || deleting}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="calendar-outline" size={20} color={theme.primary} />
-              </TouchableOpacity>
             </View>
-            {showDatePicker && Platform.OS === "ios" && (
-              <Modal
-                transparent
-                animationType="slide"
-                visible={showDatePicker}
-              >
-                <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                  <View style={{ backgroundColor: theme.background }}>
-                    <View className="flex-row justify-between items-center px-4 py-2 border-b" style={{ borderBottomColor: theme.card }}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setShowDatePicker(false);
-                          setTempDate(dateOfBirth);
-                        }}
-                      >
-                        <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setDateOfBirth(tempDate);
-                          setShowDatePicker(false);
-                        }}
-                      >
-                        <Text style={{ color: theme.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <DateTimePicker
-                      value={tempDate ? new Date(tempDate) : new Date()}
-                      mode="date"
-                      display="spinner"
-                      onChange={(event, selectedDate) => {
-                        if (selectedDate) {
-                          setTempDate(selectedDate.toISOString());
-                        }
-                      }}
-                      textColor={theme.foreground}
-                      maximumDate={new Date()}
-                    />
-                  </View>
-                </View>
-              </Modal>
-            )}
-            {showDatePicker && Platform.OS === "android" && (
-              <DateTimePicker
-                value={dateOfBirth ? new Date(dateOfBirth) : new Date()}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(false);
-                  if (event.type === "set" && selectedDate) {
-                    setDateOfBirth(selectedDate.toISOString());
-                  }
-                }}
-                maximumDate={new Date()}
-              />
-            )}
+            <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+              Cannot be changed after creation
+            </Text>
           </View>
 
-          {/* Gender */}
+          {/* Breed (Read-only) */}
           <View className="mb-4">
             <Text
               className="text-sm font-medium mb-2"
               style={{ color: theme.secondary }}
             >
-              Gender *
+              Breed
             </Text>
-            <TouchableOpacity
+            <View
               className="p-4 rounded-xl flex-row items-center justify-between"
-              style={{ backgroundColor: theme.card }}
-              onPress={() => setShowGenderPicker(true)}
-              disabled={saving || deleting}
+              style={{ backgroundColor: theme.card, opacity: 0.7 }}
             >
-              <Text className="text-base capitalize" style={{ color: theme.foreground }}>
-                {sex || "Select gender"}
+              <Text className="text-base" style={{ color: theme.secondary }}>
+                {pet.breed || "Not set"}
               </Text>
-              <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
-            </TouchableOpacity>
+            </View>
+            <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+              Cannot be changed after creation
+            </Text>
+          </View>
+
+          {/* Date of Birth (Read-only) */}
+          <View className="mb-4">
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              Date of Birth
+            </Text>
+            <View
+              className="p-4 rounded-xl flex-row items-center justify-between"
+              style={{ backgroundColor: theme.card, opacity: 0.7 }}
+            >
+              <Text className="text-base" style={{ color: theme.secondary }}>
+                {formatDate(pet.date_of_birth)}
+              </Text>
+            </View>
+            <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+              Cannot be changed after creation
+            </Text>
+          </View>
+
+          {/* Gender (Read-only) */}
+          <View className="mb-4">
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              Gender
+            </Text>
+            <View
+              className="p-4 rounded-xl flex-row items-center justify-between"
+              style={{ backgroundColor: theme.card, opacity: 0.7 }}
+            >
+              <Text className="text-base capitalize" style={{ color: theme.secondary }}>
+                {pet.sex || "Not set"}
+              </Text>
+            </View>
+            <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+              Cannot be changed after creation
+            </Text>
           </View>
 
           {/* Microchip Number */}
@@ -402,6 +409,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
               placeholder="Optional"
               placeholderTextColor={theme.secondary}
               editable={!saving && !deleting}
+              maxLength={15}
             />
           </View>
 
@@ -452,46 +460,18 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
         )}
       </KeyboardAvoidingView>
 
-      {/* Animal Type Picker Modal */}
-      {showAnimalTypePicker && (
-        <AnimalTypePicker
-          visible={showAnimalTypePicker}
-          selectedType={(animalType as "dog" | "cat") || "dog"}
-          onSelect={(type) => {
-            setAnimalType(type);
-            setShowAnimalTypePicker(false);
+      {/* Country Picker Modal */}
+      {showCountryPicker && (
+        <CountryPicker
+          visible={showCountryPicker}
+          selectedCountry={country}
+          onSelect={(selectedCountry) => {
+            setCountry(selectedCountry);
+            setShowCountryPicker(false);
           }}
-          onClose={() => setShowAnimalTypePicker(false)}
-        />
-      )}
-
-      {/* Breed Picker Modal */}
-      {showBreedPicker && (
-        <BreedPicker
-          visible={showBreedPicker}
-          petType={animalType as "dog" | "cat"}
-          selectedBreed={breed}
-          onSelect={(selectedBreed) => {
-            setBreed(selectedBreed);
-            setShowBreedPicker(false);
-          }}
-          onClose={() => setShowBreedPicker(false)}
-        />
-      )}
-
-      {/* Gender Picker Modal */}
-      {showGenderPicker && (
-        <GenderPicker
-          visible={showGenderPicker}
-          selectedGender={(sex as "male" | "female") || "male"}
-          onSelect={(selectedGender) => {
-            setSex(selectedGender);
-            setShowGenderPicker(false);
-          }}
-          onClose={() => setShowGenderPicker(false)}
+          onClose={() => setShowCountryPicker(false)}
         />
       )}
     </Modal>
   );
 };
-
