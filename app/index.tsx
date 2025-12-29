@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function Index() {
   const router = useRouter();
@@ -41,7 +42,10 @@ export default function Index() {
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <GestureHandlerRootView
+      className="flex-1"
+      style={{ backgroundColor: theme.background }}
+    >
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Gradient Background - using native gradients would require expo-linear-gradient */}
@@ -101,6 +105,6 @@ export default function Index() {
           </View>
         </View>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }

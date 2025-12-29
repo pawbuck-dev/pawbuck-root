@@ -10,13 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useMemo, useRef } from "react";
-import {
-  ActivityIndicator,
-  Dimensions,
-  Text,
-  View,
-} from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ActivityIndicator, Dimensions, Text, View } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import Carousel, { Pagination } from "react-native-reanimated-carousel";
 
@@ -34,12 +28,15 @@ export default function Home() {
   }, [pets]);
 
   // Function to invalidate queries for a specific pet
-  const invalidatePetQueries = useCallback((pet: Pet) => {
-    if (pet) {
-      queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] });
-      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
-    }
-  }, [queryClient]);
+  const invalidatePetQueries = useCallback(
+    (pet: Pet) => {
+      if (pet) {
+        queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] });
+        queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      }
+    },
+    [queryClient]
+  );
 
   // Refetch data for the currently visible pet when screen comes into focus
   useFocusEffect(
@@ -54,13 +51,16 @@ export default function Home() {
   );
 
   // Handle carousel snap to invalidate queries for the new pet
-  const handleSnapToItem = useCallback((index: number) => {
-    currentIndexRef.current = index;
-    const newPet = pets[index];
-    if (newPet) {
-      invalidatePetQueries(newPet);
-    }
-  }, [pets, invalidatePetQueries]);
+  const handleSnapToItem = useCallback(
+    (index: number) => {
+      currentIndexRef.current = index;
+      const newPet = pets[index];
+      if (newPet) {
+        invalidatePetQueries(newPet);
+      }
+    },
+    [pets, invalidatePetQueries]
+  );
 
   if (addingPet) {
     return (
@@ -93,12 +93,8 @@ export default function Home() {
 
   return (
     <ChatProvider>
-      <GestureHandlerRootView
-        className="flex-1"
-        style={{ backgroundColor: theme.background }}
-      >
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
-
         {/* Minimal spacer for status bar */}
         <View className="pt-4" />
 
@@ -139,7 +135,7 @@ export default function Home() {
         {/* Milo Chat */}
         <MiloChatButton />
         <MiloChatModal />
-      </GestureHandlerRootView>
+      </View>
     </ChatProvider>
   );
 }

@@ -268,11 +268,6 @@ export default function PetCard({
           className="rounded-3xl overflow-hidden mb-4"
           style={{
             backgroundColor: theme.card,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
-            elevation: 8,
           }}
         >
           {/* Pet Image with Overlay */}
@@ -452,7 +447,9 @@ export default function PetCard({
                         new Date(healthData.nearestVaccination.next_due_date!),
                         true
                       )
-                    : vaccinations.length > 0 ? "Up to date" : "None"}
+                    : vaccinations.length > 0
+                      ? "Up to date"
+                      : "None"}
                 </Text>
               </View>
             </TouchableOpacity>

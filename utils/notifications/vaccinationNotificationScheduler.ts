@@ -36,15 +36,19 @@ export const scheduleNotificationForVaccination = async (
 
     const content = buildVaccinationNotificationContent(vaccination, pet);
 
+    // Set time to 9 AM on the reminder date
+    const triggerDate = reminderMoment
+      .hour(9)
+      .minute(0)
+      .second(0)
+      .millisecond(0)
+      .toDate();
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content,
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        year: reminderMoment.year(),
-        month: reminderMoment.month() + 1, // moment months are 0-indexed, calendar trigger expects 1-indexed
-        day: reminderMoment.date(),
-        hour: 9, // Default to 9 AM
-        minute: 0,
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
       },
     });
 
@@ -90,6 +94,3 @@ export const cancelNotificationForVaccination = async (
     );
   }
 };
-
-
-
