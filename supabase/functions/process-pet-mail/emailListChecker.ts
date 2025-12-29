@@ -188,7 +188,60 @@ export async function getPendingApproval(approvalId: string): Promise<{
 }
 
 /**
- * Add an email to the pet's email list (whitelist or blocklist)
+ * Get an existing email entry from the pet's email list
+ * @param petId - The pet's ID
+ * @param email - The email address to check
+ * @returns The existing record or null if not found
+ */
+async function getEmailEntry(
+  petId: string,
+  email: string
+): Promise<{ id: number; is_blocked: boolean } | null> {
+  const supabase = createSupabaseClient();
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const { data, error } = await supabase
+    .from("pet_email_list")
+    .select("id, is_blocked")
+    .eq("pet_id", petId)
+    .eq("email_id", normalizedEmail)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error checking email entry:", error);
+    throw new Error(`Failed to check email entry: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Update the is_blocked status of an email entry
+ * @param id - The email entry ID
+ * @param isBlocked - The new blocked status
+ */
+async function updateEmailBlockStatus(
+  id: number,
+  isBlocked: boolean
+): Promise<void> {
+  const supabase = createSupabaseClient();
+
+  const { error } = await supabase
+    .from("pet_email_list")
+    .update({ is_blocked: isBlocked })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error updating email block status:", error);
+    throw new Error(`Failed to update email block status: ${error.message}`);
+  }
+}
+
+/**
+ * Add an email to the pet's email list with smart duplicate handling:
+ * - If email exists and is blocked, update to unblock it (when whitelisting)
+ * - If email exists and is whitelisted, update to block it (when blocking)
+ * - If email doesn't exist, insert new record
  * @param petId - The pet's ID
  * @param userId - The user's ID
  * @param email - The email address to add
@@ -207,6 +260,28 @@ export async function addToEmailList(
     `Adding ${normalizedEmail} to email list (blocked: ${isBlocked})`
   );
 
+  // Check if email already exists for this pet
+  const existing = await getEmailEntry(petId, normalizedEmail);
+
+  if (existing) {
+    // If existing is blocked and we're trying to whitelist it, update to unblock
+    if (existing.is_blocked && !isBlocked) {
+      console.log(`Email ${normalizedEmail} was blocked, updating to whitelisted`);
+      await updateEmailBlockStatus(existing.id, false);
+      return;
+    }
+    // If existing is whitelisted and we're trying to block it, update to block
+    if (!existing.is_blocked && isBlocked) {
+      console.log(`Email ${normalizedEmail} was whitelisted, updating to blocked`);
+      await updateEmailBlockStatus(existing.id, true);
+      return;
+    }
+    // Already in the desired state, nothing to do
+    console.log(`Email ${normalizedEmail} already in desired state (blocked: ${isBlocked})`);
+    return;
+  }
+
+  // Insert new record
   const { error } = await supabase.from("pet_email_list").insert({
     pet_id: petId,
     user_id: userId,
@@ -215,6 +290,15 @@ export async function addToEmailList(
   });
 
   if (error) {
+    // Handle race condition - unique constraint violation
+    if (error.code === "23505") {
+      console.log(`Race condition detected for ${normalizedEmail}, retrying with update`);
+      const existingAfterRace = await getEmailEntry(petId, normalizedEmail);
+      if (existingAfterRace && existingAfterRace.is_blocked !== isBlocked) {
+        await updateEmailBlockStatus(existingAfterRace.id, isBlocked);
+      }
+      return;
+    }
     console.error("Error adding to email list:", error);
     throw new Error(`Failed to add to email list: ${error.message}`);
   }

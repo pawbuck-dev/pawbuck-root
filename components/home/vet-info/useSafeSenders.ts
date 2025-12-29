@@ -68,7 +68,12 @@ export const useSafeSenders = ({
       queryClient.invalidateQueries({ queryKey: ["pet_email_list", petId] });
     },
     onError: (error) => {
-      Alert.alert("Error", "Failed to add email to safe senders");
+      // Show user-friendly message for duplicate emails
+      const errorMessage =
+        error instanceof Error && error.message.includes("already in your safe senders")
+          ? error.message
+          : "Failed to add email to safe senders";
+      Alert.alert("Error", errorMessage);
       console.error("Error adding whitelist email:", error);
     },
   });
