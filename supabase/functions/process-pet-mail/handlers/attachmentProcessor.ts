@@ -9,8 +9,7 @@ import type {
   ParsedAttachment,
   Pet,
   PetValidationResult,
-  ProcessedAttachment,
-  SkipReason,
+  ProcessedAttachment
 } from "../types.ts";
 
 /**

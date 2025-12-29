@@ -1,15 +1,15 @@
 import type {
-    ExtractedPetInfo,
-    MatchDetails,
-    ParsedAttachment,
-    Pet,
-    PetValidationResult,
-    SkipReason,
-    ValidationMethod,
+  ExtractedPetInfo,
+  MatchDetails,
+  ParsedAttachment,
+  Pet,
+  PetValidationResult,
+  SkipReason,
+  ValidationMethod,
 } from "./types.ts";
 
 // Minimum number of attribute matches required when no microchip is available
-const MIN_ATTRIBUTE_MATCHES = 3;
+const MIN_ATTRIBUTE_MATCH_THRESHOLD = 0.7;
 // Fuzzy match threshold for name and breed matching
 const FUZZY_MATCH_THRESHOLD = 0.7;
 // Age tolerance in years for matching
@@ -442,19 +442,22 @@ export async function validatePetFromDocument(
   console.log("\n--- Attributes validation (no microchip found) ---");
   method = "attributes";
   let matchCount = 0;
+  let availableAttributes = 0;
 
   // Name match (fuzzy)
   if (extractedInfo.name) {
     const nameMatch = fuzzyMatch(extractedInfo.name, pet.name);
     matchDetails.nameMatch = nameMatch;
     if (nameMatch.matches) matchCount++;
-  }
+    availableAttributes++;
+  } 
 
   // Age match (with tolerance)
   if (extractedInfo.age && pet.date_of_birth) {
     const ageMatches = matchAge(extractedInfo.age, pet.date_of_birth);
     matchDetails.ageMatch = ageMatches;
     if (ageMatches) matchCount++;
+    availableAttributes++;
   }
 
   // Breed match (fuzzy)
@@ -462,6 +465,7 @@ export async function validatePetFromDocument(
     const breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed);
     matchDetails.breedMatch = breedMatch;
     if (breedMatch.matches) matchCount++;
+    availableAttributes++;
   }
 
   // Gender match (normalized)
@@ -469,11 +473,14 @@ export async function validatePetFromDocument(
     const genderMatches = matchGender(extractedInfo.gender, pet.sex);
     matchDetails.genderMatch = genderMatches;
     if (genderMatches) matchCount++;
+    availableAttributes++;
   }
 
-  console.log(`\nAttribute matches: ${matchCount}/${MIN_ATTRIBUTE_MATCHES} required`);
+  const minAttributeMatches = availableAttributes * MIN_ATTRIBUTE_MATCH_THRESHOLD;
 
-  if (matchCount >= MIN_ATTRIBUTE_MATCHES) {
+  console.log(`\nAttribute matches: ${matchCount}/${minAttributeMatches} required`);
+
+  if (matchCount >= minAttributeMatches) {
     console.log("✅ Attributes validated successfully");
     isValid = true;
   } else {

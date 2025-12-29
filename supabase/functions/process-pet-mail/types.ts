@@ -27,6 +27,8 @@ export type DocumentType =
   | "lab_results"
   | "clinical_exams"
   | "vaccinations"
+  | "billing_invoice"
+  | "travel_certificate"
   | "irrelevant";
 
 export interface DocumentClassification {

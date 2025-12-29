@@ -17,7 +17,7 @@ export async function classifyAttachment(
     properties: {
       type: {
         type: "string",
-        enum: ["medications", "lab_results", "clinical_exams", "vaccinations", "irrelevant"],
+        enum: ["medications", "lab_results", "clinical_exams", "vaccinations", "billing_invoice", "travel_certificate", "irrelevant"],
       },
       confidence: { type: "number" },
       reasoning: { type: "string" },
