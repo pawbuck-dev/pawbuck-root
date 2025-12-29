@@ -452,7 +452,7 @@ export default function PetCard({
                         new Date(healthData.nearestVaccination.next_due_date!),
                         true
                       )
-                    : "Up to date"}
+                    : vaccinations.length > 0 ? "Up to date" : "None"}
                 </Text>
               </View>
             </TouchableOpacity>
