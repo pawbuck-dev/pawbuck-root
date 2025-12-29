@@ -1,5 +1,5 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
-import type { EmailInfo, Pet, ProcessedAttachment } from "../types.ts";
+import type { EmailInfo, Pet, ProcessedAttachment, SkipReason } from "../types.ts";
 
 /**
  * Send push notification after successful email processing
@@ -74,6 +74,83 @@ export async function sendFailedNotification(
   } catch (notificationError) {
     console.error("Failed to send error notification:", notificationError);
     // Continue even if notification fails
+  }
+}
+
+/**
+ * Send push notification when attachments are skipped due to pet validation failure
+ */
+export async function sendSkippedAttachmentsNotification(
+  pet: Pet,
+  emailInfo: EmailInfo,
+  skippedAttachments: ProcessedAttachment[]
+): Promise<void> {
+  if (skippedAttachments.length === 0) {
+    return;
+  }
+
+  // Build details about skipped attachments
+  const skippedDetails = skippedAttachments.map((att) => {
+    const reason = formatSkipReason(att.skippedReason);
+    const validation = att.petValidation;
+    
+    if (validation) {
+      const extracted = validation.extractedInfo;
+      const details: string[] = [];
+      
+      if (extracted.microchip) {
+        details.push(`microchip: ${extracted.microchip}`);
+      }
+      if (extracted.name) {
+        details.push(`name: ${extracted.name}`);
+      }
+      if (extracted.breed) {
+        details.push(`breed: ${extracted.breed}`);
+      }
+      
+      if (details.length > 0) {
+        return `${att.filename}: ${reason} (found: ${details.join(", ")})`;
+      }
+    }
+    return `${att.filename}: ${reason}`;
+  });
+
+  const skippedCount = skippedAttachments.length;
+  const fileWord = skippedCount === 1 ? "document was" : "documents were";
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Documents Skipped for ${pet.name}`,
+      body: `${skippedCount} ${fileWord} skipped because the pet could not be verified. Please check the email from ${emailInfo.from}.`,
+      data: {
+        type: "email_skipped",
+        petId: pet.id,
+        petName: pet.name,
+        skippedCount,
+        skippedDetails,
+        senderEmail: emailInfo.from,
+      },
+    });
+    console.log(`Skipped attachments notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send skipped notification:", notificationError);
+    // Continue even if notification fails
+  }
+}
+
+/**
+ * Format skip reason for display
+ */
+function formatSkipReason(reason?: SkipReason): string {
+  switch (reason) {
+    case "no_pet_info":
+      return "No pet identification info found";
+    case "microchip_mismatch":
+      return "Microchip number does not match";
+    case "attributes_mismatch":
+      return "Pet details (name/age/breed/gender) do not match";
+    default:
+      return "Validation failed";
   }
 }
 

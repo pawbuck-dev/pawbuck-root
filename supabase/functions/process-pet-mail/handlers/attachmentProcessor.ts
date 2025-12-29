@@ -1,13 +1,16 @@
 import { saveOCRResults } from "../dbPersistence.ts";
 import { classifyAttachment } from "../geminiClassifier.ts";
 import { triggerOCR } from "../ocrTrigger.ts";
+import { formatValidationResult, validatePetFromDocument } from "../petValidator.ts";
 import { uploadAttachment } from "../storageUploader.ts";
 import type {
   DocumentClassification,
   EmailContext,
   ParsedAttachment,
   Pet,
+  PetValidationResult,
   ProcessedAttachment,
+  SkipReason,
 } from "../types.ts";
 
 /**
@@ -32,7 +35,7 @@ export async function processAttachments(
 
 /**
  * Process a single attachment through the full pipeline:
- * classify -> upload -> OCR -> save to DB
+ * classify -> validate pet (microchip or attributes) -> upload -> OCR -> save to DB
  */
 async function processSingleAttachment(
   pet: Pet,
@@ -57,22 +60,48 @@ async function processSingleAttachment(
       return buildSkippedAttachment(attachment, classification);
     }
 
-    // Step 3: Upload to Supabase Storage
+    // Step 3: Validate pet from document (microchip or attributes)
+    const petValidation = await validatePetFromDocument(
+      attachment,
+      emailContext.subject,
+      pet
+    );
+
+    console.log(formatValidationResult(petValidation));
+
+    // Step 3a: Skip if validation failed
+    if (!petValidation.isValid) {
+      console.log(
+        `Skipping attachment ${attachment.filename}: ${petValidation.skipReason}`
+      );
+      return buildValidationSkippedAttachment(
+        attachment,
+        classification,
+        petValidation
+      );
+    }
+
+    console.log(
+      `Pet validated via ${petValidation.method}: proceeding with processing`
+    );
+
+    // Step 4: Upload to Supabase Storage
     const uploadResult = await uploadToStorage(pet, attachment, classification);
     if (!uploadResult.success) {
       return buildFailedAttachment(
         attachment,
         classification,
-        uploadResult.error!
+        uploadResult.error!,
+        petValidation
       );
     }
 
     const storagePath = uploadResult.storagePath!;
 
-    // Step 4: Trigger OCR
+    // Step 5: Trigger OCR
     const ocrResult = await runOCR(classification.type, storagePath);
 
-    // Step 5: Save to database if OCR was successful
+    // Step 6: Save to database if OCR was successful
     const dbResult = ocrResult.success && ocrResult.data
       ? await saveToDatabase(classification.type, pet, storagePath, ocrResult.data)
       : { success: false, recordIds: undefined };
@@ -90,6 +119,7 @@ async function processSingleAttachment(
       ocrSuccess: ocrResult.success,
       dbInserted: dbResult.success,
       dbRecordIds: dbResult.recordIds,
+      petValidation,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -213,7 +243,8 @@ function buildSkippedAttachment(
 function buildFailedAttachment(
   attachment: ParsedAttachment,
   classification: DocumentClassification,
-  error: string
+  error: string,
+  petValidation?: PetValidationResult
 ): ProcessedAttachment {
   return {
     filename: attachment.filename,
@@ -225,6 +256,29 @@ function buildFailedAttachment(
     ocrSuccess: false,
     dbInserted: false,
     error,
+    petValidation,
+  };
+}
+
+/**
+ * Build a skipped attachment result due to pet validation failure
+ */
+function buildValidationSkippedAttachment(
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+  petValidation: PetValidationResult
+): ProcessedAttachment {
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: false,
+    ocrTriggered: false,
+    ocrSuccess: false,
+    dbInserted: false,
+    petValidation,
+    skippedReason: petValidation.skipReason,
   };
 }
 

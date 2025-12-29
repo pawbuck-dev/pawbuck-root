@@ -42,6 +42,42 @@ export interface Pet {
   user_id: string;
   animal_type: string;
   breed: string;
+  microchip_number: string | null;
+  date_of_birth: string;
+  sex: string;
+}
+
+// Pet validation types (defined before ProcessedAttachment which uses them)
+export type SkipReason = 
+  | "no_pet_info"           // No identifiable info found in document
+  | "microchip_mismatch"    // Microchip found but doesn't match pet record
+  | "attributes_mismatch";  // Attributes (name/age/breed/gender) don't match
+
+export type ValidationMethod = "microchip" | "attributes" | "none";
+
+export interface ExtractedPetInfo {
+  microchip: string | null;
+  name: string | null;
+  age: string | null;        // e.g., "3 years", "6 months"
+  breed: string | null;
+  gender: string | null;     // "Male", "Female", "M", "F"
+  confidence: number;
+}
+
+export interface MatchDetails {
+  microchipMatch?: boolean;
+  nameMatch?: { similarity: number; matches: boolean };
+  ageMatch?: boolean;
+  breedMatch?: { similarity: number; matches: boolean };
+  genderMatch?: boolean;
+}
+
+export interface PetValidationResult {
+  isValid: boolean;
+  method: ValidationMethod;
+  extractedInfo: ExtractedPetInfo;
+  matchDetails: MatchDetails;
+  skipReason?: SkipReason;
 }
 
 export interface ProcessedAttachment {
@@ -57,6 +93,9 @@ export interface ProcessedAttachment {
   dbInserted: boolean;
   dbRecordIds?: string[];
   error?: string;
+  // Pet validation fields
+  petValidation?: PetValidationResult;
+  skippedReason?: SkipReason;
 }
 
 export interface ProcessingResult {
@@ -95,3 +134,4 @@ export interface PetInfo {
   id: string;
   name: string;
 }
+

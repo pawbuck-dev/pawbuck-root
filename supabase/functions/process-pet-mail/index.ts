@@ -14,6 +14,7 @@ import {
   processAttachments,
   sendFailedNotification,
   sendProcessedNotification,
+  sendSkippedAttachmentsNotification,
   verifySender,
 } from "./handlers/index.ts";
 import {
@@ -36,28 +37,6 @@ Deno.serve(async (req) => {
     if (!s3Config) {
       return buildValidationErrorResponse(
         "Missing required parameters: bucket and fileKey"
-      );
-    }
-
-    // Step 1.5: Acquire processing lock (idempotency)
-    const lockResult = await tryAcquireProcessingLock(s3Config.fileKey);
-    if (!lockResult.acquired) {
-      const message = lockResult.status === "completed"
-        ? "Email already processed"
-        : "Email is currently being processed";
-      
-      console.log(`${message}: ${s3Config.fileKey} - skipping`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message,
-          status: lockResult.status,
-          s3Key: s3Config.fileKey,
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
       );
     }
 
@@ -113,13 +92,37 @@ Deno.serve(async (req) => {
       return senderVerification.response!;
     }
 
-    // Step 7: Check for attachments
+    // Step 7: Acquire processing lock (idempotency)
+    // This is done AFTER sender verification so pending approvals don't acquire a lock
+    // allowing reprocessing when user approves the email from the app
+    const lockResult = await tryAcquireProcessingLock(s3Config.fileKey);
+    if (!lockResult.acquired) {
+      const message = lockResult.status === "completed"
+        ? "Email already processed"
+        : "Email is currently being processed";
+      
+      console.log(`${message}: ${s3Config.fileKey} - skipping`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message,
+          status: lockResult.status,
+          s3Key: s3Config.fileKey,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Step 8: Check for attachments
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
       console.log("No attachments to process", pet, emailInfo);
       return buildSuccessResponse(pet, emailInfo, [], "No attachments to process");
     }
 
-    // Step 8: Process all attachments
+    // Step 9: Process all attachments
     const emailContext: EmailContext = {
       subject: parsedEmail.subject,
       textBody: parsedEmail.textBody,
@@ -131,10 +134,10 @@ Deno.serve(async (req) => {
       emailContext
     );
 
-    // Step 9: Log summary and return success
+    // Step 10: Log summary and return success
     logProcessingSummary(processedAttachments);
 
-    // Step 10: Mark email as completed (idempotency)
+    // Step 11: Mark email as completed (idempotency)
     await markEmailAsCompleted(
       s3Config.fileKey,
       pet.id,
@@ -142,7 +145,20 @@ Deno.serve(async (req) => {
       true
     );
 
-    // Step 11: Send notification if records were successfully added
+    // Step 12: Check for skipped attachments due to pet validation failure
+    const skippedAttachments = processedAttachments.filter(
+      (a) => a.skippedReason === "no_pet_info" || 
+             a.skippedReason === "microchip_mismatch" || 
+             a.skippedReason === "attributes_mismatch"
+    );
+
+    // Step 13: Send notifications
+    // Send skipped notification if any attachments were skipped due to pet validation failure
+    if (skippedAttachments.length > 0) {
+      await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
+    }
+
+    // Send processed notification if records were successfully added
     await sendProcessedNotification(pet, emailInfo, processedAttachments);
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
