@@ -39,7 +39,7 @@ export async function findPetByEmailId(emailId: string): Promise<Pet | null> {
 
   const { data, error } = await supabase
     .from("pets")
-    .select("id, name, email_id, user_id, animal_type, breed")
+    .select("id, name, email_id, user_id, animal_type, breed, microchip_number, date_of_birth, sex")
     .eq("email_id", emailId.toLowerCase())
     .is("deleted_at", null)
     .single();

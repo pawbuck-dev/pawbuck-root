@@ -7,11 +7,7 @@ import React, {
   ReactNode,
   useCallback,
   useContext,
-  useEffect,
-  useRef,
 } from "react";
-import { Alert } from "react-native";
-import { useOnboarding } from "./onboardingContext";
 
 // Pet type from database
 export type Pet = Tables<"pets">;
@@ -44,12 +40,8 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   // Get authenticated user from AuthContext
   const { user } = useAuth();
-  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
   const queryClient = useQueryClient();
   const userId = user?.id || null;
-
-  // Ref to track if we've already processed this onboarding session
-  const hasSyncedRef = useRef(false);
 
   // Fetch pets using React Query
   const {
@@ -75,6 +67,8 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
         ...old,
         newPet,
       ]);
+      // Invalidate to force refetch and ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ["pets", userId] });
     },
     onError: (err) => {
       console.error("Error adding pet:", err);
@@ -136,37 +130,6 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
     [deletePetMutation]
   );
-
-  // Reset the sync tracker when onboarding is reset
-  useEffect(() => {
-    if (!isOnboardingComplete) {
-      hasSyncedRef.current = false;
-    }
-  }, [isOnboardingComplete]);
-
-  // Handle pet data from onboarding/signup using PetsContext
-  useEffect(() => {
-    // Guard: only sync if onboarding is complete and we haven't synced yet
-    if (!isOnboardingComplete || hasSyncedRef.current) return;
-
-    const handlePetData = async () => {
-      hasSyncedRef.current = true;
-      try {
-        // Call the mutation directly to avoid dependency issues
-        await addPetMutation.mutateAsync(petData as Pet);
-      } catch (error) {
-        console.error("Error syncing pet:", error);
-        Alert.alert(
-          "Error",
-          "There was an issue saving your pet's profile. Please try adding it again from the home page."
-        );
-      } finally {
-        resetOnboarding();
-      }
-    };
-
-    handlePetData();
-  }, [isOnboardingComplete, addPetMutation, resetOnboarding, petData]);
 
   const error =
     queryError?.message ||

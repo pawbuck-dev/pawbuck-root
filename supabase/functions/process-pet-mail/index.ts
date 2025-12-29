@@ -4,313 +4,207 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { saveOCRResults } from "./dbPersistence.ts";
 import { parseEmail } from "./emailParser.ts";
-import { classifyAttachment } from "./geminiClassifier.ts";
-import { triggerOCR } from "./ocrTrigger.ts";
+import {
+  buildErrorResponse,
+  buildNotFoundResponse,
+  buildSuccessResponse,
+  buildValidationErrorResponse,
+  logProcessingSummary,
+  processAttachments,
+  sendFailedNotification,
+  sendProcessedNotification,
+  sendSkippedAttachmentsNotification,
+  verifySender,
+} from "./handlers/index.ts";
+import {
+  markEmailAsCompleted,
+  tryAcquireProcessingLock,
+} from "./idempotencyChecker.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { fetchEmailFromS3 } from "./s3Client.ts";
-import { uploadAttachment } from "./storageUploader.ts";
-import type {
-  ProcessedAttachment,
-  ProcessingResult,
-  S3Config,
-} from "./types.ts";
+import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
 
 Deno.serve(async (req) => {
-  try {
-    const body = await req.json();
-    const { bucket, fileKey } = body as S3Config;
+  let pet: Pet | null = null;
+  let senderEmail: string | null = null;
 
-    if (!bucket || !fileKey) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Missing required parameters: bucket and fileKey",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+  try {
+    // Step 1: Parse and validate request
+    const s3Config = await parseRequest(req);
+    if (!s3Config) {
+      return buildValidationErrorResponse(
+        "Missing required parameters: bucket and fileKey"
       );
     }
 
-    // Step 1: Fetch email from S3
-    const rawEmail = await fetchEmailFromS3({ bucket, fileKey });
-
-    // Step 2: Parse email and extract attachments
+    // Step 2: Fetch and parse email from S3
+    const rawEmail = await fetchEmailFromS3(s3Config);
     const parsedEmail = await parseEmail(rawEmail);
 
-    console.log("Email parsed:", {
-      from: parsedEmail.from?.address,
-      to: parsedEmail.to.map((t) => t.address),
-      subject: parsedEmail.subject,
-      attachmentCount: parsedEmail.attachments.length,
-    });
+    logParsedEmail(parsedEmail);
 
-    // Step 3: Extract recipient email and find pet
+    // Step 3: Validate email has recipient
     if (!parsedEmail.to || parsedEmail.to.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No recipient email found in parsed email",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
+      return buildValidationErrorResponse(
+        "No recipient email found in parsed email"
       );
     }
 
-    // Use the first recipient email to find the pet
+    // Step 4: Find pet by recipient email
     const recipientEmail = parsedEmail.to[0].address;
     console.log(`Looking up pet by email: ${recipientEmail}`);
 
-    const pet = await findPetByEmail(recipientEmail);
-
+    pet = await findPetByEmail(recipientEmail);
     if (!pet) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `No pet found with email address: ${recipientEmail}`,
-        }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        }
+      return buildNotFoundResponse(
+        `No pet found with email address: ${recipientEmail}`
       );
     }
 
     console.log(`Found pet: ${pet.name} (ID: ${pet.id})`);
 
-    // Step 4: Check if there are attachments
-    if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
-      const result: ProcessingResult = {
-        success: true,
-        pet,
-        email: {
-          from: parsedEmail.from?.address || null,
-          subject: parsedEmail.subject,
-          date: parsedEmail.date,
-        },
-        processedAttachments: [],
-      };
+    // Step 5: Validate sender email
+    senderEmail = parsedEmail.from?.address ?? null;
+    if (!senderEmail) {
+      return buildValidationErrorResponse(
+        "No sender email found in parsed email"
+      );
+    }
 
+    // Step 6: Verify sender (check whitelist/blocklist)
+    const emailInfo: EmailInfo = {
+      from: senderEmail,
+      subject: parsedEmail.subject,
+      date: parsedEmail.date,
+    };
+
+    const senderVerification = await verifySender(
+      pet,
+      senderEmail,
+      s3Config,
+      emailInfo
+    );
+
+    if (!senderVerification.canProceed) {
+      return senderVerification.response!;
+    }
+
+    // Step 7: Acquire processing lock (idempotency)
+    // This is done AFTER sender verification so pending approvals don't acquire a lock
+    // allowing reprocessing when user approves the email from the app
+    const lockResult = await tryAcquireProcessingLock(s3Config.fileKey);
+    if (!lockResult.acquired) {
+      const message = lockResult.status === "completed"
+        ? "Email already processed"
+        : "Email is currently being processed";
+      
+      console.log(`${message}: ${s3Config.fileKey} - skipping`);
       return new Response(
         JSON.stringify({
-          ...result,
-          message: "No attachments to process",
+          success: true,
+          message,
+          status: lockResult.status,
+          s3Key: s3Config.fileKey,
         }),
         {
+          status: 200,
           headers: { "Content-Type": "application/json" },
         }
       );
     }
 
-    // Step 5: Process each attachment
-    const processedAttachments: ProcessedAttachment[] = [];
-
-    for (const attachment of parsedEmail.attachments) {
-      console.log(`\n=== Processing attachment: ${attachment.filename} ===`);
-
-      try {
-        // Step 5a: Classify attachment with Gemini AI
-        const classification = await classifyAttachment(
-          attachment,
-          parsedEmail.subject,
-          parsedEmail.textBody
-        );
-
-        console.log(
-          `Classification result: ${classification.type} (confidence: ${classification.confidence})`
-        );
-
-        // Step 5b: Skip irrelevant attachments
-        if (classification.type === "irrelevant") {
-          console.log(`Skipping irrelevant attachment: ${attachment.filename}`);
-          processedAttachments.push({
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-            classification,
-            uploaded: false,
-            ocrTriggered: false,
-            ocrSuccess: false,
-            dbInserted: false,
-          });
-          continue;
-        }
-
-        // Step 5c: Upload to Supabase Storage
-        let storagePath: string;
-        let uploaded = false;
-
-        try {
-          storagePath = await uploadAttachment(
-            pet,
-            classification.type,
-            attachment.filename,
-            attachment.content,
-            attachment.mimeType
-          );
-          uploaded = true;
-          console.log(`Upload successful: ${storagePath}`);
-        } catch (uploadError) {
-          const errorMessage =
-            uploadError instanceof Error
-              ? uploadError.message
-              : String(uploadError);
-          console.error(
-            `Upload failed for ${attachment.filename}:`,
-            uploadError
-          );
-          processedAttachments.push({
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-            classification,
-            uploaded: false,
-            ocrTriggered: false,
-            ocrSuccess: false,
-            dbInserted: false,
-            error: `Upload failed: ${errorMessage}`,
-          });
-          continue;
-        }
-
-        // Step 5d: Trigger OCR
-        let ocrResult;
-        let ocrSuccess = false;
-
-        try {
-          const ocrResponse = await triggerOCR(
-            classification.type,
-            "pets",
-            storagePath
-          );
-
-          ocrSuccess = ocrResponse.success;
-          ocrResult = ocrResponse.data;
-
-          if (!ocrSuccess) {
-            console.error(`OCR failed: ${ocrResponse.error}`);
-          } else {
-            console.log("OCR completed successfully");
-          }
-        } catch (ocrError) {
-          console.error(`OCR trigger failed:`, ocrError);
-        }
-
-        // Step 5e: Save OCR results to database if OCR was successful
-        let dbInserted = false;
-        let dbRecordIds: string[] | undefined;
-
-        if (ocrSuccess && ocrResult) {
-          try {
-            const saveResult = await saveOCRResults(
-              classification.type,
-              pet,
-              storagePath,
-              ocrResult
-            );
-
-            dbInserted = saveResult.success;
-            dbRecordIds = saveResult.recordIds;
-
-            if (dbInserted) {
-              console.log(
-                `DB insert successful: ${dbRecordIds?.length || 0} record(s) inserted`
-              );
-            } else {
-              console.error(`DB insert failed: ${saveResult.error}`);
-            }
-          } catch (dbError) {
-            console.error(`DB save failed:`, dbError);
-          }
-        }
-
-        // Add processed attachment to results
-        processedAttachments.push({
-          filename: attachment.filename,
-          mimeType: attachment.mimeType,
-          size: attachment.size,
-          classification,
-          uploaded,
-          storagePath,
-          ocrTriggered: true,
-          ocrResult,
-          ocrSuccess,
-          dbInserted,
-          dbRecordIds,
-        });
-      } catch (attachmentError) {
-        const errorMessage =
-          attachmentError instanceof Error
-            ? attachmentError.message
-            : String(attachmentError);
-        console.error(
-          `Error processing attachment ${attachment.filename}:`,
-          attachmentError
-        );
-        processedAttachments.push({
-          filename: attachment.filename,
-          mimeType: attachment.mimeType,
-          size: attachment.size,
-          classification: {
-            type: "irrelevant",
-            confidence: 0,
-            reasoning: "Processing failed",
-          },
-          uploaded: false,
-          ocrTriggered: false,
-          ocrSuccess: false,
-          dbInserted: false,
-          error: errorMessage,
-        });
-      }
+    // Step 8: Check for attachments
+    if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
+      console.log("No attachments to process", pet, emailInfo);
+      return buildSuccessResponse(pet, emailInfo, [], "No attachments to process");
     }
 
-    // Step 6: Return complete results
-    const result: ProcessingResult = {
-      success: true,
-      pet,
-      email: {
-        from: parsedEmail.from?.address || null,
-        subject: parsedEmail.subject,
-        date: parsedEmail.date,
-      },
-      processedAttachments,
+    // Step 9: Process all attachments
+    const emailContext: EmailContext = {
+      subject: parsedEmail.subject,
+      textBody: parsedEmail.textBody,
     };
 
-    console.log("\n=== Processing Complete ===");
-    console.log(`Total attachments: ${processedAttachments.length}`);
-    console.log(
-      `Uploaded: ${processedAttachments.filter((a) => a.uploaded).length}`
-    );
-    console.log(
-      `OCR success: ${processedAttachments.filter((a) => a.ocrSuccess).length}`
-    );
-    console.log(
-      `DB inserted: ${processedAttachments.filter((a) => a.dbInserted).length}`
+    const processedAttachments = await processAttachments(
+      pet,
+      parsedEmail.attachments,
+      emailContext
     );
 
-    return new Response(JSON.stringify(result), {
-      headers: { "Content-Type": "application/json" },
-    });
+    // Step 10: Log summary and return success
+    logProcessingSummary(processedAttachments);
+
+    // Step 11: Mark email as completed (idempotency)
+    await markEmailAsCompleted(
+      s3Config.fileKey,
+      pet.id,
+      processedAttachments.length,
+      true
+    );
+
+    // Step 12: Check for skipped attachments due to pet validation failure
+    const skippedAttachments = processedAttachments.filter(
+      (a) => a.skippedReason === "no_pet_info" || 
+             a.skippedReason === "microchip_mismatch" || 
+             a.skippedReason === "attributes_mismatch"
+    );
+
+    // Step 13: Send notifications
+    // Send skipped notification if any attachments were skipped due to pet validation failure
+    if (skippedAttachments.length > 0) {
+      await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
+    }
+
+    // Send processed notification if records were successfully added
+    await sendProcessedNotification(pet, emailInfo, processedAttachments);
+
+    return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error processing email:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+
+    // Send failure notification if we have pet and sender info
+    if (pet && senderEmail) {
+      await sendFailedNotification(pet, senderEmail);
+    }
+
+    return buildErrorResponse(errorMessage);
   }
 });
+
+/**
+ * Parse and validate the request body
+ */
+async function parseRequest(req: Request): Promise<S3Config | null> {
+  const body = await req.json();
+  const { bucket, fileKey } = body as S3Config;
+
+  if (!bucket || !fileKey) {
+    return null;
+  }
+
+  return { bucket, fileKey };
+}
+
+/**
+ * Log parsed email details
+ */
+function logParsedEmail(parsedEmail: {
+  from: { address: string } | null;
+  to: { address: string }[];
+  subject: string;
+  attachments: unknown[];
+}): void {
+  console.log("Email parsed:", {
+    from: parsedEmail.from?.address,
+    to: parsedEmail.to.map((t) => t.address),
+    subject: parsedEmail.subject,
+    attachmentCount: parsedEmail.attachments.length,
+  });
+}
 
 /* To invoke locally:
 

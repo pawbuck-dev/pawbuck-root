@@ -5,6 +5,7 @@ import GenderPicker from "@/components/GenderPicker";
 import { COUNTRY_FLAGS } from "@/constants/onboarding";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
@@ -35,6 +36,7 @@ export default function OnboardingReview() {
   const { theme, toggleTheme, mode } = useTheme();
   const { petData, updatePetData, completeOnboarding } = useOnboarding();
   const { user } = useAuth();
+  const { addPet } = usePets();
 
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -115,15 +117,20 @@ export default function OnboardingReview() {
 
   const petName = petData!.name || "your pet";
 
-  const handleConfirm = () => {
-    completeOnboarding();
+  const handleConfirm = async () => {
     if (user) {
-      // Already authenticated → clear onboarding stack and go back to where onboarding started
-      const parent = navigation.getParent();
-      parent?.dispatch(StackActions.pop());
+      // Already authenticated → create pet directly, then go back
+      try {
+        await addPet(petData as TablesInsert<"pets">);
+        const parent = navigation.getParent();
+        parent?.dispatch(StackActions.pop());
+      } catch (error) {
+        console.error("Error creating pet:", error);
+      }
     } else {
-      // Not authenticated → go to complete screen first
-      router.push("/onboarding/complete");
+      // Not authenticated → save to context and go directly to signup
+      completeOnboarding();
+      router.replace("/signup");
     }
   };
 

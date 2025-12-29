@@ -27,7 +27,7 @@ export async function getUserPushTokens(userId: string): Promise<string[]> {
 
   const { data, error } = await supabase
     .from("push_tokens")
-    .select("push_token")
+    .select("token")
     .eq("user_id", userId);
 
   if (error) {
@@ -39,7 +39,7 @@ export async function getUserPushTokens(userId: string): Promise<string[]> {
     return [];
   }
 
-  return data.map((row) => row.push_token).filter(Boolean);
+  return data.map((row) => row.token).filter(Boolean);
 }
 
 /**

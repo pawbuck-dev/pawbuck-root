@@ -1,6 +1,9 @@
 import Header from "@/components/Header";
 import OAuthLogins from "@/components/OAuth/OAuth";
+import { useOnboarding } from "@/context/onboardingContext";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -18,9 +21,28 @@ import {
 function Login() {
   const router = useRouter();
   const { theme, mode } = useTheme();
+  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
+  const { addPet } = usePets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper to create pet if onboarding data exists
+  const createPetIfNeeded = async () => {
+    if (isOnboardingComplete && petData?.name) {
+      try {
+        console.log("Creating pet from login:", petData);
+        // Use addPet from usePets hook which properly updates React Query cache
+        await addPet(petData as TablesInsert<"pets">);
+        console.log("Pet created successfully from login");
+      } catch (error) {
+        console.error("Error creating pet during login:", error);
+        // Don't throw - continue to home even if pet creation fails
+      } finally {
+        resetOnboarding();
+      }
+    }
+  };
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -37,6 +59,9 @@ function Login() {
       });
 
       if (error) throw error;
+
+      // Create pet if onboarding data exists (wait for completion before navigating)
+      await createPetIfNeeded();
 
       // Navigate to home screen after successful login - clear stack
       router.dismissAll();
@@ -86,10 +111,19 @@ function Login() {
 
               {/* Google Sign In */}
               <OAuthLogins
-                onSuccess={() => {
-                  // Clear navigation stack before going to home
-                  router.dismissAll();
-                  router.replace("/home");
+                onSuccess={async () => {
+                  try {
+                    setIsLoading(true);
+                    // Create pet if onboarding data exists (wait for completion before navigating)
+                    await createPetIfNeeded();
+                    // Clear navigation stack before going to home
+                    router.dismissAll();
+                    router.replace("/home");
+                  } catch (error: any) {
+                    console.error("Error during OAuth login:", error);
+                  } finally {
+                    setIsLoading(false);
+                  }
                 }}
               />
 

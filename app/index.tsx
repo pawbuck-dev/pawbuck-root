@@ -1,4 +1,5 @@
 import { useAuth } from "@/context/authContext";
+import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,13 +10,15 @@ export default function Index() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { isAuthenticated, loading } = useAuth();
+  const { isOnboardingComplete } = useOnboarding();
 
   // Redirect to home if already authenticated
+  // Skip if onboarding is complete - let signup/login handle navigation after pet creation
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!loading && isAuthenticated && !isOnboardingComplete) {
       router.replace("/home");
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, loading, router, isOnboardingComplete]);
 
   // Show loading screen while checking authentication
   if (loading) {

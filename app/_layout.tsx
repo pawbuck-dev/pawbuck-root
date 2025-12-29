@@ -1,4 +1,6 @@
+import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import { AuthProvider } from "@/context/authContext";
+import { EmailApprovalProvider } from "@/context/emailApprovalContext";
 import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
@@ -70,20 +72,23 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <OnboardingProvider>
-            <PetsProvider>
-              <UserPreferencesProvider>
-                <NotificationsProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      animation: "none",
-                    }}
-                  />
-                </NotificationsProvider>
-              </UserPreferencesProvider>
-            </PetsProvider>
-          </OnboardingProvider>
+          <EmailApprovalProvider>
+            <OnboardingProvider>
+              <PetsProvider>
+                <UserPreferencesProvider>
+                  <NotificationsProvider>
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        animation: "none",
+                      }}
+                    />
+                    <EmailApprovalModal />
+                  </NotificationsProvider>
+                </UserPreferencesProvider>
+              </PetsProvider>
+            </OnboardingProvider>
+          </EmailApprovalProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

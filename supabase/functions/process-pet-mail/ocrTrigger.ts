@@ -7,6 +7,8 @@ const OCR_FUNCTION_MAP: Record<Exclude<DocumentType, "irrelevant">, string> = {
   medications: "medication-ocr",
   lab_results: "lab-results-ocr",
   clinical_exams: "clinical-exam-ocr",
+  billing_invoice: "clinical-exam-ocr",
+  travel_certificate: "clinical-exam-ocr",
   vaccinations: "vaccination-ocr",
 };
 

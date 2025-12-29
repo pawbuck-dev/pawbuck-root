@@ -2,7 +2,7 @@ import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import { VetInformation } from "@/services/vetInformation";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,15 +15,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeSendersSection } from "./vet-info/SafeSendersSection";
 
 interface VetInfoModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (vetData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">) => Promise<void>;
+  onSave: (
+    vetData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">
+  ) => Promise<void>;
   onDelete?: () => Promise<void>;
   vetInfo?: VetInformation | null;
+  petId?: string;
   loading?: boolean;
 }
+
+const validateEmail = (emailToValidate: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(emailToValidate);
+};
 
 export const VetInfoModal: React.FC<VetInfoModalProps> = ({
   visible,
@@ -31,11 +40,13 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
   onSave,
   onDelete,
   vetInfo,
+  petId,
   loading = false,
 }) => {
   const { theme } = useTheme();
   const isEditing = !!vetInfo;
 
+  // Form state
   const [clinicName, setClinicName] = useState(vetInfo?.clinic_name || "");
   const [vetName, setVetName] = useState(vetInfo?.vet_name || "");
   const [address, setAddress] = useState(vetInfo?.address || "");
@@ -44,10 +55,16 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  // Reset form when modal opens or vetInfo changes
+  useEffect(() => {
+    if (visible) {
+      setClinicName(vetInfo?.clinic_name || "");
+      setVetName(vetInfo?.vet_name || "");
+      setAddress(vetInfo?.address || "");
+      setPhone(vetInfo?.phone || "");
+      setEmail(vetInfo?.email || "");
+    }
+  }, [visible, vetInfo]);
 
   const handleSave = async () => {
     // Validate required fields
@@ -103,10 +120,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
       "Remove Vet Information",
       "Are you sure you want to remove this veterinary information?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Remove",
           style: "destructive",
@@ -126,6 +140,8 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
       ]
     );
   };
+
+  const isProcessing = saving || deleting;
 
   return (
     <Modal
@@ -148,7 +164,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
           }}
         >
           <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
+            <TouchableOpacity onPress={onClose} disabled={isProcessing}>
               <Text className="text-base" style={{ color: theme.primary }}>
                 Cancel
               </Text>
@@ -159,10 +175,10 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
             >
               {isEditing ? "Edit Vet Info" : "Add Vet Info"}
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving || deleting}>
+            <TouchableOpacity onPress={handleSave} disabled={isProcessing}>
               <Text
                 className="text-base font-semibold"
-                style={{ color: saving || deleting ? theme.secondary : theme.primary }}
+                style={{ color: isProcessing ? theme.secondary : theme.primary }}
               >
                 {saving ? "Saving..." : "Save"}
               </Text>
@@ -193,7 +209,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               onChangeText={setClinicName}
               placeholder="e.g., Happy Paws Veterinary Clinic"
               placeholderTextColor={theme.secondary}
-              editable={!saving && !deleting}
+              editable={!isProcessing}
               autoCapitalize="words"
             />
           </View>
@@ -216,7 +232,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               onChangeText={setVetName}
               placeholder="e.g., Dr. John Smith"
               placeholderTextColor={theme.secondary}
-              editable={!saving && !deleting}
+              editable={!isProcessing}
               autoCapitalize="words"
             />
           </View>
@@ -240,7 +256,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               onChangeText={setAddress}
               placeholder="e.g., 123 Main Street, City, State 12345"
               placeholderTextColor={theme.secondary}
-              editable={!saving && !deleting}
+              editable={!isProcessing}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -265,7 +281,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               onChangeText={setPhone}
               placeholder="e.g., (555) 123-4567"
               placeholderTextColor={theme.secondary}
-              editable={!saving && !deleting}
+              editable={!isProcessing}
               keyboardType="phone-pad"
             />
           </View>
@@ -288,12 +304,21 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               onChangeText={setEmail}
               placeholder="e.g., contact@happypaws.com"
               placeholderTextColor={theme.secondary}
-              editable={!saving && !deleting}
+              editable={!isProcessing}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
             />
           </View>
+
+          {/* Safe Senders Section */}
+          {petId && (
+            <SafeSendersSection
+              petId={petId}
+              theme={theme}
+              isParentProcessing={isProcessing}
+            />
+          )}
 
           {/* Delete Button (only when editing) */}
           {isEditing && onDelete && (
@@ -305,7 +330,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
                 borderColor: "#EF4444",
               }}
               onPress={handleDelete}
-              disabled={saving || deleting}
+              disabled={isProcessing}
             >
               <View className="flex-row items-center gap-2">
                 <Ionicons name="trash-outline" size={20} color="#EF4444" />
@@ -332,7 +357,10 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               className="p-6 rounded-2xl items-center"
               style={{ backgroundColor: theme.card }}
             >
-              <ActivityIndicator size="large" color={deleting ? "#EF4444" : theme.primary} />
+              <ActivityIndicator
+                size="large"
+                color={deleting ? "#EF4444" : theme.primary}
+              />
               <Text
                 className="text-base font-semibold mt-4"
                 style={{ color: theme.foreground }}

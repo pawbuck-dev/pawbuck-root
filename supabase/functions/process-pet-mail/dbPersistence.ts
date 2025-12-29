@@ -386,6 +386,20 @@ export async function saveOCRResults(
         storagePath,
         ocrData as ClinicalExamOCRData
       );
+    
+    case "billing_invoice":
+      return await saveClinicalExam(
+        pet,
+        storagePath,
+        ocrData as ClinicalExamOCRData
+      );
+    
+    case "travel_certificate":
+      return await saveClinicalExam(
+        pet,
+        storagePath,
+        ocrData as ClinicalExamOCRData
+      );
 
     case "irrelevant":
       return {
