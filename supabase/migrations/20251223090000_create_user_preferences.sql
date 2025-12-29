@@ -55,3 +55,4 @@ CREATE TRIGGER user_preferences_updated_at
     EXECUTE FUNCTION update_user_preferences_updated_at();
 
 
+
