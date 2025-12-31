@@ -1,11 +1,14 @@
-import { Pet } from "@/context/petsContext";
+import { useChat } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
-import PrivateImage from "../PrivateImage";
+
+// Milo mascot image
+const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 type NavItem = {
   id: string;
@@ -16,30 +19,27 @@ type NavItem = {
 
 type BottomNavBarProps = {
   activeTab?: string;
-  selectedPet?: Pet | null;
-  onPetAvatarPress?: () => void;
 };
 
 export default function BottomNavBar({
   activeTab = "home",
-  selectedPet,
-  onPetAvatarPress,
 }: BottomNavBarProps) {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const router = useRouter();
+  const { openChat } = useChat();
 
   const navItems: NavItem[] = [
     { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
     { id: "records", icon: "clipboard-outline", activeIcon: "clipboard" },
-    { id: "pet", icon: "paw-outline", activeIcon: "paw" }, // Center pet avatar
+    { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
     { id: "community", icon: "people-outline", activeIcon: "people" },
     { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
   ];
 
   const handleNavPress = (item: NavItem) => {
-    if (item.id === "pet" && onPetAvatarPress) {
-      onPetAvatarPress();
+    if (item.id === "milo") {
+      openChat();
       return;
     }
     if (item.route) {
@@ -51,9 +51,9 @@ export default function BottomNavBar({
   const inactiveColor = isDarkMode ? "hsl(215, 20%, 45%)" : "hsl(215, 20%, 55%)";
 
   return (
-    <View className="px-4 pb-6 pt-2">
+    <View className="px-4 pb-6 pt-8">
       <View
-        className="flex-row items-center justify-around rounded-3xl overflow-hidden"
+        className="flex-row items-center justify-around rounded-3xl"
         style={{
           backgroundColor: theme.card,
           shadowColor: "#000",
@@ -61,17 +61,16 @@ export default function BottomNavBar({
           shadowOpacity: 0.15,
           shadowRadius: 12,
           elevation: 8,
-          height: 60,
+          height: 46,
           paddingHorizontal: 16,
-          marginBottom: 16,
         }}
       >
         {navItems.map((item) => {
           const isActive = item.id === activeTab;
-          const isPetCenter = item.id === "pet";
+          const isMiloCenter = item.id === "milo";
 
-          if (isPetCenter) {
-            // Center Pet Avatar - elevated above the bar
+          if (isMiloCenter) {
+            // Center Milo Avatar - elevated above the bar
             return (
               <TouchableOpacity
                 key={item.id}
@@ -79,12 +78,12 @@ export default function BottomNavBar({
                 activeOpacity={0.8}
                 className="items-center justify-center"
                 style={{
-                  marginTop: -28,
+                  marginTop: -20,
                 }}
               >
                 {/* Outer glow ring */}
                 <View
-                  className="w-[72px] h-[72px] rounded-full items-center justify-center"
+                  className="w-[60px] h-[60px] rounded-full items-center justify-center"
                   style={{
                     backgroundColor: theme.card,
                     shadowColor: "#000",
@@ -99,24 +98,31 @@ export default function BottomNavBar({
                     colors={["#3BD0D2", "#2BA8AA", "#3BD0D2"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    className="w-[68px] h-[68px] rounded-full items-center justify-center p-[3px]"
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 34,
+                      padding: 3,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     <View
-                      className="w-full h-full rounded-full items-center justify-center overflow-hidden"
                       style={{
+                        width: 62,
+                        height: 62,
+                        borderRadius: 31,
                         backgroundColor: theme.card,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
                       }}
                     >
-                      {selectedPet?.photo_url ? (
-                        <PrivateImage
-                          bucketName="pets"
-                          filePath={selectedPet.photo_url}
-                          className="w-full h-full rounded-full"
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <Ionicons name="paw" size={28} color={activeColor} />
-                      )}
+                      <Image
+                        source={MILO_AVATAR}
+                        style={{ width: 62, height: 62, borderRadius: 31 }}
+                        contentFit="cover"
+                      />
                     </View>
                   </LinearGradient>
                 </View>
@@ -133,17 +139,12 @@ export default function BottomNavBar({
               style={{
                 width: 52,
                 height: 52,
-                borderRadius: 16,
-                backgroundColor: isActive
-                  ? isDarkMode
-                    ? "rgba(59, 208, 210, 0.15)"
-                    : "rgba(59, 208, 210, 0.12)"
-                  : "transparent",
+                borderRadius: 14,
               }}
             >
               <Ionicons
                 name={isActive ? item.activeIcon : item.icon}
-                size={18}
+                size={24}
                 color={isActive ? activeColor : inactiveColor}
               />
             </TouchableOpacity>

@@ -1,6 +1,6 @@
 import { AnimatedParticles } from "@/components/animations/AnimatedParticles";
-import { MiloChatButton } from "@/components/chat/MiloChatButton";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
+import BottomNavBar from "@/components/home/BottomNavBar";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import HealthStatusCards from "@/components/home/HealthStatusCards";
 import HomeHeader from "@/components/home/HomeHeader";
@@ -457,14 +457,9 @@ export default function Home() {
         </GestureDetector>
 
         {/* Bottom Navigation */}
-        {/* <BottomNavBar
-          activeTab="home"
-          selectedPet={selectedPet}
-          onPetAvatarPress={() => setShowEditModal(true)}
-        /> */}
+        <BottomNavBar activeTab="home" />
 
-        {/* Milo Chat */}
-        <MiloChatButton />
+        {/* Milo Chat Modal */}
         <MiloChatModal />
 
         {/* Edit Modal */}
