@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
 
 // Typing dots animation component
@@ -102,7 +103,7 @@ export const MiloChatModal: React.FC = () => {
   const [showPetPicker, setShowPetPicker] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-
+  const { bottom } = useSafeAreaInsets();
   // Handle keyboard show/hide on iOS for pageSheet modals
   useEffect(() => {
     if (Platform.OS === "ios") {
@@ -135,7 +136,7 @@ export const MiloChatModal: React.FC = () => {
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
-    
+
     const message = inputText.trim();
     setInputText("");
     await sendMessage(message);
@@ -147,7 +148,14 @@ export const MiloChatModal: React.FC = () => {
   };
 
   const renderEmptyState = () => (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
       <View
         style={{
           width: 120,
@@ -188,7 +196,7 @@ export const MiloChatModal: React.FC = () => {
           ? `I'm ready to help with ${selectedPet.name}! Ask me anything about pet care.`
           : "Select a pet to get started"}
       </Text>
-      
+
       {!selectedPet && pets.length > 0 && (
         <TouchableOpacity
           onPress={() => setShowPetPicker(true)}
@@ -203,7 +211,9 @@ export const MiloChatModal: React.FC = () => {
             backgroundColor: theme.card,
           }}
         >
-          <Text style={{ color: theme.foreground, marginRight: 8 }}>Select pet</Text>
+          <Text style={{ color: theme.foreground, marginRight: 8 }}>
+            Select pet
+          </Text>
           <Ionicons name="chevron-down" size={16} color={theme.secondary} />
         </TouchableOpacity>
       )}
@@ -217,7 +227,13 @@ export const MiloChatModal: React.FC = () => {
       presentationStyle="pageSheet"
       onRequestClose={closeChat}
     >
-      <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.background,
+          paddingBottom: bottom,
+        }}
+      >
         {/* Header */}
         <View
           style={{
@@ -252,7 +268,13 @@ export const MiloChatModal: React.FC = () => {
               />
             </View>
             <View>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: theme.foreground }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: theme.foreground,
+                }}
+              >
                 Milo
               </Text>
               <Text style={{ fontSize: 12, color: theme.secondary }}>
@@ -357,7 +379,7 @@ export const MiloChatModal: React.FC = () => {
               data={messages}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => <ChatMessage message={item} />}
-              contentContainerStyle={{ 
+              contentContainerStyle={{
                 paddingVertical: 16,
                 paddingBottom: 20,
               }}
@@ -415,7 +437,8 @@ export const MiloChatModal: React.FC = () => {
             backgroundColor: theme.card,
             borderTopWidth: 1,
             borderTopColor: theme.background,
-            transform: Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
+            transform:
+              Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
           <TextInput
@@ -446,7 +469,10 @@ export const MiloChatModal: React.FC = () => {
               width: 44,
               height: 44,
               borderRadius: 22,
-              backgroundColor: inputText.trim() && !isLoading ? theme.primary : theme.secondary + "40",
+              backgroundColor:
+                inputText.trim() && !isLoading
+                  ? theme.primary
+                  : theme.secondary + "40",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -492,7 +518,7 @@ export const MiloChatModal: React.FC = () => {
               >
                 Select a Pet
               </Text>
-              
+
               <TouchableOpacity
                 onPress={() => handleSelectPet(null)}
                 style={{
@@ -500,7 +526,9 @@ export const MiloChatModal: React.FC = () => {
                   alignItems: "center",
                   padding: 12,
                   borderRadius: 8,
-                  backgroundColor: !selectedPet ? theme.primary + "20" : "transparent",
+                  backgroundColor: !selectedPet
+                    ? theme.primary + "20"
+                    : "transparent",
                 }}
               >
                 <Ionicons
@@ -527,7 +555,9 @@ export const MiloChatModal: React.FC = () => {
                     padding: 12,
                     borderRadius: 8,
                     backgroundColor:
-                      selectedPet?.id === pet.id ? theme.primary + "20" : "transparent",
+                      selectedPet?.id === pet.id
+                        ? theme.primary + "20"
+                        : "transparent",
                   }}
                 >
                   <View
@@ -548,7 +578,9 @@ export const MiloChatModal: React.FC = () => {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.foreground, fontWeight: "500" }}>
+                    <Text
+                      style={{ color: theme.foreground, fontWeight: "500" }}
+                    >
                       {pet.name}
                     </Text>
                     <Text style={{ color: theme.secondary, fontSize: 12 }}>
@@ -556,7 +588,11 @@ export const MiloChatModal: React.FC = () => {
                     </Text>
                   </View>
                   {selectedPet?.id === pet.id && (
-                    <Ionicons name="checkmark" size={20} color={theme.primary} />
+                    <Ionicons
+                      name="checkmark"
+                      size={20}
+                      color={theme.primary}
+                    />
                   )}
                 </TouchableOpacity>
               ))}
