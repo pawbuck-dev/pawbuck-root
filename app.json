@@ -17,6 +17,7 @@
       "usesAppleSignIn": true,
       "appleTeamId": "DLT7WMG69P"
     },
+
     "android": {
       "package": "com.pawbuck.app",
       "adaptiveIcon": {

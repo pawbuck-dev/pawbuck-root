@@ -11,6 +11,7 @@ import * as Notifications from "expo-notifications";
 import { NotificationBehavior } from "expo-notifications";
 import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
 
 Notifications.setNotificationHandler({
@@ -77,12 +78,14 @@ export default function RootLayout() {
               <PetsProvider>
                 <UserPreferencesProvider>
                   <NotificationsProvider>
-                    <Stack
-                      screenOptions={{
-                        headerShown: false,
-                        animation: "none",
-                      }}
-                    />
+                    <GestureHandlerRootView>
+                      <Stack
+                        screenOptions={{
+                          headerShown: false,
+                          animation: "none",
+                        }}
+                      />
+                    </GestureHandlerRootView>
                     <EmailApprovalModal />
                   </NotificationsProvider>
                 </UserPreferencesProvider>

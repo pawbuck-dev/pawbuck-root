@@ -2,8 +2,6 @@ import { useAuth } from "@/context/authContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
-import { fetchClinicalExams } from "@/services/clinicalExams";
-import { fetchLabResults } from "@/services/labResults";
 import { fetchMedicines } from "@/services/medicines";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
 import { linkVetToPet } from "@/services/pets";
@@ -207,9 +205,6 @@ export default function PetCard({
       setGeneratingPDF(true);
       const [vaccinations] = await Promise.all([
         getVaccinationsByPetId(pet.id),
-        fetchMedicines(pet.id),
-        fetchClinicalExams(pet.id),
-        fetchLabResults(pet.id),
       ]);
       await generateAndSharePetPassport({
         pet,
