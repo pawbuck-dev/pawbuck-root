@@ -287,24 +287,22 @@ export default function Home() {
   if (pets.length === 0) {
     return (
       <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
-        {/* Background Gradient - Only in dark mode */}
-        {isDarkMode && (
-          <>
-            <LinearGradient
-              colors={["#050D10", "#0D2B2A", "#050D10"]}
-              locations={[0, 0.5, 1]}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-              }}
-            />
-            {/* Animated Floating Particles */}
-            <AnimatedParticles />
-          </>
-        )}
+        {/* Background Gradient */}
+        <LinearGradient
+          colors={isDarkMode 
+            ? ["#050D10", "#0D2B2A", "#050D10"] 
+            : ["#3BD0D2", "#049FB0", "#3BD0D2"]}
+          locations={[0, 0.5, 1]}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        />
+        {/* Animated Floating Particles */}
+        <AnimatedParticles />
         <HomeHeader />
         <View className="flex-1 items-center justify-center px-8">
           <View
@@ -344,10 +342,9 @@ export default function Home() {
     <ChatProvider>
       <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Background Gradient - Only in dark mode */}
-        {isDarkMode && (
           <>
             <LinearGradient
-              colors={["#050D10", "#0A1B1B", "#050D10"]}
+              colors={isDarkMode ? ["#050D10", "#0A1B1B", "#050D10"] : ["#ffffff", "#E1F5F8", "#ffffff"]}
               locations={[0, 0.5, 1]}
               style={{
                 position: "absolute",
@@ -360,7 +357,6 @@ export default function Home() {
             {/* Animated Floating Particles */}
             <AnimatedParticles />
           </>
-        )}
 
         {/* Header */}
         <HomeHeader />

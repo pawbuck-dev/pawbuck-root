@@ -20,29 +20,31 @@ export default function HealthRecordsSection({ petId }: HealthRecordsSectionProp
   const { theme } = useTheme();
   const router = useRouter();
 
+  const iconColor = "hsl(215, 20%, 55%)";
+
   const records: RecordItem[] = [
     {
       id: "vaccines",
       label: "Vaccines",
-      icon: <MaterialCommunityIcons name="needle" size={26} color={theme.foreground} />,
+      icon: <MaterialCommunityIcons name="needle" size={26} color={iconColor} />,
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
     },
     {
       id: "meds",
       label: "Meds",
-      icon: <MaterialCommunityIcons name="pill" size={26} color={theme.foreground} />,
+      icon: <MaterialCommunityIcons name="pill" size={26} color={iconColor} />,
       route: `/(home)/health-record/${petId}/(tabs)/medications`,
     },
     {
       id: "exams",
       label: "Exams",
-      icon: <Ionicons name="clipboard" size={26} color={theme.foreground} />,
+      icon: <Ionicons name="clipboard" size={26} color={iconColor} />,
       route: `/(home)/health-record/${petId}/(tabs)/exams`,
     },
     {
       id: "lab",
       label: "Lab Results",
-      icon: <Ionicons name="flask" size={26} color={theme.foreground} />,
+      icon: <Ionicons name="flask" size={26} color={iconColor} />,
       route: `/(home)/health-record/${petId}/(tabs)/lab-results`,
     },
   ];

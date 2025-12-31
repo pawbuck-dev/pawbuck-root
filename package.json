@@ -17,6 +17,7 @@
     "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local"
   },
   "dependencies": {
+    "@expo-google-fonts/outfit": "^0.4.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "^8.5.0",

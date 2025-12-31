@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 // Configuration
-const PARTICLE_COUNT = 10;
+const PARTICLE_COUNT = 20;
 const PARTICLE_COLOR = "#4FD1C5";
 const MIN_SIZE = 2;
 const MAX_SIZE = 4;
