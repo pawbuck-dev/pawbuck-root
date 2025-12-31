@@ -231,7 +231,7 @@ export const MiloChatModal: React.FC = () => {
         style={{
           flex: 1,
           backgroundColor: theme.background,
-          paddingBottom: bottom,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
       >
         {/* Header */}

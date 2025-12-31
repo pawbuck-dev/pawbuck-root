@@ -1,6 +1,6 @@
 import { useTheme } from "@/context/themeContext";
 import { Slot } from "expo-router";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeLayout() {
@@ -11,7 +11,7 @@ export default function HomeLayout() {
       className="flex-1"
       style={{
         backgroundColor: theme.background,
-        paddingBottom: bottom,
+        paddingBottom: Platform.OS === "android" ? bottom : 0,
       }}
     >
       <Slot />
