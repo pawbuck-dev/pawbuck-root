@@ -1,6 +1,7 @@
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
@@ -24,12 +25,13 @@ export default function BottomNavBar({
   selectedPet,
   onPetAvatarPress,
 }: BottomNavBarProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const router = useRouter();
 
   const navItems: NavItem[] = [
     { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
-    { id: "records", icon: "document-text-outline", activeIcon: "document-text" },
+    { id: "records", icon: "clipboard-outline", activeIcon: "clipboard" },
     { id: "pet", icon: "paw-outline", activeIcon: "paw" }, // Center pet avatar
     { id: "community", icon: "people-outline", activeIcon: "people" },
     { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
@@ -45,21 +47,83 @@ export default function BottomNavBar({
     }
   };
 
-  return (
-    <View
-      className="flex-row items-center justify-around py-3 px-4"
-      style={{
-        backgroundColor: theme.card,
-        borderTopWidth: 1,
-        borderTopColor: theme.border,
-      }}
-    >
-      {navItems.map((item) => {
-        const isActive = item.id === activeTab;
-        const isPetCenter = item.id === "pet";
+  const activeColor = "#3BD0D2";
+  const inactiveColor = isDarkMode ? "hsl(215, 20%, 45%)" : "hsl(215, 20%, 55%)";
 
-        if (isPetCenter) {
-          // Center Pet Avatar
+  return (
+    <View className="px-4 pb-6 pt-2">
+      <View
+        className="flex-row items-center justify-around rounded-3xl overflow-hidden"
+        style={{
+          backgroundColor: theme.card,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+          height: 60,
+          paddingHorizontal: 16,
+          marginBottom: 16,
+        }}
+      >
+        {navItems.map((item) => {
+          const isActive = item.id === activeTab;
+          const isPetCenter = item.id === "pet";
+
+          if (isPetCenter) {
+            // Center Pet Avatar - elevated above the bar
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => handleNavPress(item)}
+                activeOpacity={0.8}
+                className="items-center justify-center"
+                style={{
+                  marginTop: -28,
+                }}
+              >
+                {/* Outer glow ring */}
+                <View
+                  className="w-[72px] h-[72px] rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor: theme.card,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 12,
+                    elevation: 8,
+                  }}
+                >
+                  {/* Border ring with gradient effect */}
+                  <LinearGradient
+                    colors={["#3BD0D2", "#2BA8AA", "#3BD0D2"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="w-[68px] h-[68px] rounded-full items-center justify-center p-[3px]"
+                  >
+                    <View
+                      className="w-full h-full rounded-full items-center justify-center overflow-hidden"
+                      style={{
+                        backgroundColor: theme.card,
+                      }}
+                    >
+                      {selectedPet?.photo_url ? (
+                        <PrivateImage
+                          bucketName="pets"
+                          filePath={selectedPet.photo_url}
+                          className="w-full h-full rounded-full"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Ionicons name="paw" size={28} color={activeColor} />
+                      )}
+                    </View>
+                  </LinearGradient>
+                </View>
+              </TouchableOpacity>
+            );
+          }
+
           return (
             <TouchableOpacity
               key={item.id}
@@ -67,47 +131,25 @@ export default function BottomNavBar({
               activeOpacity={0.7}
               className="items-center justify-center"
               style={{
-                marginTop: -30, // Float above the nav bar
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                backgroundColor: isActive
+                  ? isDarkMode
+                    ? "rgba(59, 208, 210, 0.15)"
+                    : "rgba(59, 208, 210, 0.12)"
+                  : "transparent",
               }}
             >
-              <View
-                className="w-16 h-16 rounded-full items-center justify-center overflow-hidden"
-                style={{
-                  backgroundColor: theme.card,
-                  borderWidth: 3,
-                  borderColor: theme.primary,
-                }}
-              >
-                {selectedPet?.photo_url ? (
-                  <PrivateImage
-                    bucketName="pets"
-                    filePath={selectedPet.photo_url}
-                    className="w-14 h-14 rounded-full"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Ionicons name="paw" size={28} color={theme.primary} />
-                )}
-              </View>
+              <Ionicons
+                name={isActive ? item.activeIcon : item.icon}
+                size={18}
+                color={isActive ? activeColor : inactiveColor}
+              />
             </TouchableOpacity>
           );
-        }
-
-        return (
-          <TouchableOpacity
-            key={item.id}
-            onPress={() => handleNavPress(item)}
-            activeOpacity={0.7}
-            className="items-center justify-center w-12 h-12"
-          >
-            <Ionicons
-              name={isActive ? item.activeIcon : item.icon}
-              size={24}
-              color={isActive ? theme.primary : theme.secondary}
-            />
-          </TouchableOpacity>
-        );
-      })}
+        })}
+      </View>
     </View>
   );
 }
