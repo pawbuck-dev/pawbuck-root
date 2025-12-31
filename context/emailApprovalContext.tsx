@@ -24,6 +24,8 @@ interface EmailApprovalContextType {
   isProcessing: boolean;
   /** Number of remaining pending approvals */
   pendingCount: number;
+  /** All pending approvals */
+  pendingApprovals: PendingApprovalWithPet[];
   /** Approve the current email */
   handleApprove: () => Promise<void>;
   /** Reject the current email */
@@ -196,6 +198,7 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
         isModalVisible,
         isProcessing,
         pendingCount,
+        pendingApprovals,
         handleApprove,
         handleReject,
         refreshPendingApprovals,
