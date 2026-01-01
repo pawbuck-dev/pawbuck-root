@@ -1,3 +1,4 @@
+import BottomNavBar from "@/components/home/BottomNavBar";
 import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import { PetEditModal } from "@/components/home/PetEditModal";
@@ -5,6 +6,7 @@ import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import PetInformationCard from "@/components/profile/PetInformationCard";
 import { useAuth } from "@/context/authContext";
+import { ChatProvider } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
@@ -402,7 +404,8 @@ export default function Settings() {
 
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <ChatProvider>
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
       {/* Header */}
       <View className="pt-12 pb-6 px-6">
         <View className="flex-row justify-between items-center">
@@ -712,9 +715,9 @@ export default function Settings() {
                 </Text>
                 <Text className="text-sm mt-0.5" style={{ color: theme.secondary }}>
                   Transfer {pets[0]?.name || "pet"} to a new owner
-              </Text>
+                </Text>
+              </View>
             </View>
-          </View>
             <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
           </TouchableOpacity>
         )}
@@ -902,7 +905,11 @@ export default function Settings() {
           }
         />
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="profile" />
     </View>
+    </ChatProvider>
   );
 }
 

@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@aws-sdk/client-ses": "npm:@aws-sdk/client-ses@3"
+  }
+}
+

@@ -560,6 +560,7 @@ export default function Home() {
               </View>
             )}
 
+
             {/* My Care Team Section */}
             {selectedPet && (
               <View className="mb-8">
@@ -569,6 +570,8 @@ export default function Home() {
                   onAddMember={handleAddCareTeamMember}
                   onEditMember={handleEditCareTeamMember}
                   petId={selectedPet.id}
+                  showOnlyWhitelisted={true}
+                  readOnly={true}
                 />
               </View>
             )}

@@ -1,6 +1,8 @@
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
+import HomeHeader from "@/components/home/HomeHeader";
 import MessageListItem from "@/components/messages/MessageListItem";
+import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
@@ -10,6 +12,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -32,6 +35,7 @@ export default function MessagesScreen() {
   const router = useRouter();
   const { pendingApprovals, setCurrentApproval } = useEmailApproval();
   const [searchQuery, setSearchQuery] = useState("");
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
 
   // Categorize messages
   const categorizedMessages = useMemo<CategorizedMessages>(() => {
@@ -204,62 +208,71 @@ export default function MessagesScreen() {
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
-        <View
-          className="px-4 pt-12 pb-4"
-          style={{ backgroundColor: theme.card, borderBottomWidth: 1, borderBottomColor: theme.border }}
-        >
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center flex-1">
-            <View
-              className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-              style={{ backgroundColor: `${theme.primary}15` }}
-            >
-              <Ionicons name="mail-outline" size={20} color={theme.primary} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-2xl font-bold"
-                style={{ color: theme.foreground }}
+        <HomeHeader />
+
+        {/* Messages Header */}
+        <View className="px-4 pb-4">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center flex-1">
+              <View
+                className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                style={{ backgroundColor: `${theme.primary}15` }}
               >
-                Messages
-              </Text>
-              {totalUnread > 0 && (
+                <Ionicons name="mail-outline" size={20} color={theme.primary} />
+              </View>
+              <View className="flex-1">
                 <Text
-                  className="text-sm mt-0.5"
-                  style={{ color: theme.secondary }}
+                  className="text-2xl font-bold"
+                  style={{ color: theme.foreground }}
                 >
-                  {totalUnread} unread
+                  Messages
                 </Text>
-              )}
+                {totalUnread > 0 && (
+                  <Text
+                    className="text-sm mt-0.5"
+                    style={{ color: theme.secondary }}
+                  >
+                    {totalUnread} unread
+                  </Text>
+                )}
+              </View>
             </View>
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+              onPress={() => setShowNewMessageModal(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={24} color={theme.foreground} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: theme.background }}
-            onPress={() => {
-              // TODO: Implement add message functionality
-            }}
-          >
-            <Ionicons name="add" size={24} color={theme.foreground} />
-          </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <View
-          className="flex-row items-center px-4 py-3 rounded-2xl"
-          style={{ backgroundColor: theme.background }}
-        >
-          <Ionicons name="search" size={20} color={theme.secondary} style={{ marginRight: 8 }} />
-          <TextInput
-            className="flex-1 text-base"
-            style={{ color: theme.foreground }}
-            placeholder="Search conversations..."
-            placeholderTextColor={theme.secondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+        <View className="px-4 pb-4">
+          <View
+            className="flex-row items-center px-4 py-3 rounded-2xl"
+            style={{
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <Ionicons name="search-outline" size={20} color={theme.secondary} style={{ marginRight: 8 }} />
+            <TextInput
+              className="flex-1 text-base"
+              style={{ color: theme.foreground }}
+              placeholder="Search conversations..."
+              placeholderTextColor={theme.secondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
         </View>
-      </View>
 
       {/* Messages List */}
       <ScrollView
@@ -340,9 +353,43 @@ export default function MessagesScreen() {
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="messages" />
 
-        {/* Email Approval Modal */}
-        <EmailApprovalModal />
-      </View>
+      {/* Email Approval Modal */}
+      <EmailApprovalModal />
+
+      {/* New Message Modal */}
+      <NewMessageModal
+        visible={showNewMessageModal}
+        onClose={() => setShowNewMessageModal(false)}
+        onSend={async (messageData) => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+              Alert.alert("Error", "You must be logged in to send messages");
+              return;
+            }
+
+            const { data, error } = await supabase.functions.invoke("send-message", {
+              body: messageData,
+            });
+
+            if (error) {
+              throw error;
+            }
+
+            Alert.alert("Success", "Message sent successfully!");
+            setShowNewMessageModal(false);
+          } catch (error) {
+            console.error("Error sending message:", error);
+            Alert.alert(
+              "Error",
+              error instanceof Error
+                ? error.message
+                : "Failed to send message. Please try again."
+            );
+          }
+        }}
+      />
+    </View>
     </ChatProvider>
   );
 }

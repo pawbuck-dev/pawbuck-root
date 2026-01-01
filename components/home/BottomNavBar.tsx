@@ -34,7 +34,7 @@ export default function BottomNavBar({
     { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
     { id: "records", icon: "clipboard-outline", activeIcon: "clipboard" },
     { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
-    { id: "messages", icon: "chatbox-outline", activeIcon: "chatbox", route: "/(home)/messages" },
+    { id: "messages", icon: "mail-outline", activeIcon: "mail", route: "/(home)/messages" },
     { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
   ];
 
