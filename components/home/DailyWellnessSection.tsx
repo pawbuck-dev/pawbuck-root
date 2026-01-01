@@ -6,10 +6,12 @@ import moment from "moment";
 import React, { useMemo } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import { getVaccinationAlertPeriod, calculateVaccinationProgress } from "@/utils/vaccinationAlertPeriods";
 
 type DailyWellnessSectionProps = {
   petId: string;
   vaccinations: Tables<"vaccinations">[];
+  petCountry?: string | null;
 };
 
 // Circular progress indicator component
@@ -17,12 +19,14 @@ const VaccinationProgressCircle = ({
   progress,
   color,
   iconColor,
+  daysLeft,
   size = 80,
   strokeWidth = 8,
 }: {
   progress: number; // 0-100
   color: string;
   iconColor: string;
+  daysLeft: number;
   size?: number;
   strokeWidth?: number;
 }) => {
@@ -55,9 +59,17 @@ const VaccinationProgressCircle = ({
           strokeLinecap="round"
         />
       </Svg>
-      {/* Icon in center */}
+      {/* Number in center */}
       <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-        <MaterialCommunityIcons name="needle" size={32} color={iconColor} />
+        <Text
+          style={{
+            fontSize: size * 0.35,
+            fontWeight: "bold",
+            color: iconColor,
+          }}
+        >
+          {daysLeft}
+        </Text>
       </View>
     </View>
   );
@@ -66,6 +78,7 @@ const VaccinationProgressCircle = ({
 export default function DailyWellnessSection({
   petId,
   vaccinations,
+  petCountry,
 }: DailyWellnessSectionProps) {
   const { theme, mode } = useTheme();
   const router = useRouter();
@@ -77,14 +90,19 @@ export default function DailyWellnessSection({
       .filter((vac) => {
         if (!vac.next_due_date) return false;
         const dueDate = moment(vac.next_due_date);
-        // Include vaccinations due in next 365 days
-        return dueDate.isAfter(now) && dueDate.diff(now, "days") <= 365;
+        // Get alert period for this vaccine type
+        const alertPeriodMonths = getVaccinationAlertPeriod(vac.name);
+        const alertPeriodDays = alertPeriodMonths * 30; // Approximate month as 30 days
+        // Include vaccinations due within their alert period
+        return dueDate.isAfter(now) && dueDate.diff(now, "days") <= alertPeriodDays;
       })
       .map((vac) => {
         const dueDate = moment(vac.next_due_date!);
         const daysLeft = dueDate.diff(now, "days");
-        // Progress: 0% = 365 days away, 100% = due today/overdue
-        const progress = Math.max(0, Math.min(100, ((365 - daysLeft) / 365) * 100));
+        // Get alert period for this vaccine type (considering regional requirements)
+        const alertPeriodMonths = getVaccinationAlertPeriod(vac.name, petCountry);
+        // Calculate progress based on the specific alert period for this vaccine
+        const progress = calculateVaccinationProgress(daysLeft, alertPeriodMonths);
         return { ...vac, daysLeft, progress };
       })
       .sort((a, b) => a.daysLeft - b.daysLeft)
@@ -133,6 +151,7 @@ export default function DailyWellnessSection({
                     progress={vac.progress}
                     color={color}
                     iconColor={color}
+                    daysLeft={vac.daysLeft}
                     size={80}
                   />
                   <Text
@@ -149,7 +168,9 @@ export default function DailyWellnessSection({
                       ? "Due today!"
                       : vac.daysLeft === 1
                       ? "1d left!"
-                      : `${vac.daysLeft}d`}
+                      : vac.daysLeft < 30
+                      ? `${vac.daysLeft}d left!`
+                      : `${vac.daysLeft} days`}
                   </Text>
                 </TouchableOpacity>
               );

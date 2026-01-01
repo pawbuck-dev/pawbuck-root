@@ -114,6 +114,49 @@ export const linkVetToPet = async (petId: string, vetInformationId: string | nul
 };
 
 /**
+ * Transfer pet ownership to a new owner by email
+ */
+export const transferPetOwnership = async (petId: string, newOwnerEmail: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User must be authenticated to transfer pet ownership");
+  }
+
+  // Verify pet belongs to current user
+  const { data: pet, error: petError } = await supabase
+    .from("pets")
+    .select("id, user_id")
+    .eq("id", petId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (petError) throw petError;
+  if (!pet) {
+    throw new Error("Pet not found or you don't have permission to transfer it");
+  }
+
+  // Find new owner by email
+  const { data: newOwner, error: ownerError } = await supabase
+    .from("auth.users")
+    .select("id")
+    .eq("email", newOwnerEmail.toLowerCase())
+    .single();
+
+  // If not found in public view, try via admin function or RPC
+  // For now, we'll use a different approach - search via user management
+  // Note: This requires the new owner's user ID, so we might need to adjust this
+  // based on your auth setup. For now, we'll expect the caller to provide the user_id
+  throw new Error("transferPetOwnership: Please implement based on your auth system. This requires new owner's user ID.");
+
+  // Alternative implementation if you have access to user management:
+  // const { data: newOwnerId } = await supabase.rpc('get_user_id_by_email', { email: newOwnerEmail });
+  // Then update: .update({ user_id: newOwnerId }).eq("id", petId)
+};
+
+/**
  * Check if an email_id is available for use
  * @param emailId - The email ID to check (local part only, e.g., "buddy")
  * @param excludePetId - Optional pet ID to exclude from the check (for updates)

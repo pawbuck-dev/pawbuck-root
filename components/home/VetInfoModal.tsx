@@ -204,6 +204,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
+                textAlignVertical: "center",
               }}
               value={clinicName}
               onChangeText={setClinicName}
@@ -227,6 +228,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
+                textAlignVertical: "center",
               }}
               value={vetName}
               onChangeText={setVetName}
@@ -276,6 +278,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
+                textAlignVertical: "center",
               }}
               value={phone}
               onChangeText={setPhone}
@@ -299,6 +302,7 @@ export const VetInfoModal: React.FC<VetInfoModalProps> = ({
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
+                textAlignVertical: "center",
               }}
               value={email}
               onChangeText={setEmail}

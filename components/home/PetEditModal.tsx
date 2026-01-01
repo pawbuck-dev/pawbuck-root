@@ -47,6 +47,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   const [country, setCountry] = useState(pet.country);
   const [weightValue, setWeightValue] = useState(pet.weight_value?.toString() || "");
   const [weightUnit, setWeightUnit] = useState(pet.weight_unit || "kg");
+  const [color, setColor] = useState(pet.color || "");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const handleSave = async () => {
@@ -74,6 +75,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
       weight_value: parseFloat(weightValue),
       weight_unit: weightUnit,
       microchip_number: microchipNumber || null,
+      color: color.trim() || null,
     };
 
     setSaving(true);
@@ -245,6 +247,28 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             </TouchableOpacity>
           </View>
 
+          {/* Color (Editable) */}
+          <View className="mb-4">
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              Color
+            </Text>
+            <TextInput
+              className="w-full rounded-xl py-4 px-4 text-start"
+              style={{
+                backgroundColor: theme.card,
+                color: theme.foreground,
+              }}
+              value={color}
+              onChangeText={setColor}
+              placeholder="e.g., Golden, Black, Brown"
+              placeholderTextColor={theme.secondary}
+              editable={!saving && !deleting}
+            />
+          </View>
+
           {/* Weight (Editable) */}
           <View className="mb-4">
             <Text
@@ -259,6 +283,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
                 style={{
                   backgroundColor: theme.card,
                   color: theme.foreground,
+                  textAlignVertical: "center",
                 }}
                 value={weightValue}
                 onChangeText={setWeightValue}

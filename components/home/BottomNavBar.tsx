@@ -3,7 +3,7 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
 
@@ -27,13 +27,14 @@ export default function BottomNavBar({
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const router = useRouter();
+  const pathname = usePathname();
   const { openChat } = useChat();
 
   const navItems: NavItem[] = [
     { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
     { id: "records", icon: "clipboard-outline", activeIcon: "clipboard" },
     { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
-    { id: "community", icon: "people-outline", activeIcon: "people" },
+    { id: "messages", icon: "chatbox-outline", activeIcon: "chatbox", route: "/(home)/messages" },
     { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
   ];
 
@@ -66,7 +67,7 @@ export default function BottomNavBar({
         }}
       >
         {navItems.map((item) => {
-          const isActive = item.id === activeTab;
+          const isActive = item.id === activeTab || (item.route && pathname === item.route);
           const isMiloCenter = item.id === "milo";
 
           if (isMiloCenter) {
