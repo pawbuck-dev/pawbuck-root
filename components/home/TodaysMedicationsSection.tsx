@@ -27,6 +27,44 @@ export default function TodaysMedicationsSection({
   const { theme, mode } = useTheme();
   const queryClient = useQueryClient();
 
+  // Helper to get all doses scheduled for today
+  const getDosesForToday = (
+    med: MedicineData,
+    today: moment.Moment,
+    tomorrow: moment.Moment,
+    now: moment.Moment
+  ): Date[] => {
+    const doses: Date[] = [];
+    const nextDose = getNextMedicationDose(med);
+    
+    if (!nextDose) return doses;
+
+    // For daily medications, check all scheduled times today
+    if (med.frequency === "Daily" && med.schedules && med.schedules.length > 0) {
+      med.schedules.forEach((schedule) => {
+        const doseTime = moment(today).set({
+          hour: parseInt(schedule.time.split(":")[0]),
+          minute: parseInt(schedule.time.split(":")[1]),
+          second: 0,
+          millisecond: 0,
+        });
+        
+        // Include doses that haven't passed yet, or include all if time has passed (user might be catching up)
+        if (doseTime.isAfter(today) && doseTime.isBefore(tomorrow)) {
+          doses.push(doseTime.toDate());
+        }
+      });
+    } else {
+      // For other frequencies, use the next dose if it's today
+      const nextDoseMoment = moment(nextDose);
+      if (nextDoseMoment.isSame(today, "day")) {
+        doses.push(nextDose);
+      }
+    }
+
+    return doses;
+  };
+
   // Fetch today's medication doses
   const { data: todaysDoses = [], isLoading } = useQuery({
     queryKey: ["medication-doses", petId, moment().format("YYYY-MM-DD")],
@@ -93,44 +131,6 @@ export default function TodaysMedicationsSection({
 
   const handleMarkComplete = (medicationId: string, scheduledTime: Date) => {
     markCompleteMutation.mutate({ medicationId, scheduledTime });
-  };
-
-  // Helper to get all doses scheduled for today
-  const getDosesForToday = (
-    med: MedicineData,
-    today: moment.Moment,
-    tomorrow: moment.Moment,
-    now: moment.Moment
-  ): Date[] => {
-    const doses: Date[] = [];
-    const nextDose = getNextMedicationDose(med);
-    
-    if (!nextDose) return doses;
-
-    // For daily medications, check all scheduled times today
-    if (med.frequency === "Daily" && med.schedules && med.schedules.length > 0) {
-      med.schedules.forEach((schedule) => {
-        const doseTime = moment(today).set({
-          hour: parseInt(schedule.time.split(":")[0]),
-          minute: parseInt(schedule.time.split(":")[1]),
-          second: 0,
-          millisecond: 0,
-        });
-        
-        // Include doses that haven't passed yet, or include all if time has passed (user might be catching up)
-        if (doseTime.isAfter(today) && doseTime.isBefore(tomorrow)) {
-          doses.push(doseTime.toDate());
-        }
-      });
-    } else {
-      // For other frequencies, use the next dose if it's today
-      const nextDoseMoment = moment(nextDose);
-      if (nextDoseMoment.isSame(today, "day")) {
-        doses.push(nextDose);
-      }
-    }
-
-    return doses;
   };
 
   if (isLoading) {

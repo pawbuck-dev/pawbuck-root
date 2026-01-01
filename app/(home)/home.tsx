@@ -404,6 +404,16 @@ export default function Home() {
             </TouchableOpacity>
           )}
 
+          {/* Daily Wellness Section */}
+          {selectedPet && (
+            <View className="mb-6">
+              <DailyWellnessSection
+                petId={selectedPet.id}
+                vaccinations={vaccinations}
+              />
+            </View>
+          )}
+
           {/* Today's Medications Section */}
           {selectedPet && medicines.length > 0 && (
             <View className="mb-6">
@@ -418,17 +428,6 @@ export default function Home() {
           {selectedPet && (
             <View className="mb-6">
               <DailyIntakeSection petId={selectedPet.id} />
-            </View>
-          )}
-
-          {/* Daily Wellness Section */}
-          {selectedPet && (
-            <View className="mb-6">
-              <DailyWellnessSection
-                petId={selectedPet.id}
-                vaccinations={vaccinations}
-                medicines={medicines}
-              />
             </View>
           )}
 
