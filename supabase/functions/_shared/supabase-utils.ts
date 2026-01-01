@@ -147,11 +147,6 @@ export async function getFileAsBase64(
 }
 
 /**
- * @deprecated Use getFileAsBase64 instead
- */
-export const getImageAsBase64 = getFileAsBase64;
-
-/**
  * Get MIME type from file extension
  * @param path - The file path
  * @returns MIME type string

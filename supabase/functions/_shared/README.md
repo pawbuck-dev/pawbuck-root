@@ -9,12 +9,14 @@ This folder contains shared utilities that can be imported and used across all S
 Provides utilities for working with Supabase in Edge Functions:
 
 - **`createSupabaseClient()`** - Creates a Supabase client with service role key
-- **`getSignedImageUrl(bucket, path, expiresIn?)`** - Get a signed URL for a single image
-- **`getSignedImageUrls(bucket, paths, expiresIn?)`** - Get signed URLs for multiple images
-- **`downloadImage(bucket, path)`** - Download an image as ArrayBuffer
-- **`getPublicImageUrl(bucket, path)`** - Get public URL (for public buckets only)
+- **`downloadFile(bucket, path)`** - Download a file as ArrayBuffer
+- **`getSignedFileUrl(bucket, path, expiresIn?)`** - Get a signed URL for a single file
+- **`getSignedFileUrls(bucket, paths, expiresIn?)`** - Get signed URLs for multiple files
+- **`getPublicFileUrl(bucket, path)`** - Get public URL (for public buckets only)
 - **`arrayBufferToBase64(buffer)`** - Convert ArrayBuffer to Base64
-- **`getImageAsBase64DataUrl(bucket, path, mimeType?)`** - Get image as base64 data URL
+- **`getFileAsBase64(bucket, path)`** - Get file as base64 string
+- **`getFileAsBase64DataUrl(bucket, path, mimeType?)`** - Get file as base64 data URL
+- **`getMimeTypeFromPath(path)`** - Get MIME type from file extension
 
 ### `cors.ts`
 
@@ -80,22 +82,29 @@ Deno.serve(async (req) => {
 });
 ```
 
-### Working with Images
+### Working with Files
 
 ```typescript
 import {
-  getImageAsBase64DataUrl,
-  downloadImage,
+  getFileAsBase64DataUrl,
+  downloadFile,
+  getFileAsBase64,
 } from "../_shared/supabase-utils.ts";
 
-// Get image as base64 for Vision/Gemini APIs
-const base64Image = await getImageAsBase64DataUrl(
+// Get file as base64 data URL for Vision/Gemini APIs
+const base64Image = await getFileAsBase64DataUrl(
   "vaccination-images",
   "pet-123/vaccine-cert.jpg"
 );
 
-// Or download raw image data
-const imageBuffer = await downloadImage(
+// Or get file as base64 string
+const base64String = await getFileAsBase64(
+  "vaccination-images",
+  "pet-123/vaccine-cert.jpg"
+);
+
+// Or download raw file data
+const fileBuffer = await downloadFile(
   "vaccination-images",
   "pet-123/vaccine-cert.jpg"
 );

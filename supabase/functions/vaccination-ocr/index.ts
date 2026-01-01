@@ -10,46 +10,6 @@ import {
   getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
 
-/* ============================================================================
- * ALTERNATIVE IMPLEMENTATION: TWO-STEP APPROACH (LEGACY)
- * ============================================================================
- * 
- * This commented code shows the previous two-step implementation using
- * Google Vision API for text extraction + Gemini for parsing.
- * 
- * The two-step approach:
- * 1. Use Google Vision API to extract text from image (DOCUMENT_TEXT_DETECTION)
- * 2. Pass extracted text to Gemini for parsing into structured data
- * 
- * To use this approach:
- * 1. Add GOOGLE_VISION_API_KEY to environment variables
- * 2. Check both API keys: if (!GOOGLE_VISION_API_KEY || !GOOGLE_GEMINI_API_KEY)
- * 3. Add Vision API text extraction step before Gemini
- * 4. Change Gemini prompt to use extractedText instead of analyzing image directly
- * 
- * Vision API Call Example:
- * 
- * const visionResponse = await fetch(
- *   `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
- *   {
- *     method: "POST",
- *     headers: { "Content-Type": "application/json" },
- *     body: JSON.stringify({
- *       requests: [{
- *         image: { content: base64Image },
- *         features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
- *       }],
- *     }),
- *   }
- * );
- * 
- * const visionData = await visionResponse.json();
- * const extractedText = visionData.responses?.[0]?.fullTextAnnotation?.text;
- * 
- * Then pass extractedText to Gemini with modified prompt.
- * 
- * ============================================================================ */
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return handleCorsRequest();

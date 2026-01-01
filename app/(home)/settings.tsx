@@ -398,11 +398,6 @@ export default function Settings() {
     await deleteCareTeamMemberMutation.mutateAsync(memberId);
   };
 
-  // Extract display name and business from user profile or metadata
-  const displayName = userProfile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
-  const businessName = user?.user_metadata?.business || user?.user_metadata?.company || null;
-
-
   return (
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
