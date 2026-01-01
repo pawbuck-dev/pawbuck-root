@@ -1,8 +1,10 @@
 import { AnimatedParticles } from "@/components/animations/AnimatedParticles";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
+import DailyIntakeSection from "@/components/home/DailyIntakeSection";
+import DailyWellnessSection from "@/components/home/DailyWellnessSection";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
-import HealthStatusCards from "@/components/home/HealthStatusCards";
+import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
 import HomeHeader from "@/components/home/HomeHeader";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import { PetEditModal } from "@/components/home/PetEditModal";
@@ -23,8 +25,6 @@ import {
   getVetInformation,
   updateVetInformation,
 } from "@/services/vetInformation";
-import { getNearestMedicationDose } from "@/utils/medication";
-import { getNearestUpcomingVaccination } from "@/utils/vaccinationHelpers";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -103,25 +103,6 @@ export default function Home() {
     enabled: !!selectedPet?.vet_information_id,
   });
 
-  // Compute health status
-  const healthStatus = useMemo(() => {
-    const nearestVaccination = getNearestUpcomingVaccination(vaccinations);
-    const nearestMedication = getNearestMedicationDose(medicines);
-
-    // Vaccine status
-    let vaccineStatus = "None";
-    if (vaccinations.length > 0) {
-      vaccineStatus = nearestVaccination ? "Due soon" : "Up to date";
-    }
-
-    // Meds status
-    let medsStatus = "None active";
-    if (medicines.length > 0) {
-      medsStatus = nearestMedication ? `${medicines.length} active` : "None active";
-    }
-
-    return { vaccineStatus, medsStatus };
-  }, [vaccinations, medicines]);
 
   // Mutations for vet info
   const createVetMutation = useMutation({
@@ -423,13 +404,30 @@ export default function Home() {
             </TouchableOpacity>
           )}
 
-          {/* Health Status Cards */}
+          {/* Today's Medications Section */}
+          {selectedPet && medicines.length > 0 && (
+            <View className="mb-6">
+              <TodaysMedicationsSection
+                petId={selectedPet.id}
+                medicines={medicines}
+              />
+            </View>
+          )}
+
+          {/* Daily Intake Section */}
           {selectedPet && (
             <View className="mb-6">
-              <HealthStatusCards
+              <DailyIntakeSection petId={selectedPet.id} />
+            </View>
+          )}
+
+          {/* Daily Wellness Section */}
+          {selectedPet && (
+            <View className="mb-6">
+              <DailyWellnessSection
                 petId={selectedPet.id}
-                vaccineStatus={healthStatus.vaccineStatus}
-                medsStatus={healthStatus.medsStatus}
+                vaccinations={vaccinations}
+                medicines={medicines}
               />
             </View>
           )}

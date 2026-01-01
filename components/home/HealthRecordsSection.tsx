@@ -17,34 +17,41 @@ type RecordItem = {
 };
 
 export default function HealthRecordsSection({ petId }: HealthRecordsSectionProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const router = useRouter();
 
-  const iconColor = "hsl(215, 20%, 55%)";
+  // Icon colors matching the screenshot:
+  // Exams: Teal (#3BD0D2), Lab Results: Purple (#A855F7)
+  const iconColors = {
+    vaccines: mode === "dark" ? "#3BD0D2" : "#2BA3A3", // Teal for vaccines
+    meds: "#hsl(25, 90%, 55%)", // Teal for meds
+    exams: "#hsl(200, 85%, 55%)", // Teal for exams (stethoscope) - matches screenshot
+    lab: "#A855F7", // Purple for lab results (flask) - matches screenshot
+  };
 
   const records: RecordItem[] = [
     {
       id: "vaccines",
       label: "Vaccines",
-      icon: <MaterialCommunityIcons name="needle" size={26} color={iconColor} />,
+      icon: <MaterialCommunityIcons name="needle" size={26} color={iconColors.vaccines} />,
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
     },
     {
       id: "meds",
       label: "Meds",
-      icon: <MaterialCommunityIcons name="pill" size={26} color={iconColor} />,
+      icon: <MaterialCommunityIcons name="pill" size={26} color={iconColors.meds} />,
       route: `/(home)/health-record/${petId}/(tabs)/medications`,
     },
     {
       id: "exams",
       label: "Exams",
-      icon: <Ionicons name="clipboard" size={26} color={iconColor} />,
+      icon: <MaterialCommunityIcons name="stethoscope" size={26} color={iconColors.exams} />, // Teal stethoscope icon
       route: `/(home)/health-record/${petId}/(tabs)/exams`,
     },
     {
       id: "lab",
       label: "Lab Results",
-      icon: <Ionicons name="flask" size={26} color={iconColor} />,
+      icon: <Ionicons name="flask" size={26} color={iconColors.lab} />, // Purple flask icon
       route: `/(home)/health-record/${petId}/(tabs)/lab-results`,
     },
   ];
