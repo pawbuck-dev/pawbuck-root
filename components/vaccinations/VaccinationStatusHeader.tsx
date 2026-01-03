@@ -62,7 +62,7 @@ export const VaccinationStatusHeader: React.FC<VaccinationStatusHeaderProps> = (
 
   return (
     <View
-      className="mx-4 mb-4 rounded-2xl overflow-hidden"
+      className="rounded-2xl overflow-hidden"
       style={{ backgroundColor: theme.card }}
     >
       {/* Main Status Section */}

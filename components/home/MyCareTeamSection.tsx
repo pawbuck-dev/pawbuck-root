@@ -21,14 +21,14 @@ type MyCareTeamSectionProps = {
 };
 
 const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap => {
-  if (!type) return "medical-outline";
+  if (!type) return "stethoscope";
   
   const icons: Record<CareTeamMemberType, keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap> = {
-    veterinarian: "medical-outline",
-    dog_walker: "walk-outline",
-    groomer: "cut-outline",
-    pet_sitter: "home-outline",
-    boarding: "business-outline",
+    veterinarian: "stethoscope", // MaterialCommunityIcons
+    dog_walker: "paw", // MaterialCommunityIcons (closest to footprints)
+    groomer: "content-cut", // MaterialCommunityIcons (scissors)
+    pet_sitter: "heart", // MaterialCommunityIcons
+    boarding: "home", // MaterialCommunityIcons
   };
   return icons[type];
 };
@@ -47,11 +47,10 @@ const getTypeLabel = (type: CareTeamMemberType | null): string => {
 };
 
 const getIconType = (type: CareTeamMemberType | null): "ionicons" | "material" => {
-  if (!type) return "ionicons";
+  if (!type) return "material";
   
-  // Material icons for some types
-  if (type === "groomer") return "material";
-  return "ionicons";
+  // All care team member icons use MaterialCommunityIcons
+  return "material";
 };
 
 export default function MyCareTeamSection({
@@ -185,17 +184,8 @@ export default function MyCareTeamSection({
     const email = member.email;
     const isMemberWhitelisted = isWhitelisted(email);
 
-    // Get appropriate icon based on type
-    let displayIcon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap = icon;
-    if (type === "dog_walker") {
-      displayIcon = "people-outline"; // Two overlapping circles
-    } else if (type === "groomer") {
-      displayIcon = "cut-outline";
-    } else if (type === "pet_sitter") {
-      displayIcon = "home-outline";
-    } else if (type === "veterinarian") {
-      displayIcon = "medical-outline";
-    }
+    // Use the icon from getTypeIcon (already returns MaterialCommunityIcons icon names)
+    const displayIcon = icon;
 
     return (
       <TouchableOpacity
@@ -464,7 +454,7 @@ export default function MyCareTeamSection({
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: `${theme.primary}20` }}
             >
-              <Ionicons name="medical-outline" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="stethoscope" size={24} color={theme.primary} />
             </View>
             <View className="flex-1">
               <Text
@@ -496,7 +486,7 @@ export default function MyCareTeamSection({
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: `${theme.primary}20` }}
             >
-              <Ionicons name="walk-outline" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="paw" size={24} color={theme.primary} />
             </View>
             <View className="flex-1">
               <Text
@@ -560,7 +550,7 @@ export default function MyCareTeamSection({
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: `${theme.primary}20` }}
             >
-              <Ionicons name="home-outline" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="heart" size={24} color={theme.primary} />
             </View>
             <View className="flex-1">
               <Text
@@ -592,7 +582,7 @@ export default function MyCareTeamSection({
                 className="w-12 h-12 rounded-full items-center justify-center mr-3"
                 style={{ backgroundColor: `${theme.primary}20` }}
               >
-                <Ionicons name="business-outline" size={24} color={theme.primary} />
+                <MaterialCommunityIcons name="home" size={24} color={theme.primary} />
               </View>
               <View className="flex-1">
                 <Text

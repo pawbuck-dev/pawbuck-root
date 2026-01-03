@@ -1,6 +1,5 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import { VaccinationSectionHeader } from "@/components/vaccinations/VaccinationSectionHeader";
-import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
@@ -16,16 +15,16 @@ export default function VaccinationsScreen() {
   const { theme } = useTheme();
   const { vaccinations, isLoading } = useVaccinations();
   const { pet } = useSelectedPet();
-  const { categorizedVaccinations, requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
+  const { categorizedVaccinations, isLoadingRequirements } = useVaccineCategories();
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   // Track expanded state for each section
   const [expandedSections, setExpandedSections] = useState<Record<VaccineCategory, boolean>>({
-    required: true,
-    recommended: true,
-    other: true,
+    required: false,
+    recommended: false,
+    other: false,
   });
 
   const toggleSection = (category: VaccineCategory) => {
@@ -114,9 +113,6 @@ export default function VaccinationsScreen() {
           />
         }
       >
-        {/* Vaccination Status Header */}
-        <VaccinationStatusHeader status={requiredVaccinesStatus} />
-
         {/* Vaccination Sections */}
         <View className="px-4">
           {sections.map(({ category, items }) => {

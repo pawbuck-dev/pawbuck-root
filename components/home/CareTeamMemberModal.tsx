@@ -55,13 +55,13 @@ const TYPE_OPTIONS: { value: CareTeamMemberType; label: string }[] = [
   { value: "boarding", label: "Boarder" },
 ];
 
-const getTypeIcon = (type: CareTeamMemberType): keyof typeof Ionicons.glyphMap => {
-  const icons: Record<CareTeamMemberType, keyof typeof Ionicons.glyphMap> = {
-    veterinarian: "medical-outline",
-    dog_walker: "walk-outline",
-    groomer: "cut-outline",
-    pet_sitter: "home-outline",
-    boarding: "business-outline",
+const getTypeIcon = (type: CareTeamMemberType): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const icons: Record<CareTeamMemberType, keyof typeof MaterialCommunityIcons.glyphMap> = {
+    veterinarian: "stethoscope",
+    dog_walker: "paw",
+    groomer: "content-cut",
+    pet_sitter: "heart",
+    boarding: "home",
   };
   return icons[type];
 };

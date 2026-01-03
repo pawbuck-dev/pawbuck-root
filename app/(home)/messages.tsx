@@ -9,6 +9,8 @@ import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
+import { groupThreadsByType, GroupedThreads } from "@/services/messageThreadsGrouped";
+import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -89,6 +91,26 @@ export default function MessagesScreen() {
         thread.last_message?.body.toLowerCase().includes(query)
     );
   }, [threads, searchQuery]);
+
+  // Group threads by care team member type
+  const [groupedThreads, setGroupedThreads] = React.useState<GroupedThreads>({
+    veterinarian: [],
+    dog_walker: [],
+    groomer: [],
+    pet_sitter: [],
+    boarding: [],
+    unknown: [],
+  });
+
+  React.useEffect(() => {
+    const groupThreads = async () => {
+      const grouped = await groupThreadsByType(filteredThreads);
+      setGroupedThreads(grouped);
+      console.log("[MessagesScreen] Grouped threads:", grouped);
+    };
+
+    groupThreads();
+  }, [filteredThreads]);
 
   // Categorize messages (for pending approvals view)
   const categorizedMessages = useMemo<CategorizedMessages>(() => {
@@ -437,13 +459,65 @@ export default function MessagesScreen() {
                   </TouchableOpacity>
                 </View>
               ) : (
-                filteredThreads.map((thread) => (
-                  <ThreadListItem
-                    key={thread.id}
-                    thread={thread}
-                    onPress={() => handleThreadPress(thread)}
+                <>
+                  <GroupedThreadList
+                    threads={groupedThreads.veterinarian}
+                    category="veterinarian"
+                    title="Veterinarians"
+                    icon="stethoscope"
+                    iconType="material"
+                    color="#60A5FA"
+                    onThreadPress={handleThreadPress}
                   />
-                ))
+                  <GroupedThreadList
+                    threads={groupedThreads.dog_walker}
+                    category="dog_walker"
+                    title="Dog Walkers"
+                    icon="paw"
+                    iconType="material"
+                    color="#4ADE80"
+                    onThreadPress={handleThreadPress}
+                  />
+                  <GroupedThreadList
+                    threads={groupedThreads.groomer}
+                    category="groomer"
+                    title="Groomers"
+                    icon="content-cut"
+                    iconType="material"
+                    color="#A78BFA"
+                    onThreadPress={handleThreadPress}
+                  />
+                  <GroupedThreadList
+                    threads={groupedThreads.pet_sitter}
+                    category="pet_sitter"
+                    title="Pet Sitters"
+                    icon="heart"
+                    iconType="material"
+                    color="#F472B6"
+                    onThreadPress={handleThreadPress}
+                  />
+                  <GroupedThreadList
+                    threads={groupedThreads.boarding}
+                    category="boarding"
+                    title="Boarding"
+                    icon="home"
+                    iconType="material"
+                    color="#D97706"
+                    onThreadPress={handleThreadPress}
+                  />
+                  {/* Show unknown threads if any (threads that don't match any care team member) */}
+                  {groupedThreads.unknown.length > 0 && (
+                    <GroupedThreadList
+                      threads={groupedThreads.unknown}
+                      category="veterinarian"
+                      title="Other"
+                      icon="mail-outline"
+                      iconType="ionicons"
+                      color="#9CA3AF"
+                      onThreadPress={handleThreadPress}
+                    />
+                  )}
+                </>
               )}
             </>
           ) : (
