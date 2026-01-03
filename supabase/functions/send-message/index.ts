@@ -257,10 +257,31 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error sending message:", error);
-    return errorResponse(
-      error instanceof Error ? error.message : "Internal server error",
-      500
-    );
+    
+    // Provide more specific error messages
+    let errorMessage = "Internal server error";
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      // Handle specific error cases
+      if (error.message.includes("AWS SES credentials not configured")) {
+        errorMessage = "Email service is not configured. Please contact support.";
+        statusCode = 503;
+      } else if (error.message.includes("InvalidParameterValue") || error.message.includes("MessageRejected")) {
+        errorMessage = "Unable to send email. Please check the recipient email address.";
+        statusCode = 400;
+      } else if (error.message.includes("AccessDenied") || error.message.includes("UnauthorizedOperation")) {
+        errorMessage = "Email service configuration error. Please contact support.";
+        statusCode = 503;
+      } else if (error.message.includes("Throttling") || error.message.includes("ServiceUnavailable")) {
+        errorMessage = "Email service is temporarily unavailable. Please try again later.";
+        statusCode = 503;
+      }
+    }
+    
+    return errorResponse(errorMessage, statusCode);
   }
 });
 

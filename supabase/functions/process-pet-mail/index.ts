@@ -23,17 +23,26 @@ import {
 } from "./idempotencyChecker.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { fetchEmailFromS3 } from "./s3Client.ts";
+import {
+  findThreadByReplyToAddress,
+  findThreadByRecipientAndPet,
+} from "./threadLookup.ts";
+import { storeInboundMessage } from "./messageStorage.ts";
+import { createThreadFromInboundEmail } from "./threadCreation.ts";
+import { lookupRecipientName } from "./recipientNameLookup.ts";
 import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
   let pet: Pet | null = null;
   let senderEmail: string | null = null;
+  let s3Config: S3Config | null = null;
 
   try {
     // Step 1: Parse and validate request
-    const s3Config = await parseRequest(req);
+    s3Config = await parseRequest(req);
     if (!s3Config) {
       return buildValidationErrorResponse(
         "Missing required parameters: bucket and fileKey"
@@ -116,13 +125,138 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Step 7.5: Store inbound message if it has text content and we can find a thread
+    // The recipient email in the "To" field is the reply-to address from our outbound emails
+    const messageStorageStartTime = Date.now();
+    let messageStored = false;
+    
+    // Log email details for debugging
+    console.log(`[MONITORING] Email details - To: ${recipientEmail}, From: ${senderEmail}, Subject: ${parsedEmail.subject}`);
+    console.log(`[MONITORING] Text body length: ${parsedEmail.textBody?.length || 0}, Has attachments: ${parsedEmail.attachments?.length || 0}`);
+    
+    if (parsedEmail.textBody && parsedEmail.textBody.trim().length > 0) {
+      console.log(`[MONITORING] Starting message storage (text body length: ${parsedEmail.textBody.length})`);
+      try {
+        // Try to find thread by reply-to address (recipient email)
+        // When a vet replies, the "To" field contains our reply-to address (e.g., thread-abc123@pawbuck.app)
+        console.log(`[MONITORING] Looking up thread by reply-to address: ${recipientEmail.toLowerCase()}`);
+        let thread = await findThreadByReplyToAddress(recipientEmail);
+
+        // Fallback: try to find thread by sender email + pet ID
+        // The sender email (vet's email) should match the thread's recipient_email
+        if (!thread) {
+          console.log(`[MONITORING] Thread not found by reply-to, trying sender email + pet ID: ${senderEmail.toLowerCase()}, pet: ${pet.id}`);
+          thread = await findThreadByRecipientAndPet(senderEmail, pet.id);
+        }
+
+        if (thread) {
+          console.log(`[MONITORING] ✅ Thread found: ${thread.threadId} (subject: ${thread.subject}, recipient: ${thread.recipientEmail})`);
+          console.log(`[MONITORING] Storing message in thread ${thread.threadId}...`);
+          
+          await storeInboundMessage({
+            threadId: thread.threadId,
+            senderEmail: senderEmail,
+            recipientEmail: recipientEmail,
+            cc: parsedEmail.cc?.map((c) => c.address) || null,
+            bcc: null, // BCC is typically not in received emails
+            subject: parsedEmail.subject,
+            body: parsedEmail.textBody, // Already cleaned by emailParser
+            sentAt: parsedEmail.date || undefined,
+          });
+          
+          messageStored = true;
+          const messageStorageDuration = Date.now() - messageStorageStartTime;
+          console.log(
+            `[MONITORING] ✅ Successfully stored inbound message for thread ${thread.threadId} from ${senderEmail} (${messageStorageDuration}ms)`
+          );
+        } else {
+          // No thread found - this is a new conversation starting with an inbound email
+          // Since the sender is whitelisted (we've passed verification), create a new thread
+          console.log(
+            `[MONITORING] ⚠️ No thread found for reply-to address "${recipientEmail}" or sender "${senderEmail}" with pet ${pet.id}`
+          );
+          console.log(`[MONITORING] Creating new thread for incoming conversation (sender is whitelisted)...`);
+          
+          try {
+            // Get recipient name from care team if available
+            const recipientName = await lookupRecipientName(senderEmail);
+            
+            // Create new thread
+            const newThread = await createThreadFromInboundEmail({
+              userId: pet.user_id,
+              petId: pet.id,
+              recipientEmail: senderEmail, // The sender becomes the recipient in the thread
+              recipientName: recipientName,
+              subject: parsedEmail.subject,
+            });
+            
+            console.log(`[MONITORING] ✅ Created new thread: ${newThread.threadId}`);
+            
+            // Store the message in the new thread
+            await storeInboundMessage({
+              threadId: newThread.threadId,
+              senderEmail: senderEmail,
+              recipientEmail: recipientEmail, // This is the pet's email (not used in this context)
+              cc: parsedEmail.cc?.map((c) => c.address) || null,
+              bcc: null,
+              subject: parsedEmail.subject,
+              body: parsedEmail.textBody,
+              sentAt: parsedEmail.date || undefined,
+            });
+            
+            messageStored = true;
+            const messageStorageDuration = Date.now() - messageStorageStartTime;
+            console.log(
+              `[MONITORING] ✅ Successfully created thread and stored inbound message for thread ${newThread.threadId} from ${senderEmail} (${messageStorageDuration}ms)`
+            );
+          } catch (createError) {
+            const messageStorageDuration = Date.now() - messageStorageStartTime;
+            console.error(`[MONITORING] ❌ Error creating thread for new conversation (${messageStorageDuration}ms):`, createError);
+            if (createError instanceof Error) {
+              console.error(`[MONITORING] Error message: ${createError.message}`);
+              console.error(`[MONITORING] Error stack: ${createError.stack}`);
+            }
+            // Don't fail the entire request - attachment processing can still proceed
+          }
+        }
+      } catch (error) {
+        const messageStorageDuration = Date.now() - messageStorageStartTime;
+        console.error(`[MONITORING] ❌ Error storing inbound message (${messageStorageDuration}ms):`, error);
+        if (error instanceof Error) {
+          console.error(`[MONITORING] Error message: ${error.message}`);
+          console.error(`[MONITORING] Error stack: ${error.stack}`);
+        }
+        // Don't fail the entire request if message storage fails
+      }
+    } else {
+      console.log(`[MONITORING] No text body to store (textBody length: ${parsedEmail.textBody?.length || 0})`);
+    }
+
     // Step 8: Check for attachments
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
-      console.log("No attachments to process", pet, emailInfo);
+      console.log("[MONITORING] No attachments to process", pet, emailInfo);
+      
+      // Mark email as completed even if there are no attachments
+      // (lock was acquired, so we need to release it)
+      const totalDuration = Date.now() - startTime;
+      console.log(`[MONITORING] Marking email as completed (no attachments, message stored: ${messageStored}, duration: ${totalDuration}ms)`);
+      
+      await markEmailAsCompleted(
+        s3Config.fileKey,
+        pet.id,
+        0, // no attachments
+        true // success
+      );
+      
+      console.log(`[MONITORING] ✅ Email processing completed (no attachments) in ${totalDuration}ms`);
+      
       return buildSuccessResponse(pet, emailInfo, [], "No attachments to process");
     }
 
     // Step 9: Process all attachments
+    const attachmentProcessingStartTime = Date.now();
+    console.log(`[MONITORING] Starting attachment processing (${parsedEmail.attachments.length} attachments)`);
+    
     const emailContext: EmailContext = {
       subject: parsedEmail.subject,
       textBody: parsedEmail.textBody,
@@ -134,16 +268,24 @@ Deno.serve(async (req) => {
       emailContext
     );
 
+    const attachmentProcessingDuration = Date.now() - attachmentProcessingStartTime;
+    console.log(`[MONITORING] ✅ Attachment processing completed (${attachmentProcessingDuration}ms, ${processedAttachments.length} processed)`);
+
     // Step 10: Log summary and return success
     logProcessingSummary(processedAttachments);
 
     // Step 11: Mark email as completed (idempotency)
+    const totalDuration = Date.now() - startTime;
+    console.log(`[MONITORING] Marking email as completed (total duration: ${totalDuration}ms, attachments: ${processedAttachments.length}, message stored: ${messageStored})`);
+    
     await markEmailAsCompleted(
       s3Config.fileKey,
       pet.id,
       processedAttachments.length,
       true
     );
+    
+    console.log(`[MONITORING] ✅ Email processing completed successfully in ${totalDuration}ms`);
 
     // Step 12: Check for skipped attachments due to pet validation failure
     const skippedAttachments = processedAttachments.filter(
@@ -163,12 +305,37 @@ Deno.serve(async (req) => {
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {
+    const totalDuration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error processing email:", error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error(`[MONITORING] ❌ Error processing email (duration: ${totalDuration}ms):`, errorMessage);
+    if (errorStack) {
+      console.error(`[MONITORING] Error stack:`, errorStack);
+    }
+
+    // Mark email as completed with failure status if we have the s3Config
+    if (s3Config) {
+      try {
+        console.log(`[MONITORING] Marking email as completed with failure status`);
+        await markEmailAsCompleted(
+          s3Config.fileKey,
+          pet?.id || "unknown",
+          0,
+          false
+        );
+      } catch (markError) {
+        console.error(`[MONITORING] ❌ Failed to mark email as completed:`, markError);
+      }
+    }
 
     // Send failure notification if we have pet and sender info
     if (pet && senderEmail) {
-      await sendFailedNotification(pet, senderEmail);
+      try {
+        await sendFailedNotification(pet, senderEmail);
+      } catch (notifError) {
+        console.error(`[MONITORING] ❌ Failed to send failure notification:`, notifError);
+      }
     }
 
     return buildErrorResponse(errorMessage);
