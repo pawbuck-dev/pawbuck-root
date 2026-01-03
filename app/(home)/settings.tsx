@@ -4,6 +4,8 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import { PetEditModal } from "@/components/home/PetEditModal";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
+import { TransferOwnershipModal } from "@/components/home/TransferOwnershipModal";
+import { TransferQRCodeModal } from "@/components/home/TransferQRCodeModal";
 import PetInformationCard from "@/components/profile/PetInformationCard";
 import { useAuth } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
@@ -64,6 +66,8 @@ export default function Settings() {
   const [editingPhone, setEditingPhone] = useState("");
   const [editingAddress, setEditingAddress] = useState("");
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [showTransferOwnershipModal, setShowTransferOwnershipModal] = useState(false);
+  const [showTransferQRCodeModal, setShowTransferQRCodeModal] = useState(false);
 
   // Add state for selected pet ID (use URL param as initial value, or first pet if available)
   const [selectedPetId, setSelectedPetId] = useState<string | null>(
@@ -202,8 +206,14 @@ export default function Settings() {
   };
 
   const handleTransferOwnership = () => {
-    // TODO: Implement transfer ownership flow
-    Alert.alert("Transfer Ownership", "This feature will be implemented soon.");
+    if (selectedPet) {
+      setShowTransferOwnershipModal(true);
+    }
+  };
+
+  const handleGenerateQRCode = () => {
+    setShowTransferOwnershipModal(false);
+    setShowTransferQRCodeModal(true);
   };
 
   // Mutations for vet information
@@ -709,7 +719,7 @@ export default function Settings() {
                   Transfer Ownership
                 </Text>
                 <Text className="text-sm mt-0.5" style={{ color: theme.secondary }}>
-                  Transfer {pets[0]?.name || "pet"} to a new owner
+                  Transfer {selectedPet?.name || "pet"} to a new owner
                 </Text>
               </View>
             </View>
@@ -898,6 +908,25 @@ export default function Settings() {
             updateCareTeamMemberMutation.isPending ||
             deleteCareTeamMemberMutation.isPending
           }
+        />
+      )}
+
+      {/* Transfer Ownership Modal */}
+      {showTransferOwnershipModal && selectedPet && (
+        <TransferOwnershipModal
+          visible={showTransferOwnershipModal}
+          onClose={() => setShowTransferOwnershipModal(false)}
+          pet={selectedPet}
+          onGenerateQRCode={handleGenerateQRCode}
+        />
+      )}
+
+      {/* Transfer QR Code Modal */}
+      {showTransferQRCodeModal && selectedPet && (
+        <TransferQRCodeModal
+          visible={showTransferQRCodeModal}
+          onClose={() => setShowTransferQRCodeModal(false)}
+          pet={selectedPet}
         />
       )}
 

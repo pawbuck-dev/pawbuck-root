@@ -1,6 +1,8 @@
 {
   "imports": {
-    "@aws-sdk/client-ses": "npm:@aws-sdk/client-ses@3"
+    "@aws-sdk/client-ses": "npm:@aws-sdk/client-ses@3",
+    "supabase": "jsr:@supabase/supabase-js@2",
+    "@std/encoding": "jsr:@std/encoding"
   }
 }
 
