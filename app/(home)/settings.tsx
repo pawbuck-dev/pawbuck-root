@@ -67,12 +67,12 @@ export default function Settings() {
       </View>
       <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </Pressable>
-  );
+    );
 
   return (
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
-        {/* Header */}
+      {/* Header */}
         <View className="px-6 pt-14 pb-6">
           <Text
             className="text-4xl font-bold"
@@ -80,13 +80,13 @@ export default function Settings() {
           >
             Settings
           </Text>
-        </View>
+      </View>
 
-        <ScrollView
-          className="flex-1 px-6"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
+      <ScrollView
+        className="flex-1 px-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
           {/* Settings Options */}
           <View className="mb-6">
             {/* Pet Profile */}
@@ -96,8 +96,7 @@ export default function Settings() {
               subtitle="Manage your pet's information"
               iconColor="#5FC4C0"
               onPress={() => {
-                // Navigate to home to select pet and view/edit profile
-                router.push("/(home)/home");
+                router.push("/(home)/pet-profile");
               }}
             />
 
@@ -161,11 +160,11 @@ export default function Settings() {
               Log Out
             </Text>
           </Pressable>
-        </ScrollView>
+      </ScrollView>
 
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
-      </View>
+    </View>
     </ChatProvider>
   );
 }
