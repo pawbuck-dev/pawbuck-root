@@ -1,10 +1,19 @@
-import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import {
+  CareTeamMemberModal,
+  CareTeamMemberSaveData,
+} from "@/components/home/CareTeamMemberModal";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
+import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
 import { fetchThreadMessages, MessageThread, ThreadMessage } from "@/services/messages";
-import { CareTeamMemberType, createVetInformation, isEmailInCareTeam } from "@/services/vetInformation";
+import {
+  CareTeamMemberType,
+  createVetInformation,
+  findExistingCareTeamMember,
+  isEmailInCareTeam,
+  updateVetInformation,
+} from "@/services/vetInformation";
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -83,13 +92,13 @@ export default function ThreadDetailView({
   }, [thread.recipient_email]);
 
   // Handle adding care team member from thread detail
-  const handleAddCareTeamMemberFromThread = async (
-    memberData: TablesInsert<"vet_information">
-  ) => {
+  const handleAddCareTeamMemberFromThread = async (data: CareTeamMemberSaveData) => {
     if (pets.length === 0) {
       Alert.alert("Error", "You need to have at least one pet to add a care team member");
       return;
     }
+
+    const { memberData, selectedPetIds } = data;
 
     try {
       // Ensure email matches the thread's recipient email
@@ -98,18 +107,33 @@ export default function ThreadDetailView({
         email: thread.recipient_email.toLowerCase(),
       };
 
-      // Create the vet_information record
-      const newMember = await createVetInformation(memberDataWithEmail);
-
-      // Link the care team member to all user's pets
-      const linkPromises = pets.map((pet) =>
-        linkCareTeamMemberToPet(pet.id, newMember.id)
+      // Check for existing care team member by email or phone (deduplication)
+      const existingMember = await findExistingCareTeamMember(
+        memberDataWithEmail.email,
+        memberDataWithEmail.phone
       );
-      await Promise.all(linkPromises);
+
+      let careTeamMemberId: string;
+
+      if (existingMember) {
+        // Use existing record - optionally update it with new details
+        await updateVetInformation(existingMember.id, memberDataWithEmail);
+        careTeamMemberId = existingMember.id;
+      } else {
+        // Create the vet_information record
+        const newMember = await createVetInformation(memberDataWithEmail as TablesInsert<"vet_information">);
+        careTeamMemberId = newMember.id;
+      }
+
+      // Link the care team member to selected pets
+      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
 
       // Invalidate queries to refresh
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+      selectedPetIds.forEach((petId) => {
+        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+      });
 
       setIsInCareTeam(true);
       Alert.alert("Success", "Care team member added successfully");
@@ -323,6 +347,21 @@ export default function ThreadDetailView({
         </View>
       )}
 
+      {/* Add to Care Team Button - show only if not already in care team */}
+      {isInCareTeam === false && (
+        <TouchableOpacity
+          onPress={() => setShowAddMemberModal(true)}
+          className="flex-row items-center justify-center px-4 py-2 rounded-full mx-4 my-2"
+          style={{ backgroundColor: theme.primary }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person-add" size={16} color="white" />
+          <Text className="text-sm font-semibold ml-2" style={{ color: "white" }}>
+            Add to Care Team
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Messages List */}
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -429,6 +468,7 @@ export default function ThreadDetailView({
           memberType={selectedMemberType}
           onTypeChange={setSelectedMemberType}
           petId={thread.pet_id}
+          allPets={pets}
           memberInfo={null}
           initialEmail={thread.recipient_email}
         />

@@ -1,37 +1,43 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { ChatProvider } from "@/context/chatContext";
+import {
+  CareTeamMemberModal,
+  CareTeamMemberSaveData,
+} from "@/components/home/CareTeamMemberModal";
 import { useAuth } from "@/context/authContext";
-import { useTheme } from "@/context/themeContext";
+import { ChatProvider } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
+import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
+import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
 import {
   createHouseholdInvite,
-  deactivateInvite,
   getMyHouseholdInvites,
-  HouseholdInvite,
-  removeHouseholdMember,
   getMyHouseholdMembers,
+  HouseholdInvite,
   HouseholdMember,
+  removeHouseholdMember
 } from "@/services/householdInvites";
-import { getAllCareTeamMembers, createVetInformation } from "@/services/vetInformation";
-import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
-import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
-import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
-import { TablesInsert } from "@/database.types";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import * as Linking from "expo-linking";
 import {
+  CareTeamMemberType,
+  createVetInformation,
+  findExistingCareTeamMember,
+  getAllCareTeamMembers,
+  updateVetInformation,
+  VetInformation,
+} from "@/services/vetInformation";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   Text,
-  View,
-  ActivityIndicator,
-  TouchableOpacity,
+  View
 } from "react-native";
-import { useState } from "react";
-import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 
 // Helper function to get icon for care team member type
@@ -187,27 +193,41 @@ export default function FamilyAccess() {
   };
 
   // Handle adding a new care team member
-  const handleAddCareTeamMember = async (
-    memberData: TablesInsert<"vet_information">
-  ) => {
+  const handleAddCareTeamMember = async (data: CareTeamMemberSaveData) => {
     if (pets.length === 0) {
       Alert.alert("Error", "You need to have at least one pet to add a care team member");
       return;
     }
 
-    try {
-      // Create the vet_information record
-      const newMember = await createVetInformation(memberData);
+    const { memberData, selectedPetIds } = data;
 
-      // Link the care team member to all user's pets
-      // (Since this is the "Care Team & Family Access" screen, we link to all pets)
-      const linkPromises = pets.map((pet) =>
-        linkCareTeamMemberToPet(pet.id, newMember.id)
+    try {
+      // Check for existing care team member by email or phone (deduplication)
+      const existingMember = await findExistingCareTeamMember(
+        memberData.email,
+        memberData.phone
       );
-      await Promise.all(linkPromises);
+
+      let careTeamMemberId: string;
+
+      if (existingMember) {
+        // Use existing record - optionally update it with new details
+        await updateVetInformation(existingMember.id, memberData);
+        careTeamMemberId = existingMember.id;
+      } else {
+        // Create the vet_information record
+        const newMember = await createVetInformation(memberData as TablesInsert<"vet_information">);
+        careTeamMemberId = newMember.id;
+      }
+
+      // Link the care team member to selected pets
+      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
 
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
+      selectedPetIds.forEach((petId) => {
+        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+      });
 
       Alert.alert("Success", "Care team member added successfully");
     } catch (error) {
@@ -300,7 +320,7 @@ export default function FamilyAccess() {
                     style={{ backgroundColor: "#374151" }}
                   >
                     <MaterialCommunityIcons
-                      name={getTypeIcon(member.type as CareTeamMemberType)}
+                      name={getTypeIcon((member as any).type as CareTeamMemberType)}
                       size={24}
                       color="#5FC4C0"
                     />
@@ -516,6 +536,7 @@ export default function FamilyAccess() {
             onSave={handleAddCareTeamMember}
             memberType={selectedMemberType}
             onTypeChange={setSelectedMemberType}
+            allPets={pets}
             petId={pets[0].id} // Required prop, but we'll link to all pets in handleAddCareTeamMember
           />
         )}

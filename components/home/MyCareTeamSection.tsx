@@ -1,11 +1,10 @@
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
-import { addEmail, getWhitelistedEmails } from "@/services/petEmailList";
 import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
-import React, { useMemo } from "react";
+import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 
 type VetInfo = Tables<"vet_information">;
@@ -15,9 +14,8 @@ type MyCareTeamSectionProps = {
   careTeamMembers?: VetInformation[];
   onAddMember: (type: CareTeamMemberType) => void;
   onEditMember?: (member: VetInformation) => void;
-  petId?: string;
-  showOnlyWhitelisted?: boolean; // If true, only show whitelisted contacts
   readOnly?: boolean; // If true, hide add/edit buttons and make cards non-editable
+  // Care team members are automatically whitelisted via pet_care_team_members junction table
 };
 
 const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap => {
@@ -58,42 +56,12 @@ export default function MyCareTeamSection({
   careTeamMembers = [],
   onAddMember,
   onEditMember,
-  petId,
-  showOnlyWhitelisted = false,
   readOnly = false,
 }: MyCareTeamSectionProps) {
-  const { theme } = useTheme();
-  const queryClient = useQueryClient();
-
-  // Fetch whitelisted emails for this pet
-  const { data: whitelistedEmails = [] } = useQuery({
-    queryKey: ["whitelisted_emails", petId],
-    queryFn: () => getWhitelistedEmails(petId!),
-    enabled: !!petId,
-  });
-
-  // Mutation to block/unblock an email
-  const blockEmailMutation = useMutation({
-    mutationFn: async ({ email, isBlocked }: { email: string; isBlocked: boolean }) => {
-      if (!petId) throw new Error("Pet ID is required");
-      // Use addEmail which handles both creating and updating the email entry
-      // If email exists, it will update the is_blocked status
-      // If email doesn't exist, it will create a new entry with the specified block status
-      return await addEmail(petId, email, isBlocked);
-    },
-    onSuccess: () => {
-      // Invalidate queries to refresh the UI
-      queryClient.invalidateQueries({ queryKey: ["whitelisted_emails", petId] });
-    },
-    onError: (error) => {
-      Alert.alert("Error", error instanceof Error ? error.message : "Failed to update email status");
-    },
-  });
-
-  // Create a set of whitelisted email addresses for quick lookup
-  const whitelistedEmailSet = useMemo(() => {
-    return new Set(whitelistedEmails.map((e) => e.email_id.toLowerCase()));
-  }, [whitelistedEmails]);
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
+  // Care team members are automatically whitelisted via pet_care_team_members junction table
+  // No need to track whitelisting separately
 
   const handleCall = async (phone?: string) => {
     if (!phone) return;
@@ -127,13 +95,8 @@ export default function MyCareTeamSection({
     }
   };
 
-  // Check if a member's email is whitelisted
-  const isWhitelisted = (email: string | null | undefined): boolean => {
-    if (!email) return false;
-    return whitelistedEmailSet.has(email.toLowerCase());
-  };
-
   // Build the care team list
+  // All care team members are automatically whitelisted
   const allMembers: VetInformation[] = [];
 
   // Add primary vet if exists
@@ -147,17 +110,6 @@ export default function MyCareTeamSection({
       allMembers.push(member);
     }
   });
-
-  // Separate members into whitelisted and not whitelisted
-  // If showOnlyWhitelisted is true, filter allMembers to only include whitelisted
-  const filteredMembers = showOnlyWhitelisted 
-    ? allMembers.filter((member) => isWhitelisted(member.email))
-    : allMembers;
-  
-  const whitelistedMembers = filteredMembers.filter((member) => isWhitelisted(member.email));
-  const notWhitelistedMembers = showOnlyWhitelisted 
-    ? [] 
-    : filteredMembers.filter((member) => !isWhitelisted(member.email));
 
   // Group by type for "Add" buttons
   const hasMemberByType: Record<CareTeamMemberType, boolean> = {
@@ -179,13 +131,8 @@ export default function MyCareTeamSection({
     const type = ((member as any).type as CareTeamMemberType) || "veterinarian";
     const icon = getTypeIcon(type);
     const iconType = getIconType(type);
-    const displayName = member.vet_name;
-    const businessName = member.clinic_name;
-    const email = member.email;
-    const isMemberWhitelisted = isWhitelisted(email);
-
-    // Use the icon from getTypeIcon (already returns MaterialCommunityIcons icon names)
-    const displayIcon = icon;
+    const displayName = member.vet_name || member.clinic_name;
+    const typeLabel = getTypeLabel(type);
 
     return (
       <TouchableOpacity
@@ -194,36 +141,40 @@ export default function MyCareTeamSection({
         activeOpacity={0.7}
         className="mb-3"
       >
-        <View
-          className="flex-row items-center rounded-2xl p-4"
+        <LinearGradient
+          colors={isDarkMode 
+            ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
+            : ["#FFFFFF", "#F8FAFA"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            backgroundColor: theme.card,
-            borderWidth: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            padding: 12,
+            borderRadius: 16,
+            borderWidth: isDarkMode ? 1 : 0,
             borderColor: theme.border,
+            // Shadow for iOS - matches Tailwind shadow-lg
             shadowColor: "#000",
-            shadowOffset: { width: 0, height: 1 },
+            shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.1,
-            shadowRadius: 2,
-            elevation: 2,
+            shadowRadius: 15,
+            // Shadow for Android
+            elevation: 10,
           }}
         >
           {/* Icon */}
-          <View
-            className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-            style={{ 
-              backgroundColor: theme.border + "40",
-            }}
-          >
+          <View className="w-10 mr-4">
             {iconType === "material" ? (
               <MaterialCommunityIcons
-                name={displayIcon as keyof typeof MaterialCommunityIcons.glyphMap}
-                size={22}
+                name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={24}
                 color={theme.primary}
               />
             ) : (
               <Ionicons
-                name={displayIcon as keyof typeof Ionicons.glyphMap}
-                size={22}
+                name={icon as keyof typeof Ionicons.glyphMap}
+                size={24}
                 color={theme.primary}
               />
             )}
@@ -232,16 +183,13 @@ export default function MyCareTeamSection({
           {/* Info */}
           <View className="flex-1">
             <Text
-              className="text-base font-semibold"
+              className="text-base font-bold"
               style={{ color: theme.foreground }}
             >
               {displayName}
             </Text>
-            <Text className="text-sm mb-0.5" style={{ color: theme.secondary }}>
-              {businessName}
-            </Text>
             <Text className="text-sm" style={{ color: theme.secondary }}>
-              {email}
+              {typeLabel}
             </Text>
           </View>
 
@@ -253,9 +201,10 @@ export default function MyCareTeamSection({
                   e.stopPropagation();
                   handleCall(member.phone);
                 }}
-                className="w-10 h-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: theme.border + "40" }}
-                activeOpacity={0.7}
+                className="w-11 h-11 rounded-xl items-center justify-center"
+              style={{ backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB" }}
+              activeOpacity={0.7}
+
               >
                 <Ionicons name="call-outline" size={18} color={theme.secondary} />
               </TouchableOpacity>
@@ -265,121 +214,40 @@ export default function MyCareTeamSection({
                 e.stopPropagation();
                 handleEmail(member.email);
               }}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: theme.border + "40" }}
+              className="w-11 h-11 rounded-xl items-center justify-center"
+              style={{ backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB" }}
               activeOpacity={0.7}
             >
-              <Ionicons name="mail-outline" size={18} color={theme.secondary} />
+              <Ionicons name="mail-outline" size={20} color={theme.secondary} />
             </TouchableOpacity>
-            {/* Status Indicator - Hidden in readOnly mode, otherwise clickable for whitelisted members */}
-            {!readOnly && (
-              <>
-                {isMemberWhitelisted ? (
-                  <TouchableOpacity
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      if (member.email && petId) {
-                        Alert.alert(
-                          "Block Contact",
-                          `Are you sure you want to block ${member.email}? They will be moved to the "Not whitelisted" section.`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Block",
-                              style: "destructive",
-                              onPress: () => {
-                                blockEmailMutation.mutate({ email: member.email!, isBlocked: true });
-                              },
-                            },
-                          ]
-                        );
-                      }
-                    }}
-                    className="w-10 h-10 rounded-full items-center justify-center relative"
-                    style={{
-                      backgroundColor: "#22C55E",
-                    }}
-                    activeOpacity={0.7}
-                    disabled={blockEmailMutation.isPending}
-                  >
-                    <Ionicons
-                      name="person"
-                      size={18}
-                      color="#fff"
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        right: 0,
-                        backgroundColor: "#fff",
-                        borderRadius: 8,
-                        width: 12,
-                        height: 12,
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Ionicons
-                        name="checkmark"
-                        size={8}
-                        color="#22C55E"
-                      />
-                    </View>
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    className="w-10 h-10 rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor: theme.border + "40",
-                    }}
-                  >
-                    <Ionicons
-                      name="person-outline"
-                      size={18}
-                      color={theme.secondary}
-                    />
-                  </View>
-                )}
-              </>
-            )}
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View
-      className="rounded-2xl mb-6"
-      style={{
-        backgroundColor: theme.card,
-        borderWidth: 1,
-        borderColor: theme.border,
-      }}
-    >
+    <View className="px-4 mb-6">
       {/* Section Header */}
-      <View className="flex-row items-center justify-between p-4 border-b" style={{ borderBottomColor: theme.border + "40" }}>
-        <View className="flex-1">
-          <View className="flex-row items-center mb-2">
-            <View
-              className="w-8 h-8 rounded-full items-center justify-center mr-2"
-              style={{ backgroundColor: `${theme.primary}20` }}
-            >
-              <Ionicons name="people-outline" size={18} color={theme.primary} />
-            </View>
+      <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-row items-center flex-1">
+          <View
+            className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+            style={{ backgroundColor: `${theme.primary}20` }}
+          >
+            <Ionicons name="people-outline" size={20} color={theme.primary} />
+          </View>
+          <View className="flex-1">
             <Text
-              className="text-xl font-bold"
+              className="text-lg font-bold"
               style={{ color: theme.foreground }}
             >
               My Care Team
             </Text>
-          </View>
-          {!readOnly && (
-            <Text className="text-sm ml-10" style={{ color: theme.secondary }}>
-              {whitelistedMembers.length} whitelisted contact{whitelistedMembers.length !== 1 ? "s" : ""}
+            <Text className="text-sm" style={{ color: theme.secondary }}>
+              {allMembers.length} contact{allMembers.length !== 1 ? "s" : ""}
             </Text>
-          )}
+          </View>
         </View>
         {!readOnly && (
           <TouchableOpacity
@@ -397,32 +265,11 @@ export default function MyCareTeamSection({
       </View>
 
       {/* Content */}
-      <View className="p-4">
-        {/* Can communicate Section */}
-        {whitelistedMembers.length > 0 && (
-          <View className="mb-6">
-            {!readOnly && (
-              <View className="flex-row items-center mb-3">
-                <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
-                <Text className="text-base font-semibold ml-2" style={{ color: "#22C55E" }}>
-                  Can communicate
-                </Text>
-              </View>
-            )}
-            {whitelistedMembers.map((member) => renderContactCard(member))}
-          </View>
-        )}
-
-        {/* Not whitelisted Section */}
-        {notWhitelistedMembers.length > 0 && (
-          <View className="mb-6">
-            <View className="flex-row items-center mb-3">
-              <Ionicons name="close-circle" size={18} color="#EF4444" />
-              <Text className="text-base font-semibold ml-2" style={{ color: theme.foreground }}>
-                Not whitelisted
-              </Text>
-            </View>
-            {notWhitelistedMembers.map((member) => renderContactCard(member))}
+      <View>
+        {/* Contact List */}
+        {allMembers.length > 0 && (
+          <View>
+            {allMembers.map((member) => renderContactCard(member))}
           </View>
         )}
 
@@ -436,7 +283,7 @@ export default function MyCareTeamSection({
         )}
 
         {/* Add Buttons for each type - Only show if no members exist and not readOnly */}
-        {!readOnly && filteredMembers.length === 0 && (
+        {!readOnly && allMembers.length === 0 && (
         <>
           {!hasMemberByType.veterinarian && (
           <TouchableOpacity

@@ -1,6 +1,6 @@
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert, TablesUpdate } from "@/database.types";
-import { VetInformation, CareTeamMemberType } from "@/services/vetInformation";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
@@ -15,18 +15,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PrivateImage from "../PrivateImage";
+
+type Pet = Tables<"pets">;
+
+export interface CareTeamMemberSaveData {
+  memberData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">;
+  selectedPetIds: string[];
+}
 
 interface CareTeamMemberModalProps {
   visible: boolean;
   onClose: () => void;
-  onSave: (
-    memberData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">
-  ) => Promise<void>;
+  onSave: (data: CareTeamMemberSaveData) => Promise<void>;
   onDelete?: () => Promise<void>;
   memberInfo?: VetInformation | null;
   memberType: CareTeamMemberType;
   onTypeChange?: (type: CareTeamMemberType) => void;
   petId: string;
+  allPets: Pet[];
   loading?: boolean;
   initialEmail?: string;
 }
@@ -97,10 +104,12 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   memberInfo,
   memberType,
   petId,
+  allPets,
   loading = false,
   initialEmail,
 }) => {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const isEditing = !!memberInfo;
   const [currentMemberType, setCurrentMemberType] = useState<CareTeamMemberType>(memberType);
 
@@ -113,6 +122,24 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  
+  // Pet selection state - pre-select current pet
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([petId]);
+
+  // Toggle pet selection
+  const togglePetSelection = (id: string) => {
+    setSelectedPetIds((prev) => {
+      if (prev.includes(id)) {
+        // Don't allow deselecting if it's the only one selected
+        if (prev.length === 1) {
+          Alert.alert("Required", "At least one pet must be selected");
+          return prev;
+        }
+        return prev.filter((pid) => pid !== id);
+      }
+      return [...prev, id];
+    });
+  };
 
   // Reset form when modal opens or memberInfo changes
   useEffect(() => {
@@ -123,8 +150,12 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
       setPhone(memberInfo?.phone || "");
       setEmail(memberInfo?.email || initialEmail || "");
       setCurrentMemberType(memberType);
+      // Reset pet selection to current pet when opening modal for new member
+      if (!memberInfo) {
+        setSelectedPetIds([petId]);
+      }
     }
-  }, [visible, memberInfo, memberType, initialEmail]);
+  }, [visible, memberInfo, memberType, initialEmail, petId]);
 
   const handleSave = async () => {
     // Validate required fields
@@ -140,6 +171,10 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
       Alert.alert("Invalid Email", "Please enter a valid email address");
       return;
     }
+    if (!isEditing && selectedPetIds.length === 0) {
+      Alert.alert("Required", "Please select at least one pet");
+      return;
+    }
 
     const memberData = {
       clinic_name: businessName.trim() || "",
@@ -152,7 +187,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
 
     setSaving(true);
     try {
-      await onSave(memberData);
+      await onSave({ memberData, selectedPetIds });
       onClose();
     } catch (error) {
       Alert.alert("Error", `Failed to save ${getTypeLabel(currentMemberType).toLowerCase()} information`);
@@ -242,6 +277,121 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
           className="flex-1 px-6 pt-6"
           showsVerticalScrollIndicator={false}
         >
+
+          {/* Type Dropdown */}
+          <View className="mb-6">
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              Type
+            </Text>
+            <TouchableOpacity
+              className="rounded-xl py-4 px-4 flex-row items-center justify-between"
+              style={{
+                backgroundColor: theme.card,
+                borderColor: theme.primary,
+                borderWidth: 1,
+              }}
+              disabled={isEditing}
+              onPress={() => setShowTypePicker(true)}
+            >
+              <Text className="text-base" style={{ color: theme.foreground }}>
+                {typeLabel}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={theme.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Pet Selection - Only show when adding new member (not editing) */}
+          {!isEditing && allPets && allPets.length > 1 && (
+            <View className="mb-6">
+              <Text
+                className="text-sm font-medium mb-2"
+                style={{ color: theme.secondary }}
+              >
+                Assign to Pets *
+              </Text>
+              <Text
+                className="text-xs mb-3"
+                style={{ color: theme.secondary }}
+              >
+                Select one or more pets to assign this care team member
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 12 }}
+              >
+                {allPets.map((pet) => {
+                  const isSelected = selectedPetIds.includes(pet.id);
+                  return (
+                    <TouchableOpacity
+                      key={pet.id}
+                      onPress={() => togglePetSelection(pet.id)}
+                      activeOpacity={0.7}
+                      className="items-center"
+                      style={{ width: 80 }}
+                    >
+                      <View
+                        className="rounded-full overflow-hidden mb-2"
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderWidth: isSelected ? 3 : 2,
+                          borderColor: isSelected ? theme.primary : theme.border,
+                          backgroundColor: isDarkMode ? theme.card : "#F3F4F6",
+                        }}
+                      >
+                        {pet.photo_url ? (
+                          <PrivateImage
+                          bucketName="pets"
+                          filePath={pet.photo_url}
+                          className="w-16 h-16"
+                          resizeMode="cover"
+                        />
+                        ) : (
+                          <View className="flex-1 items-center justify-center">
+                            <Ionicons
+                              name="paw"
+                              size={28}
+                              color={isSelected ? theme.primary : theme.secondary}
+                            />
+                          </View>
+                        )}
+                        {/* Checkmark overlay for selected pets */}
+                        {isSelected && (
+                          <View
+                            className="absolute bottom-0 right-0 rounded-full items-center justify-center"
+                            style={{
+                              width: 22,
+                              height: 22,
+                              backgroundColor: theme.primary,
+                              borderWidth: 2,
+                              borderColor: theme.background,
+                            }}
+                          >
+                            <Ionicons name="checkmark" size={14} color="#fff" />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        className="text-xs text-center"
+                        style={{
+                          color: isSelected ? theme.primary : theme.foreground,
+                          fontWeight: isSelected ? "600" : "400",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {pet.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+          
           {/* Name */}
           <View className="mb-4">
             <Text
@@ -339,31 +489,6 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               placeholder="Happy Paws Clinic"
               placeholderTextColor={theme.secondary}
             />
-          </View>
-
-          {/* Type Dropdown */}
-          <View className="mb-6">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Type
-            </Text>
-            <TouchableOpacity
-              className="rounded-xl py-4 px-4 flex-row items-center justify-between"
-              style={{
-                backgroundColor: theme.card,
-                borderColor: theme.primary,
-                borderWidth: 1,
-              }}
-              disabled={isEditing}
-              onPress={() => setShowTypePicker(true)}
-            >
-              <Text className="text-base" style={{ color: theme.foreground }}>
-                {typeLabel}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={theme.secondary} />
-            </TouchableOpacity>
           </View>
 
           {/* Delete Button */}

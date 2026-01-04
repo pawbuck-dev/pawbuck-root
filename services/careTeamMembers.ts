@@ -166,3 +166,61 @@ export const getCareTeamMembersByType = async (
   return (data as CareTeamMember[]) || [];
 };
 
+/**
+ * Link a care team member to multiple pets at once
+ * @param petIds - Array of pet IDs to link
+ * @param careTeamMemberId - The care team member ID to link
+ */
+export const linkCareTeamMemberToMultiplePets = async (
+  petIds: string[],
+  careTeamMemberId: string
+): Promise<void> => {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("User not authenticated");
+
+  if (petIds.length === 0) {
+    throw new Error("At least one pet must be selected");
+  }
+
+  // Verify all pets belong to user
+  const { data: userPets, error: petsError } = await supabase
+    .from("pets")
+    .select("id")
+    .in("id", petIds)
+    .eq("user_id", user.id);
+
+  if (petsError) throw petsError;
+
+  if (!userPets || userPets.length !== petIds.length) {
+    throw new Error("One or more pets not found or access denied");
+  }
+
+  // Get existing links to avoid duplicates
+  const { data: existingLinks, error: checkError } = await supabase
+    .from("pet_care_team_members")
+    .select("pet_id")
+    .in("pet_id", petIds)
+    .eq("care_team_member_id", careTeamMemberId);
+
+  if (checkError) throw checkError;
+
+  // Filter out pets that are already linked
+  const existingPetIds = new Set(existingLinks?.map((l) => l.pet_id) || []);
+  const newPetIds = petIds.filter((id) => !existingPetIds.has(id));
+
+  // Create links for pets not already linked
+  if (newPetIds.length > 0) {
+    const linksToInsert = newPetIds.map((petId) => ({
+      pet_id: petId,
+      care_team_member_id: careTeamMemberId,
+    }));
+
+    const { error: insertError } = await supabase
+      .from("pet_care_team_members")
+      .insert(linksToInsert);
+
+    if (insertError) throw insertError;
+  }
+};
+

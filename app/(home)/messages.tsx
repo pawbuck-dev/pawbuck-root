@@ -4,6 +4,7 @@ import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
+import PrivateImage from "@/components/PrivateImage";
 import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -384,21 +385,30 @@ export default function MessagesScreen() {
                   style={{ overflow: 'visible' }}
                 >
                   <View
-                    className="w-14 h-14 rounded-full items-center justify-center mb-1"
+                    className="w-14 h-14 rounded-full items-center justify-center mb-1 overflow-hidden"
                     style={{
                       backgroundColor: isSelected ? theme.primary : theme.card,
                       borderWidth: 2,
                       borderColor: isSelected ? theme.primary : "#22C55E",
                     }}
                   >
-                    <Text
-                      className="text-base font-bold"
-                      style={{
-                        color: isSelected ? "white" : "#22C55E",
-                      }}
-                    >
-                      {getPetInitials(pet.name)}
-                    </Text>
+                    {pet.photo_url ? (
+                      <PrivateImage
+                        bucketName="pets"
+                        filePath={pet.photo_url}
+                        className="w-14 h-14"
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text
+                        className="text-base font-bold"
+                        style={{
+                          color: isSelected ? "white" : "#22C55E",
+                        }}
+                      >
+                        {getPetInitials(pet.name)}
+                      </Text>
+                    )}
                   </View>
                   {unreadCount > 0 && (
                     <View
@@ -551,7 +561,7 @@ export default function MessagesScreen() {
                     className="w-20 h-20 rounded-full items-center justify-center mb-4"
                     style={{ backgroundColor: `${theme.primary}15` }}
                   >
-                    <Ionicons name="mail-open-outline" size={40} color={theme.primary} />
+                    <Ionicons name="mail-outline" size={40} color={theme.primary} />
                   </View>
                   <Text
                     className="text-xl font-bold text-center mb-2"

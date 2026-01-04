@@ -3,6 +3,7 @@ import { useTheme } from "@/context/themeContext";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -19,7 +20,8 @@ import {
 } from "react-native";
 
 export default function Profile() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -79,12 +81,12 @@ export default function Profile() {
       className="flex-row items-center justify-between py-4"
       style={{
         borderBottomWidth: 1,
-        borderBottomColor: theme.border + "40",
+        borderBottomColor: isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
       }}
     >
       <View className="flex-row items-center flex-1">
         <View
-          className="w-10 h-10 rounded-full items-center justify-center mr-3"
+          className="w-10 h-10 rounded-full items-center justify-center mr-4"
           style={{ backgroundColor: `${theme.primary}20` }}
         >
           <Ionicons name={icon} size={20} color={theme.primary} />
@@ -93,7 +95,7 @@ export default function Profile() {
           <Text className="text-sm" style={{ color: theme.secondary }}>
             {label}
           </Text>
-          <Text className="text-base font-medium mt-0.5" style={{ color: theme.foreground }}>
+          <Text className="text-base font-semibold mt-0.5" style={{ color: theme.foreground }}>
             {value || "Not set"}
           </Text>
         </View>
@@ -101,7 +103,7 @@ export default function Profile() {
       {locked && (
         <View
           className="px-3 py-1 rounded-full"
-          style={{ backgroundColor: theme.border + "40" }}
+          style={{ backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
         >
           <Text className="text-xs" style={{ color: theme.secondary }}>
             Locked
@@ -132,91 +134,126 @@ export default function Profile() {
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       {/* Header */}
-      <View className="pt-12 pb-6 px-6">
+      <View className="pt-12 pb-4 px-6">
         <View className="flex-row items-center">
           <TouchableOpacity
             onPress={() => router.back()}
             className="w-10 h-10 rounded-full items-center justify-center mr-4"
             style={{ backgroundColor: theme.card }}
           >
-            <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+            <Ionicons name="chevron-back" size={20} color={theme.foreground} />
           </TouchableOpacity>
           <Text
-            className="text-3xl font-bold flex-1"
+            className="text-2xl font-bold flex-1"
             style={{ color: theme.foreground }}
           >
-            Pet Parent
+            User Profile
           </Text>
-          <TouchableOpacity
-            onPress={handleEdit}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: theme.card }}
-          >
-            <Ionicons name="pencil-outline" size={20} color={theme.primary} />
-          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
-        className="flex-1 px-6"
+        className="flex-1"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* Pet Parent Information Card */}
-        <View
-          className="rounded-2xl"
-          style={{
-            backgroundColor: theme.card,
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}
-        >
-          {/* Name */}
-          <InformationRow
-            icon="person-outline"
-            label="Name"
-            value={displayName}
-            locked={true}
-          />
-
-          {/* Email */}
-          <InformationRow
-            icon="mail-outline"
-            label="Email"
-            value={profile.email}
-          />
-
-          {/* Phone */}
-          <InformationRow
-            icon="call-outline"
-            label="Phone"
-            value={profile.phone || "Not set"}
-          />
-
-          {/* Address */}
+        {/* Profile Avatar Section */}
+        <View className="items-center py-6">
           <View
-            className="flex-row items-start justify-between py-4"
+            className="w-32 h-32 rounded-3xl items-center justify-center mb-4"
+            style={{ backgroundColor: theme.card }}
+          >
+            <Ionicons name="person-outline" size={64} color={theme.primary} />
+          </View>
+          <Text
+            className="text-2xl font-bold"
+            style={{ color: theme.foreground }}
+          >
+            {displayName}
+          </Text>
+        </View>
+
+        {/* Account Details Card */}
+        <View className="px-4">
+          <LinearGradient
+            colors={isDarkMode 
+              ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
+              : ["#FFFFFF", "#F8FAFA"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              borderBottomWidth: 0,
+              borderRadius: 24,
+              padding: 20,
+              borderWidth: isDarkMode ? 1 : 0,
+              borderColor: theme.border,
+              // Shadow for iOS - matches Tailwind shadow-lg
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.1,
+              shadowRadius: 15,
+              // Shadow for Android
+              elevation: 10,
             }}
           >
-            <View className="flex-row items-start flex-1">
-              <View
-                className="w-10 h-10 rounded-full items-center justify-center mr-3"
+            {/* Card Header with Edit Button */}
+            <View className="flex-row items-center justify-between mb-4">
+              <Text
+                className="text-lg font-bold"
+                style={{ color: theme.foreground }}
+              >
+                Account Details
+              </Text>
+              <TouchableOpacity
+                onPress={handleEdit}
+                className="w-10 h-10 rounded-full items-center justify-center"
                 style={{ backgroundColor: `${theme.primary}20` }}
               >
-                <Ionicons name="location-outline" size={20} color={theme.primary} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm" style={{ color: theme.secondary }}>
-                  Address
-                </Text>
-                <Text className="text-base font-medium mt-0.5" style={{ color: theme.foreground }}>
-                  {profile.address || "Not set"}
-                </Text>
+                <Ionicons name="pencil-outline" size={18} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Name */}
+            <InformationRow
+              icon="person-outline"
+              label="Name"
+              value={displayName}
+              locked={true}
+            />
+
+            {/* Email */}
+            <InformationRow
+              icon="mail-outline"
+              label="Email"
+              value={profile.email}
+            />
+
+            {/* Phone */}
+            <InformationRow
+              icon="call-outline"
+              label="Phone"
+              value={profile.phone || "Not set"}
+            />
+
+            {/* Address */}
+            <View className="flex-row items-start justify-between py-4">
+              <View className="flex-row items-start flex-1">
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: `${theme.primary}20` }}
+                >
+                  <Ionicons name="location-outline" size={20} color={theme.primary} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm" style={{ color: theme.secondary }}>
+                    Address
+                  </Text>
+                  <Text className="text-base font-medium mt-0.5" style={{ color: theme.foreground }}>
+                    {profile.address || "Not set"}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </View>
       </ScrollView>
 

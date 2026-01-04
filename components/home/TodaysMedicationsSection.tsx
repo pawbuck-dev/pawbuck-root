@@ -1,12 +1,13 @@
 import { useTheme } from "@/context/themeContext";
 import { MedicineData } from "@/models/medication";
+import { getTodaysMedicationDoses, markMedicationDoseComplete } from "@/services/medicationDoses";
 import { getNextMedicationDose } from "@/utils/medication";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import moment from "moment";
 import React, { useMemo } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import { markMedicationDoseComplete, getTodaysMedicationDoses } from "@/services/medicationDoses";
 
 type TodaysMedicationsSectionProps = {
   petId: string;
@@ -141,182 +142,171 @@ export default function TodaysMedicationsSection({
     );
   }
 
+  const isDarkMode = mode === "dark";
+
   if (todaysMedications.length === 0) {
     return null; // Don't show section if no medications for today
   }
 
   return (
-    <View className="px-4 mb-6">
-      {/* Section Header */}
-      <View className="flex-row items-center justify-between mb-4">
-        <View className="flex-row items-center flex-1">
-          <View
-            className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-            style={{
-              backgroundColor: mode === "dark" ? "#1E3A8A" : "#DBEAFE",
-            }}
-          >
-            <MaterialCommunityIcons
-              name="pill"
-              size={20}
-              color={mode === "dark" ? "#3B82F6" : "#2563EB"}
-            />
-          </View>
-          <View className="flex-1">
-            <Text
-              className="text-xl font-bold"
-              style={{ color: theme.foreground }}
-            >
-              Today's Medications
-            </Text>
-            <Text
-              className="text-sm"
-              style={{ color: theme.secondary }}
-            >
-              {completionStats.completed}/{completionStats.total} completed
-            </Text>
-          </View>
-        </View>
-        <Text
-          className="text-lg font-bold ml-3"
-          style={{ color: "#22C55E" }}
-        >
-          {completionStats.percentage}%
-        </Text>
-      </View>
-
-      {/* Medication Cards */}
-      <View className="gap-3">
-        {todaysMedications.map((medDose, index) => {
-          const isCompleted = medDose.isCompleted;
-          const scheduledTime = moment(medDose.scheduledTime);
-          const isPastTime = scheduledTime.isBefore(moment());
-
-          return (
+    <View className="px-4">
+      {/* Today's Medications Card */}
+      <LinearGradient
+        colors={isDarkMode 
+          ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]  // dark card #1C2128
+          : ["#FFFFFF", "#F8FAFA"]}  // light card - crisp white to subtle teal tint
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: 24,
+          padding: 20,
+          borderWidth: isDarkMode ? 1 : 0,
+          borderColor: theme.border,
+          // Shadow for iOS - matches Tailwind shadow-lg
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.1,
+          shadowRadius: 15,
+          // Shadow for Android
+          elevation: 10,
+        }}
+      >
+        {/* Card Header */}
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center flex-1">
             <View
-              key={`${medDose.medication.id}-${scheduledTime.format("HHmm")}-${index}`}
-              className="flex-row items-center rounded-2xl p-4"
+              className="w-12 h-12 rounded-xl items-center justify-center mr-3"
               style={{
-                backgroundColor: isCompleted
-                  ? mode === "dark"
-                    ? "#065F46"
-                    : "#D1FAE5"
-                  : mode === "dark"
-                  ? "#1A2026"
-                  : theme.card,
-                borderWidth: 1,
-                borderColor: isCompleted
-                  ? mode === "dark"
-                    ? "#10B981"
-                    : "#10B981"
-                  : mode === "dark"
-                  ? "#325C60"
-                  : theme.border,
+                backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE",
               }}
             >
-              {/* Icon */}
-              <View
-                className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+              <MaterialCommunityIcons
+                name="pill"
+                size={24}
+                color={isDarkMode ? "#60A5FA" : "#3B82F6"}
+              />
+            </View>
+            <View className="flex-1">
+              <Text
+                className="text-base font-bold"
+                style={{ color: theme.foreground }}
+              >
+                Today's Medications
+              </Text>
+              <Text
+                className="text-xs"
+                style={{ color: theme.secondary }}
+              >
+                {completionStats.completed}/{completionStats.total} completed
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Medication Items */}
+        <View className="gap-3">
+          {todaysMedications.map((medDose, index) => {
+            const isCompleted = medDose.isCompleted;
+            const scheduledTime = moment(medDose.scheduledTime);
+
+            return (
+              <TouchableOpacity
+                key={`${medDose.medication.id}-${scheduledTime.format("HHmm")}-${index}`}
+                className="flex-row items-center rounded-2xl p-4"
                 style={{
                   backgroundColor: isCompleted
-                    ? mode === "dark"
-                      ? "#10B981"
-                      : "#10B981"
-                    : mode === "dark"
-                    ? "#1E3A8A"
-                    : "#DBEAFE",
+                    ? isDarkMode
+                      ? "rgba(16, 185, 129, 0.15)"
+                      : "#D1FAE5"
+                    : isDarkMode
+                    ? "rgba(255, 255, 255, 0.05)"
+                    : "#F8FAFC",
+                  borderWidth: isCompleted ? 1 : 0,
+                  borderColor: isCompleted ? "#10B981" : "transparent",
                 }}
+                onPress={() => {
+                  if (!isCompleted) {
+                    handleMarkComplete(medDose.medication.id, medDose.scheduledTime);
+                  }
+                }}
+                disabled={isCompleted || markCompleteMutation.isPending}
+                activeOpacity={0.7}
               >
-                {isCompleted ? (
-                  <Ionicons name="checkmark" size={24} color="#FFFFFF" />
-                ) : (
-                  <MaterialCommunityIcons
-                    name="pill"
-                    size={24}
-                    color={mode === "dark" ? "#3B82F6" : "#2563EB"}
-                  />
-                )}
-              </View>
-
-              {/* Content */}
-              <View className="flex-1">
-                <Text
-                  className="text-base font-bold"
+                {/* Icon */}
+                <View
+                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
                   style={{
-                    color: isCompleted
-                      ? mode === "dark"
-                        ? "#10B981"
-                        : "#059669"
-                      : theme.foreground,
+                    backgroundColor: isCompleted
+                      ? "#10B981"
+                      : isDarkMode
+                      ? "rgba(59, 189, 210, 0.15)"
+                      : "#E0F7F7",
                   }}
                 >
-                  {medDose.medication.name}
-                </Text>
-                <Text
-                  className="text-sm mt-0.5"
-                  style={{ color: theme.secondary }}
-                >
-                  {isCompleted
-                    ? "Completed"
-                    : `Scheduled: ${scheduledTime.format("h:mm A")}`}
-                </Text>
-              </View>
+                  {isCompleted ? (
+                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="pill"
+                      size={20}
+                      color="#3BD0D2"
+                    />
+                  )}
+                </View>
 
-              {/* Action Button/Time */}
-              {isCompleted ? (
-                <TouchableOpacity
-                  className="px-4 py-2 rounded-full"
-                  style={{
-                    backgroundColor: mode === "dark" ? "#10B981" : "#10B981",
-                  }}
-                  disabled
-                >
-                  <Text className="text-sm font-semibold" style={{ color: "#FFFFFF" }}>
-                    Done
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View className="items-end">
+                {/* Content */}
+                <View className="flex-1">
                   <Text
-                    className="text-sm font-semibold mb-1"
-                    style={{ color: theme.foreground }}
-                  >
-                    {scheduledTime.format("h:mm A")}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      handleMarkComplete(
-                        medDose.medication.id,
-                        medDose.scheduledTime
-                      )
-                    }
-                    disabled={markCompleteMutation.isPending}
-                    className="px-4 py-2 rounded-full"
+                    className="text-sm font-bold"
                     style={{
-                      backgroundColor:
-                        mode === "dark" ? "#1E3A8A" : "#DBEAFE",
-                      opacity: markCompleteMutation.isPending ? 0.6 : 1,
+                      color: isCompleted
+                        ? isDarkMode
+                          ? "#10B981"
+                          : "#059669"
+                        : theme.foreground,
                     }}
                   >
-                    {markCompleteMutation.isPending ? (
-                      <ActivityIndicator size="small" color={theme.primary} />
-                    ) : (
-                      <Text
-                        className="text-sm font-semibold"
-                        style={{
-                          color: mode === "dark" ? "#3B82F6" : "#2563EB",
-                        }}
-                      >
-                        Mark Done
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                    {medDose.medication.name}
+                  </Text>
+                  <Text
+                    className="text-xs mt-0.5"
+                    style={{ color: theme.secondary }}
+                  >
+                    {isCompleted
+                      ? "Completed"
+                      : `Scheduled: ${scheduledTime.format("h:mm A")}`}
+                  </Text>
                 </View>
-              )}
-            </View>
-          );
-        })}
-      </View>
+
+                {/* Time Badge */}
+                <View
+                  className="px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: isCompleted
+                      ? "#10B981"
+                      : isDarkMode
+                      ? "rgba(59, 189, 210, 0.15)"
+                      : "#E0F7F7",
+                  }}
+                >
+                  {markCompleteMutation.isPending && !isCompleted ? (
+                    <ActivityIndicator size="small" color="#3BD0D2" />
+                  ) : (
+                    <Text
+                      className="text-xs font-semibold"
+                      style={{
+                        color: isCompleted ? "#FFFFFF" : "#3BD0D2",
+                      }}
+                    >
+                      {isCompleted ? "Done" : scheduledTime.format("h:mm A")}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </LinearGradient>
     </View>
   );
 }

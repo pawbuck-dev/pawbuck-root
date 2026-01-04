@@ -1,10 +1,11 @@
 import { useTheme } from "@/context/themeContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import moment from "moment";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import moment from "moment";
 import DailyIntakeConfigModal from "./DailyIntakeConfigModal";
 
 type DailyIntakeSectionProps = {
@@ -208,179 +209,211 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
     await saveToStorage(waterIntake, foodIntake, newWaterTarget, newFoodTarget);
   }, [waterIntake, foodIntake, saveToStorage]);
 
+  const isDarkMode = mode === "dark";
   const waterProgress = waterTarget > 0 ? (waterIntake / waterTarget) * 100 : 0;
   const foodProgress = foodTarget > 0 ? (foodIntake / foodTarget) * 100 : 0;
-
   if (loading) {
     return (
-      <View className="px-4 mb-6">
+      <View className="px-4">
         <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }
 
   return (
-    <View className="px-4 mb-6">
-      {/* Section Header */}
-      <View className="flex-row items-center mb-4">
-        <Ionicons
-          name="water"
-          size={20}
-          color={mode === "dark" ? "#3BD0D2" : "#2BA3A3"}
-          style={{ marginRight: 8 }}
-        />
-        <View className="flex-1">
-          <Text
-            className="text-xl font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Daily Intake
-          </Text>
-          <Text
-            className="text-sm"
-            style={{ color: theme.secondary }}
-          >
-            Track food & water
-          </Text>
-        </View>
-        {/* Settings button to configure targets */}
-        <TouchableOpacity
-          onPress={() => setShowConfigModal(true)}
-          className="w-8 h-8 items-center justify-center"
-        >
-          <Ionicons name="settings-outline" size={20} color={theme.secondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Water Tracking Card */}
-      <View
-        className="flex-row items-center rounded-2xl p-4 mb-3"
+    <View className="px-4">
+      {/* Daily Intake Card */}
+      <LinearGradient
+        colors={isDarkMode 
+          ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]  // dark card #1C2128
+          : ["#FFFFFF", "#F8FAFA"]}  // light card - crisp white to subtle teal tint
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={{
-          backgroundColor: mode === "dark" ? "#1A2026" : theme.card,
-          borderWidth: 1,
-          borderColor: mode === "dark" ? "#325C60" : theme.border,
+          borderRadius: 24,
+          padding: 20,
+          borderWidth: isDarkMode ? 1 : 0,
+          borderColor: theme.border,
+          // Shadow for iOS - matches Tailwind shadow-lg
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.1,
+          shadowRadius: 15,
+          // Shadow for Android
+          elevation: 10,
         }}
       >
-        {/* Progress Circle */}
-        <IntakeProgressCircle
-          progress={waterProgress}
-          color="#3B82F6" // Blue for water
-          icon={
-            <Ionicons name="water" size={28} color="#3B82F6" />
-          }
-          size={72}
-          isLightMode={mode === "light"}
-        />
-
-        {/* Text Content */}
-        <View className="flex-1 ml-4">
-          <Text
-            className="text-base font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Water
-          </Text>
-          <Text
-            className="text-sm mt-1"
-            style={{ color: theme.secondary }}
-          >
-            {waterIntake}/{waterTarget} bowls
-          </Text>
+        {/* Card Header */}
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center flex-1">
+            <View
+              className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+              style={{
+                backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE",
+              }}
+            >
+              <Ionicons
+                name="water"
+                size={24}
+                color={isDarkMode ? "#60A5FA" : "#3B82F6"}
+              />
+            </View>
+            <View className="flex-1">
+              <Text
+                className="text-base font-bold"
+                style={{ color: theme.foreground }}
+              >
+                Daily Intake
+              </Text>
+              <Text
+                className="text-xs"
+                style={{ color: theme.secondary }}
+              >
+                Track food & water
+              </Text>
+            </View>
+          </View>
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={() => setShowConfigModal(true)}
+              className="w-8 h-8 items-center justify-center"
+            >
+              <Ionicons name="settings-outline" size={18} color={theme.secondary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Controls */}
-        <View className="flex-row gap-2">
-          <TouchableOpacity
-            onPress={handleWaterDecrement}
-            className="w-10 h-10 rounded-full items-center justify-center"
+        {/* Intake Items */}
+        <View className="gap-3">
+          {/* Water Tracking Item */}
+          <View
+            className="flex-row items-center rounded-2xl p-4"
             style={{
-              backgroundColor: mode === "dark" ? "#2A3441" : theme.border,
+              backgroundColor: isDarkMode
+                ? "rgba(255, 255, 255, 0.05)"
+                : "#F8FAFC",
             }}
-            activeOpacity={0.7}
           >
-            <Ionicons 
-              name="remove" 
-              size={20} 
-              color={mode === "dark" ? theme.foreground : "#4B5563"} 
+            {/* Progress Circle */}
+            <IntakeProgressCircle
+              progress={waterProgress}
+              color="#3B82F6"
+              icon={<Ionicons name="water" size={24} color="#3B82F6" />}
+              size={56}
+              strokeWidth={5}
+              isLightMode={!isDarkMode}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleWaterIncrement}
-            className="w-10 h-10 rounded-full items-center justify-center"
+
+            {/* Text Content */}
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-sm font-bold"
+                style={{ color: theme.foreground }}
+              >
+                Water
+              </Text>
+              <Text
+                className="text-xs mt-0.5"
+                style={{ color: theme.secondary }}
+              >
+                {waterIntake}/{waterTarget} bowls
+              </Text>
+            </View>
+
+            {/* Controls */}
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={handleWaterDecrement}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.1)" : "#E5E7EB",
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="remove" 
+                  size={18} 
+                  color={isDarkMode ? theme.foreground : "#4B5563"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleWaterIncrement}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE",
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={18} color="#3B82F6" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Food Tracking Item */}
+          <View
+            className="flex-row items-center rounded-2xl p-4"
             style={{
-              backgroundColor: mode === "dark" ? "#2A3441" : theme.border,
+              backgroundColor: isDarkMode
+                ? "rgba(255, 255, 255, 0.05)"
+                : "#F8FAFC",
             }}
-            activeOpacity={0.7}
           >
-            <Ionicons name="add" size={20} color="#3B82F6" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Food Tracking Card */}
-      <View
-        className="flex-row items-center rounded-2xl p-4"
-        style={{
-          backgroundColor: mode === "dark" ? "#1A2026" : theme.card,
-          borderWidth: 1,
-          borderColor: mode === "dark" ? "#325C60" : theme.border,
-        }}
-      >
-        {/* Progress Circle */}
-        <IntakeProgressCircle
-          progress={foodProgress}
-          color="#F97316" // Orange for food
-          icon={
-            <MaterialCommunityIcons name="silverware-fork-knife" size={28} color="#F97316" />
-          }
-          size={72}
-          isLightMode={mode === "light"}
-        />
-
-        {/* Text Content */}
-        <View className="flex-1 ml-4">
-          <Text
-            className="text-base font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Food
-          </Text>
-          <Text
-            className="text-sm mt-1"
-            style={{ color: theme.secondary }}
-          >
-            {foodIntake}/{foodTarget} meals
-          </Text>
-        </View>
-
-        {/* Controls */}
-        <View className="flex-row gap-2">
-          <TouchableOpacity
-            onPress={handleFoodDecrement}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{
-              backgroundColor: mode === "dark" ? "#2A3441" : theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name="remove" 
-              size={20} 
-              color={mode === "dark" ? theme.foreground : "#4B5563"} 
+            {/* Progress Circle */}
+            <IntakeProgressCircle
+              progress={foodProgress}
+              color="#F97316"
+              icon={<MaterialCommunityIcons name="silverware-fork-knife" size={24} color="#F97316" />}
+              size={56}
+              strokeWidth={5}
+              isLightMode={!isDarkMode}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleFoodIncrement}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{
-              backgroundColor: mode === "dark" ? "#2A3441" : theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={20} color="#F97316" />
-          </TouchableOpacity>
+
+            {/* Text Content */}
+            <View className="flex-1 ml-3">
+              <Text
+                className="text-sm font-bold"
+                style={{ color: theme.foreground }}
+              >
+                Food
+              </Text>
+              <Text
+                className="text-xs mt-0.5"
+                style={{ color: theme.secondary }}
+              >
+                {foodIntake}/{foodTarget} meals
+              </Text>
+            </View>
+
+            {/* Controls */}
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={handleFoodDecrement}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.1)" : "#E5E7EB",
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name="remove" 
+                  size={18} 
+                  color={isDarkMode ? theme.foreground : "#4B5563"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleFoodIncrement}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: isDarkMode ? "rgba(249, 115, 22, 0.2)" : "#FFEDD5",
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={18} color="#F97316" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Configuration Modal */}
       <DailyIntakeConfigModal

@@ -162,3 +162,56 @@ export const isEmailInCareTeam = async (email: string): Promise<boolean> => {
 
   return !!data;
 };
+
+/**
+ * Find an existing care team member by email or phone number
+ * Priority: email match first, then phone match
+ * @param email - The email address to check
+ * @param phone - The phone number to check
+ * @returns The existing care team member if found, or null
+ */
+export const findExistingCareTeamMember = async (
+  email?: string,
+  phone?: string
+): Promise<VetInformation | null> => {
+  // First, try to find by email (most reliable identifier)
+  if (email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const { data: emailMatch, error: emailError } = await supabase
+      .from("vet_information")
+      .select("*")
+      .eq("email", normalizedEmail)
+      .single();
+
+    if (!emailError && emailMatch) {
+      return emailMatch;
+    }
+    // If error is not "no rows returned", throw it
+    if (emailError && emailError.code !== "PGRST116") {
+      throw emailError;
+    }
+  }
+
+  // If no email match, try to find by phone number
+  if (phone) {
+    const normalizedPhone = phone.replace(/\D/g, ""); // Remove non-digits for comparison
+    if (normalizedPhone.length >= 7) {
+      // Only search if phone has meaningful length
+      const { data: phoneMatch, error: phoneError } = await supabase
+        .from("vet_information")
+        .select("*")
+        .eq("phone", phone.trim())
+        .single();
+
+      if (!phoneError && phoneMatch) {
+        return phoneMatch;
+      }
+      // If error is not "no rows returned", throw it
+      if (phoneError && phoneError.code !== "PGRST116") {
+        throw phoneError;
+      }
+    }
+  }
+
+  return null;
+};

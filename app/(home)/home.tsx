@@ -1,7 +1,10 @@
 import { AnimatedParticles } from "@/components/animations/AnimatedParticles";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import {
+  CareTeamMemberModal,
+  CareTeamMemberSaveData,
+} from "@/components/home/CareTeamMemberModal";
 import DailyIntakeSection from "@/components/home/DailyIntakeSection";
 import DailyWellnessSection from "@/components/home/DailyWellnessSection";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
@@ -18,17 +21,17 @@ import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import {
   getCareTeamMembersForPet,
-  linkCareTeamMemberToPet,
+  linkCareTeamMemberToMultiplePets,
   unlinkCareTeamMemberFromPet,
 } from "@/services/careTeamMembers";
 import { fetchMedicines } from "@/services/medicines";
-import { addEmail } from "@/services/petEmailList";
 import { linkVetToPet } from "@/services/pets";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CareTeamMemberType,
   createVetInformation,
   deleteVetInformation,
+  findExistingCareTeamMember,
   getVetInformation,
   updateVetInformation,
   VetInformation,
@@ -162,13 +165,41 @@ export default function Home() {
 
   // Mutations for care team members (non-veterinarian)
   const createCareTeamMemberMutation = useMutation({
-    mutationFn: async (memberData: TablesInsert<"vet_information">) => {
-      const newMember = await createVetInformation(memberData);
-      await linkCareTeamMemberToPet(selectedPetId!, newMember.id);
-      return newMember;
+    mutationFn: async ({
+      memberData,
+      selectedPetIds,
+    }: {
+      memberData: TablesInsert<"vet_information">;
+      selectedPetIds: string[];
+    }) => {
+      // Check for existing care team member by email or phone (deduplication)
+      const existingMember = await findExistingCareTeamMember(
+        memberData.email,
+        memberData.phone
+      );
+
+      let careTeamMemberId: string;
+
+      if (existingMember) {
+        // Use existing record - optionally update it with new details
+        await updateVetInformation(existingMember.id, memberData);
+        careTeamMemberId = existingMember.id;
+      } else {
+        // Create new record
+        const newMember = await createVetInformation(memberData);
+        careTeamMemberId = newMember.id;
+      }
+
+      // Link to all selected pets
+      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+
+      return { careTeamMemberId, selectedPetIds };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+    onSuccess: (result) => {
+      // Invalidate care team members for all affected pets
+      result.selectedPetIds.forEach((petId) => {
+        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+      });
     },
   });
 
@@ -251,31 +282,11 @@ export default function Home() {
   ) => {
     if (selectedPet?.vet_information_id && vetInfo) {
       await updateVetMutation.mutateAsync(vetData as TablesUpdate<"vet_information">);
-      // Automatically whitelist the email when updating a vet
-      if (selectedPet && vetData.email) {
-        try {
-          await addEmail(selectedPet.id, vetData.email, false); // false = whitelisted
-          // Invalidate whitelisted emails query to refresh the UI
-          queryClient.invalidateQueries({ queryKey: ["whitelisted_emails", selectedPet.id] });
-        } catch (emailError) {
-          // Log error but don't fail the entire operation if email whitelisting fails
-          console.error("Error whitelisting email:", emailError);
-        }
-      }
     } else {
       await createVetMutation.mutateAsync(vetData as TablesInsert<"vet_information">);
-      // Automatically whitelist the email when adding a new vet
-      if (selectedPet && vetData.email) {
-        try {
-          await addEmail(selectedPet.id, vetData.email, false); // false = whitelisted
-          // Invalidate whitelisted emails query to refresh the UI
-          queryClient.invalidateQueries({ queryKey: ["whitelisted_emails", selectedPet.id] });
-        } catch (emailError) {
-          // Log error but don't fail the entire operation if email whitelisting fails
-          console.error("Error whitelisting email:", emailError);
-        }
-      }
     }
+    // Primary vet is automatically whitelisted via pets.vet_information_id relationship
+    // No need to manually add to pet_email_list
   };
 
   const handleDeleteVetInfo = async () => {
@@ -294,41 +305,26 @@ export default function Home() {
     setShowCareTeamModal(true);
   };
 
-  const handleSaveCareTeamMember = async (
-    memberData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">
-  ) => {
+  const handleSaveCareTeamMember = async (data: CareTeamMemberSaveData) => {
     if (!selectedPetId) return;
+    const { memberData, selectedPetIds } = data;
+
     try {
       if (selectedMember) {
+        // Editing existing member - only update the member data
         await updateCareTeamMemberMutation.mutateAsync({
           id: selectedMember.id,
           data: memberData as TablesUpdate<"vet_information">,
         });
-        // Automatically whitelist the email when updating a care team member
-        if (memberData.email) {
-          try {
-            await addEmail(selectedPetId, memberData.email, false); // false = whitelisted
-            // Invalidate whitelisted emails query to refresh the UI
-            queryClient.invalidateQueries({ queryKey: ["whitelisted_emails", selectedPetId] });
-          } catch (emailError) {
-            // Log error but don't fail the entire operation if email whitelisting fails
-            console.error("Error whitelisting email:", emailError);
-          }
-        }
       } else {
-        await createCareTeamMemberMutation.mutateAsync(memberData as TablesInsert<"vet_information">);
-        // Automatically whitelist the email when adding a new care team member
-        if (memberData.email) {
-          try {
-            await addEmail(selectedPetId, memberData.email, false); // false = whitelisted
-            // Invalidate whitelisted emails query to refresh the UI
-            queryClient.invalidateQueries({ queryKey: ["whitelisted_emails", selectedPetId] });
-          } catch (emailError) {
-            // Log error but don't fail the entire operation if email whitelisting fails
-            console.error("Error whitelisting email:", emailError);
-          }
-        }
+        // Creating new member - use dedup logic and link to all selected pets
+        await createCareTeamMemberMutation.mutateAsync({
+          memberData: memberData as TablesInsert<"vet_information">,
+          selectedPetIds,
+        });
       }
+      // Care team members are automatically whitelisted via pet_care_team_members junction table
+      // No need to manually add to pet_email_list
       setShowCareTeamModal(false);
       setSelectedMember(null);
     } catch (error) {
@@ -459,7 +455,7 @@ export default function Home() {
             }}
           />
           {/* Animated Floating Particles */}
-          {isDarkMode && <AnimatedParticles />}
+          <AnimatedParticles />
         </>
 
         {/* Header */}
@@ -496,23 +492,22 @@ export default function Home() {
               </View>
             )}
 
-            {/* Pet Name & Email */}
+            {/* Pet Email */}
             {selectedPet && (
-              <View className="mx-4 mb-6">
-                <Text
-                  className="text-3xl font-bold text-center mb-2"
-                  style={{ color: theme.foreground }}
-                >
-                  {selectedPet.name}
-                </Text>
+              <View className="mx-4 mb-6 items-center">
                 <TouchableOpacity
-                  className="flex-row items-center justify-center gap-2"
+                  className="flex-row items-center gap-2 px-5 py-3 rounded-full"
+                  style={{
+                    backgroundColor: mode === "dark" ? theme.card : theme.border + "80",
+                    borderWidth: mode === "dark" ? 1 : 0,
+                    borderColor: theme.border,
+                  }}
                   onPress={handleCopyEmail}
                   activeOpacity={0.7}
                 >
                   <Text
-                    className="text-base"
-                    style={{ color: emailCopied ? "#22C55E" : theme.secondary }}
+                    className="text-base font-medium"
+                    style={{ color: emailCopied ? "#22C55E" : theme.foreground }}
                   >
                     {selectedPet.email_id}@pawbuck.app
                   </Text>
@@ -569,8 +564,6 @@ export default function Home() {
                   careTeamMembers={careTeamMembers.filter(m => m.id !== vetInfo?.id)}
                   onAddMember={handleAddCareTeamMember}
                   onEditMember={handleEditCareTeamMember}
-                  petId={selectedPet.id}
-                  showOnlyWhitelisted={true}
                   readOnly={true}
                 />
               </View>
@@ -614,6 +607,7 @@ export default function Home() {
             memberInfo={selectedMember}
             memberType={selectedMemberType}
             petId={selectedPet.id}
+            allPets={pets}
             loading={
               createCareTeamMemberMutation.isPending ||
               updateCareTeamMemberMutation.isPending ||
