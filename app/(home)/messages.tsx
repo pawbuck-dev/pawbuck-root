@@ -9,13 +9,12 @@ import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
+import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import { GroupedThreads, groupThreadsByType } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
-import { createVetInformation, CareTeamMemberType } from "@/services/vetInformation";
-import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
-import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
-import { TablesInsert } from "@/database.types";
+import { CareTeamMemberType, createVetInformation } from "@/services/vetInformation";
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -144,6 +143,24 @@ export default function MessagesScreen() {
     return threadCount + pendingApprovals.length;
   }, [threads, pendingApprovals]);
 
+  // Group filtered threads
+  const [filteredGroupedThreads, setFilteredGroupedThreads] = React.useState<GroupedThreads>({
+    veterinarian: [],
+    dog_walker: [],
+    groomer: [],
+    pet_sitter: [],
+    boarding: [],
+    unknown: [],
+  });
+
+  React.useEffect(() => {
+    const groupFilteredThreads = async () => {
+      const grouped = await groupThreadsByType(filteredThreads);
+      setFilteredGroupedThreads(grouped);
+    };
+    groupFilteredThreads();
+  }, [filteredThreads]);
+
   // Handle thread press
   const handleThreadPress = (thread: MessageThread) => {
     setSelectedThread(thread);
@@ -233,8 +250,7 @@ export default function MessagesScreen() {
   };
 
   // Group filtered threads
-  const [filteredGroupedThreads, setFilteredGroupedThreads] = React.useState<GroupedThreads>(emptyGroupedThreads);
-
+ 
   React.useEffect(() => {
     // Skip grouping while loading or if no threads - avoid unnecessary DB calls
     if (loadingThreads || filteredThreads.length === 0) {

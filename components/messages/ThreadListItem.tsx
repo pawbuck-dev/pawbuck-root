@@ -12,7 +12,7 @@ interface ThreadListItemProps {
   showAddButton?: boolean;
 }
 
-export default function ThreadListItem({ thread, onPress }: ThreadListItemProps) {
+export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showAddButton = false }: ThreadListItemProps) {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
 

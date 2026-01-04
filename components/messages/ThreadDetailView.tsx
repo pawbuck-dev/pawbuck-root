@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -269,13 +270,12 @@ export default function ThreadDetailView({
           borderBottomColor: theme.border,
         }}
       >
-        <TouchableOpacity
+        <Pressable
           onPress={onBack}
-          className="mr-3 p-2 -ml-2"
-          activeOpacity={0.7}
+          className="mr-3 p-2 -ml-2 active:opacity-70"
         >
           <Ionicons name="arrow-back" size={24} color={theme.foreground} />
-        </TouchableOpacity>
+        </Pressable>
         <View className="flex-1">
           <Text
             className="text-lg font-semibold"
