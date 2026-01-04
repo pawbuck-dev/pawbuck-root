@@ -42,7 +42,7 @@ export default function BottomNavBar({
     { id: "records", icon: "clipboard-outline", activeIcon: "clipboard", route: "/(home)/health-record/[id]" },
     { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
     { id: "messages", icon: "mail-outline", activeIcon: "mail", route: "/(home)/messages" },
-    { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
+    { id: "profile", icon: "settings-outline", activeIcon: "settings", route: "/(home)/settings" },
   ];
 
   const handleNavPress = (item: NavItem) => {

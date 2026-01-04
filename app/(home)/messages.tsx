@@ -1,23 +1,23 @@
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import HomeHeader from "@/components/home/HomeHeader";
+import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
-import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
-import { groupThreadsByType, GroupedThreads } from "@/services/messageThreadsGrouped";
+import { GroupedThreads, groupThreadsByType } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { createVetInformation, CareTeamMemberType } from "@/services/vetInformation";
 import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
 import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
 import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
 import {
@@ -56,24 +56,6 @@ export default function MessagesScreen() {
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
   });
-
-  // Group threads by care team member type
-  const [groupedThreads, setGroupedThreads] = React.useState<GroupedThreads>({
-    veterinarian: [],
-    dog_walker: [],
-    groomer: [],
-    pet_sitter: [],
-    boarding: [],
-    unknown: [],
-  });
-
-  React.useEffect(() => {
-    const groupThreads = async () => {
-      const grouped = await groupThreadsByType(threads);
-      setGroupedThreads(grouped);
-    };
-    groupThreads();
-  }, [threads]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -240,23 +222,32 @@ export default function MessagesScreen() {
     );
   }
 
-  // Group filtered threads
-  const [filteredGroupedThreads, setFilteredGroupedThreads] = React.useState<GroupedThreads>({
+  // Default empty grouped threads
+  const emptyGroupedThreads: GroupedThreads = {
     veterinarian: [],
     dog_walker: [],
     groomer: [],
     pet_sitter: [],
     boarding: [],
     unknown: [],
-  });
+  };
+
+  // Group filtered threads
+  const [filteredGroupedThreads, setFilteredGroupedThreads] = React.useState<GroupedThreads>(emptyGroupedThreads);
 
   React.useEffect(() => {
+    // Skip grouping while loading or if no threads - avoid unnecessary DB calls
+    if (loadingThreads || filteredThreads.length === 0) {
+      setFilteredGroupedThreads(emptyGroupedThreads);
+      return;
+    }
+
     const groupFilteredThreads = async () => {
       const grouped = await groupThreadsByType(filteredThreads);
       setFilteredGroupedThreads(grouped);
     };
     groupFilteredThreads();
-  }, [filteredThreads]);
+  }, [filteredThreads, loadingThreads]);
 
   const hasMessages = filteredThreads.length > 0 || needsReviewMessages.length > 0;
 

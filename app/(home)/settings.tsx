@@ -4,11 +4,11 @@ import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
 
 export default function Settings() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode, toggleTheme } = useTheme();
   const { signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -49,7 +49,7 @@ export default function Settings() {
     <Pressable
       onPress={onPress}
       className="flex-row items-center py-4 px-4 mb-3 rounded-2xl active:opacity-80"
-      style={{ backgroundColor: "#1F1F1F" }}
+      style={{ backgroundColor: theme.card }}
     >
       <View
         className="w-12 h-12 rounded-xl items-center justify-center mr-4"
@@ -58,25 +58,25 @@ export default function Settings() {
         <MaterialCommunityIcons name={icon as any} size={24} color={iconColor} />
       </View>
       <View className="flex-1">
-        <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+        <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
           {title}
         </Text>
-        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+        <Text className="text-sm" style={{ color: theme.secondary }}>
           {subtitle}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
     </Pressable>
     );
 
   return (
     <ChatProvider>
-      <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
       {/* Header */}
         <View className="px-6 pt-14 pb-6">
           <Text
             className="text-4xl font-bold"
-            style={{ color: "#FFFFFF" }}
+            style={{ color: theme.foreground }}
           >
             Settings
           </Text>
@@ -145,6 +145,39 @@ export default function Settings() {
             />
           </View>
 
+          {/* Theme Toggle */}
+          <View className="mb-6">
+            <Pressable
+              className="flex-row items-center py-4 px-4 rounded-2xl"
+              style={{ backgroundColor: theme.card }}
+            >
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+                style={{ backgroundColor: `${theme.primary}20` }}
+              >
+                <MaterialCommunityIcons
+                  name={mode === "dark" ? "weather-night" : "weather-sunny"}
+                  size={24}
+                  color={theme.primary}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
+                  Dark Mode
+                </Text>
+                <Text className="text-sm" style={{ color: theme.secondary }}>
+                  {mode === "dark" ? "Currently using dark theme" : "Currently using light theme"}
+                </Text>
+              </View>
+              <Switch
+                value={mode === "dark"}
+                onValueChange={toggleTheme}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor={theme.foreground}
+              />
+            </Pressable>
+          </View>
+
           {/* Log Out Button */}
           <Pressable
             onPress={handleSignOut}
@@ -152,11 +185,11 @@ export default function Settings() {
             style={{
               backgroundColor: "transparent",
               borderWidth: 1,
-              borderColor: "#9CA3AF",
+              borderColor: theme.secondary,
             }}
           >
-            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-            <Text className="text-base font-semibold ml-2" style={{ color: "#FFFFFF" }}>
+            <Ionicons name="log-out-outline" size={20} color={theme.foreground} />
+            <Text className="text-base font-semibold ml-2" style={{ color: theme.foreground }}>
               Log Out
             </Text>
           </Pressable>

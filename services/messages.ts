@@ -34,10 +34,14 @@ export interface ThreadMessage {
 /**
  * Fetch all message threads for the current user
  * Optionally filtered by pet ID
+ * Optimized: Uses batched queries instead of N+1 pattern
  */
 export async function fetchMessageThreads(
   petId?: string
 ): Promise<MessageThread[]> {
+  console.log(`[fetchMessageThreads] Fetching threads for petId: ${petId}`);
+  
+  // Query 1: Fetch all threads
   let query = supabase
     .from("message_threads")
     .select(
@@ -63,28 +67,44 @@ export async function fetchMessageThreads(
 
   console.log(`[fetchMessageThreads] Found ${data?.length || 0} threads`);
 
-  // Fetch last message and count for each thread
-  const threadsWithMessages = await Promise.all(
-    (data || []).map(async (thread) => {
-      const { data: messages } = await supabase
-        .from("thread_messages")
-        .select("*")
-        .eq("thread_id", thread.id)
-        .order("sent_at", { ascending: false })
-        .limit(1);
+  // Early return if no threads - avoid unnecessary queries
+  if (!data || data.length === 0) {
+    return [];
+  }
 
-      const { count } = await supabase
-        .from("thread_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("thread_id", thread.id);
+  const threadIds = data.map((thread) => thread.id);
 
-      return {
-        ...thread,
-        last_message: messages?.[0] || null,
-        message_count: count || 0,
-      };
-    })
-  );
+  // Query 2: Fetch ALL messages for all threads in one batch query
+  // Ordered by sent_at desc so first message per thread is the latest
+  const { data: allMessages } = await supabase
+    .from("thread_messages")
+    .select("*")
+    .in("thread_id", threadIds)
+    .order("sent_at", { ascending: false });
+
+  // Build lookup maps for last message and count per thread
+  const lastMessageMap = new Map<string, ThreadMessage>();
+  const countMap = new Map<string, number>();
+
+  // Process messages to extract last message and count per thread
+  (allMessages || []).forEach((message) => {
+    const threadId = message.thread_id;
+    
+    // Increment count for this thread
+    countMap.set(threadId, (countMap.get(threadId) || 0) + 1);
+    
+    // Store only the first (latest) message per thread
+    if (!lastMessageMap.has(threadId)) {
+      lastMessageMap.set(threadId, message as ThreadMessage);
+    }
+  });
+
+  // Combine threads with their last message and count
+  const threadsWithMessages = data.map((thread) => ({
+    ...thread,
+    last_message: lastMessageMap.get(thread.id) || null,
+    message_count: countMap.get(thread.id) || 0,
+  }));
 
   return threadsWithMessages as MessageThread[];
 }
