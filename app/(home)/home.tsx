@@ -582,7 +582,7 @@ export default function Home() {
         </GestureDetector>
 
         {/* Bottom Navigation */}
-        <BottomNavBar activeTab="home" />
+        <BottomNavBar activeTab="home" selectedPetId={selectedPetId} />
 
         {/* Milo Chat Modal */}
         <MiloChatModal />

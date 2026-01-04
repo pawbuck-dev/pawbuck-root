@@ -1,4 +1,5 @@
 import { useChat } from "@/context/chatContext";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -19,20 +20,26 @@ type NavItem = {
 
 type BottomNavBarProps = {
   activeTab?: string;
+  selectedPetId?: string | null;
 };
 
 export default function BottomNavBar({
   activeTab = "home",
+  selectedPetId,
 }: BottomNavBarProps) {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const router = useRouter();
   const pathname = usePathname();
   const { openChat } = useChat();
+  const { pets } = usePets();
+
+  // Use provided selectedPetId or fall back to first pet
+  const petIdForNavigation = selectedPetId ?? pets[0]?.id;
 
   const navItems: NavItem[] = [
     { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
-    { id: "records", icon: "clipboard-outline", activeIcon: "clipboard" },
+    { id: "records", icon: "clipboard-outline", activeIcon: "clipboard", route: "/(home)/health-record/[id]" },
     { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
     { id: "messages", icon: "mail-outline", activeIcon: "mail", route: "/(home)/messages" },
     { id: "profile", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
@@ -44,6 +51,13 @@ export default function BottomNavBar({
       return;
     }
     if (item.route) {
+      // Handle dynamic route for health records
+      if (item.id === "records") {
+        if (petIdForNavigation) {
+          router.push(`/(home)/health-record/${petIdForNavigation}` as any);
+        }
+        return;
+      }
       router.push(item.route as any);
     }
   };
