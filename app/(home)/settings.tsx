@@ -1,10 +1,11 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { ChatProvider } from "@/context/chatContext";
 import { useAuth } from "@/context/authContext";
+import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { Alert, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Alert, Image, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function Settings() {
   const router = useRouter();
@@ -72,15 +73,50 @@ export default function Settings() {
   return (
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      {/* Header */}
-        <View className="px-6 pt-14 pb-6">
-          <Text
-            className="text-4xl font-bold"
-            style={{ color: theme.foreground }}
-          >
-            Settings
-          </Text>
-      </View>
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
+
+        {/* Header */}
+        <View className="px-6 pt-14 pb-4">
+          <View className="flex-row items-center justify-between">
+            {/* Back Button - Pawbuck Logo */}
+            <Pressable
+              onPress={() => router.back()}
+              className="items-center justify-center active:opacity-70"
+            >
+              <Image
+                source={require("@/assets/images/icon.png")}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            </Pressable>
+
+            {/* Title */}
+            <Text
+              className="text-xl font-bold"
+              style={{ color: theme.foreground }}
+            >
+              Settings
+            </Text>
+
+            {/* Theme Toggle */}
+            <TouchableOpacity
+              onPress={toggleTheme}
+              className="w-11 h-11 rounded-full items-center justify-center"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={mode === "dark" ? "moon" : "sunny"}
+                size={20}
+                color={theme.primary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
       <ScrollView
         className="flex-1 px-6"
@@ -144,39 +180,7 @@ export default function Settings() {
               }}
             />
           </View>
-
-          {/* Theme Toggle */}
-          <View className="mb-6">
-            <Pressable
-              className="flex-row items-center py-4 px-4 rounded-2xl"
-              style={{ backgroundColor: theme.card }}
-            >
-              <View
-                className="w-12 h-12 rounded-xl items-center justify-center mr-4"
-                style={{ backgroundColor: `${theme.primary}20` }}
-              >
-                <MaterialCommunityIcons
-                  name={mode === "dark" ? "weather-night" : "weather-sunny"}
-                  size={24}
-                  color={theme.primary}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
-                  Dark Mode
-                </Text>
-                <Text className="text-sm" style={{ color: theme.secondary }}>
-                  {mode === "dark" ? "Currently using dark theme" : "Currently using light theme"}
-                </Text>
-              </View>
-              <Switch
-                value={mode === "dark"}
-                onValueChange={toggleTheme}
-                trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={theme.foreground}
-              />
-            </Pressable>
-          </View>
+         
 
           {/* Log Out Button */}
           <Pressable

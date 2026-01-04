@@ -328,17 +328,19 @@ export default function MessagesScreen() {
           <>
 
         {/* Filter Chips */}
-        <View className="px-4 pb-4">
+        <View className="px-4 pb-4" style={{ overflow: 'visible' }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+            contentContainerStyle={{ gap: 12, paddingRight: 16, paddingTop: 8 }}
+            style={{ overflow: 'visible' }}
           >
             {/* All Filter */}
             <TouchableOpacity
               onPress={() => setSelectedFilter("all")}
               activeOpacity={0.7}
               className="items-center"
+              style={{ overflow: 'visible' }}
             >
               <View
                 className="w-14 h-14 rounded-full items-center justify-center mb-1"
@@ -379,6 +381,7 @@ export default function MessagesScreen() {
                   onPress={() => setSelectedFilter(pet.id)}
                   activeOpacity={0.7}
                   className="items-center"
+                  style={{ overflow: 'visible' }}
                 >
                   <View
                     className="w-14 h-14 rounded-full items-center justify-center mb-1"

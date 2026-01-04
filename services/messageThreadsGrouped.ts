@@ -1,6 +1,6 @@
 import { supabase } from "@/utils/supabase";
-import { MessageThread } from "./messages";
 import { CareTeamMemberType } from "./careTeamMembers";
+import { MessageThread } from "./messages";
 
 export interface GroupedThreads {
   veterinarian: MessageThread[];
@@ -70,6 +70,10 @@ export async function groupThreadsByType(
 
   // Fetch care team member types for all recipients
   const typeMap = await getRecipientTypes(recipientEmails);
+
+  console.log(`[groupThreadsByType] Type map:`, typeMap);
+  console.log(`[groupThreadsByType] Recipient emails:`, recipientEmails);
+  console.log(`[groupThreadsByType] Threads:`, threads);
 
   // Group threads by type
   threads.forEach((thread) => {
