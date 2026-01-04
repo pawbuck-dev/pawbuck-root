@@ -28,6 +28,7 @@ interface CareTeamMemberModalProps {
   onTypeChange?: (type: CareTeamMemberType) => void;
   petId: string;
   loading?: boolean;
+  initialEmail?: string;
 }
 
 const validateEmail = (emailToValidate: string): boolean => {
@@ -97,6 +98,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   memberType,
   petId,
   loading = false,
+  initialEmail,
 }) => {
   const { theme } = useTheme();
   const isEditing = !!memberInfo;
@@ -107,7 +109,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   const [personName, setPersonName] = useState(memberInfo?.vet_name || "");
   const [address, setAddress] = useState(memberInfo?.address || "");
   const [phone, setPhone] = useState(memberInfo?.phone || "");
-  const [email, setEmail] = useState(memberInfo?.email || "");
+  const [email, setEmail] = useState(memberInfo?.email || initialEmail || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
@@ -119,10 +121,10 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
       setPersonName(memberInfo?.vet_name || "");
       setAddress(memberInfo?.address || "");
       setPhone(memberInfo?.phone || "");
-      setEmail(memberInfo?.email || "");
+      setEmail(memberInfo?.email || initialEmail || "");
       setCurrentMemberType(memberType);
     }
-  }, [visible, memberInfo, memberType]);
+  }, [visible, memberInfo, memberType, initialEmail]);
 
   const handleSave = async () => {
     // Validate required fields

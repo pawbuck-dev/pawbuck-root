@@ -12,6 +12,10 @@ import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import { groupThreadsByType, GroupedThreads } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
+import { createVetInformation, CareTeamMemberType } from "@/services/vetInformation";
+import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
+import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +43,9 @@ export default function MessagesScreen() {
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [threadToAdd, setThreadToAdd] = useState<MessageThread | null>(null);
+  const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
 
   // Fetch message threads
   const {
@@ -163,6 +170,51 @@ export default function MessagesScreen() {
   // Handle message press (pending approvals)
   const handleMessagePress = (approval: PendingApprovalWithPet) => {
     setCurrentApproval(approval);
+  };
+
+  // Handle add to care team from thread
+  const handleAddToCareTeam = (thread: MessageThread) => {
+    setThreadToAdd(thread);
+    setSelectedMemberType("veterinarian");
+    setShowAddMemberModal(true);
+  };
+
+  // Handle saving care team member from thread
+  const handleAddCareTeamMemberFromThread = async (
+    memberData: TablesInsert<"vet_information">
+  ) => {
+    if (!threadToAdd || pets.length === 0) {
+      Alert.alert("Error", "Unable to add care team member");
+      return;
+    }
+
+    try {
+      // Create the vet_information record
+      const newMember = await createVetInformation(memberData);
+
+      // Link the care team member to all user's pets
+      const linkPromises = pets.map((pet) =>
+        linkCareTeamMemberToPet(pet.id, newMember.id)
+      );
+      await Promise.all(linkPromises);
+
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+
+      Alert.alert("Success", "Care team member added successfully");
+      setShowAddMemberModal(false);
+      setThreadToAdd(null);
+    } catch (error) {
+      console.error("Error adding care team member:", error);
+      Alert.alert(
+        "Error",
+        error instanceof Error
+          ? error.message
+          : "Failed to add care team member"
+      );
+      throw error;
+    }
   };
 
   // Get initials for pet avatar

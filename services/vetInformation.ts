@@ -78,63 +78,87 @@ export const getAllCareTeamMembers = async (): Promise<VetInformation[]> => {
   if (userError) throw userError;
   if (!user) throw new Error("User not authenticated");
 
-  // Get all care team members linked to user's pets
-  const { data, error } = await supabase
-    .from("pet_care_team_members")
-    .select(`
-      vet_information!inner(*)
-    `)
-    .in("pet_id", 
-      supabase
-        .from("pets")
-        .select("id")
-        .eq("user_id", user.id)
-        .is("deleted_at", null)
-    );
-
-  if (error) throw error;
-
-  // Also include primary vets from pets table
-  const { data: pets, error: petsError } = await supabase
+  // First, get all pet IDs for the user
+  const { data: userPets, error: petsError } = await supabase
     .from("pets")
-    .select("vet_information_id")
+    .select("id, vet_information_id")
     .eq("user_id", user.id)
-    .is("deleted_at", null)
-    .not("vet_information_id", "is", null);
+    .is("deleted_at", null);
 
   if (petsError) throw petsError;
 
+  if (!userPets || userPets.length === 0) {
+    return [];
+  }
+
+  const petIds = userPets.map((p) => p.id);
   const memberIds = new Set<string>();
   const members: VetInformation[] = [];
 
-  // Add members from junction table
-  if (data) {
-    data.forEach((item: any) => {
-      const member = item.vet_information;
-      if (member && !memberIds.has(member.id)) {
-        memberIds.add(member.id);
-        members.push(member);
-      }
-    });
+  // Get all care team members linked to user's pets via junction table
+  if (petIds.length > 0) {
+    const { data: linkedMembers, error: linkError } = await supabase
+      .from("pet_care_team_members")
+      .select(`
+        care_team_member_id,
+        vet_information:care_team_member_id(*)
+      `)
+      .in("pet_id", petIds);
+
+    if (linkError) throw linkError;
+
+    // Add members from junction table
+    if (linkedMembers) {
+      linkedMembers.forEach((link: any) => {
+        const member = link.vet_information;
+        if (member && !memberIds.has(member.id)) {
+          memberIds.add(member.id);
+          members.push(member);
+        }
+      });
+    }
   }
 
-  // Add primary vets
-  if (pets) {
-    const primaryVetIds = pets
-      .map((p) => p.vet_information_id)
-      .filter((id): id is string => id !== null && !memberIds.has(id));
+  // Also include primary vets from pets table
+  const primaryVetIds = userPets
+    .map((p) => p.vet_information_id)
+    .filter((id): id is string => id !== null && !memberIds.has(id));
 
-    if (primaryVetIds.length > 0) {
-      const { data: primaryVets, error: vetsError } = await supabase
-        .from("vet_information")
-        .select("*")
-        .in("id", primaryVetIds);
+  if (primaryVetIds.length > 0) {
+    const { data: primaryVets, error: vetsError } = await supabase
+      .from("vet_information")
+      .select("*")
+      .in("id", primaryVetIds);
 
-      if (!vetsError && primaryVets) {
-        members.push(...primaryVets);
-      }
+    if (!vetsError && primaryVets) {
+      members.push(...primaryVets);
     }
   }
 
   return members;
+};
+
+/**
+ * Check if an email address belongs to a care team member
+ * @param email - The email address to check
+ * @returns true if the email is in the care team, false otherwise
+ */
+export const isEmailInCareTeam = async (email: string): Promise<boolean> => {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  const { data, error } = await supabase
+    .from("vet_information")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      // No rows returned - not in care team
+      return false;
+    }
+    throw error;
+  }
+
+  return !!data;
 };

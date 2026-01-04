@@ -2,6 +2,7 @@ import BottomNavBar from "@/components/home/BottomNavBar";
 import { ChatProvider } from "@/context/chatContext";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
+import { usePets } from "@/context/petsContext";
 import {
   createHouseholdInvite,
   deactivateInvite,
@@ -11,9 +12,15 @@ import {
   getMyHouseholdMembers,
   HouseholdMember,
 } from "@/services/householdInvites";
+import { getAllCareTeamMembers, createVetInformation } from "@/services/vetInformation";
+import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
+import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
+import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import { TablesInsert } from "@/database.types";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import {
   Alert,
   Pressable,
@@ -27,13 +34,46 @@ import { useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 
+// Helper function to get icon for care team member type
+const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof MaterialCommunityIcons.glyphMap => {
+  if (!type) return "stethoscope";
+  
+  const icons: Record<CareTeamMemberType, keyof typeof MaterialCommunityIcons.glyphMap> = {
+    veterinarian: "stethoscope",
+    dog_walker: "paw",
+    groomer: "content-cut",
+    pet_sitter: "heart",
+    boarding: "home",
+  };
+  return icons[type];
+};
+
+// Helper function to get initials from name
+const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2);
+};
+
 export default function FamilyAccess() {
   const router = useRouter();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { pets } = usePets();
   const queryClient = useQueryClient();
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
+
+  // Fetch care team members
+  const { data: careTeamMembers = [], isLoading: loadingCareTeam } = useQuery<VetInformation[]>({
+    queryKey: ["all_care_team_members"],
+    queryFn: getAllCareTeamMembers,
+  });
 
   // Fetch invites
   const { data: invites = [], isLoading: loadingInvites } = useQuery<HouseholdInvite[]>({
@@ -61,18 +101,6 @@ export default function FamilyAccess() {
     },
   });
 
-  // Deactivate invite mutation
-  const deactivateInviteMutation = useMutation({
-    mutationFn: deactivateInvite,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["household_invites"] });
-      Alert.alert("Success", "Invite code deactivated");
-    },
-    onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to deactivate invite code");
-    },
-  });
-
   // Remove member mutation
   const removeMemberMutation = useMutation({
     mutationFn: removeHouseholdMember,
@@ -90,28 +118,8 @@ export default function FamilyAccess() {
     createInviteMutation.mutate(30); // 30 days expiry
   };
 
-  const handleCopyCode = async (code: string) => {
-    await Clipboard.setStringAsync(code);
-    Alert.alert("Copied", "Invite code copied to clipboard");
-  };
-
   const handleShowQRCode = (code: string) => {
     setShowQRCode(code);
-  };
-
-  const handleDeactivateInvite = (inviteId: string) => {
-    Alert.alert(
-      "Deactivate Invite",
-      "Are you sure you want to deactivate this invite code?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Deactivate",
-          style: "destructive",
-          onPress: () => deactivateInviteMutation.mutate(inviteId),
-        },
-      ]
-    );
   };
 
   const handleRemoveMember = (memberId: string) => {
@@ -129,19 +137,96 @@ export default function FamilyAccess() {
     );
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Never";
-    return new Date(dateString).toLocaleDateString();
+  // Handle care team member actions
+  const handleCall = async (phone?: string) => {
+    if (!phone) return;
+    const phoneUrl = `tel:${phone}`;
+    try {
+      const canOpen = await Linking.canOpenURL(phoneUrl);
+      if (canOpen) {
+        await Linking.openURL(phoneUrl);
+      } else {
+        Alert.alert("Phone", `Phone: ${phone}`);
+      }
+    } catch (error) {
+      Alert.alert("Phone", `Phone: ${phone}`);
+    }
   };
 
-  const isExpired = (expiresAt: string | null) => {
-    if (!expiresAt) return false;
-    return new Date(expiresAt) < new Date();
+  const handleEmail = async (email?: string) => {
+    if (!email) return;
+    const emailUrl = `mailto:${email}`;
+    try {
+      const canOpen = await Linking.canOpenURL(emailUrl);
+      if (canOpen) {
+        await Linking.openURL(emailUrl);
+      } else {
+        Alert.alert("Email", `Email: ${email}`);
+      }
+    } catch (error) {
+      Alert.alert("Email", `Email: ${email}`);
+    }
   };
 
-  const activeInvites = invites.filter(
-    (invite) => invite.is_active && !invite.used_at && !isExpired(invite.expires_at)
-  );
+  const handleRemoveCareTeamMember = (memberId: string) => {
+    Alert.alert(
+      "Remove Care Team Member",
+      "Are you sure you want to remove this care team member?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            // TODO: Implement remove care team member
+            Alert.alert("Info", "Remove functionality will be implemented");
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle adding a new care team member
+  const handleAddCareTeamMember = async (
+    memberData: TablesInsert<"vet_information">
+  ) => {
+    if (pets.length === 0) {
+      Alert.alert("Error", "You need to have at least one pet to add a care team member");
+      return;
+    }
+
+    try {
+      // Create the vet_information record
+      const newMember = await createVetInformation(memberData);
+
+      // Link the care team member to all user's pets
+      // (Since this is the "Care Team & Family Access" screen, we link to all pets)
+      const linkPromises = pets.map((pet) =>
+        linkCareTeamMemberToPet(pet.id, newMember.id)
+      );
+      await Promise.all(linkPromises);
+
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
+
+      Alert.alert("Success", "Care team member added successfully");
+    } catch (error) {
+      console.error("Error adding care team member:", error);
+      Alert.alert(
+        "Error",
+        error instanceof Error
+          ? error.message
+          : "Failed to add care team member"
+      );
+      throw error;
+    }
+  };
+
+  // Count unique care team members (contacts that can communicate)
+  const uniqueCareTeamCount = new Set(careTeamMembers.map((m) => m.email)).size;
+
+  // Check if user is owner (household_owner_id matches user.id)
+  const isOwner = (member: HouseholdMember) => member.household_owner_id === user?.id;
 
   return (
     <ChatProvider>
@@ -156,7 +241,7 @@ export default function FamilyAccess() {
               <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
             </Pressable>
             <Text className="text-3xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
-              Family Access
+              Care Team & Family Access
             </Text>
           </View>
         </View>
@@ -164,94 +249,99 @@ export default function FamilyAccess() {
         <ScrollView
           className="flex-1 px-6"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
         >
-          {/* Generate Invite Section */}
-          <View className="mb-6">
-            <Pressable
-              onPress={handleGenerateInvite}
-              disabled={generating}
-              className="w-full rounded-2xl py-5 px-6 flex-row items-center justify-center active:opacity-90"
-              style={{ backgroundColor: "#5FC4C0" }}
-            >
-              {generating ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="add" size={24} color="#FFFFFF" />
-                  <Text
-                    className="text-lg font-semibold ml-2"
-                    style={{ color: "#FFFFFF" }}
-                  >
-                    Generate Invite Code
+          {/* My Care Team Section */}
+          <View className="mb-8">
+            {/* Section Header */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center flex-1">
+                <MaterialCommunityIcons name="account-group" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
+                <View className="flex-1">
+                  <Text className="text-xl font-bold" style={{ color: "#FFFFFF" }}>
+                    My Care Team
                   </Text>
-                </>
-              )}
-            </Pressable>
-          </View>
+                  <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                    {uniqueCareTeamCount} contacts can communicate
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setSelectedMemberType("veterinarian");
+                  setShowAddMemberModal(true);
+                }}
+                className="px-4 py-2 rounded-lg active:opacity-70"
+                style={{ backgroundColor: "#374151" }}
+              >
+                <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                  + Add
+                </Text>
+              </Pressable>
+            </View>
 
-          {/* Active Invites Section */}
-          <View className="mb-6">
-            <Text
-              className="text-xl font-bold mb-4"
-              style={{ color: "#FFFFFF" }}
-            >
-              Active Invite Codes
-            </Text>
-            {loadingInvites ? (
+            {/* Care Team Members List */}
+            {loadingCareTeam ? (
               <ActivityIndicator size="small" color="#5FC4C0" />
-            ) : activeInvites.length === 0 ? (
+            ) : careTeamMembers.length === 0 ? (
               <Text className="text-base" style={{ color: "#9CA3AF" }}>
-                No active invite codes. Generate one to share with family members.
+                No care team members yet.
               </Text>
             ) : (
-              activeInvites.map((invite) => (
+              careTeamMembers.map((member) => (
                 <View
-                  key={invite.id}
-                  className="rounded-2xl p-4 mb-3"
+                  key={member.id}
+                  className="rounded-2xl p-4 mb-3 flex-row items-center"
                   style={{ backgroundColor: "#1F1F1F" }}
                 >
-                  <View className="flex-row items-center justify-between mb-3">
-                    <Text
-                      className="text-lg font-semibold"
-                      style={{ color: "#FFFFFF" }}
-                    >
-                      {invite.code}
+                  {/* Icon */}
+                  <View
+                    className="w-12 h-12 rounded-full items-center justify-center mr-4"
+                    style={{ backgroundColor: "#374151" }}
+                  >
+                    <MaterialCommunityIcons
+                      name={getTypeIcon(member.type as CareTeamMemberType)}
+                      size={24}
+                      color="#5FC4C0"
+                    />
+                  </View>
+
+                  {/* Member Info */}
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                      {member.vet_name}
                     </Text>
+                    <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                      {member.clinic_name}
+                    </Text>
+                    <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                      {member.email}
+                    </Text>
+                  </View>
+
+                  {/* Action Buttons */}
+                  <View className="flex-row items-center gap-3">
+                    {member.phone && (
+                      <Pressable
+                        onPress={() => handleCall(member.phone)}
+                        className="active:opacity-70"
+                      >
+                        <Ionicons name="call-outline" size={20} color="#5FC4C0" />
+                      </Pressable>
+                    )}
+                    {member.email && (
+                      <Pressable
+                        onPress={() => handleEmail(member.email)}
+                        className="active:opacity-70"
+                      >
+                        <Ionicons name="mail-outline" size={20} color="#5FC4C0" />
+                      </Pressable>
+                    )}
                     <Pressable
-                      onPress={() => handleDeactivateInvite(invite.id)}
+                      onPress={() => handleRemoveCareTeamMember(member.id)}
                       className="active:opacity-70"
                     >
-                      <Ionicons name="close-circle" size={24} color="#9CA3AF" />
-                    </Pressable>
-                  </View>
-                  <Text className="text-sm mb-3" style={{ color: "#9CA3AF" }}>
-                    Expires: {formatDate(invite.expires_at)}
-                  </Text>
-                  <View className="flex-row gap-2">
-                    <Pressable
-                      onPress={() => handleCopyCode(invite.code)}
-                      className="flex-1 rounded-xl py-2 px-4 flex-row items-center justify-center active:opacity-70"
-                      style={{ backgroundColor: "#374151" }}
-                    >
-                      <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
-                      <Text className="text-sm ml-2" style={{ color: "#FFFFFF" }}>
-                        Copy
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleShowQRCode(invite.code)}
-                      className="flex-1 rounded-xl py-2 px-4 flex-row items-center justify-center active:opacity-70"
-                      style={{ backgroundColor: "#374151" }}
-                    >
-                      <MaterialCommunityIcons
-                        name="qrcode"
-                        size={18}
-                        color="#FFFFFF"
-                      />
-                      <Text className="text-sm ml-2" style={{ color: "#FFFFFF" }}>
-                        QR Code
-                      </Text>
+                      <Ionicons name="close-circle" size={20} color="#FF3B30" />
                     </Pressable>
                   </View>
                 </View>
@@ -259,46 +349,125 @@ export default function FamilyAccess() {
             )}
           </View>
 
-          {/* Household Members Section */}
-          <View className="mb-6">
-            <Text
-              className="text-xl font-bold mb-4"
-              style={{ color: "#FFFFFF" }}
-            >
-              Household Members
-            </Text>
+          {/* Family Access Section */}
+          <View className="mb-8">
+            {/* Section Header */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center flex-1">
+                <MaterialCommunityIcons name="account-group-outline" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
+                <Text className="text-xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
+                  Family Access
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleGenerateInvite}
+                disabled={generating}
+                className="px-4 py-2 rounded-lg active:opacity-70"
+                style={{ backgroundColor: "#374151" }}
+              >
+                {generating ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                    Invite
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+
+            {/* Household Members List */}
             {loadingMembers ? (
               <ActivityIndicator size="small" color="#5FC4C0" />
-            ) : members.length === 0 ? (
-              <Text className="text-base" style={{ color: "#9CA3AF" }}>
-                No household members yet.
-              </Text>
             ) : (
-              members.map((member) => (
-                <View
-                  key={member.id}
-                  className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
-                  style={{ backgroundColor: "#1F1F1F" }}
-                >
-                  <View className="flex-1">
-                    <Text
-                      className="text-base font-semibold"
-                      style={{ color: "#FFFFFF" }}
-                    >
-                      {member.user_id}
-                    </Text>
-                    <Text className="text-sm" style={{ color: "#9CA3AF" }}>
-                      Joined: {formatDate(member.joined_at)}
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => handleRemoveMember(member.id)}
-                    className="active:opacity-70"
+              <>
+                {/* Current User (Owner) */}
+                {user && (
+                  <View
+                    className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
+                    style={{ backgroundColor: "#1F1F1F" }}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                  </Pressable>
-                </View>
-              ))
+                    <View className="flex-row items-center flex-1">
+                      {/* Avatar */}
+                      <View
+                        className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                        style={{ backgroundColor: "#5FC4C0" }}
+                      >
+                        <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                          {getInitials(user.email || "User")}
+                        </Text>
+                      </View>
+
+                      {/* Member Info */}
+                      <View className="flex-1">
+                        <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                          {user.email?.split("@")[0] || "You"}
+                        </Text>
+                        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                          {user.email || ""}
+                        </Text>
+                      </View>
+
+                      {/* Owner Badge */}
+                      <View
+                        className="px-3 py-1 rounded-full flex-row items-center"
+                        style={{ backgroundColor: "#A855F7" }}
+                      >
+                        <MaterialCommunityIcons name="crown" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Text className="text-xs font-semibold" style={{ color: "#FFFFFF" }}>
+                          Owner
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Other Household Members */}
+                {members.map((member) => (
+                  <View
+                    key={member.id}
+                    className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
+                    style={{ backgroundColor: "#1F1F1F" }}
+                  >
+                    <View className="flex-row items-center flex-1">
+                      {/* Avatar */}
+                      <View
+                        className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                        style={{ backgroundColor: "#5FC4C0" }}
+                      >
+                        <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                          {getInitials(member.user_id)}
+                        </Text>
+                      </View>
+
+                      {/* Member Info */}
+                      <View className="flex-1">
+                        <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                          {member.user_id.split("@")[0] || member.user_id}
+                        </Text>
+                        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                          {member.user_id}
+                        </Text>
+                      </View>
+
+                      {/* Note: Members don't show owner badge - only the current user (owner) shows it */}
+
+                      {/* Remove Button */}
+                      <Pressable
+                        onPress={() => handleRemoveMember(member.id)}
+                        className="active:opacity-70"
+                      >
+                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+
+                {members.length === 0 && !user && (
+                  <Text className="text-base" style={{ color: "#9CA3AF" }}>
+                    No household members yet.
+                  </Text>
+                )}
+              </>
             )}
           </View>
         </ScrollView>
@@ -339,10 +508,21 @@ export default function FamilyAccess() {
           </View>
         )}
 
+        {/* Add Care Team Member Modal */}
+        {pets.length > 0 && (
+          <CareTeamMemberModal
+            visible={showAddMemberModal}
+            onClose={() => setShowAddMemberModal(false)}
+            onSave={handleAddCareTeamMember}
+            memberType={selectedMemberType}
+            onTypeChange={setSelectedMemberType}
+            petId={pets[0].id} // Required prop, but we'll link to all pets in handleAddCareTeamMember
+          />
+        )}
+
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
       </View>
     </ChatProvider>
   );
 }
-

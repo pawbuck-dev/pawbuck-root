@@ -15,6 +15,8 @@ interface GroupedThreadListProps {
   color: string;
   onThreadPress: (thread: MessageThread) => void;
   getUnreadCount?: (threads: MessageThread[]) => number;
+  onAddToCareTeam?: (thread: MessageThread) => void;
+  isUnknownCategory?: boolean;
 }
 
 export default function GroupedThreadList({
@@ -26,6 +28,8 @@ export default function GroupedThreadList({
   color,
   onThreadPress,
   getUnreadCount,
+  onAddToCareTeam,
+  isUnknownCategory = false,
 }: GroupedThreadListProps) {
   const { theme } = useTheme();
 
@@ -82,6 +86,8 @@ export default function GroupedThreadList({
             key={thread.id}
             thread={thread}
             onPress={() => onThreadPress(thread)}
+            onAddToCareTeam={isUnknownCategory && onAddToCareTeam ? () => onAddToCareTeam(thread) : undefined}
+            showAddButton={isUnknownCategory && !!onAddToCareTeam}
           />
         ))}
       </View>

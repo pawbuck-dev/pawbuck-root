@@ -8,6 +8,8 @@ import { Text, TouchableOpacity, View } from "react-native";
 interface ThreadListItemProps {
   thread: MessageThread;
   onPress: () => void;
+  onAddToCareTeam?: () => void;
+  showAddButton?: boolean;
 }
 
 export default function ThreadListItem({ thread, onPress }: ThreadListItemProps) {
@@ -150,6 +152,29 @@ export default function ThreadListItem({ thread, onPress }: ThreadListItemProps)
             </View>
           )}
         </View>
+
+        {/* Add to Care Team Button */}
+        {showAddButton && onAddToCareTeam && (
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              onAddToCareTeam();
+            }}
+            className="ml-2 p-2"
+            activeOpacity={0.7}
+          >
+            <View
+              className="w-8 h-8 rounded-full items-center justify-center"
+              style={{ backgroundColor: `${theme.primary}20` }}
+            >
+              <Ionicons
+                name="add"
+                size={18}
+                color={theme.primary}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );

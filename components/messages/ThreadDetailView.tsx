@@ -17,6 +17,13 @@ import {
   View,
 } from "react-native";
 import { fetchThreadMessages } from "@/services/messages";
+import { isEmailInCareTeam } from "@/services/vetInformation";
+import { createVetInformation } from "@/services/vetInformation";
+import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
+import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import { CareTeamMemberType } from "@/services/vetInformation";
+import { TablesInsert } from "@/database.types";
+import { usePets } from "@/context/petsContext";
 
 interface ThreadDetailViewProps {
   threadId: string;
@@ -31,9 +38,13 @@ export default function ThreadDetailView({
 }: ThreadDetailViewProps) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
+  const { pets } = usePets();
   const scrollViewRef = useRef<ScrollView>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [isInCareTeam, setIsInCareTeam] = useState<boolean | null>(null);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
 
   // Fetch messages for this thread
   const {
@@ -56,6 +67,64 @@ export default function ThreadDetailView({
 
   // Get recipient display name
   const recipientName = thread.recipient_name || thread.recipient_email.split("@")[0];
+
+  // Check if recipient is in care team
+  useEffect(() => {
+    const checkCareTeam = async () => {
+      try {
+        const inTeam = await isEmailInCareTeam(thread.recipient_email);
+        setIsInCareTeam(inTeam);
+      } catch (error) {
+        console.error("Error checking care team:", error);
+        setIsInCareTeam(false);
+      }
+    };
+    checkCareTeam();
+  }, [thread.recipient_email]);
+
+  // Handle adding care team member from thread detail
+  const handleAddCareTeamMemberFromThread = async (
+    memberData: TablesInsert<"vet_information">
+  ) => {
+    if (pets.length === 0) {
+      Alert.alert("Error", "You need to have at least one pet to add a care team member");
+      return;
+    }
+
+    try {
+      // Ensure email matches the thread's recipient email
+      const memberDataWithEmail = {
+        ...memberData,
+        email: thread.recipient_email.toLowerCase(),
+      };
+
+      // Create the vet_information record
+      const newMember = await createVetInformation(memberDataWithEmail);
+
+      // Link the care team member to all user's pets
+      const linkPromises = pets.map((pet) =>
+        linkCareTeamMemberToPet(pet.id, newMember.id)
+      );
+      await Promise.all(linkPromises);
+
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+
+      setIsInCareTeam(true);
+      Alert.alert("Success", "Care team member added successfully");
+      setShowAddMemberModal(false);
+    } catch (error) {
+      console.error("Error adding care team member:", error);
+      Alert.alert(
+        "Error",
+        error instanceof Error
+          ? error.message
+          : "Failed to add care team member"
+      );
+      throw error;
+    }
+  };
 
   // Handle sending a reply
   const handleSendReply = async () => {
@@ -321,6 +390,20 @@ export default function ThreadDetailView({
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Add Care Team Member Modal */}
+      {pets.length > 0 && (
+        <CareTeamMemberModal
+          visible={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          onSave={handleAddCareTeamMemberFromThread}
+          memberType={selectedMemberType}
+          onTypeChange={setSelectedMemberType}
+          petId={thread.pet_id}
+          memberInfo={null}
+          initialEmail={thread.recipient_email}
+        />
+      )}
     </View>
   );
 }
