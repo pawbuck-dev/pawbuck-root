@@ -20,7 +20,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -82,12 +82,16 @@ export default function HealthRecordsLayout() {
       {/* Header */}
       <View className="px-6 pt-14 pb-4">
         <View className="flex-row items-center justify-between">
-          {/* Back Button */}
+          {/* Back Button - Pawbuck Logo */}
           <Pressable
             onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
+            className="items-center justify-center active:opacity-70"
           >
-            <Ionicons name="arrow-back" size={24} color={theme.foreground} />
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={{ width: 40, height: 40 }}
+              resizeMode="contain"
+            />
           </Pressable>
 
           {/* Title */}

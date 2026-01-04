@@ -1,6 +1,5 @@
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
-import HomeHeader from "@/components/home/HomeHeader";
 import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
@@ -18,10 +17,14 @@ import { CareTeamMemberType, createVetInformation } from "@/services/vetInformat
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -33,7 +36,7 @@ import {
 type FilterType = "all" | string; // "all" or pet ID
 
 export default function MessagesScreen() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const queryClient = useQueryClient();
   const { pendingApprovals, setCurrentApproval } = useEmailApproval();
   const { pets } = usePets();
@@ -259,39 +262,37 @@ export default function MessagesScreen() {
     return petName.substring(0, 2).toUpperCase();
   };
 
-  // Show thread detail view
-  if (selectedThread) {
-    return (
-      <ChatProvider>
-        <ThreadDetailView
-          threadId={selectedThread.id}
-          thread={selectedThread}
-          onBack={() => setSelectedThread(null)}
-        />
-        <BottomNavBar activeTab="messages" />
-      </ChatProvider>
-    );
-  }
-
   const hasMessages = filteredThreads.length > 0 || needsReviewMessages.length > 0;
 
   return (
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
-        {/* Header */}
-        <HomeHeader />
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-        {/* Messages Header */}
-        <View className="px-4 pb-4">
+        {/* Header */}
+        <View className="px-6 pt-14 pb-4">
           <View className="flex-row items-center justify-between">
-            <View className="flex-1">
+            {/* Back Button - Pawbuck Logo */}
+            <Pressable
+              onPress={() => selectedThread ? setSelectedThread(null) : router.back()}
+              className="items-center justify-center active:opacity-70"
+            >
+              <Image
+                source={require("@/assets/images/icon.png")}
+                style={{ width: 40, height: 40 }}
+                resizeMode="contain"
+              />
+            </Pressable>
+
+            {/* Title */}
+            <View className="items-center">
               <Text
-                className="text-2xl font-bold"
+                className="text-xl font-bold"
                 style={{ color: theme.foreground }}
               >
                 Messages
               </Text>
-              {totalUnread > 0 && (
+              {totalUnread > 0 && !selectedThread && (
                 <Text
                   className="text-sm mt-0.5"
                   style={{ color: theme.secondary }}
@@ -300,20 +301,31 @@ export default function MessagesScreen() {
                 </Text>
               )}
             </View>
-            <TouchableOpacity
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{
-                backgroundColor: "transparent",
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-              onPress={() => setShowNewMessageModal(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add" size={24} color={theme.foreground} />
-            </TouchableOpacity>
+
+            {/* Add Button - Hidden when viewing thread */}
+            {selectedThread ? (
+              <View className="w-10 h-10" />
+            ) : (
+              <Pressable
+                onPress={() => setShowNewMessageModal(true)}
+                className="w-10 h-10 items-center justify-center active:opacity-70"
+              >
+                <Ionicons name="add-circle" size={28} color={theme.primary} />
+              </Pressable>
+            )}
           </View>
         </View>
+
+        {/* Thread Detail View */}
+        {selectedThread ? (
+          <ThreadDetailView
+            threadId={selectedThread.id}
+            thread={selectedThread}
+            onBack={() => setSelectedThread(null)}
+            hideHeader
+          />
+        ) : (
+          <>
 
         {/* Filter Chips */}
         <View className="px-4 pb-4">
@@ -555,6 +567,8 @@ export default function MessagesScreen() {
             </>
           )}
         </ScrollView>
+        </>
+        )}
 
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="messages" />

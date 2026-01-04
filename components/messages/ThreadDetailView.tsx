@@ -1,5 +1,10 @@
+import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { MessageThread, ThreadMessage } from "@/services/messages";
+import { TablesInsert } from "@/database.types";
+import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
+import { fetchThreadMessages, MessageThread, ThreadMessage } from "@/services/messages";
+import { CareTeamMemberType, createVetInformation, isEmailInCareTeam } from "@/services/vetInformation";
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,25 +22,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { fetchThreadMessages } from "@/services/messages";
-import { isEmailInCareTeam } from "@/services/vetInformation";
-import { createVetInformation } from "@/services/vetInformation";
-import { linkCareTeamMemberToPet } from "@/services/careTeamMembers";
-import { CareTeamMemberModal } from "@/components/home/CareTeamMemberModal";
-import { CareTeamMemberType } from "@/services/vetInformation";
-import { TablesInsert } from "@/database.types";
-import { usePets } from "@/context/petsContext";
 
 interface ThreadDetailViewProps {
   threadId: string;
   thread: MessageThread;
   onBack: () => void;
+  hideHeader?: boolean;
 }
 
 export default function ThreadDetailView({
   threadId,
   thread,
   onBack,
+  hideHeader = false,
 }: ThreadDetailViewProps) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
@@ -262,37 +261,67 @@ export default function ThreadDetailView({
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      {/* Header */}
-      <View
-        className="flex-row items-center px-6 py-4 border-b"
-        style={{
-          backgroundColor: theme.card,
-          borderBottomColor: theme.border,
-        }}
-      >
-        <Pressable
-          onPress={onBack}
-          className="w-10 h-10 items-center justify-center mr-4 active:opacity-70"
+      {/* Header - conditionally shown */}
+      {!hideHeader && (
+        <View
+          className="flex-row items-center px-6 py-4 border-b"
+          style={{
+            backgroundColor: theme.card,
+            borderBottomColor: theme.border,
+          }}
         >
-          <Ionicons name="chevron-back" size={24} color={theme.foreground} />
-        </Pressable>
-        <View className="flex-1">
+          <Pressable
+            onPress={onBack}
+            className="w-10 h-10 items-center justify-center mr-4 active:opacity-70"
+          >
+            <Ionicons name="chevron-back" size={24} color={theme.foreground} />
+          </Pressable>
+          <View className="flex-1 items-center justify-center">
+            <Text
+              className="text-lg font-semibold"
+              style={{ color: theme.foreground }}
+              numberOfLines={1}
+            >
+              {recipientName}
+            </Text>
+            <Text
+              className="text-sm"
+              style={{ color: theme.secondary }}
+              numberOfLines={1}
+            >
+              {thread.subject}
+            </Text>
+          </View>
+          {/* Spacer to balance the back button */}
+          <View className="w-10 h-10 mr-4" />
+        </View>
+      )}
+
+      {/* Thread Info Bar - shown when header is hidden */}
+      {hideHeader && (
+        <View
+          className="items-center px-4 py-3 border-b"
+          style={{
+            backgroundColor: theme.card,
+            borderBottomColor: theme.border,
+          }}
+        >
           <Text
-            className="text-lg font-semibold"
+            className="text-base font-semibold text-center"
             style={{ color: theme.foreground }}
             numberOfLines={1}
           >
             {recipientName}
           </Text>
           <Text
-            className="text-sm"
+            className="text-sm text-center"
             style={{ color: theme.secondary }}
             numberOfLines={1}
           >
             {thread.subject}
           </Text>
         </View>
-      </View>
+      )}
 
       {/* Messages List */}
       {isLoading ? (
