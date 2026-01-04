@@ -1,18 +1,18 @@
 import { useAuth } from "@/context/authContext";
 import {
-    approveEmail,
-    approveEmailAnyway,
-    getPendingApprovals,
-    PendingApprovalWithPet,
-    rejectEmail,
+  approveEmail,
+  approveEmailAnyway,
+  getPendingApprovals,
+  PendingApprovalWithPet,
+  rejectEmail,
 } from "@/services/pendingEmailApprovals";
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 import { Alert, Linking } from "react-native";
 
@@ -37,6 +37,7 @@ interface EmailApprovalContextType {
   handleReplyToVet: () => Promise<void>;
   /** Refresh pending approvals */
   refreshPendingApprovals: () => Promise<void>;
+  setCurrentApproval: (approval: PendingApprovalWithPet | null) => void;
 }
 
 const EmailApprovalContext = createContext<EmailApprovalContextType | undefined>(

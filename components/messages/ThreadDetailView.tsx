@@ -264,7 +264,7 @@ export default function ThreadDetailView({
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       {/* Header */}
       <View
-        className="flex-row items-center px-4 py-3 border-b"
+        className="flex-row items-center px-6 py-4 border-b"
         style={{
           backgroundColor: theme.card,
           borderBottomColor: theme.border,
@@ -272,9 +272,9 @@ export default function ThreadDetailView({
       >
         <Pressable
           onPress={onBack}
-          className="mr-3 p-2 -ml-2 active:opacity-70"
+          className="w-10 h-10 items-center justify-center mr-4 active:opacity-70"
         >
-          <Ionicons name="arrow-back" size={24} color={theme.foreground} />
+          <Ionicons name="chevron-back" size={24} color={theme.foreground} />
         </Pressable>
         <View className="flex-1">
           <Text
