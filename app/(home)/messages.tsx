@@ -153,13 +153,47 @@ export default function MessagesScreen() {
     unknown: [],
   });
 
+  // Track the last processed threads to avoid infinite loops
+  const lastProcessedThreadsRef = React.useRef<string>("");
+
+  // Group filtered threads - must be before any early returns (Rules of Hooks)
   React.useEffect(() => {
+    // Create a stable key from thread IDs to detect actual changes
+    const threadsKey = filteredThreads.map(t => t.id).sort().join(",");
+    
+    // Skip if we've already processed these exact threads
+    if (threadsKey === lastProcessedThreadsRef.current) {
+      return;
+    }
+
+    // Skip grouping while loading
+    if (loadingThreads) {
+      return;
+    }
+
+    // Handle empty threads
+    if (filteredThreads.length === 0) {
+      lastProcessedThreadsRef.current = threadsKey;
+      setFilteredGroupedThreads({
+        veterinarian: [],
+        dog_walker: [],
+        groomer: [],
+        pet_sitter: [],
+        boarding: [],
+        unknown: [],
+      });
+      return;
+    }
+
+    // Mark as processing
+    lastProcessedThreadsRef.current = threadsKey;
+
     const groupFilteredThreads = async () => {
       const grouped = await groupThreadsByType(filteredThreads);
       setFilteredGroupedThreads(grouped);
     };
     groupFilteredThreads();
-  }, [filteredThreads]);
+  }, [filteredThreads, loadingThreads]);
 
   // Handle thread press
   const handleThreadPress = (thread: MessageThread) => {
@@ -238,32 +272,6 @@ export default function MessagesScreen() {
       </ChatProvider>
     );
   }
-
-  // Default empty grouped threads
-  const emptyGroupedThreads: GroupedThreads = {
-    veterinarian: [],
-    dog_walker: [],
-    groomer: [],
-    pet_sitter: [],
-    boarding: [],
-    unknown: [],
-  };
-
-  // Group filtered threads
- 
-  React.useEffect(() => {
-    // Skip grouping while loading or if no threads - avoid unnecessary DB calls
-    if (loadingThreads || filteredThreads.length === 0) {
-      setFilteredGroupedThreads(emptyGroupedThreads);
-      return;
-    }
-
-    const groupFilteredThreads = async () => {
-      const grouped = await groupThreadsByType(filteredThreads);
-      setFilteredGroupedThreads(grouped);
-    };
-    groupFilteredThreads();
-  }, [filteredThreads, loadingThreads]);
 
   const hasMessages = filteredThreads.length > 0 || needsReviewMessages.length > 0;
 
