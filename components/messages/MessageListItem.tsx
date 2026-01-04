@@ -1,6 +1,6 @@
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import moment from "moment";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
@@ -16,7 +16,7 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
   const validationErrors = approval.validation_errors || {};
   const documentType = approval.document_type;
 
-  // Get sender display name
+  // Get sender display name (try to get proper name from email)
   const getSenderName = (): string => {
     const email = approval.sender_email || "";
     // Extract name from email or use first part before @
@@ -28,26 +28,14 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
       .join(" ");
   };
 
-  // Get initials for avatar
-  const getInitials = (): string => {
-    const senderName = getSenderName();
-    const parts = senderName.split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return senderName.substring(0, 2).toUpperCase();
-  };
-
-  // Get document type display name
-  const getDocumentTypeName = (): string => {
-    if (!documentType) return "";
-    const typeMap: Record<string, string> = {
-      travel_certificate: "Travel Certificate",
-      vaccination: "Vaccination Certificate",
-      lab_result: "Lab Result",
-      exam: "Clinical Exam",
-    };
-    return typeMap[documentType] || documentType.replace(/_/g, " ");
+  // Get business/clinic name (simplified - could be enhanced with vet_information lookup)
+  const getBusinessName = (): string => {
+    const email = approval.sender_email || "";
+    const domain = email.split("@")[1]?.split(".")[0] || "";
+    // Capitalize domain name
+    const business = domain.charAt(0).toUpperCase() + domain.slice(1).replace(/[-_]/g, " ");
+    // Truncate if too long
+    return business.length > 30 ? business.substring(0, 27) + "..." : business;
   };
 
   // Get error message for display
@@ -73,19 +61,10 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
     return moment(createdAt).fromNow();
   };
 
-  // Get business/clinic name (simplified - could be enhanced with vet_information lookup)
-  const getBusinessName = (): string => {
-    const email = approval.sender_email || "";
-    const domain = email.split("@")[1]?.split(".")[0] || "";
-    // Capitalize domain name
-    return domain.charAt(0).toUpperCase() + domain.slice(1).replace(/[-_]/g, " ");
-  };
-
   const senderName = getSenderName();
   const businessName = getBusinessName();
   const errorMessage = getErrorMessage();
   const timeAgo = getTimeAgo();
-  const initials = getInitials();
 
   return (
     <TouchableOpacity
@@ -93,71 +72,35 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
       activeOpacity={0.7}
       className="mx-4 mb-3 rounded-2xl p-4"
       style={{
-        backgroundColor: isIncorrect
-          ? mode === "dark"
-            ? "#4B1F1F"
-            : "#FFF5F5"
-          : theme.card,
+        backgroundColor: theme.card,
         borderWidth: 1,
-        borderColor: isIncorrect
-          ? mode === "dark"
-            ? "#7F1D1D"
-            : "#FEE2E2"
-          : theme.border,
+        borderColor: theme.border,
       }}
     >
       <View className="flex-row items-start">
-        {/* Avatar */}
-        <View className="relative mr-3">
-          {isIncorrect ? (
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center"
-              style={{ backgroundColor: "#FEE2E2" }}
-            >
-              <Ionicons name="warning" size={24} color="#EF4444" />
-            </View>
-          ) : (
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center"
-              style={{ backgroundColor: `${theme.primary}20` }}
-            >
-              <Text
-                className="text-base font-bold"
-                style={{ color: theme.primary }}
-              >
-                {initials}
-              </Text>
-            </View>
-          )}
-          {/* Online indicator (if needed in future) */}
-          {/* <View className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white" /> */}
+        {/* Red Warning Icon */}
+        <View
+          className="w-10 h-10 rounded-full items-center justify-center mr-3"
+          style={{ backgroundColor: "rgba(239, 68, 68, 0.15)" }}
+        >
+          <Ionicons name="warning" size={20} color="#EF4444" />
         </View>
 
         {/* Content */}
         <View className="flex-1">
-          {/* Header: Name and Time */}
-          <View className="flex-row items-center justify-between mb-1">
-            <Text
-              className="text-base font-semibold flex-1"
-              style={{
-                color: isIncorrect ? "#EF4444" : theme.foreground,
-              }}
-              numberOfLines={1}
-            >
-              {senderName}
-            </Text>
-            <Text
-              className="text-xs ml-2"
-              style={{ color: theme.secondary }}
-            >
-              {timeAgo}
-            </Text>
-          </View>
+          {/* Contact Name (in red) */}
+          <Text
+            className="text-base font-semibold mb-1"
+            style={{ color: "#EF4444" }}
+            numberOfLines={1}
+          >
+            {senderName}
+          </Text>
 
           {/* Business Name */}
           {businessName && (
             <Text
-              className="text-sm mb-1"
+              className="text-sm mb-2"
               style={{ color: theme.secondary }}
               numberOfLines={1}
             >
@@ -165,9 +108,9 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
             </Text>
           )}
 
-          {/* Error Message or Preview */}
-          {errorMessage ? (
-            <View className="flex-row items-center mt-1">
+          {/* Message Snippet with Yellow Warning Icon */}
+          {errorMessage && (
+            <View className="flex-row items-center">
               <Ionicons
                 name="alert-circle"
                 size={16}
@@ -175,50 +118,27 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
                 style={{ marginRight: 6 }}
               />
               <Text
-                className="text-sm font-medium"
-                style={{
-                  color: isIncorrect ? "#EF4444" : theme.foreground,
-                }}
-              >
-                ! {errorMessage}
-              </Text>
-            </View>
-          ) : (
-            <Text
-              className="text-sm mt-1"
-              style={{ color: theme.secondary }}
-              numberOfLines={1}
-            >
-              {getDocumentTypeName() || "New message"}
-            </Text>
-          )}
-
-          {/* Document Type Badge (for non-incorrect messages) */}
-          {documentType && !isIncorrect && (
-            <View className="flex-row items-center mt-2">
-              <Ionicons
-                name="document-text"
-                size={14}
-                color={theme.secondary}
-                style={{ marginRight: 4 }}
-              />
-              <Text
-                className="text-xs"
+                className="text-sm flex-1"
                 style={{ color: theme.secondary }}
+                numberOfLines={1}
               >
-                {getDocumentTypeName()}
+                {errorMessage}
               </Text>
             </View>
           )}
         </View>
 
-        {/* Unread Badge and Arrow */}
+        {/* Right Side: Timestamp, Badge, Chevron */}
         <View className="items-end ml-2">
+          <Text
+            className="text-xs mb-2"
+            style={{ color: theme.secondary }}
+          >
+            {timeAgo}
+          </Text>
           <View
             className="w-5 h-5 rounded-full items-center justify-center mb-1"
-            style={{
-              backgroundColor: isIncorrect ? "#EF4444" : theme.primary,
-            }}
+            style={{ backgroundColor: "#EF4444" }}
           >
             <Text className="text-xs font-bold text-white">1</Text>
           </View>
@@ -232,5 +152,3 @@ export default function MessageListItem({ approval, onPress }: MessageListItemPr
     </TouchableOpacity>
   );
 }
-
-

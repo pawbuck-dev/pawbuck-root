@@ -4,18 +4,17 @@ import HomeHeader from "@/components/home/HomeHeader";
 import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
-import ThreadListItem from "@/components/messages/ThreadListItem";
+import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
+import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import { groupThreadsByType, GroupedThreads } from "@/services/messageThreadsGrouped";
-import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,69 +27,28 @@ import {
   View,
 } from "react-native";
 
-type MessageCategory = "needs_review" | "veterinarians" | "dog_walkers" | "groomers" | "pet_sitters";
-type ViewMode = "threads" | "pending";
-
-interface CategorizedMessages {
-  needs_review: PendingApprovalWithPet[];
-  veterinarians: PendingApprovalWithPet[];
-  dog_walkers: PendingApprovalWithPet[];
-  groomers: PendingApprovalWithPet[];
-  pet_sitters: PendingApprovalWithPet[];
-}
+type FilterType = "all" | string; // "all" or pet ID
 
 export default function MessagesScreen() {
-  const { theme, mode } = useTheme();
-  const router = useRouter();
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
   const { pendingApprovals, setCurrentApproval } = useEmailApproval();
+  const { pets } = usePets();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("threads");
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
   // Fetch message threads
   const {
     data: threads = [],
     isLoading: loadingThreads,
     refetch: refetchThreads,
-    error: threadsError,
   } = useQuery({
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
   });
-
-  // Log errors for debugging
-  React.useEffect(() => {
-    if (threadsError) {
-      console.error("[MessagesScreen] Error fetching threads:", threadsError);
-    }
-  }, [threadsError]);
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refetchThreads()]);
-    setRefreshing(false);
-  };
-
-  // Filter threads based on search query
-  const filteredThreads = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return threads;
-    }
-
-    const query = searchQuery.toLowerCase();
-    return threads.filter(
-      (thread) =>
-        thread.recipient_name?.toLowerCase().includes(query) ||
-        thread.recipient_email.toLowerCase().includes(query) ||
-        thread.subject.toLowerCase().includes(query) ||
-        thread.pets?.name?.toLowerCase().includes(query) ||
-        thread.last_message?.body.toLowerCase().includes(query)
-    );
-  }, [threads, searchQuery]);
 
   // Group threads by care team member type
   const [groupedThreads, setGroupedThreads] = React.useState<GroupedThreads>({
@@ -104,101 +62,98 @@ export default function MessagesScreen() {
 
   React.useEffect(() => {
     const groupThreads = async () => {
-      const grouped = await groupThreadsByType(filteredThreads);
+      const grouped = await groupThreadsByType(threads);
       setGroupedThreads(grouped);
-      console.log("[MessagesScreen] Grouped threads:", grouped);
     };
-
     groupThreads();
-  }, [filteredThreads]);
+  }, [threads]);
 
-  // Categorize messages (for pending approvals view)
-  const categorizedMessages = useMemo<CategorizedMessages>(() => {
-    const categories: CategorizedMessages = {
-      needs_review: [],
-      veterinarians: [],
-      dog_walkers: [],
-      groomers: [],
-      pet_sitters: [],
-    };
-
-    pendingApprovals.forEach((approval) => {
-      if (approval.validation_status === "incorrect") {
-        categories.needs_review.push(approval);
-      } else {
-        const senderEmail = approval.sender_email?.toLowerCase() || "";
-        const senderName = approval.sender_email?.split("@")[0] || "";
-
-        if (
-          senderEmail.includes("vet") ||
-          senderEmail.includes("veterinary") ||
-          senderEmail.includes("hospital") ||
-          senderEmail.includes("clinic") ||
-          senderEmail.includes("animal") ||
-          senderName.includes("dr") ||
-          senderName.includes("doctor")
-        ) {
-          categories.veterinarians.push(approval);
-        } else if (
-          senderEmail.includes("walker") ||
-          senderEmail.includes("walk") ||
-          senderEmail.includes("paw")
-        ) {
-          categories.dog_walkers.push(approval);
-        } else if (
-          senderEmail.includes("groom") ||
-          senderEmail.includes("groomer") ||
-          senderEmail.includes("salon")
-        ) {
-          categories.groomers.push(approval);
-        } else if (
-          senderEmail.includes("sitter") ||
-          senderEmail.includes("care") ||
-          senderEmail.includes("boarding")
-        ) {
-          categories.pet_sitters.push(approval);
-        } else {
-          categories.veterinarians.push(approval);
-        }
-      }
-    });
-
-    return categories;
-  }, [pendingApprovals]);
-
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return categorizedMessages;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const filterMessages = (messages: PendingApprovalWithPet[]) =>
-      messages.filter(
-        (msg) =>
-          msg.sender_email?.toLowerCase().includes(query) ||
-          msg.pets?.name?.toLowerCase().includes(query) ||
-          msg.document_type?.toLowerCase().includes(query)
-      );
-
-    return {
-      needs_review: filterMessages(categorizedMessages.needs_review),
-      veterinarians: filterMessages(categorizedMessages.veterinarians),
-      dog_walkers: filterMessages(categorizedMessages.dog_walkers),
-      groomers: filterMessages(categorizedMessages.groomers),
-      pet_sitters: filterMessages(categorizedMessages.pet_sitters),
-    };
-  }, [categorizedMessages, searchQuery]);
-
-  const getUnreadCount = (category: MessageCategory): number => {
-    return filteredCategories[category].length;
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchThreads()]);
+    setRefreshing(false);
   };
 
-  const totalUnread = useMemo(() => {
-    return Object.values(filteredCategories).reduce(
-      (sum, messages) => sum + messages.length,
-      0
+  // Filter threads based on search query and pet filter
+  const filteredThreads = useMemo(() => {
+    let filtered = threads;
+
+    // Filter by selected pet
+    if (selectedFilter !== "all") {
+      filtered = filtered.filter((thread) => thread.pet_id === selectedFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (thread) =>
+          thread.recipient_name?.toLowerCase().includes(query) ||
+          thread.recipient_email.toLowerCase().includes(query) ||
+          thread.subject.toLowerCase().includes(query) ||
+          thread.pets?.name?.toLowerCase().includes(query) ||
+          thread.last_message?.body.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [threads, selectedFilter, searchQuery]);
+
+  // Filter pending approvals by selected pet and search query
+  const filteredPendingApprovals = useMemo(() => {
+    let filtered = pendingApprovals;
+
+    // Filter by selected pet
+    if (selectedFilter !== "all") {
+      filtered = filtered.filter((approval) => approval.pet_id === selectedFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (approval) =>
+          approval.sender_email?.toLowerCase().includes(query) ||
+          approval.pets?.name?.toLowerCase().includes(query) ||
+          approval.document_type?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [pendingApprovals, selectedFilter, searchQuery]);
+
+  // Get "needs_review" messages (validation_status === "incorrect")
+  const needsReviewMessages = useMemo(() => {
+    return filteredPendingApprovals.filter(
+      (approval) => approval.validation_status === "incorrect"
     );
-  }, [filteredCategories]);
+  }, [filteredPendingApprovals]);
+
+  // Get unread count for each filter (threads + pending approvals)
+  const getUnreadCountForFilter = (filterId: FilterType): number => {
+    let count = 0;
+
+    // Count threads for this filter
+    const filteredThreadsForPet =
+      filterId === "all" ? threads : threads.filter((t) => t.pet_id === filterId);
+    count += filteredThreadsForPet.reduce((sum, thread) => sum + (thread.message_count || 0), 0);
+
+    // Count pending approvals for this filter
+    const filteredApprovalsForPet =
+      filterId === "all"
+        ? pendingApprovals
+        : pendingApprovals.filter((a) => a.pet_id === filterId);
+    count += filteredApprovalsForPet.length;
+
+    return count;
+  };
+
+  // Get total unread count
+  const totalUnread = useMemo(() => {
+    const threadCount = threads.reduce((sum, thread) => sum + (thread.message_count || 0), 0);
+    return threadCount + pendingApprovals.length;
+  }, [threads, pendingApprovals]);
 
   // Handle thread press
   const handleThreadPress = (thread: MessageThread) => {
@@ -210,70 +165,13 @@ export default function MessagesScreen() {
     setCurrentApproval(approval);
   };
 
-  // Render category section (for pending approvals)
-  const renderCategorySection = (
-    category: MessageCategory,
-    title: string,
-    icon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap,
-    iconType: "ionicons" | "material" = "ionicons",
-    color: string
-  ) => {
-    const messages = filteredCategories[category];
-    const unreadCount = getUnreadCount(category);
-
-    if (messages.length === 0) return null;
-
-    return (
-      <View className="mb-6">
-        <View className="flex-row items-center justify-between mb-3 px-4">
-          <View className="flex-row items-center flex-1">
-            {iconType === "material" ? (
-              <MaterialCommunityIcons
-                name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-                size={20}
-                color={color}
-                style={{ marginRight: 8 }}
-              />
-            ) : (
-              <Ionicons
-                name={icon as keyof typeof Ionicons.glyphMap}
-                size={20}
-                color={color}
-                style={{ marginRight: 8 }}
-              />
-            )}
-            <Text
-              className="text-base font-bold"
-              style={{
-                color: category === "needs_review" ? "#F97316" : theme.foreground,
-              }}
-            >
-              {title}
-            </Text>
-          </View>
-          {unreadCount > 0 && (
-            <View
-              className="w-6 h-6 rounded-full items-center justify-center"
-              style={{
-                backgroundColor: category === "needs_review" ? "#EF4444" : color,
-              }}
-            >
-              <Text className="text-xs font-bold text-white">{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-
-        <View>
-          {messages.map((approval) => (
-            <MessageListItem
-              key={approval.id}
-              approval={approval}
-              onPress={() => handleMessagePress(approval)}
-            />
-          ))}
-        </View>
-      </View>
-    );
+  // Get initials for pet avatar
+  const getPetInitials = (petName: string): string => {
+    const parts = petName.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return petName.substring(0, 2).toUpperCase();
   };
 
   // Show thread detail view
@@ -290,6 +188,26 @@ export default function MessagesScreen() {
     );
   }
 
+  // Group filtered threads
+  const [filteredGroupedThreads, setFilteredGroupedThreads] = React.useState<GroupedThreads>({
+    veterinarian: [],
+    dog_walker: [],
+    groomer: [],
+    pet_sitter: [],
+    boarding: [],
+    unknown: [],
+  });
+
+  React.useEffect(() => {
+    const groupFilteredThreads = async () => {
+      const grouped = await groupThreadsByType(filteredThreads);
+      setFilteredGroupedThreads(grouped);
+    };
+    groupFilteredThreads();
+  }, [filteredThreads]);
+
+  const hasMessages = filteredThreads.length > 0 || needsReviewMessages.length > 0;
+
   return (
     <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -299,40 +217,21 @@ export default function MessagesScreen() {
         {/* Messages Header */}
         <View className="px-4 pb-4">
           <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center flex-1">
-              <View
-                className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                style={{ backgroundColor: `${theme.primary}15` }}
+            <View className="flex-1">
+              <Text
+                className="text-2xl font-bold"
+                style={{ color: theme.foreground }}
               >
-                <Ionicons name="mail-outline" size={20} color={theme.primary} />
-              </View>
-              <View className="flex-1">
+                Messages
+              </Text>
+              {totalUnread > 0 && (
                 <Text
-                  className="text-2xl font-bold"
-                  style={{ color: theme.foreground }}
+                  className="text-sm mt-0.5"
+                  style={{ color: theme.secondary }}
                 >
-                  Messages
+                  {totalUnread} unread
                 </Text>
-                {viewMode === "threads" ? (
-                  filteredThreads.length > 0 && (
-                    <Text
-                      className="text-sm mt-0.5"
-                      style={{ color: theme.secondary }}
-                    >
-                      {filteredThreads.length} conversation{filteredThreads.length !== 1 ? "s" : ""}
-                    </Text>
-                  )
-                ) : (
-                  totalUnread > 0 && (
-                    <Text
-                      className="text-sm mt-0.5"
-                      style={{ color: theme.secondary }}
-                    >
-                      {totalUnread} unread
-                    </Text>
-                  )
-                )}
-              </View>
+              )}
             </View>
             <TouchableOpacity
               className="w-10 h-10 rounded-full items-center justify-center"
@@ -347,48 +246,92 @@ export default function MessagesScreen() {
               <Ionicons name="add" size={24} color={theme.foreground} />
             </TouchableOpacity>
           </View>
+        </View>
 
-          {/* View Mode Toggle */}
-          <View className="flex-row mt-4">
+        {/* Filter Chips */}
+        <View className="px-4 pb-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+          >
+            {/* All Filter */}
             <TouchableOpacity
-              onPress={() => setViewMode("threads")}
-              className="flex-1 py-2 px-4 rounded-xl mr-2"
-              style={{
-                backgroundColor: viewMode === "threads" ? theme.primary : theme.card,
-                borderWidth: 1,
-                borderColor: viewMode === "threads" ? theme.primary : theme.border,
-              }}
+              onPress={() => setSelectedFilter("all")}
               activeOpacity={0.7}
+              className="items-center"
             >
-              <Text
-                className="text-sm font-semibold text-center"
+              <View
+                className="w-14 h-14 rounded-full items-center justify-center mb-1"
                 style={{
-                  color: viewMode === "threads" ? "white" : theme.foreground,
+                  backgroundColor: selectedFilter === "all" ? theme.primary : theme.card,
+                  borderWidth: 2,
+                  borderColor: selectedFilter === "all" ? theme.primary : "#22C55E",
                 }}
               >
-                Conversations ({threads.length})
-              </Text>
+                <Text
+                  className="text-base font-bold"
+                  style={{
+                    color: selectedFilter === "all" ? "white" : "#22C55E",
+                  }}
+                >
+                  All
+                </Text>
+              </View>
+              {getUnreadCountForFilter("all") > 0 && (
+                <View
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
+                  style={{ backgroundColor: "#22C55E" }}
+                >
+                  <Text className="text-xs font-bold text-white">
+                    {getUnreadCountForFilter("all")}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setViewMode("pending")}
-              className="flex-1 py-2 px-4 rounded-xl ml-2"
-              style={{
-                backgroundColor: viewMode === "pending" ? theme.primary : theme.card,
-                borderWidth: 1,
-                borderColor: viewMode === "pending" ? theme.primary : theme.border,
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                className="text-sm font-semibold text-center"
-                style={{
-                  color: viewMode === "pending" ? "white" : theme.foreground,
-                }}
-              >
-                Pending ({totalUnread})
-              </Text>
-            </TouchableOpacity>
-          </View>
+
+            {/* Pet Filters */}
+            {pets.map((pet) => {
+              const unreadCount = getUnreadCountForFilter(pet.id);
+              const isSelected = selectedFilter === pet.id;
+              return (
+                <TouchableOpacity
+                  key={pet.id}
+                  onPress={() => setSelectedFilter(pet.id)}
+                  activeOpacity={0.7}
+                  className="items-center"
+                >
+                  <View
+                    className="w-14 h-14 rounded-full items-center justify-center mb-1"
+                    style={{
+                      backgroundColor: isSelected ? theme.primary : theme.card,
+                      borderWidth: 2,
+                      borderColor: isSelected ? theme.primary : "#22C55E",
+                    }}
+                  >
+                    <Text
+                      className="text-base font-bold"
+                      style={{
+                        color: isSelected ? "white" : "#22C55E",
+                      }}
+                    >
+                      {getPetInitials(pet.name)}
+                    </Text>
+                  </View>
+                  {unreadCount > 0 && (
+                    <View
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
+                      style={{ backgroundColor: "#22C55E" }}
+                    >
+                      <Text className="text-xs font-bold text-white">
+                        {unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Search Bar */}
@@ -405,7 +348,7 @@ export default function MessagesScreen() {
             <TextInput
               className="flex-1 text-base"
               style={{ color: theme.foreground }}
-              placeholder={viewMode === "threads" ? "Search conversations..." : "Search pending..."}
+              placeholder="Search conversations..."
               placeholderTextColor={theme.secondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -422,147 +365,105 @@ export default function MessagesScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         >
-          {viewMode === "threads" ? (
-            <>
-              {loadingThreads ? (
-                <View className="flex-1 items-center justify-center py-20">
-                  <ActivityIndicator size="large" color={theme.primary} />
-                </View>
-              ) : filteredThreads.length === 0 ? (
-                <View className="flex-1 items-center justify-center py-20 px-4">
-                  <View
-                    className="w-20 h-20 rounded-full items-center justify-center mb-4"
-                    style={{ backgroundColor: `${theme.primary}15` }}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={40} color={theme.primary} />
-                  </View>
-                  <Text
-                    className="text-xl font-bold text-center mb-2"
-                    style={{ color: theme.foreground }}
-                  >
-                    No Conversations
-                  </Text>
-                  <Text
-                    className="text-base text-center mb-4"
-                    style={{ color: theme.secondary }}
-                  >
-                    Start a conversation by sending a message
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowNewMessageModal(true)}
-                    className="px-6 py-3 rounded-xl"
-                    style={{ backgroundColor: theme.primary }}
-                  >
-                    <Text className="text-base font-semibold text-white">
-                      New Message
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  <GroupedThreadList
-                    threads={groupedThreads.veterinarian}
-                    category="veterinarian"
-                    title="Veterinarians"
-                    icon="stethoscope"
-                    iconType="material"
-                    color="#60A5FA"
-                    onThreadPress={handleThreadPress}
-                  />
-                  <GroupedThreadList
-                    threads={groupedThreads.dog_walker}
-                    category="dog_walker"
-                    title="Dog Walkers"
-                    icon="paw"
-                    iconType="material"
-                    color="#4ADE80"
-                    onThreadPress={handleThreadPress}
-                  />
-                  <GroupedThreadList
-                    threads={groupedThreads.groomer}
-                    category="groomer"
-                    title="Groomers"
-                    icon="content-cut"
-                    iconType="material"
-                    color="#A78BFA"
-                    onThreadPress={handleThreadPress}
-                  />
-                  <GroupedThreadList
-                    threads={groupedThreads.pet_sitter}
-                    category="pet_sitter"
-                    title="Pet Sitters"
-                    icon="heart"
-                    iconType="material"
-                    color="#F472B6"
-                    onThreadPress={handleThreadPress}
-                  />
-                  <GroupedThreadList
-                    threads={groupedThreads.boarding}
-                    category="boarding"
-                    title="Boarding"
-                    icon="home"
-                    iconType="material"
-                    color="#D97706"
-                    onThreadPress={handleThreadPress}
-                  />
-                  {/* Show unknown threads if any (threads that don't match any care team member) */}
-                  {groupedThreads.unknown.length > 0 && (
-                    <GroupedThreadList
-                      threads={groupedThreads.unknown}
-                      category="veterinarian"
-                      title="Other"
-                      icon="mail-outline"
-                      iconType="ionicons"
-                      color="#9CA3AF"
-                      onThreadPress={handleThreadPress}
-                    />
-                  )}
-                </>
-              )}
-            </>
+          {loadingThreads ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <ActivityIndicator size="large" color={theme.primary} />
+            </View>
           ) : (
             <>
-              {renderCategorySection(
-                "needs_review",
-                "Needs Review",
-                "warning",
-                "ionicons",
-                "#EF4444"
+              {/* Needs Review Section */}
+              {needsReviewMessages.length > 0 && (
+                <View className="mb-6">
+                  <View className="flex-row items-center justify-between mb-3 px-4">
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons
+                        name="warning"
+                        size={20}
+                        color="#EF4444"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        className="text-base font-bold"
+                        style={{ color: "#EF4444" }}
+                      >
+                        Needs Review
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View>
+                    {needsReviewMessages.map((approval) => (
+                      <MessageListItem
+                        key={approval.id}
+                        approval={approval}
+                        onPress={() => handleMessagePress(approval)}
+                      />
+                    ))}
+                  </View>
+                </View>
               )}
 
-              {renderCategorySection(
-                "veterinarians",
-                "Veterinarians",
-                "medical",
-                "ionicons",
-                "#3BD0D2"
+              {/* Grouped Thread Sections */}
+              <GroupedThreadList
+                threads={filteredGroupedThreads.veterinarian}
+                category="veterinarian"
+                title="Veterinarians"
+                icon="stethoscope"
+                iconType="material"
+                color="#60A5FA"
+                onThreadPress={handleThreadPress}
+              />
+              <GroupedThreadList
+                threads={filteredGroupedThreads.dog_walker}
+                category="dog_walker"
+                title="Dog Walkers"
+                icon="paw"
+                iconType="material"
+                color="#4ADE80"
+                onThreadPress={handleThreadPress}
+              />
+              <GroupedThreadList
+                threads={filteredGroupedThreads.groomer}
+                category="groomer"
+                title="Groomers"
+                icon="content-cut"
+                iconType="material"
+                color="#A78BFA"
+                onThreadPress={handleThreadPress}
+              />
+              <GroupedThreadList
+                threads={filteredGroupedThreads.pet_sitter}
+                category="pet_sitter"
+                title="Pet Sitters"
+                icon="heart"
+                iconType="material"
+                color="#F472B6"
+                onThreadPress={handleThreadPress}
+              />
+              <GroupedThreadList
+                threads={filteredGroupedThreads.boarding}
+                category="boarding"
+                title="Boarding"
+                icon="home"
+                iconType="material"
+                color="#D97706"
+                onThreadPress={handleThreadPress}
+              />
+              {/* Show unknown threads if any */}
+              {filteredGroupedThreads.unknown.length > 0 && (
+                <GroupedThreadList
+                  threads={filteredGroupedThreads.unknown}
+                  category="veterinarian"
+                  title="Other"
+                  icon="mail-outline"
+                  iconType="ionicons"
+                  color="#9CA3AF"
+                  onThreadPress={handleThreadPress}
+                />
               )}
 
-              {renderCategorySection(
-                "dog_walkers",
-                "Dog Walkers",
-                "paw",
-                "material",
-                "#22C55E"
-              )}
-
-              {renderCategorySection(
-                "groomers",
-                "Groomers",
-                "cut",
-                "material",
-                "#A855F7"
-              )}
-
-              {renderCategorySection(
-                "pet_sitters",
-                "Pet Sitters",
-                "heart",
-                "material",
-                "#F97316"
-              )}
-
-              {totalUnread === 0 && (
+              {/* Empty State */}
+              {!hasMessages && (
                 <View className="flex-1 items-center justify-center py-20 px-4">
                   <View
                     className="w-20 h-20 rounded-full items-center justify-center mb-4"
@@ -574,7 +475,7 @@ export default function MessagesScreen() {
                     className="text-xl font-bold text-center mb-2"
                     style={{ color: theme.foreground }}
                   >
-                    No Pending Messages
+                    No Messages
                   </Text>
                   <Text
                     className="text-base text-center"
