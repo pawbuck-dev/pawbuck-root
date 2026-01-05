@@ -36,7 +36,7 @@ import {
   updateVetInformation,
   VetInformation,
 } from "@/services/vetInformation";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -419,16 +419,48 @@ export default function Home() {
           >
             Add your first furry friend to get started
           </Text>
-          <TouchableOpacity
-            onPress={() => router.push("/onboarding/step1")}
-            className="px-8 py-4 rounded-2xl"
-            style={{ backgroundColor: theme.primary }}
-            activeOpacity={0.7}
-          >
-            <Text className="text-base font-bold" style={{ color: theme.background }}>
-              Add Your First Pet
-            </Text>
-          </TouchableOpacity>
+          
+          {/* Option Buttons */}
+          <View className="w-full max-w-md gap-3">
+            {/* Add Your First Pet */}
+            <TouchableOpacity
+              onPress={() => router.push("/onboarding/step1")}
+              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
+              style={{ backgroundColor: theme.primary }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle-outline" size={24} color={theme.background} style={{ marginRight: 8 }} />
+              <Text className="text-base font-bold" style={{ color: theme.background }}>
+                Add Your First Pet
+              </Text>
+            </TouchableOpacity>
+
+            {/* Join Household */}
+            <TouchableOpacity
+              onPress={() => router.push("/join-household")}
+              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
+              style={{ backgroundColor: theme.card, borderWidth: 2, borderColor: theme.primary }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.primary} style={{ marginRight: 8 }} />
+              <Text className="text-base font-bold" style={{ color: theme.primary }}>
+                Join Family Circle
+              </Text>
+            </TouchableOpacity>
+
+            {/* Transfer Pet */}
+            <TouchableOpacity
+              onPress={() => router.push("/transfer-pet")}
+              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
+              style={{ backgroundColor: theme.card, borderWidth: 2, borderColor: theme.primary }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="swap-horizontal" size={24} color={theme.primary} style={{ marginRight: 8 }} />
+              <Text className="text-base font-bold" style={{ color: theme.primary }}>
+                Transfer Pet with Code
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </GestureHandlerRootView>
     );

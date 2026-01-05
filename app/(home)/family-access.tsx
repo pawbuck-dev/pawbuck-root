@@ -27,12 +27,14 @@ import {
 } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -96,10 +98,11 @@ export default function FamilyAccess() {
   // Create invite mutation
   const createInviteMutation = useMutation({
     mutationFn: createHouseholdInvite,
-    onSuccess: () => {
+    onSuccess: (invite) => {
       queryClient.invalidateQueries({ queryKey: ["household_invites"] });
       setGenerating(false);
-      Alert.alert("Success", "Invite code generated successfully");
+      // Show the QR code modal with the generated invite code
+      setShowQRCode(invite.code);
     },
     onError: (error: any) => {
       setGenerating(false);
@@ -492,41 +495,109 @@ export default function FamilyAccess() {
           </View>
         </ScrollView>
 
-        {/* QR Code Modal */}
-        {showQRCode && (
+        {/* Invite Family Member Modal */}
+        <Modal
+          visible={!!showQRCode}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowQRCode(null)}
+        >
           <View
-            className="absolute inset-0 items-center justify-center"
+            className="flex-1 items-center justify-center"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
           >
             <View
-              className="rounded-2xl p-6 items-center"
-              style={{ backgroundColor: "#1F1F1F" }}
+              className="rounded-2xl p-6 mx-4"
+              style={{ backgroundColor: "#1F1F1F", maxWidth: 400, width: "90%" }}
             >
+              {/* Header */}
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center flex-1">
+                  <Ionicons name="person-add" size={24} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text
+                    className="text-xl font-bold flex-1"
+                    style={{ color: "#FFFFFF" }}
+                  >
+                    Invite Family Member
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setShowQRCode(null)}
+                  className="active:opacity-70"
+                >
+                  <Ionicons name="close" size={24} color="#9CA3AF" />
+                </Pressable>
+              </View>
+
+              {/* Description */}
               <Text
-                className="text-xl font-bold mb-4"
-                style={{ color: "#FFFFFF" }}
-              >
-                Invite Code QR
-              </Text>
-              <QRCode value={showQRCode} size={200} color="#FFFFFF" backgroundColor="transparent" />
-              <Text
-                className="text-base mt-4 mb-4"
+                className="text-sm mb-6"
                 style={{ color: "#9CA3AF" }}
               >
-                {showQRCode}
+                Share this code with family members so they can track your pets
               </Text>
-              <Pressable
-                onPress={() => setShowQRCode(null)}
-                className="rounded-xl py-3 px-6 active:opacity-70"
-                style={{ backgroundColor: "#5FC4C0" }}
+
+              {/* QR Code */}
+              {showQRCode && (
+                <View className="items-center mb-6">
+                  <View
+                    className="rounded-xl p-4 mb-4"
+                    style={{ backgroundColor: "#FFFFFF" }}
+                  >
+                    <QRCode value={showQRCode} size={200} color="#000000" backgroundColor="#FFFFFF" />
+                  </View>
+
+                  {/* Or share this code */}
+                  <Text
+                    className="text-sm mb-3"
+                    style={{ color: "#9CA3AF" }}
+                  >
+                    Or share this code:
+                  </Text>
+
+                  {/* Code with copy button */}
+                  <View className="flex-row items-center gap-3">
+                    <Text
+                      className="text-xl font-bold"
+                      style={{ color: "#5FC4C0" }}
+                    >
+                      {showQRCode}
+                    </Text>
+                    <Pressable
+                      onPress={async () => {
+                        if (showQRCode) {
+                          await Clipboard.setStringAsync(showQRCode);
+                          Alert.alert("Copied", "Invite code copied to clipboard");
+                        }
+                      }}
+                      className="active:opacity-70"
+                    >
+                      <View
+                        className="w-8 h-8 rounded items-center justify-center"
+                        style={{ backgroundColor: "#5FC4C020" }}
+                      >
+                        <Ionicons name="copy-outline" size={18} color="#5FC4C0" />
+                      </View>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Instructions */}
+              <View
+                className="rounded-xl p-4 mb-4"
+                style={{ backgroundColor: "#374151" }}
               >
-                <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
-                  Close
+                <Text
+                  className="text-sm"
+                  style={{ color: "#9CA3AF" }}
+                >
+                  Family members can enter this code when they select 'Track My Household Pet' during sign up
                 </Text>
-              </Pressable>
+              </View>
             </View>
           </View>
-        )}
+        </Modal>
 
         {/* Add Care Team Member Modal */}
         {pets.length > 0 && (
