@@ -130,7 +130,7 @@ export default function Settings() {
               icon="paw"
               title="Pet Profile"
               subtitle="Manage your pet's information"
-              iconColor="#5FC4C0"
+              iconColor="#60A5FA"
               onPress={() => {
                 router.push("/(home)/pet-profile");
               }}
@@ -141,7 +141,7 @@ export default function Settings() {
               icon="account-outline"
               title="User Profile"
               subtitle="Your account details"
-              iconColor="#5FC4C0"
+              iconColor="#4ADE80"
               onPress={() => {
                 router.push("/(home)/profile");
               }}
@@ -152,7 +152,7 @@ export default function Settings() {
               icon="account-group-outline"
               title="Care Team & Family Access"
               subtitle="Manage who can access your pets"
-              iconColor="#5FC4C0"
+              iconColor="#A78BFA"
               onPress={() => {
                 router.push("/(home)/family-access");
               }}
@@ -163,7 +163,7 @@ export default function Settings() {
               icon="swap-horizontal"
               title="Receive a Pet Transfer"
               subtitle="Accept a pet from another user"
-              iconColor="#5FC4C0"
+              iconColor="#F472B6"
               onPress={() => {
                 router.push("/transfer-pet");
               }}

@@ -119,7 +119,7 @@ export default function TransferPet() {
 
   return (
     <ChatProvider>
-      <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
           <View className="flex-row items-center mb-4">
@@ -127,9 +127,9 @@ export default function TransferPet() {
               onPress={() => router.back()}
               className="mr-4 active:opacity-70"
             >
-              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
             </Pressable>
-            <Text className="text-3xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
+            <Text className="text-3xl font-bold flex-1" style={{ color: theme.foreground }}>
               Transfer Pet
             </Text>
           </View>
@@ -144,12 +144,12 @@ export default function TransferPet() {
           <View className="mb-6">
             <Text
               className="text-xl font-bold mb-4"
-              style={{ color: "#FFFFFF" }}
+              style={{ color: theme.foreground }}
             >
               Select Pet to Transfer
             </Text>
             {pets.length === 0 ? (
-              <Text className="text-base" style={{ color: "#9CA3AF" }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 You don't have any pets to transfer.
               </Text>
             ) : (
@@ -161,17 +161,17 @@ export default function TransferPet() {
                   <View
                     key={pet.id}
                     className="rounded-2xl p-4 mb-3"
-                    style={{ backgroundColor: "#1F1F1F" }}
+                    style={{ backgroundColor: theme.card }}
                   >
                     <View className="flex-row items-center justify-between">
                       <View className="flex-1">
                         <Text
                           className="text-lg font-semibold"
-                          style={{ color: "#FFFFFF" }}
+                          style={{ color: theme.foreground }}
                         >
                           {pet.name}
                         </Text>
-                        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                        <Text className="text-sm" style={{ color: theme.secondary }}>
                           {pet.breed}
                         </Text>
                       </View>
@@ -182,7 +182,7 @@ export default function TransferPet() {
                         style={{
                           backgroundColor:
                             hasActiveTransfer || generating
-                              ? "#374151"
+                              ? (isDarkMode ? "#374151" : theme.border)
                               : "#FF9500",
                           opacity: hasActiveTransfer || generating ? 0.5 : 1,
                         }}
@@ -210,7 +210,7 @@ export default function TransferPet() {
             <View className="mb-6">
               <Text
                 className="text-xl font-bold mb-4"
-                style={{ color: "#FFFFFF" }}
+                style={{ color: theme.foreground }}
               >
                 Active Transfer Codes
               </Text>
@@ -223,13 +223,13 @@ export default function TransferPet() {
                     <View
                       key={transfer.id}
                       className="rounded-2xl p-4 mb-3"
-                      style={{ backgroundColor: "#1F1F1F" }}
+                      style={{ backgroundColor: theme.card }}
                     >
                       <View className="flex-row items-center justify-between mb-3">
                         <View className="flex-1">
                           <Text
                             className="text-base font-semibold"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ color: theme.foreground }}
                           >
                             {pet?.name || "Unknown Pet"}
                           </Text>
@@ -244,34 +244,34 @@ export default function TransferPet() {
                           onPress={() => handleCancelTransfer(transfer.id)}
                           className="active:opacity-70"
                         >
-                          <Ionicons name="close-circle" size={24} color="#9CA3AF" />
+                          <Ionicons name="close-circle" size={24} color={theme.secondary} />
                         </Pressable>
                       </View>
-                      <Text className="text-sm mb-3" style={{ color: "#9CA3AF" }}>
+                      <Text className="text-sm mb-3" style={{ color: theme.secondary }}>
                         Expires: {formatDate(transfer.expires_at)}
                       </Text>
                       <View className="flex-row gap-2">
                         <Pressable
                           onPress={() => handleCopyCode(transfer.code)}
                           className="flex-1 rounded-xl py-2 px-4 flex-row items-center justify-center active:opacity-70"
-                          style={{ backgroundColor: "#374151" }}
+                          style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
                         >
-                          <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
-                          <Text className="text-sm ml-2" style={{ color: "#FFFFFF" }}>
+                          <Ionicons name="copy-outline" size={18} color={theme.foreground} />
+                          <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
                             Copy
                           </Text>
                         </Pressable>
                         <Pressable
                           onPress={() => handleShowQRCode(transfer.code)}
                           className="flex-1 rounded-xl py-2 px-4 flex-row items-center justify-center active:opacity-70"
-                          style={{ backgroundColor: "#374151" }}
+                          style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
                         >
                           <MaterialCommunityIcons
                             name="qrcode"
                             size={18}
-                            color="#FFFFFF"
+                            color={theme.foreground}
                           />
-                          <Text className="text-sm ml-2" style={{ color: "#FFFFFF" }}>
+                          <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
                             QR Code
                           </Text>
                         </Pressable>
@@ -292,18 +292,18 @@ export default function TransferPet() {
           >
             <View
               className="rounded-2xl p-6 items-center"
-              style={{ backgroundColor: "#1F1F1F" }}
+              style={{ backgroundColor: theme.card }}
             >
               <Text
                 className="text-xl font-bold mb-4"
-                style={{ color: "#FFFFFF" }}
+                style={{ color: theme.foreground }}
               >
                 Transfer Code QR
               </Text>
-              <QRCode value={showQRCode} size={200} color="#FFFFFF" backgroundColor="transparent" />
+              <QRCode value={showQRCode} size={200} color={isDarkMode ? "#FFFFFF" : "#000000"} backgroundColor="transparent" />
               <Text
                 className="text-base mt-4 mb-4"
-                style={{ color: "#9CA3AF" }}
+                style={{ color: theme.secondary }}
               >
                 {showQRCode}
               </Text>

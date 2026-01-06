@@ -68,7 +68,8 @@ const getInitials = (name: string) => {
 
 export default function FamilyAccess() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
   const queryClient = useQueryClient();
@@ -247,7 +248,7 @@ export default function FamilyAccess() {
 
   return (
     <ChatProvider>
-      <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
           <View className="flex-row items-center mb-4">
@@ -255,9 +256,9 @@ export default function FamilyAccess() {
               onPress={() => router.back()}
               className="mr-4 active:opacity-70"
             >
-              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
             </Pressable>
-            <Text className="text-3xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
+            <Text className="text-3xl font-bold flex-1" style={{ color: theme.foreground }}>
               Care Team & Family Access
             </Text>
           </View>
@@ -273,12 +274,12 @@ export default function FamilyAccess() {
             {/* Section Header */}
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center flex-1">
-                <MaterialCommunityIcons name="account-group" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
+                <MaterialCommunityIcons name="account-group" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
                 <View className="flex-1">
-                  <Text className="text-xl font-bold" style={{ color: "#FFFFFF" }}>
+                  <Text className="text-xl font-bold" style={{ color: theme.foreground }}>
                     My Care Team
                   </Text>
-                  <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm" style={{ color: theme.secondary }}>
                     {uniqueCareTeamCount} contacts can communicate
                   </Text>
                 </View>
@@ -289,9 +290,9 @@ export default function FamilyAccess() {
                   setShowAddMemberModal(true);
                 }}
                 className="px-4 py-2 rounded-lg active:opacity-70"
-                style={{ backgroundColor: "#374151" }}
+                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
               >
-                <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
                   + Add
                 </Text>
               </Pressable>
@@ -299,9 +300,9 @@ export default function FamilyAccess() {
 
             {/* Care Team Members List */}
             {loadingCareTeam ? (
-              <ActivityIndicator size="small" color="#5FC4C0" />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : careTeamMembers.length === 0 ? (
-              <Text className="text-base" style={{ color: "#9CA3AF" }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 No care team members yet.
               </Text>
             ) : (
@@ -309,29 +310,29 @@ export default function FamilyAccess() {
                 <View
                   key={member.id}
                   className="rounded-2xl p-4 mb-3 flex-row items-center"
-                  style={{ backgroundColor: "#1F1F1F" }}
+                  style={{ backgroundColor: theme.card }}
                 >
                   {/* Icon */}
                   <View
                     className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                    style={{ backgroundColor: "#374151" }}
+                    style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
                   >
                     <MaterialCommunityIcons
                       name={getTypeIcon((member as any).type as CareTeamMemberType)}
                       size={24}
-                      color="#5FC4C0"
+                      color={theme.primary}
                     />
                   </View>
 
                   {/* Member Info */}
                   <View className="flex-1">
-                    <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                    <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
                       {member.vet_name}
                     </Text>
-                    <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                    <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                       {member.clinic_name}
                     </Text>
-                    <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                    <Text className="text-sm" style={{ color: theme.secondary }}>
                       {member.email}
                     </Text>
                   </View>
@@ -343,7 +344,7 @@ export default function FamilyAccess() {
                         onPress={() => handleCall(member.phone)}
                         className="active:opacity-70"
                       >
-                        <Ionicons name="call-outline" size={20} color="#5FC4C0" />
+                        <Ionicons name="call-outline" size={20} color={theme.primary} />
                       </Pressable>
                     )}
                     {member.email && (
@@ -351,7 +352,7 @@ export default function FamilyAccess() {
                         onPress={() => handleEmail(member.email)}
                         className="active:opacity-70"
                       >
-                        <Ionicons name="mail-outline" size={20} color="#5FC4C0" />
+                        <Ionicons name="mail-outline" size={20} color={theme.primary} />
                       </Pressable>
                     )}
                     <Pressable
@@ -371,8 +372,8 @@ export default function FamilyAccess() {
             {/* Section Header */}
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center flex-1">
-                <MaterialCommunityIcons name="account-group-outline" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
-                <Text className="text-xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
+                <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
+                <Text className="text-xl font-bold flex-1" style={{ color: theme.foreground }}>
                   Family Access
                 </Text>
               </View>
@@ -380,12 +381,12 @@ export default function FamilyAccess() {
                 onPress={handleGenerateInvite}
                 disabled={generating}
                 className="px-4 py-2 rounded-lg active:opacity-70"
-                style={{ backgroundColor: "#374151" }}
+                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
               >
                 {generating ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={theme.foreground} />
                 ) : (
-                  <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                  <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
                     Invite
                   </Text>
                 )}
@@ -394,32 +395,32 @@ export default function FamilyAccess() {
 
             {/* Household Members List */}
             {loadingMembers ? (
-              <ActivityIndicator size="small" color="#5FC4C0" />
+              <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <>
                 {/* Current User (Owner) */}
                 {user && (
                   <View
                     className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
-                    style={{ backgroundColor: "#1F1F1F" }}
+                    style={{ backgroundColor: theme.card }}
                   >
                     <View className="flex-row items-center flex-1">
                       {/* Avatar */}
                       <View
                         className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                        style={{ backgroundColor: "#5FC4C0" }}
+                        style={{ backgroundColor: theme.primary }}
                       >
-                        <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                        <Text className="text-base font-semibold" style={{ color: theme.primaryForeground }}>
                           {getInitials(user.email || "User")}
                         </Text>
                       </View>
 
                       {/* Member Info */}
                       <View className="flex-1">
-                        <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                        <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
                           {user.email?.split("@")[0] || "You"}
                         </Text>
-                        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                        <Text className="text-sm" style={{ color: theme.secondary }}>
                           {user.email || ""}
                         </Text>
                       </View>
@@ -429,8 +430,8 @@ export default function FamilyAccess() {
                         className="px-3 py-1 rounded-full flex-row items-center"
                         style={{ backgroundColor: "#A855F7" }}
                       >
-                        <MaterialCommunityIcons name="crown" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text className="text-xs font-semibold" style={{ color: "#FFFFFF" }}>
+                        <MaterialCommunityIcons name="crown" size={12} color={theme.primaryForeground} style={{ marginRight: 4 }} />
+                        <Text className="text-xs font-semibold" style={{ color: theme.primaryForeground }}>
                           Owner
                         </Text>
                       </View>
@@ -443,25 +444,25 @@ export default function FamilyAccess() {
                   <View
                     key={member.id}
                     className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
-                    style={{ backgroundColor: "#1F1F1F" }}
+                    style={{ backgroundColor: theme.card }}
                   >
                     <View className="flex-row items-center flex-1">
                       {/* Avatar */}
                       <View
                         className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                        style={{ backgroundColor: "#5FC4C0" }}
+                        style={{ backgroundColor: theme.primary }}
                       >
-                        <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                        <Text className="text-base font-semibold" style={{ color: theme.primaryForeground }}>
                           {getInitials(member.user_id)}
                         </Text>
                       </View>
 
                       {/* Member Info */}
                       <View className="flex-1">
-                        <Text className="text-base font-semibold mb-1" style={{ color: "#FFFFFF" }}>
+                        <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
                           {member.user_id.split("@")[0] || member.user_id}
                         </Text>
-                        <Text className="text-sm" style={{ color: "#9CA3AF" }}>
+                        <Text className="text-sm" style={{ color: theme.secondary }}>
                           {member.user_id}
                         </Text>
                       </View>
@@ -502,15 +503,15 @@ export default function FamilyAccess() {
           >
             <View
               className="rounded-2xl p-6 mx-4"
-              style={{ backgroundColor: "#1F1F1F", maxWidth: 400, width: "90%" }}
+              style={{ backgroundColor: theme.card, maxWidth: 400, width: "90%" }}
             >
               {/* Header */}
               <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center flex-1">
-                  <Ionicons name="person-add" size={24} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Ionicons name="person-add" size={24} color={theme.foreground} style={{ marginRight: 8 }} />
                   <Text
                     className="text-xl font-bold flex-1"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     Invite Family Member
                   </Text>
@@ -519,14 +520,14 @@ export default function FamilyAccess() {
                   onPress={() => setShowQRCode(null)}
                   className="active:opacity-70"
                 >
-                  <Ionicons name="close" size={24} color="#9CA3AF" />
+                  <Ionicons name="close" size={24} color={theme.secondary} />
                 </Pressable>
               </View>
 
               {/* Description */}
               <Text
                 className="text-sm mb-6"
-                style={{ color: "#9CA3AF" }}
+                style={{ color: theme.secondary }}
               >
                 Share this code with family members so they can track your pets
               </Text>
@@ -544,7 +545,7 @@ export default function FamilyAccess() {
                   {/* Or share this code */}
                   <Text
                     className="text-sm mb-3"
-                    style={{ color: "#9CA3AF" }}
+                    style={{ color: theme.secondary }}
                   >
                     Or share this code:
                   </Text>
@@ -553,7 +554,7 @@ export default function FamilyAccess() {
                   <View className="flex-row items-center gap-3">
                     <Text
                       className="text-xl font-bold"
-                      style={{ color: "#5FC4C0" }}
+                      style={{ color: theme.primary }}
                     >
                       {showQRCode}
                     </Text>
@@ -568,9 +569,9 @@ export default function FamilyAccess() {
                     >
                       <View
                         className="w-8 h-8 rounded items-center justify-center"
-                        style={{ backgroundColor: "#5FC4C020" }}
+                        style={{ backgroundColor: `${theme.primary}20` }}
                       >
-                        <Ionicons name="copy-outline" size={18} color="#5FC4C0" />
+                        <Ionicons name="copy-outline" size={18} color={theme.primary} />
                       </View>
                     </Pressable>
                   </View>
@@ -580,11 +581,11 @@ export default function FamilyAccess() {
               {/* Instructions */}
               <View
                 className="rounded-xl p-4 mb-4"
-                style={{ backgroundColor: "#374151" }}
+                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
               >
                 <Text
                   className="text-sm"
-                  style={{ color: "#9CA3AF" }}
+                  style={{ color: theme.secondary }}
                 >
                   Family members can enter this code when they select 'Track My Household Pet' during sign up
                 </Text>

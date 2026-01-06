@@ -13,9 +13,12 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { verifyTransferCode, useTransferCode } from "@/services/petTransfers";
+import { useTheme } from "@/context/themeContext";
 
 export default function TransferPetStep2() {
   const router = useRouter();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
   const [transferring, setTransferring] = useState(false);
   const [petName, setPetName] = useState<string | null>(null);
@@ -63,8 +66,8 @@ export default function TransferPetStep2() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
-      <StatusBar style="light" />
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Top Navigation Bar */}
       <View className="px-6 pt-14 pb-4">
@@ -73,12 +76,12 @@ export default function TransferPetStep2() {
             onPress={handleCancel}
             className="flex-row items-center active:opacity-70"
           >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-            <Text className="text-base ml-2" style={{ color: "#FFFFFF" }}>
+            <Ionicons name="close" size={24} color={theme.foreground} />
+            <Text className="text-base ml-2" style={{ color: theme.foreground }}>
               Cancel
             </Text>
           </Pressable>
-          <Text className="text-base" style={{ color: "#FFFFFF" }}>
+          <Text className="text-base" style={{ color: theme.foreground }}>
             Step 2 of 3
           </Text>
         </View>
@@ -86,7 +89,7 @@ export default function TransferPetStep2() {
         {/* Progress Bar */}
         <View
           className="w-full h-1 rounded-full"
-          style={{ backgroundColor: "#1F1F1F" }}
+          style={{ backgroundColor: isDarkMode ? "#1F1F1F" : theme.border }}
         >
           <View
             className="h-full rounded-full"
@@ -130,7 +133,7 @@ export default function TransferPetStep2() {
               {/* Title */}
               <Text
                 className="text-3xl font-bold text-center mb-4"
-                style={{ color: "#FFFFFF" }}
+                style={{ color: theme.foreground }}
               >
                 Confirm Transfer
               </Text>
@@ -138,7 +141,7 @@ export default function TransferPetStep2() {
               {/* Instructional Text */}
               <Text
                 className="text-base text-center mb-8"
-                style={{ color: "#9CA3AF" }}
+                style={{ color: theme.secondary }}
               >
                 {petName
                   ? `You're about to receive ${petName} from the previous owner. Once confirmed, this pet will be added to your account.`
@@ -146,16 +149,16 @@ export default function TransferPetStep2() {
               </Text>
 
               {/* Transfer Code Display */}
-              <View className="mb-8 rounded-xl p-4" style={{ backgroundColor: "#1F1F1F" }}>
+              <View className="mb-8 rounded-xl p-4" style={{ backgroundColor: theme.card }}>
                 <Text
                   className="text-sm mb-2"
-                  style={{ color: "#9CA3AF" }}
+                  style={{ color: theme.secondary }}
                 >
                   Transfer Code
                 </Text>
                 <Text
                   className="text-lg font-semibold"
-                  style={{ color: "#FFFFFF" }}
+                  style={{ color: theme.foreground }}
                 >
                   {transferCode}
                 </Text>
@@ -172,7 +175,7 @@ export default function TransferPetStep2() {
           disabled={transferring}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"
           style={{
-            backgroundColor: transferring ? "#374151" : "#FF9500",
+            backgroundColor: transferring ? (isDarkMode ? "#374151" : theme.border) : "#FF9500",
             opacity: transferring ? 0.6 : 1,
           }}
         >

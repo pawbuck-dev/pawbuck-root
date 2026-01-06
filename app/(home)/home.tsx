@@ -402,10 +402,14 @@ export default function Home() {
         <HomeHeader />
         <View className="flex-1 items-center justify-center px-8">
           <View
-            className="w-24 h-24 rounded-full items-center justify-center mb-6"
-            style={{ backgroundColor: `${theme.primary}20` }}
+            className="w-32 h-32 rounded-full items-center justify-center mb-6"
+            style={{ backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.2)" }}
           >
-            <Ionicons name="paw" size={48} color={theme.primary} />
+            <Ionicons 
+              name="paw" 
+              size={64} 
+              color="#FFFFFF" 
+            />
           </View>
           <Text
             className="text-2xl font-bold text-center mb-2"
@@ -426,11 +430,20 @@ export default function Home() {
             <TouchableOpacity
               onPress={() => router.push("/onboarding/step1")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ backgroundColor: theme.primary }}
+              style={{ 
+                backgroundColor: theme.card, 
+                borderWidth: 1, 
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              }}
               activeOpacity={0.7}
             >
-              <Ionicons name="add-circle-outline" size={24} color={theme.background} style={{ marginRight: 8 }} />
-              <Text className="text-base font-bold" style={{ color: theme.background }}>
+              <View
+                className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.05)" }}
+              >
+                <Ionicons name="add" size={20} color={theme.primary} />
+              </View>
+              <Text className="text-base font-bold" style={{ color: theme.primary }}>
                 Add Your First Pet
               </Text>
             </TouchableOpacity>
@@ -439,7 +452,11 @@ export default function Home() {
             <TouchableOpacity
               onPress={() => router.push("/join-household")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ backgroundColor: theme.card, borderWidth: 2, borderColor: theme.primary }}
+              style={{ 
+                backgroundColor: theme.card, 
+                borderWidth: 1, 
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.primary} style={{ marginRight: 8 }} />
@@ -452,7 +469,11 @@ export default function Home() {
             <TouchableOpacity
               onPress={() => router.push("/transfer-pet")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ backgroundColor: theme.card, borderWidth: 2, borderColor: theme.primary }}
+              style={{ 
+                backgroundColor: theme.card, 
+                borderWidth: 1, 
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              }}
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons name="swap-horizontal" size={24} color={theme.primary} style={{ marginRight: 8 }} />

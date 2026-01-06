@@ -19,14 +19,14 @@ export default function TransferPetStep3() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
-      <StatusBar style="light" />
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Top Navigation Bar */}
       <View className="px-6 pt-14 pb-4">
         <View className="flex-row items-center justify-between mb-4">
           <View style={{ width: 60 }} />
-          <Text className="text-base" style={{ color: "#FFFFFF" }}>
+          <Text className="text-base" style={{ color: theme.foreground }}>
             Step 3 of 3
           </Text>
           <View style={{ width: 60 }} />
@@ -35,7 +35,7 @@ export default function TransferPetStep3() {
         {/* Progress Bar */}
         <View
           className="w-full h-1 rounded-full"
-          style={{ backgroundColor: "#1F1F1F" }}
+          style={{ backgroundColor: isDarkMode ? "#1F1F1F" : theme.border }}
         >
           <View
             className="h-full rounded-full"
@@ -72,7 +72,7 @@ export default function TransferPetStep3() {
             {/* Title */}
             <Text
               className="text-3xl font-bold text-center mb-4"
-              style={{ color: "#FFFFFF" }}
+              style={{ color: theme.foreground }}
             >
               Transfer Complete!
             </Text>
@@ -80,7 +80,7 @@ export default function TransferPetStep3() {
             {/* Success Message */}
             <Text
               className="text-base text-center mb-8"
-              style={{ color: "#9CA3AF" }}
+              style={{ color: theme.secondary }}
             >
               The pet has been successfully transferred to your account. You can now view and manage this pet in your PawBuck app.
             </Text>

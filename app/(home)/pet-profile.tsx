@@ -21,7 +21,8 @@ import PrivateImage from "@/components/PrivateImage";
 
 export default function PetProfile() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const { pets, deletePet, deletingPet, loadingPets, updatePet, updatingPet } = usePets();
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">("kg");
@@ -177,9 +178,9 @@ export default function PetProfile() {
   if (loadingPets) {
     return (
       <ChatProvider>
-        <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+        <View className="flex-1" style={{ backgroundColor: theme.background }}>
           <View className="flex-1 items-center justify-center">
-            <Text className="text-base" style={{ color: "#9CA3AF" }}>
+            <Text className="text-base" style={{ color: theme.secondary }}>
               Loading...
             </Text>
           </View>
@@ -193,9 +194,9 @@ export default function PetProfile() {
   if (!currentPet || pets.length === 0) {
     return (
       <ChatProvider>
-        <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+        <View className="flex-1" style={{ backgroundColor: theme.background }}>
           <View className="flex-1 items-center justify-center">
-            <Text className="text-base" style={{ color: "#9CA3AF" }}>
+            <Text className="text-base" style={{ color: theme.secondary }}>
               No pets found
             </Text>
           </View>
@@ -207,7 +208,7 @@ export default function PetProfile() {
 
   return (
     <ChatProvider>
-      <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
           <View className="flex-row items-center mb-4">
@@ -215,9 +216,9 @@ export default function PetProfile() {
               onPress={() => router.back()}
               className="mr-4 active:opacity-70"
             >
-              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
             </Pressable>
-            <Text className="text-2xl font-bold flex-1" style={{ color: "#FFFFFF" }}>
+            <Text className="text-2xl font-bold flex-1" style={{ color: theme.foreground }}>
               Pet Profile
             </Text>
           </View>
@@ -240,12 +241,12 @@ export default function PetProfile() {
                           padding: 4,
                           borderRadius: 50,
                           borderWidth: isSelected ? 3 : 2,
-                          borderColor: isSelected ? "#5FC4C0" : "transparent",
+                          borderColor: isSelected ? theme.primary : "transparent",
                         }}
                       >
                         <View
                           className="w-16 h-16 rounded-full overflow-hidden items-center justify-center"
-                          style={{ backgroundColor: "#1F1F1F" }}
+                          style={{ backgroundColor: theme.card }}
                         >
                           {pet.photo_url ? (
                             <PrivateImage
@@ -258,7 +259,7 @@ export default function PetProfile() {
                             <MaterialCommunityIcons
                               name="paw"
                               size={28}
-                              color="#9CA3AF"
+                              color={theme.secondary}
                             />
                           )}
                         </View>
@@ -266,7 +267,7 @@ export default function PetProfile() {
                       <Text
                         className="text-xs font-medium mt-2"
                         style={{
-                          color: isSelected ? "#FFFFFF" : "#9CA3AF",
+                          color: isSelected ? theme.foreground : theme.secondary,
                         }}
                       >
                         {pet.name}
@@ -287,7 +288,7 @@ export default function PetProfile() {
           {/* Main Pet Profile Section */}
           <View className="items-center mb-6">
             <View className="relative mb-4">
-              <View className="w-40 h-40 rounded-full overflow-hidden items-center justify-center" style={{ backgroundColor: "#1F1F1F" }}>
+              <View className="w-40 h-40 rounded-full overflow-hidden items-center justify-center" style={{ backgroundColor: theme.card }}>
                 {currentPet.photo_url ? (
                   <PrivateImage
                     bucketName="pets"
@@ -299,24 +300,24 @@ export default function PetProfile() {
                   <MaterialCommunityIcons
                     name="paw"
                     size={60}
-                    color="#9CA3AF"
+                    color={theme.secondary}
                   />
                 )}
               </View>
               <Pressable
                 className="absolute bottom-0 right-0 w-10 h-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: "#5FC4C0" }}
+                style={{ backgroundColor: theme.primary }}
               >
-                <Ionicons name="camera-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="camera-outline" size={20} color={theme.primaryForeground} />
               </Pressable>
             </View>
             <Text
               className="text-3xl font-bold mb-1"
-              style={{ color: "#FFFFFF" }}
+              style={{ color: theme.foreground }}
             >
               {currentPet.name}
             </Text>
-            <Text className="text-base" style={{ color: "#9CA3AF" }}>
+            <Text className="text-base" style={{ color: theme.secondary }}>
               {getPetEmail(currentPet)}
             </Text>
           </View>
@@ -349,23 +350,23 @@ export default function PetProfile() {
               disabled={downloading}
               className="rounded-2xl py-4 px-4 flex-row items-center active:opacity-80"
               style={{
-                backgroundColor: "#1F1F1F",
+                backgroundColor: theme.card,
                 opacity: downloading ? 0.6 : 1,
               }}
             >
               {downloading ? (
                 <View className="flex-row items-center">
-                  <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
+                  <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
                     Generating...
                   </Text>
                 </View>
               ) : (
                 <>
-                  <Ionicons name="download-outline" size={24} color="#FFFFFF" />
+                  <Ionicons name="download-outline" size={24} color={theme.foreground} />
                   <View className="flex-1 ml-4">
                     <Text
                       className="text-base font-semibold"
-                      style={{ color: "#FFFFFF" }}
+                      style={{ color: theme.foreground }}
                     >
                       Download Pet Passport
                     </Text>
@@ -380,18 +381,18 @@ export default function PetProfile() {
             <View className="flex-row items-center justify-between mb-4">
               <Text
                 className="text-xl font-bold"
-                style={{ color: "#FFFFFF" }}
+                style={{ color: theme.foreground }}
               >
                 Pet Information
               </Text>
               {!isEditing ? (
                 <Pressable onPress={handleEdit} className="active:opacity-70">
-                  <Ionicons name="pencil-outline" size={20} color="#9CA3AF" />
+                  <Ionicons name="pencil-outline" size={20} color={theme.secondary} />
                 </Pressable>
               ) : (
                 <View className="flex-row items-center gap-3">
                   <Pressable onPress={handleCancel} className="active:opacity-70">
-                    <Text className="text-base" style={{ color: "#9CA3AF" }}>
+                    <Text className="text-base" style={{ color: theme.secondary }}>
                       Cancel
                     </Text>
                   </Pressable>
@@ -402,7 +403,7 @@ export default function PetProfile() {
                   >
                     <Text 
                       className="text-base font-semibold" 
-                      style={{ color: updatingPet ? "#9CA3AF" : "#5FC4C0" }}
+                      style={{ color: updatingPet ? theme.secondary : theme.primary }}
                     >
                       {updatingPet ? "Saving..." : "Save"}
                     </Text>
@@ -413,134 +414,134 @@ export default function PetProfile() {
 
             <View
               className="rounded-2xl p-4"
-              style={{ backgroundColor: "#1F1F1F" }}
+              style={{ backgroundColor: theme.card }}
             >
               {/* Animal Type */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="paw"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Animal Type
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {capitalizeWords((currentPet as any).animal_type) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
               </View>
 
               {/* Breed */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="paw"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Breed
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {capitalizeWords(currentPet.breed) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
               </View>
 
               {/* Date of Birth */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
-                  <Ionicons name="calendar-outline" size={20} color="#5FC4C0" />
+                  <Ionicons name="calendar-outline" size={20} color={theme.primary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Date of Birth
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {formatDate(currentPet.date_of_birth)}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
               </View>
 
               {/* Gender */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
-                  <Ionicons name="person-outline" size={20} color="#5FC4C0" />
+                  <Ionicons name="person-outline" size={20} color={theme.primary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Gender
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {capitalizeWords(currentPet.sex) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
               </View>
 
               {/* Weight */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="scale-bathroom"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Weight
                   </Text>
                   {isEditing ? (
@@ -548,13 +549,13 @@ export default function PetProfile() {
                       <TextInput
                         className="flex-1 py-2 px-3 rounded-lg text-base font-medium"
                         style={{
-                          backgroundColor: "#374151",
-                          color: "#FFFFFF",
+                          backgroundColor: isDarkMode ? "#374151" : theme.border,
+                          color: theme.foreground,
                         }}
                         value={editedWeightValue}
                         onChangeText={setEditedWeightValue}
                         placeholder="Enter weight"
-                        placeholderTextColor="#9CA3AF"
+                        placeholderTextColor={theme.secondary}
                         keyboardType="numeric"
                       />
                       <View className="flex-row items-center gap-1.5">
@@ -562,12 +563,12 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("kg")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "kg" ? "#5FC4C0" : "#374151",
+                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
                           }}
                         >
                           <Text
                             className="text-sm font-medium"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ color: weightUnit === "kg" ? theme.primaryForeground : theme.foreground }}
                           >
                             kg
                           </Text>
@@ -576,12 +577,12 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("lbs")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "lbs" ? "#5FC4C0" : "#374151",
+                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
                           }}
                         >
                           <Text
                             className="text-sm font-medium"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ color: weightUnit === "lbs" ? theme.primaryForeground : theme.foreground }}
                           >
                             lbs
                           </Text>
@@ -592,7 +593,7 @@ export default function PetProfile() {
                     <>
                       <Text
                         className="text-base font-medium"
-                        style={{ color: "#FFFFFF" }}
+                        style={{ color: theme.foreground }}
                       >
                         {convertWeight(currentPet.weight_value, currentPet.weight_unit)}
                       </Text>
@@ -601,12 +602,12 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("kg")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "kg" ? "#5FC4C0" : "#374151",
+                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
                           }}
                         >
                           <Text
                             className="text-sm font-medium"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ color: weightUnit === "kg" ? theme.primaryForeground : theme.foreground }}
                           >
                             kg
                           </Text>
@@ -615,12 +616,12 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("lbs")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "lbs" ? "#5FC4C0" : "#374151",
+                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
                           }}
                         >
                           <Text
                             className="text-sm font-medium"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ color: weightUnit === "lbs" ? theme.primaryForeground : theme.foreground }}
                           >
                             lbs
                           </Text>
@@ -632,37 +633,37 @@ export default function PetProfile() {
               </View>
 
               {/* Color */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="brain"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Color
                   </Text>
                   {isEditing ? (
                     <TextInput
                       className="py-2 px-3 rounded-lg text-base font-medium"
                       style={{
-                        backgroundColor: "#374151",
-                        color: "#FFFFFF",
+                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        color: theme.foreground,
                       }}
                       value={editedColor}
                       onChangeText={setEditedColor}
                       placeholder="Enter color"
-                      placeholderTextColor="#9CA3AF"
+                      placeholderTextColor={theme.secondary}
                     />
                   ) : (
                     <Text
                       className="text-base font-medium"
-                      style={{ color: "#FFFFFF" }}
+                      style={{ color: theme.foreground }}
                     >
                       {(currentPet as any).color || "Not set"}
                     </Text>
@@ -671,60 +672,60 @@ export default function PetProfile() {
               </View>
 
               {/* Microchip Number */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="chip"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Microchip Number
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {currentPet.microchip_number || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
               </View>
 
               {/* Pet Passport Number */}
-              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: "#2A2A2A" }}>
+              <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
                   <MaterialCommunityIcons
                     name="chip"
                     size={20}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Pet Passport Number
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {(currentPet as any).pet_passport_number || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
-                  <Text className="text-xs" style={{ color: "#9CA3AF" }}>
+                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                  <Text className="text-xs" style={{ color: theme.secondary }}>
                     Locked
                   </Text>
                 </View>
@@ -734,17 +735,17 @@ export default function PetProfile() {
               <View className="flex-row items-center py-3">
                 <View
                   className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+                  style={{ backgroundColor: `${theme.primary}20` }}
                 >
-                  <Ionicons name="globe-outline" size={20} color="#5FC4C0" />
+                  <Ionicons name="globe-outline" size={20} color={theme.primary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-sm mb-1" style={{ color: "#9CA3AF" }}>
+                  <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Country
                   </Text>
                   <Text
                     className="text-base font-medium"
-                    style={{ color: "#FFFFFF" }}
+                    style={{ color: theme.foreground }}
                   >
                     {currentPet.country || "Not set"}
                   </Text>
@@ -756,7 +757,7 @@ export default function PetProfile() {
 
         {/* Delete Pet Button */}
         {currentPet && (
-          <View className="px-6 pb-4 pt-4 border-t" style={{ borderTopColor: "#1F1F1F" }}>
+          <View className="px-6 pb-4 pt-4 border-t" style={{ borderTopColor: theme.border }}>
             <Pressable
               onPress={() => {
                 Alert.alert(
@@ -792,7 +793,7 @@ export default function PetProfile() {
               disabled={deletingPet || !currentPet}
               className="rounded-xl py-4 px-6 items-center justify-center active:opacity-70"
               style={{ 
-                backgroundColor: deletingPet ? "#374151" : "#FF3B30",
+                backgroundColor: deletingPet ? (isDarkMode ? "#374151" : theme.border) : theme.error,
                 opacity: deletingPet || !currentPet ? 0.5 : 1,
               }}
             >
