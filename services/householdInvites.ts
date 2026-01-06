@@ -202,7 +202,7 @@ export async function useInviteCode(code: string): Promise<void> {
 
   if (insertError) {
     // Rollback: reactivate the invite
-    await supabase
+    const { error: rollbackError } = await supabase
       .from("household_invites")
       .update({
         used_at: null,
@@ -210,6 +210,13 @@ export async function useInviteCode(code: string): Promise<void> {
         is_active: true,
       })
       .eq("id", invite.id);
+    
+    if (rollbackError) {
+      console.error("Critical: Failed to rollback household invite", rollbackError);
+      // Log to error tracking service if available
+      // This is a critical error that could leave data inconsistent
+    }
+    
     throw insertError;
   }
 }

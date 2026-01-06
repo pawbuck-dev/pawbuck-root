@@ -212,7 +212,7 @@ export async function useTransferCode(code: string): Promise<void> {
 
   if (petUpdateError) {
     // Rollback: reactivate the transfer
-    await supabase
+    const { error: rollbackError } = await supabase
       .from("pet_transfers")
       .update({
         used_at: null,
@@ -220,6 +220,13 @@ export async function useTransferCode(code: string): Promise<void> {
         is_active: true,
       })
       .eq("id", transfer.id);
+    
+    if (rollbackError) {
+      console.error("Critical: Failed to rollback pet transfer", rollbackError);
+      // Log to error tracking service if available
+      // This is a critical error that could leave data inconsistent
+    }
+    
     throw petUpdateError;
   }
 }

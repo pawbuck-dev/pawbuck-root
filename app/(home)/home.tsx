@@ -112,7 +112,12 @@ export default function Home() {
   // Fetch vet information if pet has one linked
   const { data: vetInfo, isLoading: loadingVetInfo } = useQuery({
     queryKey: ["vet_information", selectedPet?.vet_information_id],
-    queryFn: () => getVetInformation(selectedPet!.vet_information_id!),
+    queryFn: () => {
+      if (!selectedPet?.vet_information_id) {
+        throw new Error("No vet information ID available");
+      }
+      return getVetInformation(selectedPet.vet_information_id);
+    },
     enabled: !!selectedPet?.vet_information_id,
   });
 

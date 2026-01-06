@@ -7,9 +7,12 @@ import {
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTheme } from "@/context/themeContext";
 
 export default function TransferPetStep3() {
   const router = useRouter();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
 
   const handleContinue = () => {
