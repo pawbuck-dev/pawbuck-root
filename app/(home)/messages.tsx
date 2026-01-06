@@ -18,7 +18,7 @@ import { CareTeamMemberType, createVetInformation } from "@/services/vetInformat
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useMemo, useState } from "react";
 import {
@@ -41,8 +41,10 @@ export default function MessagesScreen() {
   const queryClient = useQueryClient();
   const { pendingApprovals, setCurrentApproval } = useEmailApproval();
   const { pets } = usePets();
+  const params = useLocalSearchParams<{ email?: string }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
+  const [initialRecipientEmail, setInitialRecipientEmail] = useState<string | undefined>();
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
@@ -59,6 +61,16 @@ export default function MessagesScreen() {
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
   });
+
+  // Handle route params to open new message modal with pre-filled email
+  React.useEffect(() => {
+    if (params.email) {
+      setInitialRecipientEmail(params.email);
+      setShowNewMessageModal(true);
+      // Clear the param to avoid re-opening on navigation
+      router.setParams({ email: undefined });
+    }
+  }, [params.email]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -592,7 +604,11 @@ export default function MessagesScreen() {
         {/* New Message Modal */}
         <NewMessageModal
           visible={showNewMessageModal}
-          onClose={() => setShowNewMessageModal(false)}
+          onClose={() => {
+            setShowNewMessageModal(false);
+            setInitialRecipientEmail(undefined);
+          }}
+          initialRecipientEmail={initialRecipientEmail}
           onSend={async (messageData) => {
             try {
               const { data: { session } } = await supabase.auth.getSession();

@@ -7,7 +7,7 @@ import { VetInformation } from "@/services/vetInformation";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -32,6 +32,7 @@ interface NewMessageModalProps {
     message: string;
     petId: string;
   }) => Promise<void>;
+  initialRecipientEmail?: string;
 }
 
 interface WhitelistedContact {
@@ -45,6 +46,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   visible,
   onClose,
   onSend,
+  initialRecipientEmail,
 }) => {
   const { theme } = useTheme();
   const router = useRouter();
@@ -120,6 +122,23 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
 
     return contacts;
   }, [vetInfo, careTeamMembers, whitelistedEmails]);
+
+  // Pre-fill recipient when initialRecipientEmail is provided and modal opens
+  useEffect(() => {
+    if (visible && initialRecipientEmail && whitelistedContacts.length > 0) {
+      const matchingContact = whitelistedContacts.find(
+        (contact) => contact.email.toLowerCase() === initialRecipientEmail.toLowerCase()
+      );
+      if (matchingContact) {
+        // Always set the contact if it matches, even if one is already selected
+        // This allows the email param to override any previously selected contact
+        setToContact(matchingContact);
+      }
+    } else if (visible && !initialRecipientEmail) {
+      // Reset contact if modal opens without an initial email
+      setToContact(null);
+    }
+  }, [visible, initialRecipientEmail, whitelistedContacts]);
 
   const handleSend = async () => {
     if (!toContact) {

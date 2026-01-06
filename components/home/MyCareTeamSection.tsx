@@ -4,6 +4,7 @@ import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 
@@ -79,20 +80,15 @@ export default function MyCareTeamSection({
     }
   };
 
+  const router = useRouter();
+
   const handleEmail = async (email?: string) => {
     if (!email) return;
-
-    const emailUrl = `mailto:${email}`;
-    try {
-      const canOpen = await Linking.canOpenURL(emailUrl);
-      if (canOpen) {
-        await Linking.openURL(emailUrl);
-      } else {
-        Alert.alert("Email", `Email: ${email}`, [{ text: "OK", style: "cancel" }]);
-      }
-    } catch (error) {
-      Alert.alert("Email", `Email: ${email}`, [{ text: "OK", style: "cancel" }]);
-    }
+    // Navigate to messages screen with pre-filled email
+    router.push({
+      pathname: "/(home)/messages",
+      params: { email },
+    });
   };
 
   // Build the care team list

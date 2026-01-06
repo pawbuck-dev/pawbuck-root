@@ -117,6 +117,15 @@ export default function PetProfile() {
       .substring(0, 2);
   };
 
+  const capitalizeWords = (text: string | null | undefined) => {
+    if (!text || text === "Not set") return text;
+    return text
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
   };
@@ -426,7 +435,7 @@ export default function PetProfile() {
                     className="text-base font-medium"
                     style={{ color: "#FFFFFF" }}
                   >
-                    {(currentPet as any).animal_type || "Not set"}
+                    {capitalizeWords((currentPet as any).animal_type) || "Not set"}
                   </Text>
                 </View>
                 <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
@@ -456,7 +465,7 @@ export default function PetProfile() {
                     className="text-base font-medium"
                     style={{ color: "#FFFFFF" }}
                   >
-                    {currentPet.breed || "Not set"}
+                    {capitalizeWords(currentPet.breed) || "Not set"}
                   </Text>
                 </View>
                 <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>
@@ -508,7 +517,7 @@ export default function PetProfile() {
                     className="text-base font-medium"
                     style={{ color: "#FFFFFF" }}
                   >
-                    {currentPet.sex || "Not set"}
+                    {capitalizeWords(currentPet.sex) || "Not set"}
                   </Text>
                 </View>
                 <View className="px-2 py-1 rounded" style={{ backgroundColor: "#374151" }}>

@@ -11,6 +11,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 interface VaccinationStatusHeaderProps {
   status: RequiredVaccinesStatus;
+  country?: string;
 }
 
 /**
@@ -43,6 +44,7 @@ const getStatusColor = (
 
 export const VaccinationStatusHeader: React.FC<VaccinationStatusHeaderProps> = ({
   status,
+  country,
 }) => {
   const { theme } = useTheme();
   const [showMissing, setShowMissing] = useState(false);
@@ -109,6 +111,37 @@ export const VaccinationStatusHeader: React.FC<VaccinationStatusHeaderProps> = (
           </Text>
           {" required vaccines administered"}
         </Text>
+
+        {/* Compliance Message for Fully Vaccinated Pets */}
+        {isFullyVaccinated && country && (
+          <View
+            className="mt-3 p-3 rounded-xl"
+            style={{
+              backgroundColor: "rgba(16, 185, 129, 0.1)",
+              borderWidth: 1,
+              borderColor: "rgba(16, 185, 129, 0.3)",
+            }}
+          >
+            <View className="flex-row items-start">
+              <Ionicons
+                name="checkmark-circle"
+                size={18}
+                color="#10B981"
+                style={{ marginTop: 1, marginRight: 8 }}
+              />
+              <View className="flex-1">
+                <Text
+                  className="text-xs font-medium"
+                  style={{ color: "#10B981" }}
+                >
+                  {country === "Canada"
+                    ? "Fully vaccinated based on Canadian regulations"
+                    : `Fully vaccinated based on ${country} regulations`}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Missing Vaccines Section (Expandable) */}

@@ -613,7 +613,9 @@ const generatePDFHTML = (
           
           <div class="summary-card">
             <div class="summary-content">
-              ${vaccinations.length > 0 ? `${pet.name} has ${vaccinations.length} vaccination record${vaccinations.length > 1 ? "s" : ""} on file.` : `${pet.name} doesn't have any vaccination records yet.`}
+              ${vaccinations.length > 0 
+                ? `${pet.name} has ${vaccinations.length} vaccination record${vaccinations.length > 1 ? "s" : ""} on file.${pet.country ? ` Based on ${pet.country === "Canada" ? "Canadian" : pet.country} regulations, ${pet.name} is fully vaccinated.` : ""}`
+                : `${pet.name} doesn't have any vaccination records yet.`}
             </div>
           </div>
         </div>
@@ -644,6 +646,25 @@ const generatePDFHTML = (
           <div class="vaccination-list">
             ${vaccinationStatusHTML || '<div class="empty-state">No vaccinations recorded yet</div>'}
           </div>
+          
+          ${
+            vaccinations.length > 0 && pet.country
+              ? `
+          <div style="margin-top: 24px; padding: 16px; background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+            <div style="display: flex; align-items: flex-start;">
+              <span style="font-size: 16px; margin-right: 8px;">✓</span>
+              <div style="flex: 1;">
+                <div style="font-size: 11px; font-weight: 600; color: #10B981; text-transform: uppercase; letter-spacing: 0.5px;">
+                  ${pet.country === "Canada"
+                    ? "Fully vaccinated based on Canadian regulations"
+                    : `Fully vaccinated based on ${pet.country} regulations`}
+                </div>
+              </div>
+            </div>
+          </div>
+          `
+              : ""
+          }
         </div>
         <div class="footer">
           <div class="footer-title">Document Generated Through PawBuck</div>

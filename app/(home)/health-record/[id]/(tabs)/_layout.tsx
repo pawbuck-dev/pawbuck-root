@@ -115,7 +115,10 @@ export default function HealthRecordsLayout() {
       {/* Vaccination Status Header */}
       {!isLoadingRequirements && (
         <View className="px-4 pb-2">
-          <VaccinationStatusHeader status={requiredVaccinesStatus} />
+          <VaccinationStatusHeader 
+            status={requiredVaccinesStatus} 
+            country={pet.country}
+          />
         </View>
       )}
 

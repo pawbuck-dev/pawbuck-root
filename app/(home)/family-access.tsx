@@ -164,17 +164,11 @@ export default function FamilyAccess() {
 
   const handleEmail = async (email?: string) => {
     if (!email) return;
-    const emailUrl = `mailto:${email}`;
-    try {
-      const canOpen = await Linking.canOpenURL(emailUrl);
-      if (canOpen) {
-        await Linking.openURL(emailUrl);
-      } else {
-        Alert.alert("Email", `Email: ${email}`);
-      }
-    } catch (error) {
-      Alert.alert("Email", `Email: ${email}`);
-    }
+    // Navigate to messages screen with pre-filled email
+    router.push({
+      pathname: "/(home)/messages",
+      params: { email },
+    });
   };
 
   const handleRemoveCareTeamMember = (memberId: string) => {
