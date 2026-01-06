@@ -52,6 +52,49 @@ const getIconType = (type: CareTeamMemberType | null): "ionicons" | "material" =
   return "material";
 };
 
+// Get color for care team member type - matches messages screen colors
+const getTypeColor = (type: CareTeamMemberType | null): string => {
+  if (!type) return "#60A5FA"; // Default to veterinarian blue
+  
+  const colors: Record<CareTeamMemberType, string> = {
+    veterinarian: "#60A5FA", // Blue
+    dog_walker: "#4ADE80",   // Green
+    groomer: "#A78BFA",      // Purple
+    pet_sitter: "#F472B6",   // Pink
+    boarding: "#D97706",     // Orange
+  };
+  return colors[type];
+};
+
+// Get background color with opacity for care team member type
+const getTypeBackgroundColor = (type: CareTeamMemberType | null, isDarkMode: boolean): string => {
+  if (!type) {
+    return isDarkMode ? "rgba(96, 165, 250, 0.2)" : "rgba(96, 165, 250, 0.15)"; // Default to veterinarian
+  }
+  
+  if (isDarkMode) {
+    // For dark mode, use rgba with 0.2 opacity
+    const darkColors: Record<CareTeamMemberType, string> = {
+      veterinarian: "rgba(96, 165, 250, 0.2)",   // Blue
+      dog_walker: "rgba(74, 222, 128, 0.2)",     // Green
+      groomer: "rgba(167, 139, 250, 0.2)",       // Purple
+      pet_sitter: "rgba(244, 114, 182, 0.2)",   // Pink
+      boarding: "rgba(217, 119, 6, 0.2)",        // Orange
+    };
+    return darkColors[type];
+  } else {
+    // For light mode, use lighter tint with 0.15 opacity
+    const lightColors: Record<CareTeamMemberType, string> = {
+      veterinarian: "rgba(96, 165, 250, 0.15)",   // Blue
+      dog_walker: "rgba(74, 222, 128, 0.15)",     // Green
+      groomer: "rgba(167, 139, 250, 0.15)",       // Purple
+      pet_sitter: "rgba(244, 114, 182, 0.15)",   // Pink
+      boarding: "rgba(217, 119, 6, 0.15)",        // Orange
+    };
+    return lightColors[type];
+  }
+};
+
 export default function MyCareTeamSection({
   vetInfo,
   careTeamMembers = [],
@@ -129,6 +172,8 @@ export default function MyCareTeamSection({
     const iconType = getIconType(type);
     const displayName = member.vet_name || member.clinic_name;
     const typeLabel = getTypeLabel(type);
+    const typeColor = getTypeColor(type);
+    const typeBgColor = getTypeBackgroundColor(type, isDarkMode);
 
     return (
       <TouchableOpacity
@@ -160,18 +205,21 @@ export default function MyCareTeamSection({
           }}
         >
           {/* Icon */}
-          <View className="w-10 mr-4">
+          <View 
+            className="w-12 h-12 rounded-full items-center justify-center mr-3"
+            style={{ backgroundColor: typeBgColor }}
+          >
             {iconType === "material" ? (
               <MaterialCommunityIcons
                 name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
                 size={24}
-                color={theme.primary}
+                color={typeColor}
               />
             ) : (
               <Ionicons
                 name={icon as keyof typeof Ionicons.glyphMap}
                 size={24}
-                color={theme.primary}
+                color={typeColor}
               />
             )}
           </View>
@@ -295,9 +343,9 @@ export default function MyCareTeamSection({
           >
             <View
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: `${theme.primary}20` }}
+              style={{ backgroundColor: getTypeBackgroundColor("veterinarian", isDarkMode) }}
             >
-              <MaterialCommunityIcons name="stethoscope" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="stethoscope" size={24} color={getTypeColor("veterinarian")} />
             </View>
             <View className="flex-1">
               <Text
@@ -327,9 +375,9 @@ export default function MyCareTeamSection({
           >
             <View
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: `${theme.primary}20` }}
+              style={{ backgroundColor: getTypeBackgroundColor("dog_walker", isDarkMode) }}
             >
-              <MaterialCommunityIcons name="paw" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="paw" size={24} color={getTypeColor("dog_walker")} />
             </View>
             <View className="flex-1">
               <Text
@@ -359,9 +407,9 @@ export default function MyCareTeamSection({
           >
             <View
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: `${theme.primary}20` }}
+              style={{ backgroundColor: getTypeBackgroundColor("groomer", isDarkMode) }}
             >
-              <MaterialCommunityIcons name="content-cut" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="content-cut" size={24} color={getTypeColor("groomer")} />
             </View>
             <View className="flex-1">
               <Text
@@ -391,9 +439,9 @@ export default function MyCareTeamSection({
           >
             <View
               className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: `${theme.primary}20` }}
+              style={{ backgroundColor: getTypeBackgroundColor("pet_sitter", isDarkMode) }}
             >
-              <MaterialCommunityIcons name="heart" size={24} color={theme.primary} />
+              <MaterialCommunityIcons name="heart" size={24} color={getTypeColor("pet_sitter")} />
             </View>
             <View className="flex-1">
               <Text
@@ -421,11 +469,11 @@ export default function MyCareTeamSection({
               }}
               activeOpacity={0.7}
             >
-              <View
-                className="w-12 h-12 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: `${theme.primary}20` }}
-              >
-                <MaterialCommunityIcons name="home" size={24} color={theme.primary} />
+                <View
+                  className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: getTypeBackgroundColor("boarding", isDarkMode) }}
+                >
+                  <MaterialCommunityIcons name="home" size={24} color={getTypeColor("boarding")} />
               </View>
               <View className="flex-1">
                 <Text
