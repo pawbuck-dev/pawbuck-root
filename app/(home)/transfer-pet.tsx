@@ -27,7 +27,8 @@ import QRCode from "react-native-qrcode-svg";
 
 export default function TransferPet() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
   const queryClient = useQueryClient();
@@ -188,11 +189,15 @@ export default function TransferPet() {
                         }}
                       >
                         {generating && selectedPetId === pet.id ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          <ActivityIndicator size="small" color={hasActiveTransfer && !isDarkMode ? theme.foreground : "#FFFFFF"} />
                         ) : (
                           <Text
                             className="text-sm font-semibold"
-                            style={{ color: "#FFFFFF" }}
+                            style={{ 
+                              color: hasActiveTransfer && !isDarkMode 
+                                ? theme.foreground 
+                                : "#FFFFFF" 
+                            }}
                           >
                             {hasActiveTransfer ? "Active" : "Generate Code"}
                           </Text>

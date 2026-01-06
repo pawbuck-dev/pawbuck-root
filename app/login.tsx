@@ -4,7 +4,7 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -24,6 +24,7 @@ function Login() {
   const { theme, mode } = useTheme();
   const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
   const { addPet } = usePets();
+  const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -65,9 +66,17 @@ function Login() {
       // Create pet if onboarding data exists (wait for completion before navigating)
       await createPetIfNeeded();
 
-      // Navigate to home screen after successful login - clear stack
-      router.dismissAll();
-      router.replace("/home");
+      // Check if we need to return to transfer or household flow
+      if (returnTo && (transferCode || inviteCode)) {
+        router.replace({
+          pathname: returnTo as any,
+          params: transferCode ? { transferCode } : { inviteCode },
+        });
+      } else {
+        // Navigate to home screen after successful login - clear stack
+        router.dismissAll();
+        router.replace("/home");
+      }
     } catch (error: any) {
       console.error("Error signing in:", error);
       Alert.alert("Error", error.message || "Failed to sign in");
@@ -129,8 +138,17 @@ function Login() {
                     try {
                       setIsLoading(true);
                       await createPetIfNeeded();
-                      router.dismissAll();
-                      router.replace("/home");
+                      
+                      // Check if we need to return to transfer or household flow
+                      if (returnTo && (transferCode || inviteCode)) {
+                        router.replace({
+                          pathname: returnTo as any,
+                          params: transferCode ? { transferCode } : { inviteCode },
+                        });
+                      } else {
+                        router.dismissAll();
+                        router.replace("/home");
+                      }
                     } catch (error: any) {
                       console.error("Error during OAuth login:", error);
                     } finally {

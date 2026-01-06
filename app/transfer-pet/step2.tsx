@@ -14,19 +14,48 @@ import {
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { verifyTransferCode, useTransferCode } from "@/services/petTransfers";
 import { useTheme } from "@/context/themeContext";
+import { useAuth } from "@/context/authContext";
 
 export default function TransferPetStep2() {
   const router = useRouter();
   const { theme, mode } = useTheme();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
   const [transferring, setTransferring] = useState(false);
   const [petName, setPetName] = useState<string | null>(null);
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    // Fetch transfer details to show pet name
+    if (!authLoading && !isAuthenticated && transferCode) {
+      Alert.alert(
+        "Authentication Required",
+        "You need to sign in or create an account to accept a pet transfer. Would you like to sign in now?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => router.back(),
+          },
+          {
+            text: "Sign In",
+            onPress: () => {
+              // Store transfer code in params to resume after login
+              router.replace({
+                pathname: "/login",
+                params: { returnTo: "/transfer-pet/step2", transferCode },
+              });
+            },
+          },
+        ]
+      );
+    }
+  }, [isAuthenticated, authLoading, transferCode, router]);
+
+  useEffect(() => {
+    // Fetch transfer details to show pet name (only if authenticated)
     const loadTransferDetails = async () => {
-      if (transferCode) {
+      if (transferCode && isAuthenticated) {
         try {
           const transfer = await verifyTransferCode(transferCode);
           if (transfer && (transfer as any).pets) {
@@ -38,13 +67,21 @@ export default function TransferPetStep2() {
       }
     };
     loadTransferDetails();
-  }, [transferCode]);
+  }, [transferCode, isAuthenticated]);
 
   const handleCancel = () => {
     router.back();
   };
 
   const handleTransferPet = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Authentication Required",
+        "Please sign in or create an account to accept the transfer."
+      );
+      return;
+    }
+
     if (!transferCode) {
       Alert.alert("Error", "Transfer code is missing");
       return;
@@ -64,6 +101,25 @@ export default function TransferPetStep2() {
       setTransferring(false);
     }
   };
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  // Don't render transfer UI if not authenticated (will redirect via useEffect)
+  if (!isAuthenticated) {
+    return (
+      <View className="flex-1" style={{ backgroundColor: theme.background }}>
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>

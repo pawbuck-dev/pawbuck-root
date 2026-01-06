@@ -14,9 +14,12 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { verifyInviteCode } from "@/services/householdInvites";
+import { useTheme } from "@/context/themeContext";
 
 export default function JoinHousehold() {
   const router = useRouter();
+  const { theme, mode } = useTheme();
+  const isDarkMode = mode === "dark";
   const [inviteCode, setInviteCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +69,8 @@ export default function JoinHousehold() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: "#0A0A0A" }}>
-      <StatusBar style="light" />
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Top Navigation Bar */}
       <View className="px-6 pt-14 pb-4">
@@ -76,12 +79,12 @@ export default function JoinHousehold() {
             onPress={handleCancel}
             className="flex-row items-center active:opacity-70"
           >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-            <Text className="text-base ml-2" style={{ color: "#FFFFFF" }}>
+            <Ionicons name="close" size={24} color={theme.foreground} />
+            <Text className="text-base ml-2" style={{ color: theme.foreground }}>
               Cancel
             </Text>
           </Pressable>
-          <Text className="text-base" style={{ color: "#FFFFFF" }}>
+          <Text className="text-base" style={{ color: theme.foreground }}>
             Step 1 of 3
           </Text>
         </View>
@@ -89,13 +92,13 @@ export default function JoinHousehold() {
         {/* Progress Bar */}
         <View
           className="w-full h-1 rounded-full"
-          style={{ backgroundColor: "#1F1F1F" }}
+          style={{ backgroundColor: isDarkMode ? "#1F1F1F" : theme.border }}
         >
           <View
             className="h-full rounded-full"
             style={{
               width: "33.33%",
-              backgroundColor: "#5FC4C0",
+              backgroundColor: theme.primary,
             }}
           />
         </View>
@@ -118,14 +121,14 @@ export default function JoinHousehold() {
                   className="w-20 h-20 rounded-full items-center justify-center"
                   style={{
                     borderWidth: 2,
-                    borderColor: "#5FC4C0",
-                    backgroundColor: "rgba(95, 196, 192, 0.1)",
+                    borderColor: theme.primary,
+                    backgroundColor: theme.primary + "20",
                   }}
                 >
                   <MaterialCommunityIcons
                     name="home"
                     size={40}
-                    color="#5FC4C0"
+                    color={theme.primary}
                   />
                 </View>
               </View>
@@ -133,7 +136,7 @@ export default function JoinHousehold() {
               {/* Title */}
               <Text
                 className="text-3xl font-bold text-center mb-4"
-                style={{ color: "#FFFFFF" }}
+                style={{ color: theme.foreground }}
               >
                 Join Your Household
               </Text>
@@ -141,7 +144,7 @@ export default function JoinHousehold() {
               {/* Instructional Text */}
               <Text
                 className="text-base text-center mb-8"
-                style={{ color: "#9CA3AF" }}
+                style={{ color: theme.secondary }}
               >
                 Enter the invite code you received from a family member.
               </Text>
@@ -150,7 +153,7 @@ export default function JoinHousehold() {
               <View className="mb-4">
                 <Text
                   className="text-base font-medium mb-2"
-                  style={{ color: "#FFFFFF" }}
+                  style={{ color: theme.foreground }}
                 >
                   Invite Code
                 </Text>
@@ -161,19 +164,19 @@ export default function JoinHousehold() {
                     setError(null);
                   }}
                   placeholder="e.g., MTCH-2024-ABC123"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={theme.secondary}
                   autoCapitalize="characters"
                   className="w-full rounded-xl py-4 px-4 text-base"
                   style={{
                     backgroundColor: "transparent",
                     borderWidth: 1,
-                    borderColor: error ? "#FF3B30" : "#374151",
-                    color: "#FFFFFF",
+                    borderColor: error ? theme.error : (isDarkMode ? "#374151" : theme.border),
+                    color: theme.foreground,
                   }}
                   editable={!verifying}
                 />
                 {error && (
-                  <Text className="text-sm mt-2" style={{ color: "#FF3B30" }}>
+                  <Text className="text-sm mt-2" style={{ color: theme.error }}>
                     {error}
                   </Text>
                 )}
@@ -187,7 +190,7 @@ export default function JoinHousehold() {
                 style={{
                   backgroundColor: "transparent",
                   borderWidth: 1,
-                  borderColor: "#374151",
+                  borderColor: isDarkMode ? "#374151" : theme.border,
                   borderStyle: "dashed",
                   opacity: verifying ? 0.5 : 1,
                 }}
@@ -195,9 +198,9 @@ export default function JoinHousehold() {
                 <MaterialCommunityIcons
                   name="qrcode-scan"
                   size={20}
-                  color="#FFFFFF"
+                  color={theme.foreground}
                 />
-                <Text className="text-base ml-2" style={{ color: "#FFFFFF" }}>
+                <Text className="text-base ml-2" style={{ color: theme.foreground }}>
                   Scan QR Code Instead
                 </Text>
               </Pressable>
@@ -205,7 +208,7 @@ export default function JoinHousehold() {
               {/* Hint Text */}
               <Text
                 className="text-sm text-center mb-8"
-                style={{ color: "#6B7280" }}
+                style={{ color: theme.secondary }}
               >
                 Ask the household owner for an invite code or QR code to join.
               </Text>
@@ -221,7 +224,7 @@ export default function JoinHousehold() {
           disabled={!inviteCode.trim() || verifying}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"
           style={{
-            backgroundColor: inviteCode.trim() && !verifying ? "#5FC4C0" : "#374151",
+            backgroundColor: inviteCode.trim() && !verifying ? theme.primary : (isDarkMode ? "#374151" : theme.border),
             opacity: (!inviteCode.trim() || verifying) ? 0.6 : 1,
           }}
         >
