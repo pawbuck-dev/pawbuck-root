@@ -56,6 +56,9 @@ export default function OnboardingReview() {
   const [tempMicrochip, setTempMicrochip] = useState(
     petData!.microchip_number || ""
   );
+  const [tempPassport, setTempPassport] = useState(
+    petData!.passport_number || ""
+  );
   const [tempBirthDate, setTempBirthDate] = useState(
     petData!.date_of_birth ? new Date(petData!.date_of_birth) : new Date()
   );
@@ -157,6 +160,8 @@ export default function OnboardingReview() {
       }
     } else if (field === "microchip_number") {
       updatePetData({ microchip_number: tempMicrochip });
+    } else if (field === "passport_number") {
+      updatePetData({ passport_number: tempPassport });
     } else if (field === "date_of_birth") {
       updatePetData({ date_of_birth: tempBirthDate.toISOString() });
     } else if (field === "email_id") {
@@ -180,6 +185,7 @@ export default function OnboardingReview() {
     setTempWeight(petData?.weight_value?.toString() || "");
     setTempWeightUnit(petData?.weight_unit || "pounds");
     setTempMicrochip(petData?.microchip_number || "");
+    setTempPassport(petData?.passport_number || "");
     setTempBirthDate(
       petData?.date_of_birth ? new Date(petData.date_of_birth) : new Date()
     );
@@ -330,6 +336,23 @@ export default function OnboardingReview() {
                     keyboardType="numeric"
                     maxLength={15}
                     placeholder="15-digit number"
+                    placeholderTextColor={
+                      mode === "dark" ? "#6B7280" : "#9CA3AF"
+                    }
+                  />
+                )}
+                {field === "passport_number" && (
+                  <TextInput
+                    className="text-lg font-semibold rounded-lg px-3 py-2"
+                    style={{
+                      color: theme.foreground,
+                      backgroundColor: theme.background,
+                      borderWidth: 1,
+                      borderColor: theme.primary,
+                    }}
+                    value={tempPassport}
+                    onChangeText={setTempPassport}
+                    placeholder="e.g., US-2022-12345"
                     placeholderTextColor={
                       mode === "dark" ? "#6B7280" : "#9CA3AF"
                     }
@@ -600,6 +623,12 @@ export default function OnboardingReview() {
             label="Microchip"
             value={petData?.microchip_number || "Not entered"}
             field="microchip_number"
+          />
+
+          <ProfileField
+            label="Pet Passport Number"
+            value={petData?.passport_number || "Not entered"}
+            field="passport_number"
           />
 
           {/* Country Picker Modal */}

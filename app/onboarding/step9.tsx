@@ -11,6 +11,7 @@ export default function OnboardingStep9() {
   const { theme, mode } = useTheme();
   const { updatePetData } = useOnboarding();
   const [microchipNumber, setMicrochipNumber] = useState("");
+  const [passportNumber, setPassportNumber] = useState("");
 
   const maxLength = 15;
 
@@ -18,6 +19,11 @@ export default function OnboardingStep9() {
     // Only save microchip if it's exactly 15 digits or empty
     if (microchipNumber.trim() && microchipNumber.trim().length === maxLength) {
       updatePetData({ microchip_number: microchipNumber.trim() });
+    }
+
+    // Save passport number if provided
+    if (passportNumber.trim()) {
+      updatePetData({ passport_number: passportNumber.trim() });
     }
 
     // Navigate to review screen
@@ -87,7 +93,7 @@ export default function OnboardingStep9() {
           className="text-4xl font-bold text-center mb-4"
           style={{ color: theme.foreground }}
         >
-          Do you have a microchip number?
+          Pet Identification
         </Text>
 
         {/* Subtitle */}
@@ -95,7 +101,7 @@ export default function OnboardingStep9() {
           className="text-start text-center mb-12"
           style={{ color: theme.foreground, opacity: 0.6 }}
         >
-          Usually found on vet records (optional)
+          Both fields are optional
         </Text>
 
         {/* Form */}
@@ -109,17 +115,17 @@ export default function OnboardingStep9() {
           </Text>
 
           {/* Microchip Input with Character Count */}
-          <View className="relative mb-8">
+          <View className="relative mb-6">
             <TextInput
               className="w-full rounded-xl py-4 px-5 text-start"
               style={{
-                backgroundColor: theme.background,
-                borderWidth: 2,
-                borderColor: theme.primary,
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
                 color: theme.foreground,
                 paddingRight: 60,
               }}
-              placeholder="15-digit number"
+              placeholder="15-digit number (optional)"
               placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
               value={microchipNumber}
               onChangeText={(text) => {
@@ -129,19 +135,61 @@ export default function OnboardingStep9() {
               }}
               keyboardType="numeric"
               maxLength={maxLength}
-              returnKeyType="done"
-              onSubmitEditing={handleNext}
+              returnKeyType="next"
             />
             {/* Character Counter */}
             <View className="absolute right-5 top-4">
               <Text
                 className="text-sm"
-                style={{ color: theme.foreground, opacity: 0.5 }}
+                style={{ color: theme.secondary }}
               >
                 {microchipNumber.length}/{maxLength}
               </Text>
             </View>
           </View>
+
+          {/* Helper Text for Microchip */}
+          <Text
+            className="text-sm mb-8"
+            style={{ color: theme.secondary }}
+          >
+            Usually found on vet records
+          </Text>
+
+          {/* Pet Passport Number Label */}
+          <Text
+            className="text-start font-medium mb-3"
+            style={{ color: theme.foreground }}
+          >
+            Pet Passport Number
+          </Text>
+
+          {/* Pet Passport Input */}
+          <View className="mb-6">
+            <TextInput
+              className="w-full rounded-xl py-4 px-5 text-start"
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+                color: theme.foreground,
+              }}
+              placeholder="e.g., US-2022-12345 (optional)"
+              placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+              value={passportNumber}
+              onChangeText={setPassportNumber}
+              returnKeyType="done"
+              onSubmitEditing={handleNext}
+            />
+          </View>
+
+          {/* Helper Text for Passport */}
+          <Text
+            className="text-sm mb-8"
+            style={{ color: theme.secondary }}
+          >
+            If you have an official pet passport
+          </Text>
 
           {/* Next/Skip Button */}
           <Pressable
@@ -161,7 +209,7 @@ export default function OnboardingStep9() {
                   : theme.secondaryForeground,
               }}
             >
-              {microchipNumber.trim().length === 0 ? "Skip" : "Next"}
+              {microchipNumber.trim().length === 0 && passportNumber.trim().length === 0 ? "Skip" : "Next"}
             </Text>
           </Pressable>
 
