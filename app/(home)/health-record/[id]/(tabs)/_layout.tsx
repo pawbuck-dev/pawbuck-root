@@ -49,14 +49,22 @@ export default function HealthRecordsLayout() {
   // Track active tab from route segments
   useEffect(() => {
     const currentTab = segments[segments.length - 1] as Tab;
-    if (currentTab) {
+    const validTabs: Tab[] = ["vaccinations", "medications", "exams", "lab-results"];
+    
+    if (currentTab && validTabs.includes(currentTab)) {
       setActiveTab(currentTab);
+    } else {
+      // Default to vaccinations if no valid tab is found
+      setActiveTab("vaccinations");
     }
   }, [segments]);
 
   // Handle add button press based on active tab
   const handleAddPress = () => {
-    switch (activeTab) {
+    // Default to vaccinations if activeTab is not set or invalid
+    const tab = activeTab || "vaccinations";
+    
+    switch (tab) {
       case "vaccinations":
         router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
@@ -70,7 +78,8 @@ export default function HealthRecordsLayout() {
         router.push(`/health-record/${id}/lab-result-upload-modal`);
         break;
       default:
-        Alert.alert("Error", "Unknown tab");
+        // Fallback to vaccinations if unknown tab
+        router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
     }
   };
@@ -203,6 +212,7 @@ export default function HealthRecordsLayout() {
       {/* Material Top Tabs - Hidden Tab Bar, Content Only */}
       <View className="flex-1">
         <MaterialTopTabs
+          initialRouteName="vaccinations"
           tabBarPosition="top"
           screenOptions={{
             swipeEnabled: true,
@@ -216,7 +226,7 @@ export default function HealthRecordsLayout() {
             tabBarShowLabel: false,
             tabBarShowIcon: false,
           }}
-      >
+        >
         <MaterialTopTabs.Screen
           name="vaccinations"
           options={{ title: "Vaccinations" }}

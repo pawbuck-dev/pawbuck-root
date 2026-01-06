@@ -7,6 +7,7 @@ import UploadOptions from "@/components/medicines/UploadOptions";
 import { useMedicines } from "@/context/medicinesContext";
 import { Tables, TablesInsert } from "@/database.types";
 import { MedicineFormData } from "@/models/medication";
+import { isDuplicateMedication } from "@/utils/duplicateDetection";
 import { supabase } from "@/utils/supabase";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -15,7 +16,7 @@ import { Alert } from "react-native";
 export type ViewMode = "upload" | "manual" | "review";
 
 export default function MedicationUploadModal() {
-  const { addMedicinesMutation } = useMedicines();
+  const { addMedicinesMutation, medicines: existingMedicines } = useMedicines();
 
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -59,17 +60,92 @@ export default function MedicationUploadModal() {
 
   const handleSaveMedications = async (medications: MedicineFormData[]) => {
     try {
+      // Check for duplicates
+      const duplicates = medications.filter((medication) =>
+        isDuplicateMedication(medication, existingMedicines)
+      );
+
+      if (duplicates.length > 0) {
+        const duplicateNames = duplicates
+          .map((m) => `${m.name} (${m.start_date ? new Date(m.start_date).toLocaleDateString() : "No start date"})`)
+          .join("\n");
+        
+        Alert.alert(
+          "Duplicate Medications Detected",
+          `The following medication${duplicates.length > 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}\n\nWould you like to skip duplicates and save only new records?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setStatus("idle");
+              },
+            },
+            {
+              text: "Skip Duplicates",
+              onPress: async () => {
+                await saveMedicationsFiltered(medications, duplicates);
+              },
+            },
+            {
+              text: "Save All",
+              style: "destructive",
+              onPress: async () => {
+                await saveMedicationsFiltered(medications, []);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await saveMedicationsFiltered(medications, []);
+    } catch (error) {
+      console.error("Error saving medicines:", error);
+      setStatus("error");
+      setStatusMessage("An error occurred");
+      Alert.alert("Error", "Failed to save medicines");
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  };
+
+  const saveMedicationsFiltered = async (
+    medications: MedicineFormData[],
+    duplicatesToSkip: MedicineFormData[]
+  ) => {
+    try {
+      // Filter out duplicates if any
+      const medicationsToSave = duplicatesToSkip.length > 0
+        ? medications.filter(
+            (m) => !duplicatesToSkip.some(
+              (d) => d.name.toLowerCase().trim() === m.name.toLowerCase().trim() &&
+                     d.start_date === m.start_date
+            )
+          )
+        : medications;
+
+      if (medicationsToSave.length === 0) {
+        setStatus("error");
+        setStatusMessage("All medications are duplicates");
+        Alert.alert("No New Records", "All medications are already recorded.");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+
       setStatus("inserting");
       setStatusMessage(
-        `Saving ${medications.length} medicine${medications.length !== 1 ? "s" : ""}...`
+        `Saving ${medicationsToSave.length} medicine${medicationsToSave.length !== 1 ? "s" : ""}...`
       );
 
       // Save all medications in parallel
-      await addMedicinesMutation.mutateAsync(medications);
+      await addMedicinesMutation.mutateAsync(medicationsToSave);
 
       // Success
       setStatus("success");
-      setStatusMessage("Medicines added successfully!");
+      const skippedMessage = duplicatesToSkip.length > 0
+        ? ` (${duplicatesToSkip.length} duplicate${duplicatesToSkip.length > 1 ? "s" : ""} skipped)`
+        : "";
+      setStatusMessage(`Medicines added successfully!${skippedMessage}`);
 
       // Navigate back after showing success
       setTimeout(() => {

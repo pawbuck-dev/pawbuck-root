@@ -4,7 +4,9 @@ import { LibraryButton } from "@/components/upload/LibraryButton";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useVaccinations } from "@/context/vaccinationsContext";
 import { VaccinationInsert, VaccinationOCRResponse } from "@/models/vaccination";
+import { isDuplicateVaccination } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
@@ -18,15 +20,15 @@ import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type ProcessingStatus =
@@ -43,6 +45,7 @@ export default function VaccinationUploadModal() {
   const [statusMessage, setStatusMessage] = useState("");
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const { vaccinations: existingVaccinations } = useVaccinations();
   const queryClient = useQueryClient();
   const [extractedVaccinations, setExtractedVaccinations] = useState<
     VaccinationInsert[]
@@ -137,16 +140,37 @@ export default function VaccinationUploadModal() {
     await handleUploadFile(file);
   };
 
-  const handleSaveVaccinations = async () => {
+  const saveVaccinationsFiltered = async (
+    vaccinations: VaccinationInsert[],
+    duplicatesToSkip: VaccinationInsert[]
+  ) => {
     try {
+      // Filter out duplicates if any
+      const vaccinationsToSave = duplicatesToSkip.length > 0
+        ? vaccinations.filter(
+            (v) => !duplicatesToSkip.some(
+              (d) => d.name.toLowerCase().trim() === v.name.toLowerCase().trim() &&
+                     d.date === v.date
+            )
+          )
+        : vaccinations;
+
+      if (vaccinationsToSave.length === 0) {
+        setStatus("error");
+        setStatusMessage("All vaccinations are duplicates");
+        Alert.alert("No New Records", "All vaccinations are already recorded.");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+
       setStatus("inserting");
       setStatusMessage(
-        `Saving ${extractedVaccinations.length} vaccination${extractedVaccinations.length !== 1 ? "s" : ""}...`
+        `Saving ${vaccinationsToSave.length} vaccination${vaccinationsToSave.length !== 1 ? "s" : ""}...`
       );
 
       const { error: insertError } = await supabase
         .from("vaccinations")
-        .insert(extractedVaccinations);
+        .insert(vaccinationsToSave);
 
       if (insertError) {
         console.error("Error inserting vaccines:", insertError);
@@ -164,12 +188,98 @@ export default function VaccinationUploadModal() {
 
       // Success
       setStatus("success");
-      setStatusMessage("Vaccinations added successfully!");
+      const skippedMessage = duplicatesToSkip.length > 0
+        ? ` (${duplicatesToSkip.length} duplicate${duplicatesToSkip.length > 1 ? "s" : ""} skipped)`
+        : "";
+      setStatusMessage(`Vaccinations added successfully!${skippedMessage}`);
 
       // Navigate back after showing success
       setTimeout(() => {
         router.back();
       }, 1500);
+    } catch (error) {
+      console.error("Error saving vaccinations:", error);
+      setStatus("error");
+      setStatusMessage("An error occurred");
+      Alert.alert("Error", "Failed to save vaccinations");
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  };
+
+  const handleSaveVaccinations = async () => {
+    try {
+      // Validate that all vaccinations have required fields
+      const missingFields = extractedVaccinations
+        .map((vaccination, index) => {
+          const missing: string[] = [];
+          if (!vaccination.name || vaccination.name.trim() === "") {
+            missing.push("name");
+          }
+          if (!vaccination.date) {
+            missing.push("date");
+          }
+          return missing.length > 0 ? { index: index + 1, missing } : null;
+        })
+        .filter((item) => item !== null);
+
+      if (missingFields.length > 0) {
+        const errorMessage = missingFields
+          .map(
+            (item) =>
+              `Vaccination ${item!.index}: Missing ${item!.missing.join(", ")}`
+          )
+          .join("\n");
+        setStatus("error");
+        setStatusMessage("Please fill in all required fields");
+        Alert.alert(
+          "Validation Error",
+          `Please fill in all required fields:\n\n${errorMessage}\n\nThe date field is required for all vaccinations.`,
+          [{ text: "OK" }]
+        );
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+
+      // Check for duplicates
+      const duplicates = extractedVaccinations.filter((vaccination) =>
+        isDuplicateVaccination(vaccination, existingVaccinations)
+      );
+
+      if (duplicates.length > 0) {
+        const duplicateNames = duplicates
+          .map((v) => `${v.name} (${v.date ? new Date(v.date).toLocaleDateString() : "No date"})`)
+          .join("\n");
+        
+        Alert.alert(
+          "Duplicate Vaccinations Detected",
+          `The following vaccination${duplicates.length > 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}\n\nWould you like to skip duplicates and save only new records?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setStatus("idle");
+              },
+            },
+            {
+              text: "Skip Duplicates",
+              onPress: async () => {
+                await saveVaccinationsFiltered(extractedVaccinations, duplicates);
+              },
+            },
+            {
+              text: "Save All",
+              style: "destructive",
+              onPress: async () => {
+                await saveVaccinationsFiltered(extractedVaccinations, []);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await saveVaccinationsFiltered(extractedVaccinations, []);
     } catch (error) {
       console.error("Error saving vaccinations:", error);
       setStatus("error");
@@ -339,26 +449,45 @@ export default function VaccinationUploadModal() {
                   </Text>
                   <View
                     className="p-3 rounded-lg px-4 flex-row items-center justify-between"
-                    style={{ backgroundColor: theme.background }}
+                    style={{ 
+                      backgroundColor: theme.background,
+                      borderWidth: !vaccination.date ? 1 : 0,
+                      borderColor: !vaccination.date ? "#FF3B30" : "transparent"
+                    }}
                   >
                     <Text
                       className="text-base"
-                      style={{ color: theme.foreground }}
+                      style={{ 
+                        color: !vaccination.date ? "#FF3B30" : theme.foreground,
+                        fontStyle: !vaccination.date ? "italic" : "normal"
+                      }}
                     >
                       {formatDate(vaccination.date)}
                     </Text>
                     <TouchableOpacity
                       onPress={() => {
-                        setTempDate(vaccination.date);
+                        setTempDate(vaccination.date || new Date().toISOString());
                         setEditingDateIndex(index);
                         setEditingDateType("date");
                       }}
                       disabled={isProcessing}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="calendar-outline" size={18} color={theme.primary} />
+                      <Ionicons 
+                        name="calendar-outline" 
+                        size={18} 
+                        color={!vaccination.date ? "#FF3B30" : theme.primary} 
+                      />
                     </TouchableOpacity>
                   </View>
+                  {!vaccination.date && (
+                    <Text
+                      className="text-xs mt-1"
+                      style={{ color: "#FF3B30" }}
+                    >
+                      Date is required
+                    </Text>
+                  )}
                 </View>
 
                 {/* Next Due Date */}
