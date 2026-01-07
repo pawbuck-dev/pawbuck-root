@@ -1,4 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import CountryPicker from "@/components/CountryPicker";
 import { useTheme } from "@/context/themeContext";
 import { usePets } from "@/context/petsContext";
 import { useRouter } from "expo-router";
@@ -30,6 +31,8 @@ export default function PetProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedWeightValue, setEditedWeightValue] = useState<string>("");
   const [editedColor, setEditedColor] = useState<string>("");
+  const [editedCountry, setEditedCountry] = useState<string>("");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   // Select first pet by default when pets load
   useEffect(() => {
@@ -67,6 +70,7 @@ export default function PetProfile() {
         setEditedWeightValue(currentPet.weight_value?.toString() || "");
       }
       setEditedColor((currentPet as any).color || "");
+      setEditedCountry(currentPet.country || "");
     }
   }, [isEditing, currentPet, weightUnit]);
 
@@ -134,6 +138,7 @@ export default function PetProfile() {
     setIsEditing(false);
     setEditedWeightValue("");
     setEditedColor("");
+    setEditedCountry("");
   };
 
   const handleSave = async () => {
@@ -163,6 +168,11 @@ export default function PetProfile() {
       // Handle color if the field exists
       if ((currentPet as any).color !== undefined || editedColor) {
         updateData.color = editedColor;
+      }
+
+      // Handle country
+      if (editedCountry) {
+        updateData.country = editedCountry;
       }
 
       await updatePet(currentPet.id, updateData);
@@ -737,17 +747,46 @@ export default function PetProfile() {
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Country
                   </Text>
-                  <Text
-                    className="text-base font-medium"
-                    style={{ color: theme.foreground }}
-                  >
-                    {currentPet.country || "Not set"}
-                  </Text>
+                  {isEditing ? (
+                    <Pressable
+                      onPress={() => setShowCountryPicker(true)}
+                      className="py-2 px-3 rounded-lg flex-row items-center justify-between"
+                      style={{
+                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                      }}
+                    >
+                      <Text
+                        className="text-base font-medium"
+                        style={{ color: theme.foreground }}
+                      >
+                        {editedCountry || "Select country"}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={theme.secondary} />
+                    </Pressable>
+                  ) : (
+                    <Text
+                      className="text-base font-medium"
+                      style={{ color: theme.foreground }}
+                    >
+                      {currentPet.country || "Not set"}
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>
           </View>
         </ScrollView>
+
+        {/* Country Picker Modal */}
+        <CountryPicker
+          visible={showCountryPicker}
+          selectedCountry={editedCountry}
+          onSelect={(country) => {
+            setEditedCountry(country);
+            setShowCountryPicker(false);
+          }}
+          onClose={() => setShowCountryPicker(false)}
+        />
 
         {/* Delete Pet Button */}
         {currentPet && (
