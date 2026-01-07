@@ -131,12 +131,59 @@ export const VaccinationStatusHeader: React.FC<VaccinationStatusHeaderProps> = (
               />
               <View className="flex-1">
                 <Text
-                  className="text-xs font-medium"
+                  className="text-sm font-medium"
                   style={{ color: "#10B981" }}
                 >
-                  {country === "Canada"
-                    ? "Fully vaccinated based on Canadian regulations"
-                    : `Fully vaccinated based on ${country} regulations`}
+                  Compliant
+                </Text>
+                <Text
+                  className="text-xs mt-1"
+                  style={{ color: theme.secondary }}
+                >
+                  {country === "United States"
+                    ? "Your pet meets all vaccination requirements mandated by U.S. state and federal regulations. Keep up the great work protecting your furry friend!"
+                    : country === "Canada"
+                    ? "Your pet meets all vaccination requirements under Canadian provincial and federal guidelines. Great job keeping your companion protected!"
+                    : `Your pet is fully vaccinated according to ${country} regulations. Excellent care for your pet!`}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Non-Compliance Message for Pets with Missing Vaccines */}
+        {!isFullyVaccinated && country && (
+          <View
+            className="mt-3 p-3 rounded-xl"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.1)",
+              borderWidth: 1,
+              borderColor: "rgba(239, 68, 68, 0.3)",
+            }}
+          >
+            <View className="flex-row items-start">
+              <Ionicons
+                name="alert-circle"
+                size={18}
+                color="#EF4444"
+                style={{ marginTop: 1, marginRight: 8 }}
+              />
+              <View className="flex-1">
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: "#EF4444" }}
+                >
+                  Action Needed
+                </Text>
+                <Text
+                  className="text-xs mt-1"
+                  style={{ color: theme.secondary }}
+                >
+                  {country === "United States"
+                    ? "Your pet is missing vaccines required by U.S. regulations. Schedule a vet visit to ensure your pet stays protected and compliant."
+                    : country === "Canada"
+                    ? "Your pet is missing vaccines required under Canadian guidelines. Contact your veterinarian to get your pet up to date."
+                    : `Your pet is missing vaccines required in ${country}. Please consult your veterinarian to complete the vaccination schedule and keep your pet protected.`}
                 </Text>
               </View>
             </View>
