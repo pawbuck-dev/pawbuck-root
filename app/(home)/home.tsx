@@ -1,5 +1,4 @@
 import { AnimatedParticles } from "@/components/animations/AnimatedParticles";
-import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
   CareTeamMemberModal,
@@ -14,7 +13,6 @@ import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
 import { VetInfoModal } from "@/components/home/VetInfoModal";
-import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -497,7 +495,6 @@ export default function Home() {
   }
 
   return (
-    <ChatProvider>
       <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Background Gradient - Only in dark mode */}
         <>
@@ -635,10 +632,6 @@ export default function Home() {
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="home" selectedPetId={selectedPetId} />
 
-        {/* Milo Chat Modal */}
-        <MiloChatModal />
-
-
         {/* Vet Info Modal */}
         {showVetModal && selectedPet && (
           <VetInfoModal
@@ -674,6 +667,5 @@ export default function Home() {
           />
         )}
       </GestureHandlerRootView>
-    </ChatProvider>
   );
 }

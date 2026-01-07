@@ -1,6 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { useAuth } from "@/context/authContext";
-import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -71,7 +70,6 @@ export default function Settings() {
     );
 
   return (
-    <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
@@ -202,6 +200,5 @@ export default function Settings() {
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
     </View>
-    </ChatProvider>
   );
 }

@@ -1,5 +1,4 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { usePets } from "@/context/petsContext";
 import { useRouter } from "expo-router";
@@ -177,7 +176,6 @@ export default function PetProfile() {
   // Show loading state
   if (loadingPets) {
     return (
-      <ChatProvider>
         <View className="flex-1" style={{ backgroundColor: theme.background }}>
           <View className="flex-1 items-center justify-center">
             <Text className="text-base" style={{ color: theme.secondary }}>
@@ -186,14 +184,12 @@ export default function PetProfile() {
           </View>
           <BottomNavBar activeTab="profile" />
         </View>
-      </ChatProvider>
     );
   }
 
   // Show no pets state
   if (!currentPet || pets.length === 0) {
     return (
-      <ChatProvider>
         <View className="flex-1" style={{ backgroundColor: theme.background }}>
           <View className="flex-1 items-center justify-center">
             <Text className="text-base" style={{ color: theme.secondary }}>
@@ -202,12 +198,10 @@ export default function PetProfile() {
           </View>
           <BottomNavBar activeTab="profile" />
         </View>
-      </ChatProvider>
     );
   }
 
   return (
-    <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
@@ -807,7 +801,6 @@ export default function PetProfile() {
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
       </View>
-    </ChatProvider>
   );
 }
 

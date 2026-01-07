@@ -5,7 +5,6 @@ import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
 import PrivateImage from "@/components/PrivateImage";
-import { ChatProvider } from "@/context/chatContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -278,7 +277,6 @@ export default function MessagesScreen() {
   const hasMessages = filteredThreads.length > 0 || needsReviewMessages.length > 0;
 
   return (
-    <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
@@ -642,6 +640,5 @@ export default function MessagesScreen() {
           }}
         />
       </View>
-    </ChatProvider>
   );
 }

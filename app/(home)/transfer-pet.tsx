@@ -1,5 +1,4 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { ChatProvider } from "@/context/chatContext";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { usePets } from "@/context/petsContext";
@@ -119,7 +118,6 @@ export default function TransferPet() {
   };
 
   return (
-    <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
@@ -328,7 +326,6 @@ export default function TransferPet() {
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
       </View>
-    </ChatProvider>
   );
 }
 

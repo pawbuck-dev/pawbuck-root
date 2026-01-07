@@ -1,29 +1,28 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
-  CareTeamMemberModal,
-  CareTeamMemberSaveData,
+    CareTeamMemberModal,
+    CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
 import { useAuth } from "@/context/authContext";
-import { ChatProvider } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
 import {
-  createHouseholdInvite,
-  getMyHouseholdInvites,
-  getMyHouseholdMembers,
-  HouseholdInvite,
-  HouseholdMember,
-  removeHouseholdMember
+    createHouseholdInvite,
+    getMyHouseholdInvites,
+    getMyHouseholdMembers,
+    HouseholdInvite,
+    HouseholdMember,
+    removeHouseholdMember
 } from "@/services/householdInvites";
 import {
-  CareTeamMemberType,
-  createVetInformation,
-  findExistingCareTeamMember,
-  getAllCareTeamMembers,
-  updateVetInformation,
-  VetInformation,
+    CareTeamMemberType,
+    createVetInformation,
+    findExistingCareTeamMember,
+    getAllCareTeamMembers,
+    updateVetInformation,
+    VetInformation,
 } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,13 +31,13 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    ScrollView,
+    Text,
+    View
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
@@ -247,7 +246,6 @@ export default function FamilyAccess() {
   const isOwner = (member: HouseholdMember) => member.household_owner_id === user?.id;
 
   return (
-    <ChatProvider>
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
         {/* Header */}
         <View className="px-6 pt-14 pb-4">
@@ -610,6 +608,5 @@ export default function FamilyAccess() {
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />
       </View>
-    </ChatProvider>
   );
 }

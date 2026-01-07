@@ -1,6 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
-import { ChatProvider } from "@/context/chatContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -247,9 +246,7 @@ export default function HealthRecordsLayout() {
       </View>
 
       {/* Bottom Navigation Bar */}
-      <ChatProvider>
-        <BottomNavBar activeTab="records" />
-      </ChatProvider>
+      <BottomNavBar activeTab="records" />
     </View>
   );
 }
