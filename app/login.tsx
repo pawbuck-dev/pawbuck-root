@@ -4,7 +4,7 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -28,7 +28,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showLoginForm, setShowLoginForm] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(true);
 
   // Helper to create pet if onboarding data exists
   const createPetIfNeeded = async () => {

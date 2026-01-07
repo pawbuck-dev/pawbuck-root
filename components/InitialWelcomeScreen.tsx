@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
+import { Pressable } from "react-native-gesture-handler";
 
 export default function InitialWelcomeScreen() {
   const router = useRouter();
@@ -35,8 +36,14 @@ export default function InitialWelcomeScreen() {
           {/* Sign Up Button */}
           <Pressable
             onPress={() => router.push("/welcome")}
-            className="w-full rounded-2xl py-5 px-6 items-center active:opacity-90"
-            style={{ backgroundColor: "#5FC4C0" }}
+            style={{
+              backgroundColor: "#5FC4C0",
+              borderRadius: 16,
+              paddingVertical: 20,
+              paddingHorizontal: 24,
+              alignItems: "center",
+              width: "100%",
+            }}
           >
             <Text
               className="text-lg font-semibold mb-1"
@@ -55,8 +62,14 @@ export default function InitialWelcomeScreen() {
           {/* Sign In Button */}
           <Pressable
             onPress={() => router.push("/login")}
-            className="w-full rounded-2xl py-5 px-6 items-center active:opacity-90"
-            style={{ backgroundColor: "#1F1F1F" }}
+            style={{
+              backgroundColor: "#1F1F1F",
+              borderRadius: 16,
+              paddingVertical: 20,
+              paddingHorizontal: 24,
+              alignItems: "center",
+              width: "100%",
+            }}
           >
             <Text
               className="text-lg font-semibold mb-1"
