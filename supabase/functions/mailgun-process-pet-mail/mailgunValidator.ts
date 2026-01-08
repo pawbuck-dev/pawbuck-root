@@ -1,4 +1,4 @@
-import { encodeHex } from "jsr:@std/encoding/hex";
+import { encodeHex } from "@std/encoding/hex";
 
 /**
  * Verify Mailgun webhook signature (v3)

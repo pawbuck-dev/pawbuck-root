@@ -18,11 +18,20 @@ export async function parseMailgunWebhook(
   console.log("Parsing Mailgun webhook data");
 
   // Extract email metadata
-  const sender = formData.get("sender")?.toString() || formData.get("from")?.toString();
-  const recipient = formData.get("recipient")?.toString() || formData.get("To")?.toString();
-  const subject = formData.get("subject")?.toString() || formData.get("Subject")?.toString() || "";
-  const bodyPlain = formData.get("body-plain")?.toString() || formData.get("stripped-text")?.toString();
-  const bodyHtml = formData.get("body-html")?.toString() || formData.get("stripped-html")?.toString();
+  const sender =
+    formData.get("sender")?.toString() || formData.get("from")?.toString();
+  const recipient =
+    formData.get("recipient")?.toString() || formData.get("To")?.toString();
+  const subject =
+    formData.get("subject")?.toString() ||
+    formData.get("Subject")?.toString() ||
+    "";
+  const bodyPlain =
+    formData.get("body-plain")?.toString() ||
+    formData.get("stripped-text")?.toString();
+  const bodyHtml =
+    formData.get("body-html")?.toString() ||
+    formData.get("stripped-html")?.toString();
   const date = formData.get("Date")?.toString();
   const messageId = formData.get("Message-Id")?.toString();
 
@@ -131,66 +140,137 @@ function parseRecipientAddresses(
 }
 
 /**
+ * Fetch attachment from Mailgun storage URL
+ */
+async function fetchMailgunAttachment(
+  storageUrl: string,
+  filename: string
+): Promise<ParsedAttachment | null> {
+  const mailgunApiKey = Deno.env.get("MAILGUN_API_KEY");
+  if (!mailgunApiKey) {
+    console.error("MAILGUN_API_KEY not configured");
+    return null;
+  }
+
+  try {
+    console.log(`Fetching attachment from Mailgun storage: ${filename}`);
+
+    const auth = btoa(`api:${mailgunApiKey}`);
+    const response = await fetch(storageUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${auth}`,
+      },
+    });
+
+    console.log("Response:", response);
+    console.log("storageUrl:", storageUrl);
+    console.log("filename:", filename);
+    console.log("auth:", auth);
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch attachment from Mailgun: ${response.status} ${response.statusText}`
+      );
+      return null;
+    }
+
+    // Get content type from response headers
+    const contentType =
+      response.headers.get("content-type") || "application/octet-stream";
+
+    // Get file content as ArrayBuffer
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Convert to base64
+    const base64Content = arrayBufferToBase64(uint8Array);
+
+    console.log(
+      `Successfully fetched attachment: ${filename} (${contentType}), size: ${uint8Array.length} bytes`
+    );
+
+    return {
+      filename,
+      mimeType: contentType,
+      size: uint8Array.length,
+      content: base64Content,
+    };
+  } catch (error) {
+    console.error(`Error fetching attachment from Mailgun storage:`, error);
+    return null;
+  }
+}
+
+/**
  * Extract attachments from Mailgun FormData
- * Mailgun sends attachments as attachment-1, attachment-2, etc.
+ * Mailgun sends attachments in an "attachments" key as a JSON array string
+ * Format: [{"url": "...", "content-type": "...", "name": "...", "size": ...}]
  */
 async function extractAttachments(
   formData: FormData
 ): Promise<ParsedAttachment[]> {
   const attachments: ParsedAttachment[] = [];
-  let index = 1;
 
   console.log("Extracting attachments from Mailgun webhook");
 
-  // Iterate through all possible attachment fields
-  // Mailgun uses attachment-1, attachment-2, etc.
-  while (true) {
-    const attachmentKey = `attachment-${index}`;
-    const attachment = formData.get(attachmentKey);
+  // Get the attachments JSON string
+  const attachmentsJson = formData.get("attachments")?.toString();
 
-    if (!attachment) {
-      // Also check for attachment-count field to know when to stop
-      // If we've checked a few and found nothing, assume we're done
-      if (index > 1) {
-        break;
-      }
-      index++;
-      if (index > 20) break; // Safety limit
-      continue;
-    }
-
-    if (attachment instanceof File) {
-      try {
-        console.log(`Processing attachment-${index}: ${attachment.name}`);
-
-        // Read file content as ArrayBuffer
-        const arrayBuffer = await attachment.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-
-        // Convert to base64
-        const base64Content = arrayBufferToBase64(uint8Array);
-
-        const parsedAttachment: ParsedAttachment = {
-          filename: attachment.name || `attachment-${index}`,
-          mimeType: attachment.type || "application/octet-stream",
-          size: attachment.size,
-          content: base64Content,
-        };
-
-        attachments.push(parsedAttachment);
-        console.log(
-          `Successfully processed attachment: ${parsedAttachment.filename} (${parsedAttachment.mimeType}), size: ${parsedAttachment.size} bytes`
-        );
-      } catch (error) {
-        console.error(`Error processing attachment-${index}:`, error);
-      }
-    }
-
-    index++;
-    if (index > 20) break; // Safety limit
+  if (!attachmentsJson) {
+    console.log("No attachments field found in formData");
+    return attachments;
   }
 
-  console.log(`Extracted ${attachments.length} attachment(s) from Mailgun webhook`);
+  try {
+    // Parse the JSON array
+    const attachmentsArray = JSON.parse(attachmentsJson) as {
+      url: string;
+      "content-type": string;
+      name: string;
+      size: number;
+    }[];
+
+    console.log(`Found ${attachmentsArray.length} attachment(s) in JSON`);
+
+    // Process each attachment
+    for (let i = 0; i < attachmentsArray.length; i++) {
+      const attachmentInfo = attachmentsArray[i];
+
+      try {
+        console.log(
+          `Processing attachment ${i + 1}: ${attachmentInfo.name} (${attachmentInfo["content-type"]}), size: ${attachmentInfo.size} bytes`
+        );
+
+        // Fetch the attachment from Mailgun storage URL
+        const fetchedAttachment = await fetchMailgunAttachment(
+          attachmentInfo.url,
+          attachmentInfo.name
+        );
+
+        if (fetchedAttachment) {
+          // Override with metadata from Mailgun if available
+          fetchedAttachment.mimeType =
+            attachmentInfo["content-type"] || fetchedAttachment.mimeType;
+          fetchedAttachment.size =
+            attachmentInfo.size || fetchedAttachment.size;
+          attachments.push(fetchedAttachment);
+        }
+      } catch (error) {
+        console.error(
+          `Error processing attachment ${i + 1} (${attachmentInfo.name}):`,
+          error
+        );
+      }
+    }
+  } catch (parseError) {
+    console.error("Error parsing attachments JSON:", parseError);
+    console.error("Attachments value:", attachmentsJson);
+  }
+
+  console.log(
+    `Extracted ${attachments.length} attachment(s) from Mailgun webhook`
+  );
   return attachments;
 }
 
@@ -210,4 +290,3 @@ function arrayBufferToBase64(uint8Array: Uint8Array): string {
 export function extractMessageId(parsedEmail: ParsedEmail): string | null {
   return parsedEmail.messageId;
 }
-

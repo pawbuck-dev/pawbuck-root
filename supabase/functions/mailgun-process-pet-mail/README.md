@@ -110,7 +110,23 @@ Mailgun sends emails as `multipart/form-data` with these fields:
 - `body-html` - HTML body
 - `Date` - Email date
 - `Cc` - CC recipients
-- `attachment-1`, `attachment-2`, ... - File attachments
+- `attachments` - JSON array string containing attachment metadata and storage URLs
+  ```json
+  [
+    {
+      "url": "https://storage-us-east4.api.mailgun.net/v3/domains/.../attachments/0",
+      "content-type": "application/pdf",
+      "name": "results.pdf",
+      "size": 12345
+    },
+    {
+      "url": "https://storage-us-east4.api.mailgun.net/v3/domains/.../attachments/1",
+      "content-type": "image/jpeg",
+      "name": "xray.jpg",
+      "size": 67890
+    }
+  ]
+  ```
 
 ## Processing Steps
 
@@ -125,11 +141,40 @@ const isValid = await verifyMailgunSignature(
 );
 ```
 
-### 2. Email Parsing
+### 2. Email Parsing & Attachment Handling
+
+The parser automatically handles Mailgun's attachment format:
+
+**Mailgun Store & Forward Format:**
 ```typescript
-const parsedEmail = await parseMailgunWebhook(formData);
-// Returns: { from, to, cc, subject, date, messageId, textBody, htmlBody, attachments }
+// Mailgun sends attachments as a JSON array string in the "attachments" field:
+[
+  {
+    "url": "https://storage-us-east4.api.mailgun.net/v3/.../attachments/0",
+    "content-type": "application/pdf",
+    "name": "results.pdf",
+    "size": 12345
+  },
+  {
+    "url": "https://storage-us-east4.api.mailgun.net/v3/.../attachments/1",
+    "content-type": "image/jpeg",
+    "name": "xray.jpg",
+    "size": 67890
+  }
+]
+
+// Parser:
+// 1. Parses the JSON array string
+// 2. Iterates through each attachment object
+// 3. Fetches from storage URL using MAILGUN_API_KEY
+// 4. Converts to base64 for processing
 ```
+
+The parser uses HTTP Basic Authentication to fetch from storage:
+- Username: `api`
+- Password: Your `MAILGUN_API_KEY`
+
+This all happens automatically - you don't need to handle it separately.
 
 ### 3. Pet Lookup
 ```typescript
@@ -199,6 +244,7 @@ await sendFailedNotification(pet, senderEmail);
 
 ### Required
 - `MAILGUN_SECRET` - Webhook signing key (for signature verification)
+- `MAILGUN_API_KEY` - Private API key (for fetching attachments from storage)
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key for database/storage
 - `GOOGLE_GEMINI_API_KEY` - For AI classification and pet validation
@@ -227,11 +273,18 @@ store(notify="https://your-project.supabase.co/functions/v1/mailgun-process-pet-
 
 **Priority:** 0 (highest)
 
-### 2. Get Webhook Signing Key
+### 2. Get API Keys
 
 Navigate to Settings → Security & Users → API Security
 
-Copy the "HTTP webhook signing key" and set it as `MAILGUN_SECRET`
+**Webhook Signing Key:**
+- Copy the "HTTP webhook signing key"
+- Set it as `MAILGUN_SECRET` environment variable
+
+**Private API Key:**
+- Copy your "Private API key" (starts with `key-...`)
+- Set it as `MAILGUN_API_KEY` environment variable
+- This is used to fetch attachments from Mailgun storage
 
 ### 3. Test Webhook
 
@@ -255,7 +308,8 @@ supabase start
 
 ### 2. Set Environment Variables
 ```bash
-export MAILGUN_SECRET="your-signing-key"
+export MAILGUN_SECRET="your-webhook-signing-key"
+export MAILGUN_API_KEY="key-your-private-api-key"
 export SUPABASE_URL="http://127.0.0.1:54321"
 export SUPABASE_SERVICE_ROLE_KEY="your-service-key"
 export GOOGLE_GEMINI_API_KEY="your-gemini-key"
@@ -468,6 +522,16 @@ curl -X POST 'http://127.0.0.1:54321/functions/v1/mailgun-process-pet-mail' \
 - Verify Mailgun route uses `store(notify="...")` not just `forward()`
 - Check email actually has attachments
 - Look for `attachment-1`, `attachment-2` fields in logs
+- Check if attachments are coming as storage URLs (they should with Store & Forward)
+
+### Issue: "Failed to fetch attachment from Mailgun"
+**Cause:** Wrong MAILGUN_API_KEY or expired storage URL
+**Solution:**
+- Verify MAILGUN_API_KEY is your **Private API key** (not webhook signing key)
+- Key should start with `key-...`
+- Check Mailgun dashboard: Settings → API Keys
+- Storage URLs expire after 3-30 days depending on your plan
+- Ensure the API key has access to the domain `pawbuck.app`
 
 ### Issue: Duplicate processing
 **Cause:** Mailgun retry after timeout
