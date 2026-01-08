@@ -13,15 +13,19 @@ export interface PendingApprovalWithPet extends PendingEmailApproval {
 /**
  * Fetch all pending email approvals for the current user
  */
-export const getPendingApprovals = async (): Promise<PendingApprovalWithPet[]> => {
+export const getPendingApprovals = async (): Promise<
+  PendingApprovalWithPet[]
+> => {
   const { data, error } = await supabase
     .from("pending_email_approvals")
-    .select(`
+    .select(
+      `
       *,
       pets (
         name
       )
-    `)
+    `
+    )
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -67,12 +71,15 @@ export const approveEmail = async (
     await addEmail(petId, senderEmail, false);
 
     // Step 3: Re-invoke the process-pet-mail function
-    const { data, error } = await supabase.functions.invoke("process-pet-mail", {
-      body: {
-        bucket: s3Bucket,
-        fileKey: s3Key,
-      },
-    });
+    const { data, error } = await supabase.functions.invoke(
+      "mailgun-process-pet-mail",
+      {
+        body: {
+          bucket: s3Bucket,
+          fileKey: s3Key,
+        },
+      }
+    );
 
     if (error) {
       console.error("Error re-processing email:", error);
@@ -121,7 +128,9 @@ export const rejectEmail = async (
 /**
  * Delete a pending approval (cleanup)
  */
-export const deletePendingApproval = async (approvalId: string): Promise<void> => {
+export const deletePendingApproval = async (
+  approvalId: string
+): Promise<void> => {
   const { error } = await supabase
     .from("pending_email_approvals")
     .delete()
@@ -129,4 +138,3 @@ export const deletePendingApproval = async (approvalId: string): Promise<void> =
 
   if (error) throw error;
 };
-
