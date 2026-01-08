@@ -1,3 +1,5 @@
+import { MiloChatModal } from "@/components/chat/MiloChatModal";
+import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { Slot } from "expo-router";
 import { Platform, View } from "react-native";
@@ -7,14 +9,17 @@ export default function HomeLayout() {
   const { theme } = useTheme();
   const { bottom } = useSafeAreaInsets();
   return (
-    <View
-      className="flex-1"
-      style={{
-        backgroundColor: theme.background,
-        paddingBottom: Platform.OS === "android" ? bottom : 0,
-      }}
-    >
-      <Slot />
-    </View>
+    <ChatProvider>
+      <View
+        className="flex-1"
+        style={{
+          backgroundColor: theme.background,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
+      >
+        <Slot />
+      </View>
+      <MiloChatModal />
+    </ChatProvider>
   );
 }

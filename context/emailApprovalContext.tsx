@@ -1,19 +1,20 @@
 import { useAuth } from "@/context/authContext";
 import {
-    approveEmail,
-    getPendingApprovals,
-    PendingApprovalWithPet,
-    rejectEmail,
+  approveEmail,
+  approveEmailAnyway,
+  getPendingApprovals,
+  PendingApprovalWithPet,
+  rejectEmail,
 } from "@/services/pendingEmailApprovals";
 import React, {
-    createContext,
-    ReactNode,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 
 interface EmailApprovalContextType {
   /** Current pending approval being displayed */
@@ -24,12 +25,19 @@ interface EmailApprovalContextType {
   isProcessing: boolean;
   /** Number of remaining pending approvals */
   pendingCount: number;
+  /** All pending approvals */
+  pendingApprovals: PendingApprovalWithPet[];
   /** Approve the current email */
   handleApprove: () => Promise<void>;
+  /** Approve email despite incorrect information (force process) */
+  handleApproveAnyway: () => Promise<void>;
   /** Reject the current email */
   handleReject: () => Promise<void>;
+  /** Reply to the vet email */
+  handleReplyToVet: () => Promise<void>;
   /** Refresh pending approvals */
   refreshPendingApprovals: () => Promise<void>;
+  setCurrentApproval: (approval: PendingApprovalWithPet | null) => void;
 }
 
 const EmailApprovalContext = createContext<EmailApprovalContextType | undefined>(
@@ -137,6 +145,51 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
   }, [currentApproval, pendingApprovals.length]);
 
   /**
+   * Handle approve anyway action (force process despite incorrect info)
+   */
+  const handleApproveAnyway = useCallback(async () => {
+    if (!currentApproval) return;
+
+    setIsProcessing(true);
+    setIsModalVisible(false);
+    try {
+      const result = await approveEmailAnyway(
+        currentApproval.id,
+        currentApproval.pet_id,
+        currentApproval.sender_email,
+        currentApproval.s3_bucket,
+        currentApproval.s3_key
+      );
+
+      if (result.success) {
+        // Remove from local list
+        setPendingApprovals((prev) =>
+          prev.filter((a) => a.id !== currentApproval.id)
+        );
+        
+        // Show modal again if there are more approvals
+        if (pendingApprovals.length > 1) {
+          setIsModalVisible(true);
+        } else {
+          setCurrentIndex(0);
+        }
+      } else {
+        setIsModalVisible(true);
+        Alert.alert(
+          "Error",
+          result.error || "Failed to process email. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error approving email anyway:", error);
+      setIsModalVisible(true);
+      Alert.alert("Error", "Failed to process email. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [currentApproval, pendingApprovals.length]);
+
+  /**
    * Handle reject action
    */
   const handleReject = useCallback(async () => {
@@ -179,6 +232,63 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, [currentApproval, pendingApprovals.length]);
 
+  /**
+   * Set the current approval and show modal
+   */
+  const setCurrentApproval = useCallback((approval: PendingApprovalWithPet | null) => {
+    if (approval) {
+      const index = pendingApprovals.findIndex((a) => a.id === approval.id);
+      if (index !== -1) {
+        setCurrentIndex(index);
+        setIsModalVisible(true);
+      }
+    } else {
+      setIsModalVisible(false);
+    }
+  }, [pendingApprovals]);
+
+  /**
+   * Handle reply to vet - opens email client with pre-filled content
+   */
+  const handleReplyToVet = useCallback(async () => {
+    if (!currentApproval) return;
+
+    const petName = currentApproval.pets?.name || "my pet";
+    const senderEmail = currentApproval.sender_email;
+    
+    // Build error message based on validation errors
+    let errorDetails = "";
+    if (currentApproval.validation_errors) {
+      const errors = Object.keys(currentApproval.validation_errors);
+      if (errors.includes("microchip_number")) {
+        errorDetails = `I noticed that the microchip number on the ${currentApproval.document_type || "document"} doesn't match the records for ${petName}. `;
+      }
+      if (errors.includes("pet_name")) {
+        errorDetails += errorDetails ? "Also, " : "";
+        errorDetails += `the pet name doesn't match our records. `;
+      }
+    } else {
+      errorDetails = `I noticed some information on the ${currentApproval.document_type || "document"} doesn't match the records for ${petName}. `;
+    }
+
+    const subject = `Regarding ${petName}'s ${currentApproval.document_type || "document"}`;
+    const body = `Hi,\n\n${errorDetails}Could you please verify and confirm the correct information?\n\nThank you,\n[Your Name]`;
+
+    const mailtoUrl = `mailto:${senderEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+      } else {
+        Alert.alert("Error", "No email app is available on this device.");
+      }
+    } catch (error) {
+      console.error("Error opening email client:", error);
+      Alert.alert("Error", "Failed to open email client. Please try again.");
+    }
+  }, [currentApproval]);
+
   // Fetch pending approvals when user authenticates
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -196,8 +306,12 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
         isModalVisible,
         isProcessing,
         pendingCount,
+        pendingApprovals,
+        setCurrentApproval,
         handleApprove,
+        handleApproveAnyway,
         handleReject,
+        handleReplyToVet,
         refreshPendingApprovals,
       }}
     >

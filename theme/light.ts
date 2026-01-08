@@ -1,22 +1,33 @@
 import { Theme } from "./model";
 
 export const lightTheme: Theme = {
-  background: "#F5F5F5",
-  backgroundEnd: "#EFEFEF",
-  foreground: "#1A1A1A",
+  // Light teal-tinted white - hsl(180, 20%, 97%)
+  background: "#F5FAFA",
+  backgroundEnd: "#EEF4F4",
 
-  card: "#FFFFFF",
-  cardForeground: "#1A1A1A",
+  // Dark blue-gray text - hsl(220, 25%, 15%)
+  foreground: "#1D2433",
 
-  primary: "#5FC4C0",
+  // Slightly tinted card bg - hsl(180, 15%, 95%)
+  card: "#EEF4F4",
+  cardForeground: "#1D2433",
+
+  // Teal brand color - hsl(175, 60%, 42%)
+  primary: "#2BA89E",
   primaryForeground: "#FFFFFF",
 
-  secondary: "#6B7280",
-  secondaryForeground: "#1A1A1A",
+  // Gray text - hsl(220, 15%, 45%)
+  secondary: "#616E82",
+  secondaryForeground: "#1D2433",
 
-  border: "#E5E7EB",
-  ring: "#5FC4C0",
-  dashedCard: "#E8F7F6",
+  // Muted border - hsl(180, 10%, 88%)
+  border: "#D9E0E0",
+
+  // Lighter teal for glow - hsl(175, 55%, 52%)
+  ring: "#4EC4B9",
+
+  // Glassmorphism card - hsl(180, 15%, 92%)
+  dashedCard: "#E4ECEC",
 
   error: "#EF4444",
 };

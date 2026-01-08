@@ -7,7 +7,6 @@ import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { ImagePickerAsset } from "expo-image-picker";
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -56,7 +55,6 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
 
     if (image) {
       await updateImage(image);
-      router.back();
     }
   };
 
@@ -65,7 +63,6 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
 
     if (image) {
       await updateImage(image);
-      router.back();
     }
   };
 
@@ -98,7 +95,7 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
         onPress={handlePhotoUpload}
         activeOpacity={0.9}
         disabled={uploading}
-        className="w-full aspect-[4/2.8] items-center justify-center"
+        className="w-full aspect-[16/8] items-center justify-center"
         style={{
           backgroundColor: theme.dashedCard,
         }}
@@ -110,12 +107,21 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
         )}
 
         {pet.photo_url ? (
-          <PrivateImage
-            bucketName="pets"
-            filePath={pet.photo_url}
-            className="w-full h-full"
-            resizeMode="cover"
-          />
+          <>
+            <PrivateImage
+              bucketName="pets"
+              filePath={pet.photo_url}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+            {/* Camera icon overlay */}
+            <View
+              className="absolute bottom-4 right-4 w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: theme.primary }}
+            >
+              <Ionicons name="camera-outline" size={20} color="#fff" />
+            </View>
+          </>
         ) : (
           <View className="items-center justify-center flex-1">
             <View

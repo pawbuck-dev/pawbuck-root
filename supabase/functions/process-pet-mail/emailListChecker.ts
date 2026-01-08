@@ -18,7 +18,85 @@ function createSupabaseClient() {
 }
 
 /**
- * Check the status of a sender email in the pet_email_list table
+ * Check if an email belongs to a care team member linked to this pet
+ * Checks both:
+ * 1. Care team members via pet_care_team_members junction table
+ * 2. Primary vet via pets.vet_information_id
+ * 
+ * @param petId - The pet's ID
+ * @param email - The email address to check
+ * @returns true if the email belongs to a care team member for this pet
+ */
+async function isEmailInCareTeam(
+  petId: string,
+  email: string
+): Promise<boolean> {
+  const supabase = createSupabaseClient();
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // 1. Check primary vet (via pets.vet_information_id)
+  const { data: petData, error: petError } = await supabase
+    .from("pets")
+    .select(`
+      vet_information_id,
+      vet_information:vet_information_id(email)
+    `)
+    .eq("id", petId)
+    .single();
+
+  if (petError && petError.code !== "PGRST116") {
+    console.error("Error checking primary vet:", petError);
+    throw new Error(`Database error: ${petError.message}`);
+  }
+
+  // Check if primary vet email matches
+  if (petData?.vet_information) {
+    const primaryVetEmail = (petData.vet_information as any)?.email?.toLowerCase()?.trim();
+    if (primaryVetEmail === normalizedEmail) {
+      console.log(`Email ${normalizedEmail} matches PRIMARY VET`);
+      return true;
+    }
+  }
+
+  // 2. Check care team members via junction table
+  const { data: careTeamData, error: careTeamError } = await supabase
+    .from("pet_care_team_members")
+    .select(`
+      care_team_member_id,
+      vet_information:care_team_member_id(email)
+    `)
+    .eq("pet_id", petId);
+
+  if (careTeamError) {
+    console.error("Error checking care team membership:", careTeamError);
+    throw new Error(`Database error: ${careTeamError.message}`);
+  }
+
+  if (!careTeamData || careTeamData.length === 0) {
+    return false;
+  }
+
+  // Check if any care team member's email matches
+  const isInCareTeam = careTeamData.some((link: any) => {
+    const memberEmail = link.vet_information?.email?.toLowerCase()?.trim();
+    return memberEmail === normalizedEmail;
+  });
+
+  if (isInCareTeam) {
+    console.log(`Email ${normalizedEmail} matches CARE TEAM MEMBER`);
+  }
+
+  return isInCareTeam;
+}
+
+/**
+ * Check the status of a sender email
+ * Priority order:
+ * 1. Blocked in pet_email_list → "blocked"
+ * 2. Care team member for this pet → "whitelisted"
+ * 3. Whitelisted in pet_email_list → "whitelisted"
+ * 4. Not found anywhere → "unknown"
+ * 
  * @param petId - The pet's ID
  * @param senderEmail - The sender's email address
  * @returns EmailStatus - 'whitelisted', 'blocked', or 'unknown'
@@ -32,26 +110,41 @@ export async function checkSenderEmailStatus(
 
   console.log(`Checking email status for: ${normalizedEmail} (pet: ${petId})`);
 
-  const { data, error } = await supabase
+  // Step 1: Check pet_email_list first (for blocked status or extra whitelisted contacts)
+  const { data: emailListData, error: emailListError } = await supabase
     .from("pet_email_list")
     .select("id, is_blocked")
     .eq("pet_id", petId)
     .eq("email_id", normalizedEmail)
     .maybeSingle();
 
-  if (error) {
-    console.error("Error checking email status:", error);
-    throw new Error(`Database error: ${error.message}`);
+  if (emailListError) {
+    console.error("Error checking email list:", emailListError);
+    throw new Error(`Database error: ${emailListError.message}`);
   }
 
-  if (!data) {
-    console.log(`Email ${normalizedEmail} not found in list - status: unknown`);
-    return "unknown";
+  // If blocked in pet_email_list, reject immediately (block takes precedence)
+  if (emailListData?.is_blocked) {
+    console.log(`Email ${normalizedEmail} is BLOCKED in pet_email_list`);
+    return "blocked";
   }
 
-  const status = data.is_blocked ? "blocked" : "whitelisted";
-  console.log(`Email ${normalizedEmail} found - status: ${status}`);
-  return status;
+  // Step 2: Check if sender is a care team member for this pet
+  const inCareTeam = await isEmailInCareTeam(petId, normalizedEmail);
+  if (inCareTeam) {
+    console.log(`Email ${normalizedEmail} is a CARE TEAM MEMBER - whitelisted`);
+    return "whitelisted";
+  }
+
+  // Step 3: Check if whitelisted in pet_email_list (non-care-team contacts)
+  if (emailListData && !emailListData.is_blocked) {
+    console.log(`Email ${normalizedEmail} is WHITELISTED in pet_email_list`);
+    return "whitelisted";
+  }
+
+  // Step 4: Not found anywhere - unknown sender
+  console.log(`Email ${normalizedEmail} not found - status: unknown`);
+  return "unknown";
 }
 
 /**

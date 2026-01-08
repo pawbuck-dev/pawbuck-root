@@ -6,13 +6,28 @@ import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
 import { ThemeProvider } from "@/context/themeContext";
 import { UserPreferencesProvider } from "@/context/userPreferencesContext";
+import {
+  Outfit_100Thin,
+  Outfit_200ExtraLight,
+  Outfit_300Light,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+  Outfit_900Black,
+  useFonts,
+} from "@expo-google-fonts/outfit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { NotificationBehavior } from "expo-notifications";
 import { router, Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
+
+SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({
   handleNotification: async (): Promise<NotificationBehavior> => ({
@@ -52,6 +67,18 @@ function useNotificationObserver() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Outfit_100Thin,
+    Outfit_200ExtraLight,
+    Outfit_300Light,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Outfit_900Black,
+  });
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -68,6 +95,16 @@ export default function RootLayout() {
   );
 
   useNotificationObserver();
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

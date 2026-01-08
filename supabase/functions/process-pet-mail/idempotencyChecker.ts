@@ -41,28 +41,37 @@ export async function tryAcquireProcessingLock(s3Key: string): Promise<LockResul
 
   // If insert succeeded, we acquired the lock
   if (!insertError) {
-    console.log(`Acquired processing lock for: ${s3Key}`);
+    console.log(`[MONITORING] 🔒 Acquired processing lock for: ${s3Key}`);
     return { acquired: true };
   }
 
   // If we got a duplicate key error (23505), check the existing record's status
   if (insertError.code === "23505") {
-    console.log(`Lock already exists for: ${s3Key}, checking status...`);
+    console.log(`[MONITORING] ⚠️ Lock already exists for: ${s3Key}, checking status...`);
     
     const { data, error: selectError } = await supabase
       .from("processed_emails")
-      .select("status")
+      .select("status, started_at")
       .eq("s3_key", s3Key)
       .single();
 
     if (selectError || !data) {
-      console.error("Error checking existing lock status:", selectError);
+      console.error(`[MONITORING] ❌ Error checking existing lock status (s3Key: ${s3Key}):`, selectError);
       // Fail safe - don't process if we can't determine status
       return { acquired: false, status: "processing" };
     }
 
-    console.log(`Existing lock status: ${data.status}`);
-    return { acquired: false, status: data.status as ProcessingStatus };
+    const status = data.status as ProcessingStatus;
+    const startedAt = data.started_at ? new Date(data.started_at).getTime() : null;
+    const ageMs = startedAt ? Date.now() - startedAt : null;
+    const ageMinutes = ageMs ? Math.floor(ageMs / 60000) : null;
+    
+    if (status === "processing" && ageMinutes && ageMinutes > 5) {
+      console.warn(`[MONITORING] ⚠️ Email has been in 'processing' status for ${ageMinutes} minutes (s3Key: ${s3Key}) - may be stuck`);
+    }
+    
+    console.log(`[MONITORING] Existing lock status: ${status}${ageMinutes ? ` (age: ${ageMinutes}m)` : ""}`);
+    return { acquired: false, status };
   }
 
   // For other errors, log and fail open (allow processing)
@@ -87,7 +96,9 @@ export async function markEmailAsCompleted(
 ): Promise<void> {
   const supabase = createSupabaseClient();
 
-  const { error } = await supabase
+  console.log(`[MONITORING] Updating processed_emails: s3Key=${s3Key}, petId=${petId}, attachments=${attachmentCount}, success=${success}`);
+
+  const { data, error } = await supabase
     .from("processed_emails")
     .update({
       status: "completed",
@@ -96,11 +107,18 @@ export async function markEmailAsCompleted(
       success,
       completed_at: new Date().toISOString(),
     })
-    .eq("s3_key", s3Key);
+    .eq("s3_key", s3Key)
+    .select();
 
   if (error) {
-    console.error("Error marking email as completed:", error);
+    console.error(`[MONITORING] ❌ Error marking email as completed (s3Key: ${s3Key}):`, error);
+    throw error;
   } else {
-    console.log(`Email marked as completed: ${s3Key}`);
+    const rowCount = data?.length || 0;
+    if (rowCount === 0) {
+      console.warn(`[MONITORING] ⚠️ No rows updated for s3Key: ${s3Key} (row may not exist)`);
+    } else {
+      console.log(`[MONITORING] ✅ Email marked as completed: ${s3Key} (${rowCount} row(s) updated)`);
+    }
   }
 }

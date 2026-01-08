@@ -2,6 +2,7 @@ import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export type VetInformation = Tables<"vet_information">;
+export type CareTeamMemberType = "veterinarian" | "dog_walker" | "groomer" | "pet_sitter" | "boarding";
 
 /**
  * Fetch a single vet information record by ID
@@ -67,4 +68,150 @@ export const deleteVetInformation = async (id: string): Promise<void> => {
     .eq("id", id);
 
   if (error) throw error;
+};
+
+/**
+ * Fetch all care team members for the current user (across all pets)
+ */
+export const getAllCareTeamMembers = async (): Promise<VetInformation[]> => {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("User not authenticated");
+
+  // First, get all pet IDs for the user
+  const { data: userPets, error: petsError } = await supabase
+    .from("pets")
+    .select("id, vet_information_id")
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
+  if (petsError) throw petsError;
+
+  if (!userPets || userPets.length === 0) {
+    return [];
+  }
+
+  const petIds = userPets.map((p) => p.id);
+  const memberIds = new Set<string>();
+  const members: VetInformation[] = [];
+
+  // Get all care team members linked to user's pets via junction table
+  if (petIds.length > 0) {
+    const { data: linkedMembers, error: linkError } = await supabase
+      .from("pet_care_team_members")
+      .select(`
+        care_team_member_id,
+        vet_information:care_team_member_id(*)
+      `)
+      .in("pet_id", petIds);
+
+    if (linkError) throw linkError;
+
+    // Add members from junction table
+    if (linkedMembers) {
+      linkedMembers.forEach((link: any) => {
+        const member = link.vet_information;
+        if (member && !memberIds.has(member.id)) {
+          memberIds.add(member.id);
+          members.push(member);
+        }
+      });
+    }
+  }
+
+  // Also include primary vets from pets table
+  const primaryVetIds = userPets
+    .map((p) => p.vet_information_id)
+    .filter((id): id is string => id !== null && !memberIds.has(id));
+
+  if (primaryVetIds.length > 0) {
+    const { data: primaryVets, error: vetsError } = await supabase
+      .from("vet_information")
+      .select("*")
+      .in("id", primaryVetIds);
+
+    if (!vetsError && primaryVets) {
+      members.push(...primaryVets);
+    }
+  }
+
+  return members;
+};
+
+/**
+ * Check if an email address belongs to a care team member
+ * @param email - The email address to check
+ * @returns true if the email is in the care team, false otherwise
+ */
+export const isEmailInCareTeam = async (email: string): Promise<boolean> => {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  const { data, error } = await supabase
+    .from("vet_information")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      // No rows returned - not in care team
+      return false;
+    }
+    throw error;
+  }
+
+  return !!data;
+};
+
+/**
+ * Find an existing care team member by email or phone number
+ * Priority: email match first, then phone match
+ * @param email - The email address to check
+ * @param phone - The phone number to check
+ * @returns The existing care team member if found, or null
+ */
+export const findExistingCareTeamMember = async (
+  email?: string,
+  phone?: string
+): Promise<VetInformation | null> => {
+  // First, try to find by email (most reliable identifier)
+  if (email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const { data: emailMatch, error: emailError } = await supabase
+      .from("vet_information")
+      .select("*")
+      .eq("email", normalizedEmail)
+      .single();
+
+    if (!emailError && emailMatch) {
+      return emailMatch;
+    }
+    // If error is not "no rows returned", throw it
+    if (emailError && emailError.code !== "PGRST116") {
+      throw emailError;
+    }
+  }
+
+  // If no email match, try to find by phone number
+  if (phone) {
+    const normalizedPhone = phone.replace(/\D/g, ""); // Remove non-digits for comparison
+    if (normalizedPhone.length >= 7) {
+      // Only search if phone has meaningful length
+      const { data: phoneMatch, error: phoneError } = await supabase
+        .from("vet_information")
+        .select("*")
+        .eq("phone", phone.trim())
+        .single();
+
+      if (!phoneError && phoneMatch) {
+        return phoneMatch;
+      }
+      // If error is not "no rows returned", throw it
+      if (phoneError && phoneError.code !== "PGRST116") {
+        throw phoneError;
+      }
+    }
+  }
+
+  return null;
 };

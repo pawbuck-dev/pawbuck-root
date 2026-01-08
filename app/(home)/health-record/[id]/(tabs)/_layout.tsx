@@ -1,5 +1,9 @@
+import BottomNavBar from "@/components/home/BottomNavBar";
+import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   MaterialTopTabNavigationEventMap,
@@ -15,7 +19,7 @@ import {
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -32,24 +36,34 @@ export default function HealthRecordsLayout() {
   const { theme, mode } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pets } = usePets();
+  const { pet } = useSelectedPet();
   const segments = useSegments();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
+  const { requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
 
   // Find the pet by ID (convert string param to number)
-  const pet = pets.find((p) => p.id.toString() === id);
-  const petName = pet?.name || "Pet";
+  const petFromPets = pets.find((p) => p.id.toString() === id);
+  const petName = petFromPets?.name || "Pet";
 
   // Track active tab from route segments
   useEffect(() => {
     const currentTab = segments[segments.length - 1] as Tab;
-    if (currentTab) {
+    const validTabs: Tab[] = ["vaccinations", "medications", "exams", "lab-results"];
+    
+    if (currentTab && validTabs.includes(currentTab)) {
       setActiveTab(currentTab);
+    } else {
+      // Default to vaccinations if no valid tab is found
+      setActiveTab("vaccinations");
     }
   }, [segments]);
 
   // Handle add button press based on active tab
   const handleAddPress = () => {
-    switch (activeTab) {
+    // Default to vaccinations if activeTab is not set or invalid
+    const tab = activeTab || "vaccinations";
+    
+    switch (tab) {
       case "vaccinations":
         router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
@@ -63,7 +77,8 @@ export default function HealthRecordsLayout() {
         router.push(`/health-record/${id}/lab-result-upload-modal`);
         break;
       default:
-        Alert.alert("Error", "Unknown tab");
+        // Fallback to vaccinations if unknown tab
+        router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
     }
   };
@@ -75,12 +90,16 @@ export default function HealthRecordsLayout() {
       {/* Header */}
       <View className="px-6 pt-14 pb-4">
         <View className="flex-row items-center justify-between">
-          {/* Back Button */}
+          {/* Back Button - Pawbuck Logo */}
           <Pressable
             onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
+            className="items-center justify-center active:opacity-70"
           >
-            <Ionicons name="arrow-back" size={24} color={theme.foreground} />
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={{ width: 40, height: 40 }}
+              resizeMode="contain"
+            />
           </Pressable>
 
           {/* Title */}
@@ -88,7 +107,7 @@ export default function HealthRecordsLayout() {
             className="text-xl font-bold"
             style={{ color: theme.foreground }}
           >
-            {petName}'s Health Records
+            Health Records
           </Text>
 
           {/* Add Button */}
@@ -101,76 +120,133 @@ export default function HealthRecordsLayout() {
         </View>
       </View>
 
-      {/* Material Top Tabs with Swipe Enabled at Bottom */}
-      <MaterialTopTabs
-        tabBarPosition="bottom"
-        screenOptions={{
-          swipeEnabled: true,
-          tabBarStyle: {
-            backgroundColor: mode === "dark" ? "#1C2128" : "#FFFFFF",
-            borderTopWidth: 0.5,
-            borderTopColor: mode === "dark" ? "#30363D" : "#E5E7EB",
-            height: 85,
-            paddingBottom: 20,
-            paddingTop: 10,
-            elevation: 0,
-            shadowOpacity: 0,
-          },
-          tabBarIndicatorStyle: {
-            height: 0, // Hide the indicator line
-          },
-          tabBarItemStyle: {
-            paddingHorizontal: 0,
-          },
-          tabBarShowIcon: true,
-          tabBarShowLabel: true,
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: "600",
-            textTransform: "none",
-            marginTop: 2,
-          },
-          tabBarActiveTintColor: theme.primary,
-          tabBarInactiveTintColor: mode === "dark" ? "#9CA3AF" : "#6B7280",
-        }}
-      >
+      {/* Vaccination Status Header */}
+      {!isLoadingRequirements && (
+        <View className="px-4 pb-2">
+          <VaccinationStatusHeader 
+            status={requiredVaccinesStatus} 
+            country={pet.country}
+          />
+        </View>
+      )}
+
+      {/* Category Navigation Bar */}
+      <View className="px-4 pb-2">
+        <View 
+          className="rounded-2xl px-4 py-2 flex-row justify-between"
+          style={{
+            backgroundColor: theme.card,
+          }}
+        >
+          {[
+            { 
+              id: "vaccinations", 
+              label: "Vaccines", 
+              icon: "needle", 
+              iconType: "material" as const,
+              iconColor: "#3BD0D2", // Teal
+            },
+            { 
+              id: "medications", 
+              label: "Meds", 
+              icon: "pill", 
+              iconType: "material" as const,
+              iconColor: "#A855F7", // Purple
+            },
+            { 
+              id: "exams", 
+              label: "Exams", 
+              icon: "stethoscope", 
+              iconType: "material" as const,
+              iconColor: "#60A5FA", // Blue
+            },
+            { 
+              id: "lab-results", 
+              label: "Labs", 
+              icon: "flask", 
+              iconType: "ionicons" as const,
+              iconColor: "#FF9500", // Orange
+            },
+          ].map((category) => {
+            const isActive = activeTab === category.id;
+            
+            return (
+              <TouchableOpacity
+                key={category.id}
+                onPress={() => router.push(`/(home)/health-record/${id}/(tabs)/${category.id}` as any)}
+                className="items-center flex-1"
+                activeOpacity={0.7}
+              >
+                <View
+                  className="rounded-xl items-center justify-center"
+                  style={{
+                    backgroundColor: isActive 
+                      ? (mode === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)")
+                      : "transparent",
+                    borderWidth: isActive ? 1 : 0,
+                    borderColor: mode === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)",
+                    paddingVertical: 10,
+                    paddingHorizontal: 8,
+                    width: "100%",
+                  }}
+                >
+                  {category.iconType === "material" ? (
+                    <MaterialCommunityIcons name={category.icon as any} size={24} color={category.iconColor} />
+                  ) : (
+                    <Ionicons name={category.icon as any} size={24} color={category.iconColor} />
+                  )}
+                  <Text
+                    className="text-xs font-medium text-center mt-1.5"
+                    style={{ color: category.iconColor }}
+                  >
+                    {category.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Material Top Tabs - Hidden Tab Bar, Content Only */}
+      <View className="flex-1">
+        <MaterialTopTabs
+          initialRouteName="vaccinations"
+          tabBarPosition="top"
+          screenOptions={{
+            swipeEnabled: true,
+            tabBarStyle: {
+              height: 0,
+              opacity: 0,
+            },
+            tabBarIndicatorStyle: {
+              height: 0,
+            },
+            tabBarShowLabel: false,
+            tabBarShowIcon: false,
+          }}
+        >
         <MaterialTopTabs.Screen
           name="vaccinations"
-          options={{
-            title: "Vaccinations",
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons name="needle" size={24} color={color} />
-            ),
-          }}
+          options={{ title: "Vaccinations" }}
         />
         <MaterialTopTabs.Screen
           name="medications"
-          options={{
-            title: "Medications",
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons name="pill" size={24} color={color} />
-            ),
-          }}
+          options={{ title: "Medications" }}
         />
         <MaterialTopTabs.Screen
           name="exams"
-          options={{
-            title: "Exams",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="clipboard" size={24} color={color} />
-            ),
-          }}
+          options={{ title: "Exams" }}
         />
         <MaterialTopTabs.Screen
           name="lab-results"
-          options={{
-            title: "Lab Results",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="flask" size={24} color={color} />
-            ),
-          }}
+          options={{ title: "Lab Results" }}
         />
       </MaterialTopTabs>
+      </View>
+
+      {/* Bottom Navigation Bar */}
+      <BottomNavBar activeTab="records" />
     </View>
   );
 }

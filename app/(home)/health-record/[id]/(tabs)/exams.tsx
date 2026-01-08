@@ -1,22 +1,30 @@
 import { ClinicalExamCard } from "@/components/clinical-exams/ClinicalExamCard";
+import { ExamSectionHeader, ExamCategory } from "@/components/clinical-exams/ExamSectionHeader";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { Tables } from "@/database.types";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
-  TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 
-const EXAM_CATEGORIES = ["All", "Routine Checkup", "Invoice", "Travel"] as const;
-type ExamCategory = (typeof EXAM_CATEGORIES)[number];
+// Enable LayoutAnimation for Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const EXAM_CATEGORIES: ExamCategory[] = ["Routine Checkup", "Invoice", "Travel"];
 
 // Helper function to check if exam belongs to category
 const examMatchesCategory = (examType: string | null, category: ExamCategory): boolean => {
@@ -31,9 +39,43 @@ export default function ExamsScreen() {
   const { theme } = useTheme();
   const { pet } = useSelectedPet();
   const { clinicalExams, isLoading } = useClinicalExams();
-  const [selectedCategory, setSelectedCategory] = useState<ExamCategory>("All");
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Track expanded state for each section
+  const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>({
+    "Routine Checkup": false,
+    Invoice: false,
+    Travel: false,
+  });
+
+  const toggleSection = (category: ExamCategory) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedSections((prev) => ({
+      ...prev,
+      [category]: !prev[category],
+    }));
+  };
+
+  // Group exams by category
+  const groupedExams = useMemo(() => {
+    const grouped: Record<ExamCategory, Tables<"clinical_exams">[]> = {
+      "Routine Checkup": [],
+      Invoice: [],
+      Travel: [],
+    };
+
+    clinicalExams.forEach((exam) => {
+      for (const category of EXAM_CATEGORIES) {
+        if (examMatchesCategory(exam.exam_type, category)) {
+          grouped[category].push(exam);
+          break;
+        }
+      }
+    });
+
+    return grouped;
+  }, [clinicalExams]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -47,18 +89,6 @@ export default function ExamsScreen() {
       queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
     }, [queryClient, pet.id])
   );
-
-  // Filter exams based on selected category
-  const filteredExams = useMemo(() => {
-    if (selectedCategory === "All") return clinicalExams;
-    return clinicalExams.filter((exam) => examMatchesCategory(exam.exam_type, selectedCategory));
-  }, [clinicalExams, selectedCategory]);
-
-  // Count exams per category
-  const getCategoryCount = (category: ExamCategory) => {
-    if (category === "All") return clinicalExams.length;
-    return clinicalExams.filter((exam) => examMatchesCategory(exam.exam_type, category)).length;
-  };
 
   if (isLoading) {
     return (
@@ -99,63 +129,12 @@ export default function ExamsScreen() {
     );
   }
 
+  const sections = EXAM_CATEGORIES.filter((category) => groupedExams[category].length > 0);
+
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      {/* Filter Tabs */}
-      <View className="pt-4 pb-2">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
-        >
-          {EXAM_CATEGORIES.map((category) => {
-            const isSelected = selectedCategory === category;
-            const count = getCategoryCount(category);
-            return (
-              <TouchableOpacity
-                key={category}
-                onPress={() => setSelectedCategory(category)}
-                className="flex-row items-center px-4 py-2 rounded-full"
-                style={{
-                  backgroundColor: isSelected ? theme.primary : theme.card,
-                  borderWidth: isSelected ? 0 : 1,
-                  borderColor: theme.border,
-                }}
-              >
-                <Text
-                  className="text-sm font-medium"
-                  style={{
-                    color: isSelected ? theme.primaryForeground : theme.foreground,
-                  }}
-                >
-                  {category}
-                </Text>
-                <View
-                  className="ml-2 px-2 py-0.5 rounded-full min-w-[24px] items-center"
-                  style={{
-                    backgroundColor: isSelected
-                      ? "rgba(255, 255, 255, 0.2)"
-                      : theme.background,
-                  }}
-                >
-                  <Text
-                    className="text-xs font-semibold"
-                    style={{
-                      color: isSelected ? theme.primaryForeground : theme.secondary,
-                    }}
-                  >
-                    {count}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Exam List */}
       <ScrollView
-        className="flex-1 px-6 pt-2"
+        className="flex-1 px-4 pt-4"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -166,7 +145,7 @@ export default function ExamsScreen() {
           />
         }
       >
-        {filteredExams.length === 0 ? (
+        {sections.length === 0 ? (
           <View className="items-center justify-center py-12">
             <View
               className="w-16 h-16 rounded-full items-center justify-center mb-4"
@@ -178,7 +157,7 @@ export default function ExamsScreen() {
               className="text-base font-medium text-center"
               style={{ color: theme.foreground }}
             >
-              No {selectedCategory.toLowerCase()} exams
+              No exams recorded yet
             </Text>
             <Text
               className="text-sm text-center mt-1"
@@ -188,8 +167,25 @@ export default function ExamsScreen() {
             </Text>
           </View>
         ) : (
-          filteredExams.map((exam) => (
-            <ClinicalExamCard key={exam.id} exam={exam} />
+          sections.map((category) => (
+            <View key={category} className="mb-4">
+              {/* Section Header */}
+              <ExamSectionHeader
+                category={category}
+                count={groupedExams[category].length}
+                isExpanded={expandedSections[category]}
+                onToggle={() => toggleSection(category)}
+              />
+
+              {/* Section Items */}
+              {expandedSections[category] && (
+                <View className="px-4">
+                  {groupedExams[category].map((exam) => (
+                    <ClinicalExamCard key={exam.id} exam={exam} />
+                  ))}
+                </View>
+              )}
+            </View>
           ))
         )}
 

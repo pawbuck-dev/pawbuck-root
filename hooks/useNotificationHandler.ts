@@ -8,24 +8,38 @@ export function useNotificationHandlers() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
   useEffect(() => {
+    let isMounted = true;
     const registerForPushToken = async () => {
       const token = await registerForPush();
-      setPushToken(token);
+      if (isMounted) {
+        setPushToken(token);
+      }
     };
 
     registerForPushToken();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     const getDeviceId = async () => {
       const deviceId =
         Platform.OS === "android"
           ? Application.getAndroidId()
           : await Application.getIosIdForVendorAsync();
-      setDeviceId(deviceId);
+      if (isMounted) {
+        setDeviceId(deviceId);
+      }
     };
 
     getDeviceId();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {

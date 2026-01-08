@@ -6,13 +6,15 @@ import {
   LabResultData,
 } from "@/components/lab-results/LabResultReviewModal";
 import { useAuth } from "@/context/authContext";
+import { useLabResults } from "@/context/labResultsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { createLabResult } from "@/services/labResults";
+import { isDuplicateLabResult } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { supabase } from "@/utils/supabase";
-import { createLabResult } from "@/services/labResults";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
@@ -45,6 +47,7 @@ export default function LabResultUploadModal() {
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const { labResults: existingLabResults } = useLabResults();
   const queryClient = useQueryClient();
 
   const handleUploadFile = async (
@@ -152,6 +155,55 @@ export default function LabResultUploadModal() {
   };
 
   const handleSaveLabResult = async (data: LabResultData) => {
+    try {
+      // Check for duplicates
+      const isDuplicate = isDuplicateLabResult(
+        {
+          test_type: data.test_type,
+          test_date: data.test_date,
+          lab_name: data.lab_name,
+        },
+        existingLabResults
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          "Duplicate Lab Result Detected",
+          `A lab result for "${data.test_type}" from ${data.lab_name} on ${data.test_date ? new Date(data.test_date).toLocaleDateString() : "unknown date"} already exists.\n\nWould you like to save it anyway?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setStatus("review");
+              },
+            },
+            {
+              text: "Save Anyway",
+              style: "destructive",
+              onPress: async () => {
+                await saveLabResultRecord(data);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await saveLabResultRecord(data);
+    } catch (error) {
+      console.error("Error saving lab result:", error);
+      setStatus("error");
+      setStatusMessage("Failed to save lab result");
+      Alert.alert("Error", "Failed to save lab result to database");
+      setTimeout(() => {
+        setStatus("review");
+        setShowReviewModal(true);
+      }, 2000);
+    }
+  };
+
+  const saveLabResultRecord = async (data: LabResultData) => {
     try {
       setIsSaving(true);
       setStatus("inserting");

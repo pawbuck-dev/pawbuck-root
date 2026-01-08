@@ -7,7 +7,12 @@ export type PendingEmailApproval = Tables<"pending_email_approvals">;
 export interface PendingApprovalWithPet extends PendingEmailApproval {
   pets: {
     name: string;
+    microchip_number?: string | null;
   } | null;
+  validation_status?: "pending" | "correct" | "incorrect" | null;
+  validation_errors?: Record<string, string> | null;
+  document_type?: string | null;
+  attachment_url?: string | null;
 }
 
 /**
@@ -123,6 +128,25 @@ export const rejectEmail = async (
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+};
+
+/**
+ * Approve an email despite incorrect information - force process
+ * @param approvalId - The pending approval ID
+ * @param petId - The pet ID
+ * @param senderEmail - The sender's email address
+ * @param s3Bucket - S3 bucket containing the email
+ * @param s3Key - S3 key for the email file
+ */
+export const approveEmailAnyway = async (
+  approvalId: string,
+  petId: string,
+  senderEmail: string,
+  s3Bucket: string,
+  s3Key: string
+): Promise<{ success: boolean; error?: string }> => {
+  // Same logic as approveEmail - force process even with incorrect info
+  return approveEmail(approvalId, petId, senderEmail, s3Bucket, s3Key);
 };
 
 /**

@@ -5,7 +5,7 @@ import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -24,6 +24,7 @@ function SignUp() {
   const { theme, mode } = useTheme();
   const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
   const { addPet } = usePets();
+  const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,9 +82,17 @@ function SignUp() {
       // Create pet if onboarding data exists (wait for completion before navigating)
       await createPetIfNeeded();
 
-      // Navigate to home - clear stack first
-      router.dismissAll();
-      router.replace("/home");
+      // Check if we need to return to transfer or household flow
+      if (returnTo && (transferCode || inviteCode)) {
+        router.replace({
+          pathname: returnTo as any,
+          params: transferCode ? { transferCode } : { inviteCode },
+        });
+      } else {
+        // Navigate to home - clear stack first
+        router.dismissAll();
+        router.replace("/home");
+      }
     } catch (error: any) {
       console.error("Error signing up:", error);
       Alert.alert("Error", error.message || "Failed to create account");
@@ -137,9 +146,17 @@ function SignUp() {
                     // Create pet if onboarding data exists (wait for completion before navigating)
                     await createPetIfNeeded();
 
-                    // Navigate to home - clear stack first
-                    router.dismissAll();
-                    router.replace("/home");
+                    // Check if we need to return to transfer or household flow
+                    if (returnTo && (transferCode || inviteCode)) {
+                      router.replace({
+                        pathname: returnTo as any,
+                        params: transferCode ? { transferCode } : { inviteCode },
+                      });
+                    } else {
+                      // Navigate to home - clear stack first
+                      router.dismissAll();
+                      router.replace("/home");
+                    }
                   } catch (error: any) {
                     console.error("Error signing up with OAuth:", error);
                     Alert.alert(

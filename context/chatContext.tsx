@@ -60,15 +60,19 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setError(null);
     
-    // Add user message
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content: message,
-      timestamp: new Date(),
-    };
+    // Add user message using functional update to avoid stale closure
+    let currentMessages: ChatMessage[] = [];
+    setMessages((prev) => {
+      const userMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: "user",
+        content: message,
+        timestamp: new Date(),
+      };
+      currentMessages = [...prev, userMessage];
+      return currentMessages;
+    });
     
-    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
@@ -85,7 +89,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } : null;
 
       // Build history (last 10 messages for context, including current user message)
-      const history = [...messages, userMessage].slice(-10).map((msg) => ({
+      const history = currentMessages.slice(-10).map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
@@ -110,7 +114,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error("No response received");
       }
 
-      // Add assistant message
+      // Add assistant message using functional update
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -124,7 +128,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const errorMessage = err instanceof Error ? err.message : "Something went wrong";
       setError(errorMessage);
       
-      // Add error message as assistant response
+      // Add error message as assistant response using functional update
       const errorResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -135,7 +139,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [messages, selectedPet]);
+  }, [selectedPet]);
 
   return (
     <ChatContext.Provider

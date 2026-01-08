@@ -1,16 +1,15 @@
+import BottomNavBar from "@/components/home/BottomNavBar";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
-import { useUserPreferences } from "@/context/userPreferencesContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
 import {
-  ActivityIndicator,
   Alert,
+  Image,
+  Pressable,
   ScrollView,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -18,51 +17,16 @@ import {
 export default function Settings() {
   const router = useRouter();
   const { theme, mode, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
-  const {
-    preferences,
-    loadingPreferences,
-    updatePreferences,
-    updatingPreferences,
-  } = useUserPreferences();
-
-  const [reminderDays, setReminderDays] = useState("14");
-  const [hasChanges, setHasChanges] = useState(false);
-
-  // Update local state when preferences are loaded
-  useEffect(() => {
-    if (preferences?.vaccination_reminder_days) {
-      setReminderDays(preferences.vaccination_reminder_days.toString());
-      setHasChanges(false);
-    }
-  }, [preferences]);
-
-  // Handle save preferences
-  const handleSavePreferences = async () => {
-    try {
-      const days = parseInt(reminderDays, 10);
-      if (isNaN(days) || days < 1 || days > 90) {
-        Alert.alert("Error", "Please enter a valid number between 1 and 90");
-        return;
-      }
-      await updatePreferences({
-        vaccination_reminder_days: days,
-      });
-      setHasChanges(false);
-      Alert.alert("Success", "Preferences saved successfully");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to save preferences");
-    }
-  };
+  const { signOut } = useAuth();
 
   const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
       {
         text: "Cancel",
         style: "cancel",
       },
       {
-        text: "Sign Out",
+        text: "Log Out",
         style: "destructive",
         onPress: async () => {
           try {
@@ -70,51 +34,100 @@ export default function Settings() {
             router.replace("/");
           } catch (error: any) {
             console.error("Error signing out:", error);
-            Alert.alert("Error", error.message || "Failed to sign out");
+            Alert.alert("Error", error.message || "Failed to log out");
           }
         },
       },
     ]);
   };
 
-  const handleReminderDaysChange = (text: string) => {
-    // Only allow numbers
-    const filtered = text.replace(/[^0-9]/g, "");
-    setReminderDays(filtered);
-    setHasChanges(
-      filtered !== preferences?.vaccination_reminder_days?.toString()
-    );
-  };
-
-  if (loadingPreferences) {
-    return (
+  const SettingsOption = ({
+    icon,
+    title,
+    subtitle,
+    iconColor,
+    onPress,
+  }: {
+    icon: string;
+    title: string;
+    subtitle: string;
+    iconColor: string;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center py-4 px-4 mb-3 rounded-2xl active:opacity-80"
+      style={{ backgroundColor: theme.card }}
+    >
       <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
+        className="w-12 h-12 rounded-xl items-center justify-center mr-4"
+        style={{ backgroundColor: `${iconColor}20` }}
       >
-        <ActivityIndicator size="large" color={theme.primary} />
+        <MaterialCommunityIcons
+          name={icon as any}
+          size={24}
+          color={iconColor}
+        />
       </View>
-    );
-  }
+      <View className="flex-1">
+        <Text
+          className="text-base font-semibold mb-1"
+          style={{ color: theme.foreground }}
+        >
+          {title}
+        </Text>
+        <Text className="text-sm" style={{ color: theme.secondary }}>
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
+    </Pressable>
+  );
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+
       {/* Header */}
-      <View className="pt-12 pb-6 px-6">
-        <View className="flex-row items-center">
-          <TouchableOpacity
+      <View className="px-6 pt-14 pb-4">
+        <View className="flex-row items-center justify-between">
+          {/* Back Button - Pawbuck Logo */}
+          <Pressable
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full items-center justify-center mr-4"
-            style={{ backgroundColor: theme.card }}
+            className="items-center justify-center active:opacity-70"
           >
-            <Ionicons name="arrow-back" size={20} color={theme.foreground} />
-          </TouchableOpacity>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={{ width: 40, height: 40 }}
+              resizeMode="contain"
+            />
+          </Pressable>
+
+          {/* Title */}
           <Text
-            className="text-3xl font-bold flex-1"
+            className="text-xl font-bold"
             style={{ color: theme.foreground }}
           >
             Settings
           </Text>
+
+          {/* Theme Toggle */}
+          <TouchableOpacity
+            onPress={toggleTheme}
+            className="w-11 h-11 rounded-full items-center justify-center"
+            style={{
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={mode === "dark" ? "moon" : "sunny"}
+              size={20}
+              color={theme.primary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -123,217 +136,86 @@ export default function Settings() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* Vaccination Settings Card */}
-        <View
-          className="rounded-3xl p-6 mb-6"
-          style={{
-            backgroundColor: theme.card,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
-          }}
-        >
-          {/* Icon and Title */}
-          <View className="flex-row items-center mb-6">
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-4"
-              style={{ backgroundColor: `${theme.primary}20` }}
-            >
-              <Ionicons
-                name="shield-checkmark"
-                size={24}
-                color={theme.primary}
-              />
-            </View>
-            <Text
-              className="text-xl font-bold"
-              style={{ color: theme.foreground }}
-            >
-              Vaccination Settings
-            </Text>
-          </View>
-
-          {/* Vaccine Reminders */}
-          <View className="mb-6">
-            <Text
-              className="text-base font-semibold mb-2"
-              style={{ color: theme.foreground }}
-            >
-              Vaccine Reminders
-            </Text>
-            <Text className="text-sm mb-4" style={{ color: theme.secondary }}>
-              Choose how many days before a vaccine is due to receive a reminder
-            </Text>
-
-            {/* Input with label */}
-            <View className="flex-row items-center">
-              <TextInput
-                value={reminderDays}
-                onChangeText={handleReminderDaysChange}
-                keyboardType="number-pad"
-                maxLength={2}
-                className="font-semibold px-4 py-3 rounded-xl mr-3"
-                style={{
-                  backgroundColor: theme.background,
-                  color: theme.foreground,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  width: 80,
-                }}
-              />
-              <Text
-                className="text-base flex-1"
-                style={{ color: theme.secondary }}
-              >
-                days before due date
-              </Text>
-            </View>
-          </View>
-
-          {/* Save Button */}
-          <TouchableOpacity
-            onPress={handleSavePreferences}
-            disabled={updatingPreferences || !hasChanges}
-            className="rounded-2xl py-4 flex-row items-center justify-center"
-            style={{
-              backgroundColor:
-                hasChanges || updatingPreferences
-                  ? theme.primary
-                  : theme.border,
-              opacity: hasChanges && !updatingPreferences ? 1 : 0.5,
+        {/* Settings Options */}
+        <View className="mb-6">
+          {/* Pet Profile */}
+          <SettingsOption
+            icon="paw"
+            title="Pet Profile"
+            subtitle="Manage your pet's information"
+            iconColor="#60A5FA"
+            onPress={() => {
+              router.push("/(home)/pet-profile");
             }}
-          >
-            {updatingPreferences ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={20} color="#fff" />
-                <Text
-                  className="text-base font-semibold ml-2"
-                  style={{ color: "#fff" }}
-                >
-                  Save Preferences
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+          />
 
-        {/* Theme Toggle */}
-        <View
-          className="rounded-3xl p-6 mb-6 flex-row items-center justify-between"
-          style={{
-            backgroundColor: theme.card,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
-          }}
-        >
-          <View className="flex-row items-center flex-1">
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-4"
-              style={{ backgroundColor: `${theme.primary}20` }}
-            >
-              <Ionicons
-                name={mode === "dark" ? "moon" : "sunny"}
-                size={24}
-                color={theme.primary}
-              />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Theme
-              </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
-                {mode === "dark" ? "Dark Mode" : "Light Mode"}
-              </Text>
-            </View>
-          </View>
-          <Switch
-            value={mode === "dark"}
-            onValueChange={toggleTheme}
-            trackColor={{ false: theme.border, true: theme.primary }}
-            thumbColor="#fff"
+          {/* User Profile */}
+          <SettingsOption
+            icon="account-outline"
+            title="User Profile"
+            subtitle="Your account details"
+            iconColor="#4ADE80"
+            onPress={() => {
+              router.push("/(home)/profile");
+            }}
+          />
+
+          {/* Care Team & Family Access */}
+          <SettingsOption
+            icon="account-group-outline"
+            title="Care Team & Family Access"
+            subtitle="Manage who can access your pets"
+            iconColor="#A78BFA"
+            onPress={() => {
+              router.push("/(home)/family-access");
+            }}
+          />
+
+          {/* Receive a Pet Transfer */}
+          <SettingsOption
+            icon="swap-horizontal"
+            title="Receive a Pet Transfer"
+            subtitle="Accept a pet from another user"
+            iconColor="#F472B6"
+            onPress={() => {
+              router.push("/transfer-pet");
+            }}
+          />
+
+          {/* Transfer Ownership */}
+          <SettingsOption
+            icon="account-plus-outline"
+            title="Transfer Ownership"
+            subtitle="Transfer a pet to a new owner"
+            iconColor="#FF9500"
+            onPress={() => {
+              router.push("/(home)/transfer-pet");
+            }}
           />
         </View>
 
-        {/* Account Settings Card */}
-        <View
-          className="rounded-3xl p-6"
+        {/* Log Out Button */}
+        <Pressable
+          onPress={handleSignOut}
+          className="flex-row items-center justify-center py-4 px-6 rounded-2xl active:opacity-80"
           style={{
-            backgroundColor: theme.card,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 3,
+            backgroundColor: "transparent",
+            borderWidth: 1,
+            borderColor: theme.secondary,
           }}
         >
-          {/* Icon and Title */}
-          <View className="flex-row items-center mb-6">
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-4"
-              style={{ backgroundColor: `${theme.secondary}20` }}
-            >
-              <Ionicons
-                name="person-circle-outline"
-                size={24}
-                color={theme.secondary}
-              />
-            </View>
-            <Text
-              className="text-xl font-bold"
-              style={{ color: theme.foreground }}
-            >
-              Account Settings
-            </Text>
-          </View>
-
-          {/* User Email */}
-          <View className="mb-4">
-            <Text className="text-sm mb-2" style={{ color: theme.secondary }}>
-              Signed in as
-            </Text>
-            <Text
-              className="text-base font-medium"
-              style={{ color: theme.foreground }}
-            >
-              {user?.email}
-            </Text>
-          </View>
-
-          {/* Log Out Button */}
-          <TouchableOpacity
-            onPress={handleSignOut}
-            className="rounded-2xl py-4 flex-row items-center justify-center"
-            style={{
-              backgroundColor: "transparent",
-              borderWidth: 2,
-              borderColor: theme.error,
-            }}
+          <Ionicons name="log-out-outline" size={20} color={theme.foreground} />
+          <Text
+            className="text-base font-semibold ml-2"
+            style={{ color: theme.foreground }}
           >
-            <Ionicons name="log-out-outline" size={20} color={theme.error} />
-            <Text
-              className="text-base font-semibold ml-2"
-              style={{ color: theme.error }}
-            >
-              Log Out
-            </Text>
-          </TouchableOpacity>
-        </View>
+            Log Out
+          </Text>
+        </Pressable>
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="profile" />
     </View>
   );
 }
-
-
-
-
-

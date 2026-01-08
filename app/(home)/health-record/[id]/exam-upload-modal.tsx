@@ -3,10 +3,12 @@ import { CameraButton } from "@/components/upload/CameraButton";
 import { FilesButton } from "@/components/upload/FilesButton";
 import { LibraryButton } from "@/components/upload/LibraryButton";
 import { useAuth } from "@/context/authContext";
+import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { ClinicalExamData, ClinicalExamOCRResponse } from "@/models/clinicalExam";
 import { createClinicalExam } from "@/services/clinicalExams";
+import { isDuplicateClinicalExam } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
@@ -70,6 +72,7 @@ export default function ExamUploadModal() {
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const { clinicalExams: existingExams } = useClinicalExams();
   const queryClient = useQueryClient();
 
   const handleSelectType = (type: ExamDocumentType) => {
@@ -186,6 +189,53 @@ export default function ExamUploadModal() {
 
   const handleSaveExam = async (data: ClinicalExamData) => {
     try {
+      const examDate = data.exam_date || new Date().toISOString().split('T')[0];
+      
+      // Check for duplicates
+      const isDuplicate = isDuplicateClinicalExam(
+        { exam_type: data.exam_type, exam_date: examDate },
+        existingExams
+      );
+
+      if (isDuplicate) {
+        Alert.alert(
+          "Duplicate Exam Detected",
+          `An exam record for "${data.exam_type}" on ${new Date(examDate).toLocaleDateString()} already exists.\n\nWould you like to save it anyway?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => {
+                setStatus("review");
+              },
+            },
+            {
+              text: "Save Anyway",
+              style: "destructive",
+              onPress: async () => {
+                await saveExamRecord(data, examDate);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      await saveExamRecord(data, examDate);
+    } catch (error) {
+      console.error("Error saving clinical exam:", error);
+      setStatus("error");
+      setStatusMessage("Failed to save exam record");
+      Alert.alert("Error", "Failed to save exam record to database");
+      setTimeout(() => {
+        setStatus("review");
+        setShowReviewModal(true);
+      }, 2000);
+    }
+  };
+
+  const saveExamRecord = async (data: ClinicalExamData, examDate: string) => {
+    try {
       setIsSaving(true);
       setStatus("inserting");
       setStatusMessage("Saving exam record...");
@@ -195,7 +245,7 @@ export default function ExamUploadModal() {
         pet_id: pet.id,
         user_id: user!.id,
         exam_type: data.exam_type,
-        exam_date: data.exam_date || new Date().toISOString().split('T')[0],
+        exam_date: examDate,
         clinic_name: data.clinic_name,
         vet_name: data.vet_name,
         weight_value: data.weight_value,
