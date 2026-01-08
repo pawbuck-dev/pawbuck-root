@@ -85,7 +85,9 @@ async function handleUnknownSender(
   if (isNew) {
     await sendApprovalNotification(pet, senderEmail, pendingApprovalId);
   } else {
-    console.log(`Skipping notification - duplicate request for existing approval: ${pendingApprovalId}`);
+    console.log(
+      `Skipping notification - duplicate request for existing approval: ${pendingApprovalId}`
+    );
   }
 
   const petInfo: PetInfo = { id: pet.id, name: pet.name };
@@ -123,4 +125,3 @@ async function sendApprovalNotification(
     // Continue even if notification fails - the pending approval is still saved
   }
 }
-

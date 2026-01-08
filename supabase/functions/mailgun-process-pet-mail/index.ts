@@ -21,11 +21,11 @@ import {
   markEmailAsCompleted,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
+import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
 import {
   extractSignatureFields,
   verifyMailgunSignature,
 } from "./mailgunValidator.ts";
-import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import type { EmailContext, EmailInfo, MailgunConfig, Pet } from "./types.ts";
 
@@ -132,10 +132,11 @@ Deno.serve(async (req) => {
     // allowing reprocessing when user approves the email from the app
     const lockResult = await tryAcquireProcessingLock(messageId);
     if (!lockResult.acquired) {
-      const message = lockResult.status === "completed"
-        ? "Email already processed"
-        : "Email is currently being processed";
-      
+      const message =
+        lockResult.status === "completed"
+          ? "Email already processed"
+          : "Email is currently being processed";
+
       console.log(`${message}: ${messageId} - skipping`);
       return new Response(
         JSON.stringify({
@@ -154,7 +155,12 @@ Deno.serve(async (req) => {
     // Step 9: Check for attachments
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
       console.log("No attachments to process", pet, emailInfo);
-      return buildSuccessResponse(pet, emailInfo, [], "No attachments to process");
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        "No attachments to process"
+      );
     }
 
     // Step 10: Process all attachments
@@ -182,15 +188,20 @@ Deno.serve(async (req) => {
 
     // Step 13: Check for skipped attachments due to pet validation failure
     const skippedAttachments = processedAttachments.filter(
-      (a) => a.skippedReason === "no_pet_info" || 
-             a.skippedReason === "microchip_mismatch" || 
-             a.skippedReason === "attributes_mismatch"
+      (a) =>
+        a.skippedReason === "no_pet_info" ||
+        a.skippedReason === "microchip_mismatch" ||
+        a.skippedReason === "attributes_mismatch"
     );
 
     // Step 14: Send notifications
     // Send skipped notification if any attachments were skipped due to pet validation failure
     if (skippedAttachments.length > 0) {
-      await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
+      await sendSkippedAttachmentsNotification(
+        pet,
+        emailInfo,
+        skippedAttachments
+      );
     }
 
     // Send processed notification if records were successfully added
