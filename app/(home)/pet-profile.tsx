@@ -1,23 +1,22 @@
-import BottomNavBar from "@/components/home/BottomNavBar";
 import CountryPicker from "@/components/CountryPicker";
-import { useTheme } from "@/context/themeContext";
+import BottomNavBar from "@/components/home/BottomNavBar";
+import PrivateImage from "@/components/PrivateImage";
 import { usePets } from "@/context/petsContext";
+import { useTheme } from "@/context/themeContext";
+import { generateAndSharePetPassport } from "@/services/pdfGenerator";
+import { getPrivateImageUrl } from "@/utils/image";
+import { supabase } from "@/utils/supabase";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
-  Alert,
 } from "react-native";
-import { useState, useEffect } from "react";
-import PetImage from "@/components/home/PetImage";
-import { getPrivateImageUrl } from "@/utils/image";
-import { generatePetPassportPDF } from "@/services/pdfGenerator";
-import { supabase } from "@/utils/supabase";
-import PrivateImage from "@/components/PrivateImage";
 
 export default function PetProfile() {
   const router = useRouter();
@@ -340,11 +339,10 @@ export default function PetProfile() {
                     .eq("pet_id", currentPet.id)
                     .order("date", { ascending: false });
 
-                  await generatePetPassportPDF({
+                  await generateAndSharePetPassport({
                     pet: currentPet,
                     vaccinations: petVaccinations || [],
                   });
-                  Alert.alert("Success", "Pet passport PDF generated successfully");
                 } catch (error: any) {
                   Alert.alert("Error", error.message || "Failed to generate PDF");
                 } finally {
