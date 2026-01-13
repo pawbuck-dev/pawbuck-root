@@ -32,7 +32,7 @@ export const LibraryButton: React.FC<LibraryButtonProps> = ({
           className="text-base font-semibold"
           style={{ color: theme.foreground }}
         >
-          Choose from Library
+          Choose from Photos
         </Text>
         <Text className="text-sm" style={{ color: theme.secondary }}>
           Select from your photo library
