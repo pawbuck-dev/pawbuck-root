@@ -55,9 +55,15 @@ const ProcessingOverlay = ({
   statusMessage,
 }: ProcessingOverlayProps) => {
   const { theme } = useTheme();
+
+  // Don't render anything when idle
+  if (status === "idle") {
+    return null;
+  }
+
   return (
     <View
-      className="absolute inset-0 items-center justify-center"
+      className="absolute inset-0 items-center justify-center z-50"
       style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
     >
       <View
@@ -88,6 +94,8 @@ const ProcessingOverlay = ({
           className="text-lg font-semibold text-center mb-2"
           style={{ color: theme.foreground }}
         >
+          {status === "uploading" && "Uploading Document"}
+          {status === "extracting" && "Processing Document"}
           {status === "inserting" && "Saving Medicines"}
           {status === "success" && "Success!"}
           {status === "error" && "Error"}
