@@ -60,45 +60,6 @@ export default function MedicationUploadModal() {
 
   const handleSaveMedications = async (medications: MedicineFormData[]) => {
     try {
-      // Check for duplicates
-      const duplicates = medications.filter((medication) =>
-        isDuplicateMedication(medication, existingMedicines)
-      );
-
-      if (duplicates.length > 0) {
-        const duplicateNames = duplicates
-          .map((m) => `${m.name} (${m.start_date ? new Date(m.start_date).toLocaleDateString() : "No start date"})`)
-          .join("\n");
-        
-        Alert.alert(
-          "Duplicate Medications Detected",
-          `The following medication${duplicates.length > 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}\n\nWould you like to skip duplicates and save only new records?`,
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => {
-                setStatus("idle");
-              },
-            },
-            {
-              text: "Skip Duplicates",
-              onPress: async () => {
-                await saveMedicationsFiltered(medications, duplicates);
-              },
-            },
-            {
-              text: "Save All",
-              style: "destructive",
-              onPress: async () => {
-                await saveMedicationsFiltered(medications, []);
-              },
-            },
-          ]
-        );
-        return;
-      }
-
       await saveMedicationsFiltered(medications, []);
     } catch (error) {
       console.error("Error saving medicines:", error);
@@ -113,25 +74,25 @@ export default function MedicationUploadModal() {
     medications: MedicineFormData[],
     duplicatesToSkip: MedicineFormData[]
   ) => {
-    try {
-      // Filter out duplicates if any
-      const medicationsToSave = duplicatesToSkip.length > 0
-        ? medications.filter(
-            (m) => !duplicatesToSkip.some(
-              (d) => d.name.toLowerCase().trim() === m.name.toLowerCase().trim() &&
-                     d.start_date === m.start_date
-            )
+    // Filter out duplicates if any (defined outside try for catch block access)
+    const medicationsToSave = duplicatesToSkip.length > 0
+      ? medications.filter(
+          (m) => !duplicatesToSkip.some(
+            (d) => d.name.toLowerCase().trim() === m.name.toLowerCase().trim() &&
+                   d.start_date === m.start_date
           )
-        : medications;
+        )
+      : medications;
 
-      if (medicationsToSave.length === 0) {
-        setStatus("error");
-        setStatusMessage("All medications are duplicates");
-        Alert.alert("No New Records", "All medications are already recorded.");
-        setTimeout(() => setStatus("idle"), 2000);
-        return;
-      }
+    if (medicationsToSave.length === 0) {
+      setStatus("error");
+      setStatusMessage("All medications are duplicates");
+      Alert.alert("No New Records", "All medications are already recorded.");
+      setTimeout(() => setStatus("idle"), 2000);
+      return;
+    }
 
+    try {
       setStatus("inserting");
       setStatusMessage(
         `Saving ${medicationsToSave.length} medicine${medicationsToSave.length !== 1 ? "s" : ""}...`
@@ -151,11 +112,33 @@ export default function MedicationUploadModal() {
       setTimeout(() => {
         router.back();
       }, 1500);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving medicines:", error);
       setStatus("error");
-      setStatusMessage("An error occurred");
-      Alert.alert("Error", "Failed to save medicines");
+      
+      // Check for duplicate medication error
+      if (error.message?.startsWith("DUPLICATE_MEDICATION:")) {
+        // Identify which medications are duplicates
+        const duplicateMedications = medicationsToSave.filter((m) =>
+          isDuplicateMedication({ name: m.name, start_date: m.start_date || null }, existingMedicines)
+        );
+        
+        const duplicateNames = duplicateMedications.length > 0
+          ? duplicateMedications
+              .map((m) => `• ${m.name} (${m.start_date ? new Date(m.start_date).toLocaleDateString() : "No start date"})`)
+              .join("\n")
+          : "Unable to identify specific duplicates";
+        
+        setStatusMessage("One or more medications already exist");
+        Alert.alert(
+          "Duplicate Medications Found",
+          `The following medication${duplicateMedications.length !== 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}`
+        );
+      } else {
+        setStatusMessage("An error occurred");
+        Alert.alert("Error", "Failed to save medicines");
+      }
+      
       setTimeout(() => setStatus("idle"), 2000);
     }
   };

@@ -2,6 +2,10 @@ import { Tables, TablesInsert } from "@/database.types";
 import { MedicineData, MedicineFormData } from "@/models/medication";
 import { supabase } from "@/utils/supabase";
 
+/**
+ * Add a new medicine record
+ * @throws Error with "DUPLICATE_MEDICATION:" prefix if medication already exists for this pet
+ */
 export const addMedicine = async (
   medicine: TablesInsert<"medicines">
 ): Promise<Tables<"medicines">> => {
@@ -12,6 +16,12 @@ export const addMedicine = async (
     .single();
 
   if (insertError) {
+    // Check for unique constraint violation (PostgreSQL error code 23505)
+    if (insertError.code === "23505") {
+      throw new Error(
+        "DUPLICATE_MEDICATION: This medication record already exists for this pet."
+      );
+    }
     console.error("Error inserting medicine:", insertError);
     throw insertError;
   }

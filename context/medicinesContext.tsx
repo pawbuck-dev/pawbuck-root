@@ -66,8 +66,17 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
       refreshNotifications();
     },
     onError: (error) => {
-      console.error("Error adding medicine:", error);
-      Alert.alert("Error", "Failed to add medicine");
+      // Handle duplicate medication error separately
+      if (error.message.startsWith("DUPLICATE_MEDICATION:")) {
+        console.warn("Duplicate medication attempted:", error.message);
+        Alert.alert(
+          "Duplicate Medication",
+          "This medication record already exists for this pet."
+        );
+      } else {
+        console.error("Error adding medicine:", error);
+        Alert.alert("Error", "Failed to add medicine");
+      }
     },
   });
 
