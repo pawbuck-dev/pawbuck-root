@@ -51,7 +51,12 @@ export const takePhoto =
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (result.canceled) {
+        // User cancelled - just return null without error
+        return null;
+      }
+
+      if (result.assets[0]) {
         return result.assets[0];
       }
 
@@ -82,7 +87,12 @@ export const pickImageFromLibrary =
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (result.canceled) {
+        // User cancelled - just return null without error
+        return null;
+      }
+
+      if (result.assets[0]) {
         return result.assets[0];
       }
 
