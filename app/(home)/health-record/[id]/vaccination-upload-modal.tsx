@@ -262,45 +262,6 @@ export default function VaccinationUploadModal() {
         return;
       }
 
-      // Check for duplicates
-      const duplicates = extractedVaccinations.filter((vaccination) =>
-        isDuplicateVaccination(vaccination, existingVaccinations)
-      );
-
-      if (duplicates.length > 0) {
-        const duplicateNames = duplicates
-          .map((v) => `${v.name} (${v.date ? new Date(v.date).toLocaleDateString() : "No date"})`)
-          .join("\n");
-        
-        Alert.alert(
-          "Duplicate Vaccinations Detected",
-          `The following vaccination${duplicates.length > 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}\n\nWould you like to skip duplicates and save only new records?`,
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => {
-                setStatus("idle");
-              },
-            },
-            {
-              text: "Skip Duplicates",
-              onPress: async () => {
-                await saveVaccinationsFiltered(extractedVaccinations, duplicates);
-              },
-            },
-            {
-              text: "Save All",
-              style: "destructive",
-              onPress: async () => {
-                await saveVaccinationsFiltered(extractedVaccinations, []);
-              },
-            },
-          ]
-        );
-        return;
-      }
-
       await saveVaccinationsFiltered(extractedVaccinations, []);
     } catch (error) {
       console.error("Error saving vaccinations:", error);
