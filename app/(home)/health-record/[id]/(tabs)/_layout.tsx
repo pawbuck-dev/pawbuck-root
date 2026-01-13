@@ -1,9 +1,7 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   MaterialTopTabNavigationEventMap,
@@ -39,7 +37,6 @@ export default function HealthRecordsLayout() {
   const { pet } = useSelectedPet();
   const segments = useSegments();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
-  const { requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
 
   // Find the pet by ID (convert string param to number)
   const petFromPets = pets.find((p) => p.id.toString() === id);
@@ -119,16 +116,6 @@ export default function HealthRecordsLayout() {
           </Pressable>
         </View>
       </View>
-
-      {/* Vaccination Status Header */}
-      {!isLoadingRequirements && (
-        <View className="px-4 pb-2">
-          <VaccinationStatusHeader 
-            status={requiredVaccinesStatus} 
-            country={pet.country}
-          />
-        </View>
-      )}
 
       {/* Category Navigation Bar */}
       <View className="px-4 pb-2">

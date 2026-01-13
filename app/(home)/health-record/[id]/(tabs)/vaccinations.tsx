@@ -1,5 +1,6 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import { VaccinationSectionHeader } from "@/components/vaccinations/VaccinationSectionHeader";
+import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
@@ -15,7 +16,7 @@ export default function VaccinationsScreen() {
   const { theme } = useTheme();
   const { vaccinations, isLoading } = useVaccinations();
   const { pet } = useSelectedPet();
-  const { categorizedVaccinations, isLoadingRequirements } = useVaccineCategories();
+  const { categorizedVaccinations, isLoadingRequirements, requiredVaccinesStatus } = useVaccineCategories();
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -64,29 +65,41 @@ export default function VaccinationsScreen() {
 
   if (vaccinations.length === 0) {
     return (
-      <View
-        className="flex-1 items-center justify-center px-6"
+      <ScrollView
+        className="flex-1"
         style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
       >
-        <View
-          className="w-24 h-24 rounded-full items-center justify-center mb-6"
-          style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
-        >
-          <MaterialCommunityIcons name="needle" size={24} color={theme.primary} />
+        {/* Vaccination Status Header */}
+        <View className="px-4 pt-4 mb-4">
+          <VaccinationStatusHeader 
+            status={requiredVaccinesStatus} 
+            country={pet.country}
+          />
         </View>
-        <Text
-          className="text-xl font-semibold mb-2 text-center"
-          style={{ color: theme.foreground }}
-        >
-          No vaccines recorded yet
-        </Text>
-        <Text
-          className="text-sm text-center"
-          style={{ color: theme.secondary }}
-        >
-          Upload your pet's vaccine certificate to get started
-        </Text>
-      </View>
+
+        <View className="flex-1 items-center justify-center px-6">
+          <View
+            className="w-24 h-24 rounded-full items-center justify-center mb-6"
+            style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+          >
+            <MaterialCommunityIcons name="needle" size={24} color={theme.primary} />
+          </View>
+          <Text
+            className="text-xl font-semibold mb-2 text-center"
+            style={{ color: theme.foreground }}
+          >
+            No vaccines recorded yet
+          </Text>
+          <Text
+            className="text-sm text-center"
+            style={{ color: theme.secondary }}
+          >
+            Upload your pet's vaccine certificate to get started
+          </Text>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -113,6 +126,14 @@ export default function VaccinationsScreen() {
           />
         }
       >
+        {/* Vaccination Status Header */}
+        <View className="px-4 mb-4">
+          <VaccinationStatusHeader 
+            status={requiredVaccinesStatus} 
+            country={pet.country}
+          />
+        </View>
+
         {/* Vaccination Sections */}
         <View className="px-4">
           {sections.map(({ category, items }) => {
