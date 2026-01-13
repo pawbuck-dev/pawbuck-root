@@ -227,12 +227,12 @@ export default function MyCareTeamSection({
           {/* Info */}
           <View className="flex-1">
             <Text
-              className="text-base font-bold"
+              className="text-lg font-bold"
               style={{ color: theme.foreground }}
             >
               {displayName}
             </Text>
-            <Text className="text-sm" style={{ color: theme.secondary }}>
+            <Text className="text-base" style={{ color: theme.secondary }}>
               {typeLabel}
             </Text>
           </View>
@@ -283,12 +283,12 @@ export default function MyCareTeamSection({
           </View>
           <View className="flex-1">
             <Text
-              className="text-lg font-bold"
+              className="text-xl font-bold"
               style={{ color: theme.foreground }}
             >
               My Care Team
             </Text>
-            <Text className="text-sm" style={{ color: theme.secondary }}>
+            <Text className="text-base" style={{ color: theme.secondary }}>
               {allMembers.length} contact{allMembers.length !== 1 ? "s" : ""}
             </Text>
           </View>
@@ -301,7 +301,7 @@ export default function MyCareTeamSection({
             activeOpacity={0.7}
           >
             <Ionicons name="add" size={18} color="#fff" />
-            <Text className="text-sm font-semibold ml-1" style={{ color: "#fff" }}>
+            <Text className="text-base font-semibold ml-1" style={{ color: "#fff" }}>
               Add
             </Text>
           </TouchableOpacity>
@@ -320,7 +320,7 @@ export default function MyCareTeamSection({
         {/* Empty State */}
         {allMembers.length === 0 && (
           <View className="items-center justify-center py-8">
-            <Text className="text-base" style={{ color: theme.secondary }}>
+            <Text className="text-lg" style={{ color: theme.secondary }}>
               No care team members yet
             </Text>
           </View>
@@ -349,12 +349,12 @@ export default function MyCareTeamSection({
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-semibold"
+                className="text-lg font-semibold"
                 style={{ color: theme.foreground }}
               >
                 Add Veterinarian
               </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 Add your vet's contact details
               </Text>
             </View>
@@ -381,12 +381,12 @@ export default function MyCareTeamSection({
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-semibold"
+                className="text-lg font-semibold"
                 style={{ color: theme.foreground }}
               >
                 Add Dog Walker
               </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 Add your dog walker's contact details
               </Text>
             </View>
@@ -413,12 +413,12 @@ export default function MyCareTeamSection({
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-semibold"
+                className="text-lg font-semibold"
                 style={{ color: theme.foreground }}
               >
                 Add Groomer
               </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 Add your groomer's contact details
               </Text>
             </View>
@@ -445,12 +445,12 @@ export default function MyCareTeamSection({
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-semibold"
+                className="text-lg font-semibold"
                 style={{ color: theme.foreground }}
               >
                 Add Pet Sitter
               </Text>
-              <Text className="text-sm" style={{ color: theme.secondary }}>
+              <Text className="text-base" style={{ color: theme.secondary }}>
                 Add your pet sitter's contact details
               </Text>
             </View>
@@ -477,12 +477,12 @@ export default function MyCareTeamSection({
               </View>
               <View className="flex-1">
                 <Text
-                  className="text-base font-semibold"
+                  className="text-lg font-semibold"
                   style={{ color: theme.foreground }}
                 >
                   Add Boarding Facility
                 </Text>
-                <Text className="text-sm" style={{ color: theme.secondary }}>
+                <Text className="text-base" style={{ color: theme.secondary }}>
                   Add your boarding facility's contact details
                 </Text>
               </View>

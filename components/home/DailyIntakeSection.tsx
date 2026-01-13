@@ -260,13 +260,13 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-bold"
+                className="text-lg font-bold"
                 style={{ color: theme.foreground }}
               >
                 Daily Intake
               </Text>
               <Text
-                className="text-xs"
+                className="text-sm"
                 style={{ color: theme.secondary }}
               >
                 Track food & water
@@ -307,13 +307,13 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
             {/* Text Content */}
             <View className="flex-1 ml-3">
               <Text
-                className="text-sm font-bold"
+                className="text-base font-bold"
                 style={{ color: theme.foreground }}
               >
                 Water
               </Text>
               <Text
-                className="text-xs mt-0.5"
+                className="text-sm mt-0.5"
                 style={{ color: theme.secondary }}
               >
                 {waterIntake}/{waterTarget} bowls
@@ -371,13 +371,13 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
             {/* Text Content */}
             <View className="flex-1 ml-3">
               <Text
-                className="text-sm font-bold"
+                className="text-base font-bold"
                 style={{ color: theme.foreground }}
               >
                 Food
               </Text>
               <Text
-                className="text-xs mt-0.5"
+                className="text-sm mt-0.5"
                 style={{ color: theme.secondary }}
               >
                 {foodIntake}/{foodTarget} meals

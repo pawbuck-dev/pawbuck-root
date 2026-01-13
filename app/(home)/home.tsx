@@ -363,7 +363,7 @@ export default function Home() {
         style={{ backgroundColor: theme.background }}
       >
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text className="mt-4 text-lg" style={{ color: theme.foreground }}>
+        <Text className="mt-4 text-xl" style={{ color: theme.foreground }}>
           Adding your pet...
         </Text>
       </View>
@@ -377,7 +377,7 @@ export default function Home() {
         style={{ backgroundColor: theme.background }}
       >
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text className="mt-4 text-lg" style={{ color: theme.foreground }}>
+        <Text className="mt-4 text-xl" style={{ color: theme.foreground }}>
           Loading your pets...
         </Text>
       </View>
@@ -415,13 +415,13 @@ export default function Home() {
             />
           </View>
           <Text
-            className="text-2xl font-bold text-center mb-2"
+            className="text-3xl font-bold text-center mb-2"
             style={{ color: theme.foreground }}
           >
             No pets yet
           </Text>
           <Text
-            className="text-base text-center mb-8"
+            className="text-lg text-center mb-8"
             style={{ color: theme.secondary }}
           >
             Add your first furry friend to get started
@@ -446,7 +446,7 @@ export default function Home() {
               >
                 <Ionicons name="add" size={20} color={theme.primary} />
               </View>
-              <Text className="text-base font-bold" style={{ color: theme.primary }}>
+              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
                 Add Your First Pet
               </Text>
             </TouchableOpacity>
@@ -463,7 +463,7 @@ export default function Home() {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.primary} style={{ marginRight: 8 }} />
-              <Text className="text-base font-bold" style={{ color: theme.primary }}>
+              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
                 Join Family Circle
               </Text>
             </TouchableOpacity>
@@ -480,7 +480,7 @@ export default function Home() {
               activeOpacity={0.7}
             >
               <MaterialCommunityIcons name="swap-horizontal" size={24} color={theme.primary} style={{ marginRight: 8 }} />
-              <Text className="text-base font-bold" style={{ color: theme.primary }}>
+              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
                 Transfer Pet with Code
               </Text>
             </TouchableOpacity>
@@ -561,7 +561,7 @@ export default function Home() {
                   activeOpacity={0.7}
                 >
                   <Text
-                    className="text-base font-medium"
+                    className="text-lg font-medium"
                     style={{ color: emailCopied ? "#22C55E" : theme.foreground }}
                   >
                     {selectedPet.email_id}@pawbuck.app

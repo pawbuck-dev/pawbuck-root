@@ -115,7 +115,7 @@ export default function HealthRecordsSection({ petId }: HealthRecordsSectionProp
               {record.icon}
             </LinearGradient>
             <Text
-              className="text-xs font-medium"
+              className="text-sm font-medium"
               style={{ color: theme.foreground }}
             >
               {record.label}

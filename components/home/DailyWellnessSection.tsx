@@ -168,13 +168,13 @@ export default function DailyWellnessSection({
           </View>
           <View>
             <Text
-              className="text-base font-bold"
+              className="text-lg font-bold"
               style={{ color: theme.foreground }}
             >
               Upcoming Vaccinations
             </Text>
             <Text
-              className="text-xs"
+              className="text-sm"
               style={{ color: theme.secondary }}
             >
               Next due dates
@@ -197,14 +197,14 @@ export default function DailyWellnessSection({
                   isDarkMode={isDarkMode}
                 />
                 <Text
-                  className="text-xs font-semibold mt-3 text-center"
+                  className="text-sm font-semibold mt-3 text-center"
                   style={{ color: theme.foreground }}
                   numberOfLines={1}
                 >
                   {vac.name}
                 </Text>
                 <Text
-                  className="text-xs mt-0.5 text-center"
+                  className="text-sm mt-0.5 text-center"
                   style={{ color: theme.secondary }}
                 >
                   {vac.daysLeft === 0

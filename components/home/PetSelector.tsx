@@ -121,7 +121,7 @@ export default function PetSelector({
 
             {/* Pet Name */}
             <Text
-              className="text-sm font-medium"
+              className="text-base font-medium"
               style={{
                 color: isSelected ? theme.primary : theme.foreground,
               }}
@@ -152,7 +152,7 @@ export default function PetSelector({
           </View>
         </View>
         <Text
-          className="text-sm font-medium"
+          className="text-base font-medium"
           style={{ color: theme.secondary }}
         >
           Add

@@ -188,13 +188,13 @@ export default function TodaysMedicationsSection({
             </View>
             <View className="flex-1">
               <Text
-                className="text-base font-bold"
+                className="text-lg font-bold"
                 style={{ color: theme.foreground }}
               >
                 Today's Medications
               </Text>
               <Text
-                className="text-xs"
+                className="text-sm"
                 style={{ color: theme.secondary }}
               >
                 {completionStats.completed}/{completionStats.total} completed
@@ -257,7 +257,7 @@ export default function TodaysMedicationsSection({
                 {/* Content */}
                 <View className="flex-1">
                   <Text
-                    className="text-sm font-bold"
+                    className="text-base font-bold"
                     style={{
                       color: isCompleted
                         ? isDarkMode
@@ -269,7 +269,7 @@ export default function TodaysMedicationsSection({
                     {medDose.medication.name}
                   </Text>
                   <Text
-                    className="text-xs mt-0.5"
+                    className="text-sm mt-0.5"
                     style={{ color: theme.secondary }}
                   >
                     {isCompleted
@@ -293,7 +293,7 @@ export default function TodaysMedicationsSection({
                     <ActivityIndicator size="small" color="#3BD0D2" />
                   ) : (
                     <Text
-                      className="text-xs font-semibold"
+                      className="text-sm font-semibold"
                       style={{
                         color: isCompleted ? "#FFFFFF" : "#3BD0D2",
                       }}
