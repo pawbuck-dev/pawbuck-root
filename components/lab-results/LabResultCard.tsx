@@ -6,11 +6,11 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   Alert,
-  ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { LabResultEditModal } from "./LabResultEditModal";
 
 interface LabResultCardProps {
@@ -234,17 +234,17 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
                 <>
                   <View 
                     style={{ 
-                      maxHeight: 300,
+                      height: 300,
                       borderRadius: 8,
                       backgroundColor: theme.background,
-                      padding: 8,
+                      overflow: 'hidden',
                     }}
                   >
                     <ScrollView 
+                      style={{ flex: 1, padding: 8 }}
                       showsVerticalScrollIndicator={true}
                       nestedScrollEnabled={true}
-                      scrollEnabled={true}
-                      contentContainerStyle={{ paddingBottom: 4 }}
+                      contentContainerStyle={{ paddingBottom: 8 }}
                     >
                       {labResult.results.map((result, index) => (
                         <View key={index} className="flex-row items-center justify-between mb-2">
