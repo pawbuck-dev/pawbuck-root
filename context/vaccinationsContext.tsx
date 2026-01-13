@@ -74,7 +74,12 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
       );
     },
     onError: (err) => {
-      console.error("Error adding vaccination:", err);
+      // Handle duplicate vaccination error separately
+      if (err.message.startsWith("DUPLICATE_VACCINATION:")) {
+        console.warn("Duplicate vaccination attempted:", err.message);
+      } else {
+        console.error("Error adding vaccination:", err);
+      }
     },
   });
 

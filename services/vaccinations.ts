@@ -34,6 +34,7 @@ export const getVaccinationsByUserId = async (userId: string) => {
 
 /**
  * Create a new vaccination record
+ * @throws Error with "DUPLICATE_VACCINATION:" prefix if vaccination already exists for this pet
  */
 export const createVaccination = async (
   vaccinationData: TablesInsert<"vaccinations">
@@ -44,7 +45,15 @@ export const createVaccination = async (
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Check for unique constraint violation (PostgreSQL error code 23505)
+    if (error.code === "23505") {
+      throw new Error(
+        "DUPLICATE_VACCINATION: This vaccination record already exists for this pet."
+      );
+    }
+    throw error;
+  }
   return data;
 };
 

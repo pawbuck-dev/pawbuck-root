@@ -175,8 +175,30 @@ export default function VaccinationUploadModal() {
       if (insertError) {
         console.error("Error inserting vaccines:", insertError);
         setStatus("error");
-        setStatusMessage("Failed to save vaccinations");
-        Alert.alert("Error", "Failed to insert vaccines");
+        
+        // Check for unique constraint violation (PostgreSQL error code 23505)
+        if (insertError.code === "23505") {
+          // Re-fetch existing vaccinations and identify which ones are duplicates
+          const duplicateVaccinations = vaccinationsToSave.filter((v) =>
+            isDuplicateVaccination(v, existingVaccinations)
+          );
+          
+          const duplicateNames = duplicateVaccinations.length > 0
+            ? duplicateVaccinations
+                .map((v) => `• ${v.name} (${v.date ? new Date(v.date).toLocaleDateString() : "No date"})`)
+                .join("\n")
+            : "Unable to identify specific duplicates";
+          
+          setStatusMessage("One or more vaccinations already exist");
+          Alert.alert(
+            "Duplicate Vaccinations Found",
+            `The following vaccination${duplicateVaccinations.length !== 1 ? "s are" : " is"} already recorded:\n\n${duplicateNames}`
+          );
+        } else {
+          setStatusMessage("Failed to save vaccinations");
+          Alert.alert("Error", "Failed to insert vaccines");
+        }
+        
         setTimeout(() => setStatus("idle"), 2000);
         return;
       }

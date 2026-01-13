@@ -37,45 +37,47 @@ CREATE INDEX IF NOT EXISTS "household_members_owner_id_idx" ON "public"."househo
 ALTER TABLE "public"."household_invites" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."household_members" ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for household_invites
--- Users can view their own invites
+-- RLS Policies for household_invites (drop first if exists)
+DROP POLICY IF EXISTS "Users can view their own invites" ON "public"."household_invites";
+DROP POLICY IF EXISTS "Users can create their own invites" ON "public"."household_invites";
+DROP POLICY IF EXISTS "Users can update their own invites" ON "public"."household_invites";
+DROP POLICY IF EXISTS "Anyone can view active invites for verification" ON "public"."household_invites";
+
 CREATE POLICY "Users can view their own invites"
     ON "public"."household_invites"
     FOR SELECT
     USING (auth.uid() = created_by);
 
--- Users can create their own invites
 CREATE POLICY "Users can create their own invites"
     ON "public"."household_invites"
     FOR INSERT
     WITH CHECK (auth.uid() = created_by);
 
--- Users can update their own invites
 CREATE POLICY "Users can update their own invites"
     ON "public"."household_invites"
     FOR UPDATE
     USING (auth.uid() = created_by);
 
--- Anyone can view active invites (for verification)
 CREATE POLICY "Anyone can view active invites for verification"
     ON "public"."household_invites"
     FOR SELECT
     USING (is_active = true AND (expires_at IS NULL OR expires_at > now()));
 
--- RLS Policies for household_members
--- Users can view their own household memberships
+-- RLS Policies for household_members (drop first if exists)
+DROP POLICY IF EXISTS "Users can view their own memberships" ON "public"."household_members";
+DROP POLICY IF EXISTS "Owners can add members" ON "public"."household_members";
+DROP POLICY IF EXISTS "Users can update their own membership" ON "public"."household_members";
+
 CREATE POLICY "Users can view their own memberships"
     ON "public"."household_members"
     FOR SELECT
     USING (auth.uid() = user_id OR auth.uid() = household_owner_id);
 
--- Household owners can insert members
 CREATE POLICY "Owners can add members"
     ON "public"."household_members"
     FOR INSERT
     WITH CHECK (auth.uid() = household_owner_id);
 
--- Users can update their own membership status
 CREATE POLICY "Users can update their own membership"
     ON "public"."household_members"
     FOR UPDATE
