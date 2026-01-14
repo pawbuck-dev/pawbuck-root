@@ -1,3 +1,0 @@
--- Placeholder migration file
--- Original migration was lost but was applied to remote database
--- Marked as reverted to sync local and remote states
