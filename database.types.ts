@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -113,6 +108,99 @@ export type Database = {
           },
         ]
       }
+      country_vaccine_requirements: {
+        Row: {
+          animal_type: string
+          canonical_key: string
+          country: string
+          created_at: string
+          description: string | null
+          frequency_months: number | null
+          id: string
+          is_required: boolean
+          vaccine_name: string
+        }
+        Insert: {
+          animal_type: string
+          canonical_key: string
+          country: string
+          created_at?: string
+          description?: string | null
+          frequency_months?: number | null
+          id?: string
+          is_required?: boolean
+          vaccine_name: string
+        }
+        Update: {
+          animal_type?: string
+          canonical_key?: string
+          country?: string
+          created_at?: string
+          description?: string | null
+          frequency_months?: number | null
+          id?: string
+          is_required?: boolean
+          vaccine_name?: string
+        }
+        Relationships: []
+      }
+      household_invites: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
+      household_members: {
+        Row: {
+          household_owner_id: string
+          id: string
+          is_active: boolean
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          household_owner_id: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          household_owner_id?: string
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       lab_results: {
         Row: {
           confidence: number | null
@@ -159,6 +247,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lab_results_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_doses: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          medication_id: string
+          pet_id: string
+          scheduled_time: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          medication_id: string
+          pet_id: string
+          scheduled_time: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          medication_id?: string
+          pet_id?: string
+          scheduled_time?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_doses_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_doses_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
@@ -246,9 +382,55 @@ export type Database = {
           },
         ]
       }
-      pending_email_approvals: {
+      message_threads: {
         Row: {
           created_at: string
+          id: string
+          pet_id: string
+          recipient_email: string
+          recipient_name: string | null
+          reply_to_address: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pet_id: string
+          recipient_email: string
+          recipient_name?: string | null
+          reply_to_address: string
+          subject: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pet_id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          reply_to_address?: string
+          subject?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_threads_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_email_approvals: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          document_type: string | null
           id: string
           pet_id: string
           s3_bucket: string
@@ -256,9 +438,13 @@ export type Database = {
           sender_email: string
           status: string
           user_id: string
+          validation_errors: Json | null
+          validation_status: string | null
         }
         Insert: {
+          attachment_url?: string | null
           created_at?: string
+          document_type?: string | null
           id?: string
           pet_id: string
           s3_bucket: string
@@ -266,9 +452,13 @@ export type Database = {
           sender_email: string
           status?: string
           user_id: string
+          validation_errors?: Json | null
+          validation_status?: string | null
         }
         Update: {
+          attachment_url?: string | null
           created_at?: string
+          document_type?: string | null
           id?: string
           pet_id?: string
           s3_bucket?: string
@@ -276,10 +466,48 @@ export type Database = {
           sender_email?: string
           status?: string
           user_id?: string
+          validation_errors?: Json | null
+          validation_status?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "pending_email_approvals_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_care_team_members: {
+        Row: {
+          care_team_member_id: string
+          created_at: string
+          id: string
+          pet_id: string
+        }
+        Insert: {
+          care_team_member_id: string
+          created_at?: string
+          id?: string
+          pet_id: string
+        }
+        Update: {
+          care_team_member_id?: string
+          created_at?: string
+          id?: string
+          pet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_care_team_members_care_team_member_id_fkey"
+            columns: ["care_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "vet_information"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_care_team_members_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
@@ -322,10 +550,55 @@ export type Database = {
           },
         ]
       }
+      pet_transfers: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          from_user_id: string
+          id: string
+          is_active: boolean
+          pet_id: string
+          to_user_id: string | null
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          from_user_id: string
+          id?: string
+          is_active?: boolean
+          pet_id: string
+          to_user_id?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          from_user_id?: string
+          id?: string
+          is_active?: boolean
+          pet_id?: string
+          to_user_id?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_transfers_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           animal_type: string
           breed: string
+          color: string | null
           country: string
           created_at: string
           date_of_birth: string
@@ -344,6 +617,7 @@ export type Database = {
         Insert: {
           animal_type: string
           breed: string
+          color?: string | null
           country: string
           created_at?: string
           date_of_birth: string
@@ -362,6 +636,7 @@ export type Database = {
         Update: {
           animal_type?: string
           breed?: string
+          color?: string | null
           country?: string
           created_at?: string
           date_of_birth?: string
@@ -383,6 +658,47 @@ export type Database = {
             columns: ["vet_information_id"]
             isOneToOne: false
             referencedRelation: "vet_information"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processed_emails: {
+        Row: {
+          attachment_count: number | null
+          completed_at: string | null
+          id: string
+          pet_id: string | null
+          s3_key: string
+          started_at: string | null
+          status: string
+          success: boolean | null
+        }
+        Insert: {
+          attachment_count?: number | null
+          completed_at?: string | null
+          id?: string
+          pet_id?: string | null
+          s3_key: string
+          started_at?: string | null
+          status?: string
+          success?: boolean | null
+        }
+        Update: {
+          attachment_count?: number | null
+          completed_at?: string | null
+          id?: string
+          pet_id?: string | null
+          s3_key?: string
+          started_at?: string | null
+          status?: string
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processed_emails_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
             referencedColumns: ["id"]
           },
         ]
@@ -411,24 +727,80 @@ export type Database = {
         }
         Relationships: []
       }
+      thread_messages: {
+        Row: {
+          bcc: string[] | null
+          body: string
+          cc: string[] | null
+          direction: string
+          id: string
+          recipient_email: string
+          sender_email: string
+          sent_at: string
+          subject: string
+          thread_id: string
+        }
+        Insert: {
+          bcc?: string[] | null
+          body: string
+          cc?: string[] | null
+          direction: string
+          id?: string
+          recipient_email: string
+          sender_email: string
+          sent_at?: string
+          subject: string
+          thread_id: string
+        }
+        Update: {
+          bcc?: string[] | null
+          body?: string
+          cc?: string[] | null
+          direction?: string
+          id?: string
+          recipient_email?: string
+          sender_email?: string
+          sent_at?: string
+          subject?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_preferences: {
         Row: {
+          address: string | null
           created_at: string
+          full_name: string | null
           id: string
+          phone: string | null
           updated_at: string
           user_id: string
           vaccination_reminder_days: number
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           user_id: string
           vaccination_reminder_days?: number
         }
         Update: {
+          address?: string | null
           created_at?: string
+          full_name?: string | null
           id?: string
+          phone?: string | null
           updated_at?: string
           user_id?: string
           vaccination_reminder_days?: number
@@ -482,6 +854,30 @@ export type Database = {
           },
         ]
       }
+      vaccine_equivalencies: {
+        Row: {
+          canonical_name: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          variant_name: string
+        }
+        Insert: {
+          canonical_name: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          variant_name: string
+        }
+        Update: {
+          canonical_name?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          variant_name?: string
+        }
+        Relationships: []
+      }
       vet_information: {
         Row: {
           address: string
@@ -490,6 +886,7 @@ export type Database = {
           email: string
           id: string
           phone: string
+          type: string | null
           updated_at: string
           vet_name: string
         }
@@ -500,6 +897,7 @@ export type Database = {
           email: string
           id?: string
           phone: string
+          type?: string | null
           updated_at?: string
           vet_name: string
         }
@@ -510,6 +908,7 @@ export type Database = {
           email?: string
           id?: string
           phone?: string
+          type?: string | null
           updated_at?: string
           vet_name?: string
         }
@@ -523,6 +922,10 @@ export type Database = {
       check_email_id_available: {
         Args: { p_email_id: string; p_exclude_pet_id?: string }
         Returns: boolean
+      }
+      create_user_preferences: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -659,3 +1062,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

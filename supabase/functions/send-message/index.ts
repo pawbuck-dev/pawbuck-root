@@ -2,7 +2,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 import { corsHeaders, jsonResponse, errorResponse } from "../_shared/cors.ts";
-import { SESClient, SendEmailCommand } from "npm:@aws-sdk/client-ses@3";
 
 interface SendMessageRequest {
   petId: string;
@@ -71,8 +70,8 @@ async function getOrCreateThread(
   };
 }
 
-// Send email via AWS SES
-async function sendEmailViaSES(
+// Send email via Mailgun API
+async function sendEmailViaMailgun(
   to: string,
   cc: string[],
   bcc: string[],
@@ -81,24 +80,15 @@ async function sendEmailViaSES(
   replyTo: string,
   petName: string
 ): Promise<void> {
-  const accessKeyId = Deno.env.get("AWS_SES_ACCESS_KEY_ID");
-  const secretAccessKey = Deno.env.get("AWS_SES_SECRET_ACCESS_KEY");
-  const region = Deno.env.get("AWS_SES_REGION") || "us-east-1";
-  const fromEmail = Deno.env.get("SES_FROM_EMAIL") || "support@pawbuck.app";
-  const fromName = Deno.env.get("SES_FROM_NAME") || "PetApp Chat";
+  const apiKey = Deno.env.get("MAILGUN_API_KEY");
+  const domain = Deno.env.get("MAILGUN_DOMAIN");
+  const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
+  const fromName = Deno.env.get("FROM_NAME") || "PetApp Chat";
   const appUrl = Deno.env.get("APP_URL") || "https://app.pawbuck.app";
 
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error("AWS SES credentials not configured");
+  if (!apiKey || !domain) {
+    throw new Error("Mailgun API credentials not configured");
   }
-
-  const sesClient = new SESClient({
-    region,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
 
   // Build email body with HTML
   const htmlBody = `
@@ -119,33 +109,54 @@ async function sendEmailViaSES(
 
   const textBody = `${body}\n\n---\nThis message is about ${petName}. View in app: ${appUrl}/messages`;
 
-  const command = new SendEmailCommand({
-    Source: `${fromName} <${fromEmail}>`,
-    Destination: {
-      ToAddresses: [to],
-      CcAddresses: cc.length > 0 ? cc : undefined,
-      BccAddresses: bcc.length > 0 ? bcc : undefined,
-    },
-    ReplyToAddresses: [replyTo],
-    Message: {
-      Subject: {
-        Data: subject,
-        Charset: "UTF-8",
-      },
-      Body: {
-        Html: {
-          Data: htmlBody,
-          Charset: "UTF-8",
-        },
-        Text: {
-          Data: textBody,
-          Charset: "UTF-8",
-        },
-      },
-    },
-  });
+  // Build FormData for Mailgun API
+  const formData = new FormData();
+  formData.append("from", `${fromName} <${fromEmail}>`);
+  formData.append("to", to);
+  
+  // Add CC recipients
+  if (cc.length > 0) {
+    cc.forEach((email) => formData.append("cc", email));
+  }
+  
+  // Add BCC recipients
+  if (bcc.length > 0) {
+    bcc.forEach((email) => formData.append("bcc", email));
+  }
+  
+  formData.append("subject", subject);
+  formData.append("text", textBody);
+  formData.append("html", htmlBody);
+  formData.append("h:Reply-To", replyTo);
 
-  await sesClient.send(command);
+  // Send via Mailgun API
+  const response = await fetch(
+    `https://api.mailgun.net/v3/${domain}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Mailgun API error:", response.status, errorText);
+    
+    if (response.status === 401) {
+      throw new Error("Mailgun API authentication failed");
+    } else if (response.status === 400) {
+      throw new Error(`Mailgun API invalid request: ${errorText}`);
+    } else if (response.status === 429) {
+      throw new Error("Mailgun API rate limit exceeded");
+    } else {
+      throw new Error(`Mailgun API error: ${response.status} ${errorText}`);
+    }
+  }
+
+  console.log("Email sent successfully via Mailgun");
 }
 
 Deno.serve(async (req) => {
@@ -213,8 +224,8 @@ Deno.serve(async (req) => {
       subject
     );
 
-    // Send email via SES
-    await sendEmailViaSES(
+    // Send email via Mailgun
+    await sendEmailViaMailgun(
       to,
       cc ? [cc] : [],
       bcc ? [bcc] : [],
