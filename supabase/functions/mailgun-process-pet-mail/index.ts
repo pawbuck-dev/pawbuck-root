@@ -30,10 +30,7 @@ import { storeInboundMessage } from "./messageStorage.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { lookupRecipientName } from "./recipientNameLookup.ts";
 import { createThreadFromInboundEmail } from "./threadCreation.ts";
-import {
-  findThreadByRecipientAndPet,
-  findThreadByReplyToAddress,
-} from "./threadLookup.ts";
+import { findThreadByRecipientAndPet } from "./threadLookup.ts";
 import type { EmailContext, EmailInfo, MailgunConfig, Pet } from "./types.ts";
 
 console.log("mailgun-process-pet-mail function initialized");
@@ -177,21 +174,7 @@ Deno.serve(async (req) => {
         `[MONITORING] Starting message storage (text body length: ${parsedEmail.textBody.length})`
       );
       try {
-        // Try to find thread by reply-to address (recipient email)
-        // When a vet replies, the "To" field contains our reply-to address (e.g., thread-abc123@pawbuck.app)
-        console.log(
-          `[MONITORING] Looking up thread by reply-to address: ${recipientEmail.toLowerCase()}`
-        );
-        let thread = await findThreadByReplyToAddress(recipientEmail);
-
-        // Fallback: try to find thread by sender email + pet ID
-        // The sender email (vet's email) should match the thread's recipient_email
-        if (!thread) {
-          console.log(
-            `[MONITORING] Thread not found by reply-to, trying sender email + pet ID: ${senderEmail.toLowerCase()}, pet: ${pet.id}`
-          );
-          thread = await findThreadByRecipientAndPet(senderEmail, pet.id);
-        }
+        const thread = await findThreadByRecipientAndPet(senderEmail, pet.id);
 
         if (thread) {
           console.log(
@@ -210,6 +193,7 @@ Deno.serve(async (req) => {
             subject: parsedEmail.subject,
             body: parsedEmail.textBody, // Already cleaned by mailgunParser
             sentAt: parsedEmail.date || undefined,
+            messageId: messageId, // For email threading support
           });
 
           messageStored = true;
@@ -238,6 +222,8 @@ Deno.serve(async (req) => {
               recipientEmail: senderEmail, // The sender becomes the recipient in the thread
               recipientName: recipientName,
               subject: parsedEmail.subject,
+              petEmail: recipientEmail,
+              messageId: messageId, // For email threading support
             });
 
             console.log(
@@ -254,6 +240,7 @@ Deno.serve(async (req) => {
               subject: parsedEmail.subject,
               body: parsedEmail.textBody,
               sentAt: parsedEmail.date || undefined,
+              messageId: messageId, // For email threading support
             });
 
             messageStored = true;

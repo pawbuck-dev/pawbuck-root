@@ -1,6 +1,6 @@
 /**
  * Thread Creation Utilities
- * 
+ *
  * Functions to create new message threads from inbound emails
  * Used when a conversation starts with an incoming email (vet initiates conversation)
  */
@@ -36,6 +36,8 @@ export interface CreateThreadParams {
   recipientEmail: string; // The sender's email (vet/care provider)
   recipientName: string | null;
   subject: string;
+  petEmail: string;
+  messageId?: string | null; // Email Message-Id header for threading
 }
 
 export interface ThreadCreationResult {
@@ -51,12 +53,10 @@ export async function createThreadFromInboundEmail(
   params: CreateThreadParams
 ): Promise<ThreadCreationResult> {
   const supabase = createSupabaseClient();
-  
-  console.log(`[ThreadCreation] Creating new thread for recipient: ${params.recipientEmail}, pet: ${params.petId}`);
-  
-  const domain = Deno.env.get("EMAIL_DOMAIN") || "pawbuck.app";
-  const newThreadId = crypto.randomUUID();
-  const replyToAddress = generateReplyToAddress(newThreadId, domain);
+
+  console.log(
+    `[ThreadCreation] Creating new thread for recipient: ${params.recipientEmail}, pet: ${params.petId}`
+  );
 
   const { data: newThread, error } = await supabase
     .from("message_threads")
@@ -65,8 +65,9 @@ export async function createThreadFromInboundEmail(
       user_id: params.userId,
       recipient_email: params.recipientEmail.toLowerCase().trim(),
       recipient_name: params.recipientName,
-      reply_to_address: replyToAddress,
+      reply_to_address: params.petEmail,
       subject: params.subject,
+      message_id: params.messageId || null,
     })
     .select()
     .single();
@@ -76,8 +77,10 @@ export async function createThreadFromInboundEmail(
     throw error;
   }
 
-  console.log(`[ThreadCreation] ✅ Created new thread: ${newThread.id} (reply-to: ${replyToAddress})`);
-  
+  console.log(
+    `[ThreadCreation] ✅ Created new thread: ${newThread.id} (reply-to: ${replyToAddress})`
+  );
+
   return {
     threadId: newThread.id,
     replyToAddress: newThread.reply_to_address,

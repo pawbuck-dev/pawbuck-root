@@ -1,7 +1,7 @@
 // supabase/functions/send-message/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
-import { corsHeaders, jsonResponse, errorResponse } from "../_shared/cors.ts";
 
 interface SendMessageRequest {
   petId: string;
@@ -27,11 +27,17 @@ async function getOrCreateThread(
   recipientEmail: string,
   recipientName: string | null,
   subject: string
-): Promise<{ threadId: string; replyToAddress: string }> {
+): Promise<{
+  threadId: string;
+  replyToAddress: string;
+  isExisting: boolean;
+  messageId: string | null;
+  subject: string;
+}> {
   // Check if thread exists (by recipient email and pet)
   const { data: existingThread } = await supabase
     .from("message_threads")
-    .select("id, reply_to_address")
+    .select("id, reply_to_address, message_id, subject")
     .eq("pet_id", petId)
     .eq("user_id", userId)
     .eq("recipient_email", recipientEmail.toLowerCase())
@@ -41,6 +47,9 @@ async function getOrCreateThread(
     return {
       threadId: existingThread.id,
       replyToAddress: existingThread.reply_to_address,
+      isExisting: true,
+      messageId: existingThread.message_id,
+      subject: existingThread.subject,
     };
   }
 
@@ -67,6 +76,9 @@ async function getOrCreateThread(
   return {
     threadId: newThread.id,
     replyToAddress: newThread.reply_to_address,
+    isExisting: false,
+    messageId: null,
+    subject: subject,
   };
 }
 
@@ -78,7 +90,8 @@ async function sendEmailViaMailgun(
   subject: string,
   body: string,
   replyTo: string,
-  petName: string
+  petName: string,
+  inReplyTo?: string | null
 ): Promise<void> {
   const apiKey = Deno.env.get("MAILGUN_API_KEY");
   const domain = Deno.env.get("MAILGUN_DOMAIN");
@@ -113,21 +126,28 @@ async function sendEmailViaMailgun(
   const formData = new FormData();
   formData.append("from", `${fromName} <${fromEmail}>`);
   formData.append("to", to);
-  
+
   // Add CC recipients
   if (cc.length > 0) {
     cc.forEach((email) => formData.append("cc", email));
   }
-  
+
   // Add BCC recipients
   if (bcc.length > 0) {
     bcc.forEach((email) => formData.append("bcc", email));
   }
-  
+
   formData.append("subject", subject);
   formData.append("text", textBody);
   formData.append("html", htmlBody);
   formData.append("h:Reply-To", replyTo);
+
+  // Add In-Reply-To header for proper email threading
+  if (inReplyTo) {
+    formData.append("h:In-Reply-To", inReplyTo);
+    formData.append("h:References", inReplyTo);
+    console.log(`Adding In-Reply-To header: ${inReplyTo}`);
+  }
 
   // Send via Mailgun API
   const response = await fetch(
@@ -144,7 +164,7 @@ async function sendEmailViaMailgun(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Mailgun API error:", response.status, errorText);
-    
+
     if (response.status === 401) {
       throw new Error("Mailgun API authentication failed");
     } else if (response.status === 400) {
@@ -186,10 +206,10 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: SendMessageRequest = await req.json();
-    const { petId, to, cc, bcc, subject, message } = body;
+    const { petId, to, cc, bcc, message } = body;
 
     // Validate required fields
-    if (!petId || !to || !subject || !message) {
+    if (!petId || !to || !message) {
       return errorResponse("Missing required fields", 400);
     }
 
@@ -215,28 +235,40 @@ Deno.serve(async (req) => {
     const recipientName = careTeamMember?.vet_name || null;
 
     // Get or create thread
-    const { threadId, replyToAddress } = await getOrCreateThread(
-      supabase,
-      user.id,
-      petId,
-      to,
-      recipientName,
-      subject
-    );
+    const { threadId, replyToAddress, isExisting, messageId, subject } =
+      await getOrCreateThread(
+        supabase,
+        user.id,
+        petId,
+        to,
+        recipientName,
+        "New Message"
+      );
+
+    // Determine the email subject
+    // If replying to an existing thread and subject doesn't already have RE:, add it
+    let emailSubject = subject;
+    if (isExisting && subject) {
+      emailSubject = `RE: ${subject}`;
+      console.log(
+        `Replying to existing thread, subject changed to: ${emailSubject}`
+      );
+    }
 
     // Send email via Mailgun
     await sendEmailViaMailgun(
       to,
       cc ? [cc] : [],
       bcc ? [bcc] : [],
-      subject,
+      emailSubject,
       message,
       replyToAddress,
-      pet.name
+      pet.name,
+      messageId // Pass message_id for In-Reply-To header
     );
 
     // Store message in database
-    const fromEmail = Deno.env.get("SES_FROM_EMAIL") || "support@pawbuck.app";
+    const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
     const { error: messageError } = await supabase
       .from("thread_messages")
       .insert({
@@ -246,7 +278,7 @@ Deno.serve(async (req) => {
         recipient_email: to,
         cc: cc ? [cc] : null,
         bcc: bcc ? [bcc] : null,
-        subject: subject,
+        subject: emailSubject,
         body: message,
       });
 
@@ -268,31 +300,43 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error sending message:", error);
-    
+
     // Provide more specific error messages
     let errorMessage = "Internal server error";
     let statusCode = 500;
-    
+
     if (error instanceof Error) {
       errorMessage = error.message;
-      
+
       // Handle specific error cases
       if (error.message.includes("AWS SES credentials not configured")) {
-        errorMessage = "Email service is not configured. Please contact support.";
+        errorMessage =
+          "Email service is not configured. Please contact support.";
         statusCode = 503;
-      } else if (error.message.includes("InvalidParameterValue") || error.message.includes("MessageRejected")) {
-        errorMessage = "Unable to send email. Please check the recipient email address.";
+      } else if (
+        error.message.includes("InvalidParameterValue") ||
+        error.message.includes("MessageRejected")
+      ) {
+        errorMessage =
+          "Unable to send email. Please check the recipient email address.";
         statusCode = 400;
-      } else if (error.message.includes("AccessDenied") || error.message.includes("UnauthorizedOperation")) {
-        errorMessage = "Email service configuration error. Please contact support.";
+      } else if (
+        error.message.includes("AccessDenied") ||
+        error.message.includes("UnauthorizedOperation")
+      ) {
+        errorMessage =
+          "Email service configuration error. Please contact support.";
         statusCode = 503;
-      } else if (error.message.includes("Throttling") || error.message.includes("ServiceUnavailable")) {
-        errorMessage = "Email service is temporarily unavailable. Please try again later.";
+      } else if (
+        error.message.includes("Throttling") ||
+        error.message.includes("ServiceUnavailable")
+      ) {
+        errorMessage =
+          "Email service is temporarily unavailable. Please try again later.";
         statusCode = 503;
       }
     }
-    
+
     return errorResponse(errorMessage, statusCode);
   }
 });
-

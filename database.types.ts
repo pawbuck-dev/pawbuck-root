@@ -386,6 +386,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          message_id: string | null
           pet_id: string
           recipient_email: string
           recipient_name: string | null
@@ -397,6 +398,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          message_id?: string | null
           pet_id: string
           recipient_email: string
           recipient_name?: string | null
@@ -408,6 +410,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          message_id?: string | null
           pet_id?: string
           recipient_email?: string
           recipient_name?: string | null
