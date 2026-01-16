@@ -1,45 +1,51 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
-    CareTeamMemberModal,
-    CareTeamMemberSaveData,
+  CareTeamMemberModal,
+  CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
-import { useAuth } from "@/context/authContext";
+// HIDDEN: Family Access imports - Uncomment to re-enable
+// import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
+// HIDDEN: Family Access imports - Uncomment to re-enable
+// import {
+//     createHouseholdInvite,
+//     getMyHouseholdInvites,
+//     getMyHouseholdMembers,
+//     HouseholdInvite,
+//     HouseholdMember,
+//     removeHouseholdMember
+// } from "@/services/householdInvites";
 import {
-    createHouseholdInvite,
-    getMyHouseholdInvites,
-    getMyHouseholdMembers,
-    HouseholdInvite,
-    HouseholdMember,
-    removeHouseholdMember
-} from "@/services/householdInvites";
-import {
-    CareTeamMemberType,
-    createVetInformation,
-    findExistingCareTeamMember,
-    getAllCareTeamMembers,
-    updateVetInformation,
-    VetInformation,
+  CareTeamMemberType,
+  createVetInformation,
+  findExistingCareTeamMember,
+  getAllCareTeamMembers,
+  updateVetInformation,
+  VetInformation,
 } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Clipboard from "expo-clipboard";
+// HIDDEN: Family Access - change back to: import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+// HIDDEN: Family Access imports - Uncomment to re-enable
+// import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    Text,
-    View
+  ActivityIndicator,
+  Alert,
+  // HIDDEN: Family Access - Uncomment Modal to re-enable
+  // Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View
 } from "react-native";
-import QRCode from "react-native-qrcode-svg";
+// HIDDEN: Family Access imports - Uncomment to re-enable
+// import QRCode from "react-native-qrcode-svg";
 
 // Helper function to get icon for care team member type
 const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof MaterialCommunityIcons.glyphMap => {
@@ -55,25 +61,27 @@ const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof MaterialComm
   return icons[type];
 };
 
-// Helper function to get initials from name
-const getInitials = (name: string) => {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .substring(0, 2);
-};
+// HIDDEN: Family Access helper function - Uncomment to re-enable
+// const getInitials = (name: string) => {
+//   return name
+//     .split(" ")
+//     .map((n) => n[0])
+//     .join("")
+//     .toUpperCase()
+//     .substring(0, 2);
+// };
 
 export default function FamilyAccess() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
-  const { user } = useAuth();
+  // HIDDEN: Family Access - Uncomment to re-enable
+  // const { user } = useAuth();
   const { pets } = usePets();
   const queryClient = useQueryClient();
-  const [showQRCode, setShowQRCode] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
+  // HIDDEN: Family Access state - Uncomment to re-enable
+  // const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  // const [generating, setGenerating] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
 
@@ -83,68 +91,66 @@ export default function FamilyAccess() {
     queryFn: getAllCareTeamMembers,
   });
 
-  // Fetch invites
-  const { data: invites = [], isLoading: loadingInvites } = useQuery<HouseholdInvite[]>({
-    queryKey: ["household_invites"],
-    queryFn: getMyHouseholdInvites,
-  });
+  // HIDDEN: Family Access queries - Uncomment to re-enable
+  // const { data: invites = [], isLoading: loadingInvites } = useQuery<HouseholdInvite[]>({
+  //   queryKey: ["household_invites"],
+  //   queryFn: getMyHouseholdInvites,
+  // });
 
-  // Fetch household members
-  const { data: members = [], isLoading: loadingMembers } = useQuery<HouseholdMember[]>({
-    queryKey: ["household_members"],
-    queryFn: getMyHouseholdMembers,
-  });
+  // const { data: members = [], isLoading: loadingMembers } = useQuery<HouseholdMember[]>({
+  //   queryKey: ["household_members"],
+  //   queryFn: getMyHouseholdMembers,
+  // });
 
-  // Create invite mutation
-  const createInviteMutation = useMutation({
-    mutationFn: createHouseholdInvite,
-    onSuccess: (invite) => {
-      queryClient.invalidateQueries({ queryKey: ["household_invites"] });
-      setGenerating(false);
-      // Show the QR code modal with the generated invite code
-      setShowQRCode(invite.code);
-    },
-    onError: (error: any) => {
-      setGenerating(false);
-      Alert.alert("Error", error.message || "Failed to generate invite code");
-    },
-  });
+  // HIDDEN: Family Access mutations - Uncomment to re-enable
+  // const createInviteMutation = useMutation({
+  //   mutationFn: createHouseholdInvite,
+  //   onSuccess: (invite) => {
+  //     queryClient.invalidateQueries({ queryKey: ["household_invites"] });
+  //     setGenerating(false);
+  //     setShowQRCode(invite.code);
+  //   },
+  //   onError: (error: any) => {
+  //     setGenerating(false);
+  //     Alert.alert("Error", error.message || "Failed to generate invite code");
+  //   },
+  // });
 
-  // Remove member mutation
-  const removeMemberMutation = useMutation({
-    mutationFn: removeHouseholdMember,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["household_members"] });
-      Alert.alert("Success", "Household member removed");
-    },
-    onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to remove household member");
-    },
-  });
+  // const removeMemberMutation = useMutation({
+  //   mutationFn: removeHouseholdMember,
+  //   onSuccess: () => {
+  //     queryClient.invalidateQueries({ queryKey: ["household_members"] });
+  //     Alert.alert("Success", "Household member removed");
+  //   },
+  //   onError: (error: any) => {
+  //     Alert.alert("Error", error.message || "Failed to remove household member");
+  //   },
+  // });
 
-  const handleGenerateInvite = async () => {
-    setGenerating(true);
-    createInviteMutation.mutate(30); // 30 days expiry
-  };
+  // HIDDEN: Family Access handlers - Uncomment to re-enable
+  // const handleGenerateInvite = async () => {
+  //   setGenerating(true);
+  //   createInviteMutation.mutate(30);
+  // };
 
-  const handleShowQRCode = (code: string) => {
-    setShowQRCode(code);
-  };
+  // const handleShowQRCode = (code: string) => {
+  //   setShowQRCode(code);
+  // };
 
-  const handleRemoveMember = (memberId: string) => {
-    Alert.alert(
-      "Remove Member",
-      "Are you sure you want to remove this household member?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => removeMemberMutation.mutate(memberId),
-        },
-      ]
-    );
-  };
+  // const handleRemoveMember = (memberId: string) => {
+  //   Alert.alert(
+  //     "Remove Member",
+  //     "Are you sure you want to remove this household member?",
+  //     [
+  //       { text: "Cancel", style: "cancel" },
+  //       {
+  //         text: "Remove",
+  //         style: "destructive",
+  //         onPress: () => removeMemberMutation.mutate(memberId),
+  //       },
+  //     ]
+  //   );
+  // };
 
   // Handle care team member actions
   const handleCall = async (phone?: string) => {
@@ -242,8 +248,8 @@ export default function FamilyAccess() {
   // Count unique care team members (contacts that can communicate)
   const uniqueCareTeamCount = new Set(careTeamMembers.map((m) => m.email)).size;
 
-  // Check if user is owner (household_owner_id matches user.id)
-  const isOwner = (member: HouseholdMember) => member.household_owner_id === user?.id;
+  // HIDDEN: Family Access helper - Uncomment to re-enable
+  // const isOwner = (member: HouseholdMember) => member.household_owner_id === user?.id;
 
   return (
       <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -257,7 +263,7 @@ export default function FamilyAccess() {
               <Ionicons name="chevron-back" size={24} color={theme.foreground} />
             </Pressable>
             <Text className="text-3xl font-bold flex-1" style={{ color: theme.foreground }}>
-              Care Team & Family Access
+              Care Team
             </Text>
           </View>
         </View>
@@ -365,9 +371,8 @@ export default function FamilyAccess() {
             )}
           </View>
 
-          {/* Family Access Section */}
-          <View className="mb-8">
-            {/* Section Header */}
+          {/* HIDDEN: Family Access Section - Uncomment to re-enable */}
+          {/* <View className="mb-8">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center flex-1">
                 <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
@@ -391,19 +396,16 @@ export default function FamilyAccess() {
               </Pressable>
             </View>
 
-            {/* Household Members List */}
             {loadingMembers ? (
               <ActivityIndicator size="small" color={theme.primary} />
             ) : (
               <>
-                {/* Current User (Owner) */}
                 {user && (
                   <View
                     className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
                     style={{ backgroundColor: theme.card }}
                   >
                     <View className="flex-row items-center flex-1">
-                      {/* Avatar */}
                       <View
                         className="w-10 h-10 rounded-full items-center justify-center mr-3"
                         style={{ backgroundColor: theme.primary }}
@@ -412,8 +414,6 @@ export default function FamilyAccess() {
                           {getInitials(user.email || "User")}
                         </Text>
                       </View>
-
-                      {/* Member Info */}
                       <View className="flex-1">
                         <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
                           {user.email?.split("@")[0] || "You"}
@@ -422,8 +422,6 @@ export default function FamilyAccess() {
                           {user.email || ""}
                         </Text>
                       </View>
-
-                      {/* Owner Badge */}
                       <View
                         className="px-3 py-1 rounded-full flex-row items-center"
                         style={{ backgroundColor: "#A855F7" }}
@@ -437,7 +435,6 @@ export default function FamilyAccess() {
                   </View>
                 )}
 
-                {/* Other Household Members */}
                 {members.map((member) => (
                   <View
                     key={member.id}
@@ -445,7 +442,6 @@ export default function FamilyAccess() {
                     style={{ backgroundColor: theme.card }}
                   >
                     <View className="flex-row items-center flex-1">
-                      {/* Avatar */}
                       <View
                         className="w-10 h-10 rounded-full items-center justify-center mr-3"
                         style={{ backgroundColor: theme.primary }}
@@ -454,8 +450,6 @@ export default function FamilyAccess() {
                           {getInitials(member.user_id)}
                         </Text>
                       </View>
-
-                      {/* Member Info */}
                       <View className="flex-1">
                         <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
                           {member.user_id.split("@")[0] || member.user_id}
@@ -464,10 +458,6 @@ export default function FamilyAccess() {
                           {member.user_id}
                         </Text>
                       </View>
-
-                      {/* Note: Members don't show owner badge - only the current user (owner) shows it */}
-
-                      {/* Remove Button */}
                       <Pressable
                         onPress={() => handleRemoveMember(member.id)}
                         className="active:opacity-70"
@@ -485,11 +475,11 @@ export default function FamilyAccess() {
                 )}
               </>
             )}
-          </View>
+          </View> */}
         </ScrollView>
 
-        {/* Invite Family Member Modal */}
-        <Modal
+        {/* HIDDEN: Invite Family Member Modal - Uncomment to re-enable */}
+        {/* <Modal
           visible={!!showQRCode}
           transparent
           animationType="fade"
@@ -503,7 +493,6 @@ export default function FamilyAccess() {
               className="rounded-2xl p-6 mx-4"
               style={{ backgroundColor: theme.card, maxWidth: 400, width: "90%" }}
             >
-              {/* Header */}
               <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center flex-1">
                   <Ionicons name="person-add" size={24} color={theme.foreground} style={{ marginRight: 8 }} />
@@ -522,7 +511,6 @@ export default function FamilyAccess() {
                 </Pressable>
               </View>
 
-              {/* Description */}
               <Text
                 className="text-sm mb-6"
                 style={{ color: theme.secondary }}
@@ -530,7 +518,6 @@ export default function FamilyAccess() {
                 Share this code with family members so they can track your pets
               </Text>
 
-              {/* QR Code */}
               {showQRCode && (
                 <View className="items-center mb-6">
                   <View
@@ -540,7 +527,6 @@ export default function FamilyAccess() {
                     <QRCode value={showQRCode} size={200} color="#000000" backgroundColor="#FFFFFF" />
                   </View>
 
-                  {/* Or share this code */}
                   <Text
                     className="text-sm mb-3"
                     style={{ color: theme.secondary }}
@@ -548,7 +534,6 @@ export default function FamilyAccess() {
                     Or share this code:
                   </Text>
 
-                  {/* Code with copy button */}
                   <View className="flex-row items-center gap-3">
                     <Text
                       className="text-xl font-bold"
@@ -576,7 +561,6 @@ export default function FamilyAccess() {
                 </View>
               )}
 
-              {/* Instructions */}
               <View
                 className="rounded-xl p-4 mb-4"
                 style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
@@ -590,7 +574,7 @@ export default function FamilyAccess() {
               </View>
             </View>
           </View>
-        </Modal>
+        </Modal> */}
 
         {/* Add Care Team Member Modal */}
         {pets.length > 0 && (

@@ -1,6 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Image, Pressable, Text, View } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -81,8 +81,8 @@ export default function WelcomeScreen() {
               </View>
             </Pressable>
 
-            {/* Join Your Pet's Circle */}
-            <Pressable
+            {/* HIDDEN: Join Your Pet's Circle - Uncomment to re-enable */}
+            {/* <Pressable
               onPress={() => {
                 router.push("/join-household");
               }}
@@ -113,10 +113,10 @@ export default function WelcomeScreen() {
                   Access your family pets already registered
                 </Text>
               </View>
-            </Pressable>
+            </Pressable> */}
 
-            {/* Transfer Pet Ownership */}
-            <Pressable
+            {/* HIDDEN: Transfer Pet Ownership - Uncomment to re-enable */}
+            {/* <Pressable
               onPress={() => {
                 router.push("/transfer-pet");
               }}
@@ -147,7 +147,7 @@ export default function WelcomeScreen() {
                   Receive a pet from another PawBuck user
                 </Text>
               </View>
-            </Pressable>
+            </Pressable> */}
           </View>
         </View>
       </View>

@@ -285,19 +285,19 @@ export default function Settings() {
             }}
           />
 
-          {/* Care Team & Family Access */}
+          {/* Care Team */}
           <SettingsOption
             icon="account-group-outline"
-            title="Care Team & Family Access"
-            subtitle="Manage who can access your pets"
+            title="Care Team"
+            subtitle="Manage your pet's care providers"
             iconColor="#A78BFA"
             onPress={() => {
               router.push("/(home)/family-access");
             }}
           />
 
-          {/* Receive a Pet Transfer */}
-          <SettingsOption
+          {/* HIDDEN: Pet Transfer Features - Uncomment to re-enable */}
+          {/* <SettingsOption
             icon="swap-horizontal"
             title="Receive a Pet Transfer"
             subtitle="Accept a pet from another user"
@@ -305,10 +305,9 @@ export default function Settings() {
             onPress={() => {
               router.push("/transfer-pet");
             }}
-          />
+          /> */}
 
-          {/* Transfer Ownership */}
-          <SettingsOption
+          {/* <SettingsOption
             icon="account-plus-outline"
             title="Transfer Ownership"
             subtitle="Transfer a pet to a new owner"
@@ -316,7 +315,7 @@ export default function Settings() {
             onPress={() => {
               router.push("/(home)/transfer-pet");
             }}
-          />
+          /> */}
         </View>
 
         {/* Log Out Button */}
