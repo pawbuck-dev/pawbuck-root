@@ -12,12 +12,7 @@ interface SendMessageRequest {
   message: string;
 }
 
-// Generate unique reply-to address for thread
-function generateReplyToAddress(threadId: string, domain: string): string {
-  // Use thread ID and a short hash for uniqueness
-  const hash = threadId.substring(0, 8).replace(/-/g, "");
-  return `thread-${hash}@${domain}`;
-}
+const DOMAIN = Deno.env.get("MAIL_DOMAIN") || "pawbuck.app";
 
 // Generate or get existing thread ID
 async function getOrCreateThread(
@@ -35,8 +30,15 @@ async function getOrCreateThread(
   messageId: string | null;
   subject: string;
 }> {
+  console.log(`[getOrCreateThread] Looking for existing thread...`);
+  console.log(`[getOrCreateThread]   - petId: ${petId}`);
+  console.log(`[getOrCreateThread]   - userId: ${userId}`);
+  console.log(
+    `[getOrCreateThread]   - recipientEmail: ${recipientEmail.toLowerCase()}`
+  );
+
   // Check if thread exists (by recipient email and pet)
-  const { data: existingThread } = await supabase
+  const { data: existingThread, error: lookupError } = await supabase
     .from("message_threads")
     .select("id, reply_to_address, message_id, subject")
     .eq("pet_id", petId)
@@ -44,7 +46,23 @@ async function getOrCreateThread(
     .eq("recipient_email", recipientEmail.toLowerCase())
     .single();
 
+  if (lookupError && lookupError.code !== "PGRST116") {
+    console.log(
+      `[getOrCreateThread] Lookup error (non-404): ${lookupError.message}`
+    );
+  }
+
   if (existingThread) {
+    console.log(
+      `[getOrCreateThread] Found existing thread: ${existingThread.id}`
+    );
+    console.log(
+      `[getOrCreateThread]   - reply_to_address: ${existingThread.reply_to_address}`
+    );
+    console.log(
+      `[getOrCreateThread]   - message_id: ${existingThread.message_id || "(none)"}`
+    );
+    console.log(`[getOrCreateThread]   - subject: ${existingThread.subject}`);
     return {
       threadId: existingThread.id,
       replyToAddress: existingThread.reply_to_address,
@@ -54,21 +72,34 @@ async function getOrCreateThread(
     };
   }
 
+  console.log(
+    `[getOrCreateThread] No existing thread found, creating new thread...`
+  );
+  const insertData = {
+    pet_id: petId,
+    user_id: userId,
+    recipient_email: recipientEmail.toLowerCase(),
+    recipient_name: recipientName,
+    reply_to_address: replyToAddress,
+    subject: subject,
+  };
+  console.log(
+    `[getOrCreateThread] Insert data:`,
+    JSON.stringify(insertData, null, 2)
+  );
+
   const { data: newThread, error } = await supabase
     .from("message_threads")
-    .insert({
-      pet_id: petId,
-      user_id: userId,
-      recipient_email: recipientEmail.toLowerCase(),
-      recipient_name: recipientName,
-      reply_to_address: replyToAddress,
-      subject: subject,
-    })
+    .insert(insertData)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error(`[getOrCreateThread] ERROR creating thread:`, error);
+    throw error;
+  }
 
+  console.log(`[getOrCreateThread] New thread created: ${newThread.id}`);
   return {
     threadId: newThread.id,
     replyToAddress: newThread.reply_to_address,
@@ -88,14 +119,40 @@ async function sendEmailViaMailgun(
   replyTo: string,
   petName: string,
   inReplyTo?: string | null
-): Promise<void> {
+): Promise<{ messageId: string }> {
+  console.log(`[sendEmailViaMailgun] Starting email send...`);
+  console.log(`[sendEmailViaMailgun]   - to: ${to}`);
+  console.log(
+    `[sendEmailViaMailgun]   - cc: ${cc.length > 0 ? cc.join(", ") : "(none)"}`
+  );
+  console.log(
+    `[sendEmailViaMailgun]   - bcc: ${bcc.length > 0 ? bcc.join(", ") : "(none)"}`
+  );
+  console.log(`[sendEmailViaMailgun]   - subject: ${subject}`);
+  console.log(`[sendEmailViaMailgun]   - body length: ${body.length} chars`);
+  console.log(`[sendEmailViaMailgun]   - replyTo: ${replyTo}`);
+  console.log(`[sendEmailViaMailgun]   - petName: ${petName}`);
+  console.log(`[sendEmailViaMailgun]   - inReplyTo: ${inReplyTo || "(none)"}`);
+
   const apiKey = Deno.env.get("MAILGUN_API_KEY");
-  const domain = Deno.env.get("MAILGUN_DOMAIN");
+  const domain = Deno.env.get("MAIL_DOMAIN");
   const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
   const fromName = Deno.env.get("FROM_NAME") || "PetApp Chat";
   const appUrl = Deno.env.get("APP_URL") || "https://app.pawbuck.app";
 
+  console.log(`[sendEmailViaMailgun] Environment config:`);
+  console.log(
+    `[sendEmailViaMailgun]   - MAILGUN_API_KEY: ${apiKey ? `${apiKey.substring(0, 8)}...` : "(not set)"}`
+  );
+  console.log(
+    `[sendEmailViaMailgun]   - MAILGUN_DOMAIN: ${domain || "(not set)"}`
+  );
+  console.log(`[sendEmailViaMailgun]   - FROM_EMAIL: ${fromEmail}`);
+  console.log(`[sendEmailViaMailgun]   - FROM_NAME: ${fromName}`);
+  console.log(`[sendEmailViaMailgun]   - APP_URL: ${appUrl}`);
+
   if (!apiKey || !domain) {
+    console.error(`[sendEmailViaMailgun] ERROR: Missing Mailgun credentials`);
     throw new Error("Mailgun API credentials not configured");
   }
 
@@ -142,24 +199,38 @@ async function sendEmailViaMailgun(
   if (inReplyTo) {
     formData.append("h:In-Reply-To", inReplyTo);
     formData.append("h:References", inReplyTo);
-    console.log(`Adding In-Reply-To header: ${inReplyTo}`);
+    console.log(
+      `[sendEmailViaMailgun] Adding threading headers - In-Reply-To: ${inReplyTo}`
+    );
   }
 
   // Send via Mailgun API
-  const response = await fetch(
-    `https://api.mailgun.net/v3/${domain}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
-      },
-      body: formData,
-    }
+  const mailgunUrl = `https://api.mailgun.net/v3/${domain}/messages`;
+  console.log(`[sendEmailViaMailgun] Sending POST request to: ${mailgunUrl}`);
+
+  const startTime = Date.now();
+  const response = await fetch(mailgunUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+    },
+    body: formData,
+  });
+  const duration = Date.now() - startTime;
+
+  console.log(
+    `[sendEmailViaMailgun] Mailgun response received in ${duration}ms`
   );
+  console.log(`[sendEmailViaMailgun]   - status: ${response.status}`);
+  console.log(`[sendEmailViaMailgun]   - statusText: ${response.statusText}`);
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Mailgun API error:", response.status, errorText);
+    console.error(
+      `[sendEmailViaMailgun] ERROR: Mailgun API error:`,
+      response.status,
+      errorText
+    );
 
     if (response.status === 401) {
       throw new Error("Mailgun API authentication failed");
@@ -172,24 +243,46 @@ async function sendEmailViaMailgun(
     }
   }
 
-  console.log("Email sent successfully via Mailgun");
+  const responseBody = await response.json();
+  console.log(
+    `[sendEmailViaMailgun] Success response:`,
+    JSON.stringify(responseBody, null, 2)
+  );
+  console.log(`[sendEmailViaMailgun] Email sent successfully via Mailgun`);
+  console.log(`[sendEmailViaMailgun] Message ID: ${responseBody.id}`);
+
+  return { messageId: responseBody.id };
 }
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID().substring(0, 8);
+  console.log(
+    `[${requestId}] ========== SEND-MESSAGE REQUEST START ==========`
+  );
+  console.log(`[${requestId}] Method: ${req.method}`);
+  console.log(`[${requestId}] URL: ${req.url}`);
+  console.log(`[${requestId}] Timestamp: ${new Date().toISOString()}`);
+
   // Handle CORS
   if (req.method === "OPTIONS") {
+    console.log(`[${requestId}] Handling CORS preflight request`);
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Define requestId in outer scope so it's available in catch
   try {
     // Get authenticated user
     const authHeader = req.headers.get("Authorization");
+    console.log(`[${requestId}] Auth header present: ${!!authHeader}`);
+
     if (!authHeader) {
+      console.log(`[${requestId}] ERROR: No authorization header`);
       return errorResponse("Unauthorized", 401);
     }
 
     const supabase = createSupabaseClient();
     const token = authHeader.replace("Bearer ", "");
+    console.log(`[${requestId}] Token length: ${token.length}`);
 
     const {
       data: { user },
@@ -197,31 +290,57 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
+      console.log(
+        `[${requestId}] ERROR: Auth failed - ${userError?.message || "No user"}`
+      );
       return errorResponse("Unauthorized", 401);
     }
+    console.log(
+      `[${requestId}] Authenticated user: ${user.id} (${user.email})`
+    );
 
     // Parse request body
     const body: SendMessageRequest = await req.json();
     const { petId, to, cc, bcc, message, subject } = body;
+    console.log(`[${requestId}] Request body parsed:`);
+    console.log(`[${requestId}]   - petId: ${petId}`);
+    console.log(`[${requestId}]   - to: ${to}`);
+    console.log(`[${requestId}]   - cc: ${cc || "(none)"}`);
+    console.log(`[${requestId}]   - bcc: ${bcc || "(none)"}`);
+    console.log(`[${requestId}]   - subject: ${subject || "(none)"}`);
+    console.log(
+      `[${requestId}]   - message length: ${message?.length || 0} chars`
+    );
 
     // Validate required fields
     if (!petId || !to || !message) {
+      console.log(
+        `[${requestId}] ERROR: Missing required fields - petId: ${!!petId}, to: ${!!to}, message: ${!!message}`
+      );
       return errorResponse("Missing required fields", 400);
     }
 
     // Verify pet belongs to user
+    console.log(`[${requestId}] Verifying pet ownership...`);
     const { data: pet, error: petError } = await supabase
       .from("pets")
-      .select("id, name, user_id, email")
+      .select("id, name, user_id, email_id")
       .eq("id", petId)
       .eq("user_id", user.id)
       .single();
 
     if (petError || !pet) {
+      console.log(
+        `[${requestId}] ERROR: Pet verification failed - ${petError?.message || "Pet not found"}`
+      );
       return errorResponse("Pet not found or access denied", 404);
     }
+    console.log(
+      `[${requestId}] Pet verified: ${pet.name} (${pet.id}), email: ${pet.email_id}@${DOMAIN}`
+    );
 
     // Get recipient name from care team (optional)
+    console.log(`[${requestId}] Looking up recipient in care team...`);
     const { data: careTeamMember } = await supabase
       .from("vet_information")
       .select("vet_name, clinic_name")
@@ -229,8 +348,12 @@ Deno.serve(async (req) => {
       .single();
 
     const recipientName = careTeamMember?.vet_name || null;
+    console.log(
+      `[${requestId}] Care team lookup: ${careTeamMember ? `Found - ${recipientName} at ${careTeamMember.clinic_name}` : "Not found (external recipient)"}`
+    );
 
     // Get or create thread
+    console.log(`[${requestId}] Getting or creating thread...`);
     const {
       threadId,
       replyToAddress,
@@ -242,8 +365,17 @@ Deno.serve(async (req) => {
       petId,
       to,
       recipientName,
-      pet.email,
+      `${pet.email_id}@${DOMAIN}`,
       subject || "New Message"
+    );
+    console.log(`[${requestId}] Thread result:`);
+    console.log(`[${requestId}]   - threadId: ${threadId}`);
+    console.log(`[${requestId}]   - replyToAddress: ${replyToAddress}`);
+    console.log(
+      `[${requestId}]   - messageId: ${messageId || "(none - new thread)"}`
+    );
+    console.log(
+      `[${requestId}]   - existingSubject: ${existingSubject || "(none)"}`
     );
 
     // Determine the email subject
@@ -252,12 +384,20 @@ Deno.serve(async (req) => {
     if (!subject && existingSubject) {
       emailSubject = `RE: ${existingSubject}`;
       console.log(
-        `Replying to existing thread, subject changed to: ${emailSubject}`
+        `[${requestId}] Replying to existing thread, subject changed to: ${emailSubject}`
       );
     }
+    console.log(`[${requestId}] Final email subject: ${emailSubject}`);
 
     // Send email via Mailgun
-    await sendEmailViaMailgun(
+    console.log(`[${requestId}] Sending email via Mailgun...`);
+    console.log(`[${requestId}]   - to: ${to}`);
+    console.log(`[${requestId}]   - cc: ${cc ? [cc] : "[]"}`);
+    console.log(`[${requestId}]   - bcc: ${bcc ? [bcc] : "[]"}`);
+    console.log(`[${requestId}]   - replyTo: ${replyToAddress}`);
+    console.log(`[${requestId}]   - inReplyTo: ${messageId || "(none)"}`);
+
+    const { messageId: sentMessageId } = await sendEmailViaMailgun(
       to,
       cc ? [cc] : [],
       bcc ? [bcc] : [],
@@ -267,43 +407,74 @@ Deno.serve(async (req) => {
       pet.name,
       messageId // Pass message_id for In-Reply-To header
     );
+    console.log(`[${requestId}] Email sent successfully via Mailgun`);
+    console.log(`[${requestId}] Sent message ID: ${sentMessageId}`);
 
     // Store message in database
+    console.log(`[${requestId}] Storing message in database...`);
     const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
-    const { error: messageError } = await supabase
+    const messageData = {
+      thread_id: threadId,
+      direction: "outbound",
+      sender_email: user.email || fromEmail,
+      recipient_email: to,
+      cc: cc ? [cc] : null,
+      bcc: bcc ? [bcc] : null,
+      subject: emailSubject,
+      body: message,
+    };
+    console.log(
+      `[${requestId}] Message data:`,
+      JSON.stringify(messageData, null, 2)
+    );
+
+    const { data: insertedMessage, error: messageError } = await supabase
       .from("thread_messages")
-      .insert({
-        thread_id: threadId,
-        direction: "outbound",
-        sender_email: user.email || fromEmail,
-        recipient_email: to,
-        cc: cc ? [cc] : null,
-        bcc: bcc ? [bcc] : null,
-        subject: emailSubject,
-        body: message,
-      });
+      .insert(messageData)
+      .select()
+      .single();
 
     if (messageError) {
-      console.error("Error storing message:", messageError);
+      console.error(`[${requestId}] ERROR storing message:`, messageError);
       // Don't fail the request if email was sent but storage failed
+    } else {
+      console.log(
+        `[${requestId}] Message stored successfully, id: ${insertedMessage?.id}`
+      );
     }
 
-    // Update thread updated_at and subject
-    await supabase
+    // Update thread updated_at, subject, and message_id
+    console.log(`[${requestId}] Updating thread...`);
+    const { error: updateError } = await supabase
       .from("message_threads")
       .update({
         updated_at: new Date().toISOString(),
         subject: emailSubject.replace("RE: ", ""),
+        message_id: sentMessageId,
       })
       .eq("id", threadId);
 
+    if (updateError) {
+      console.error(`[${requestId}] ERROR updating thread:`, updateError);
+    } else {
+      console.log(
+        `[${requestId}] Thread updated successfully with message_id: ${sentMessageId}`
+      );
+    }
+
+    console.log(
+      `[${requestId}] ========== SEND-MESSAGE REQUEST SUCCESS ==========`
+    );
     return jsonResponse({
       success: true,
       threadId,
       replyToAddress,
     });
   } catch (error) {
-    console.error("Error sending message:", error);
+    console.error(
+      `[${requestId}] ========== SEND-MESSAGE REQUEST ERROR ==========`
+    );
+    console.error(`[${requestId}] Error:`, error);
 
     // Provide more specific error messages
     let errorMessage = "Internal server error";
