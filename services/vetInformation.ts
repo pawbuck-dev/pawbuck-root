@@ -81,7 +81,7 @@ export const getAllCareTeamMembers = async (): Promise<VetInformation[]> => {
   // First, get all pet IDs for the user
   const { data: userPets, error: petsError } = await supabase
     .from("pets")
-    .select("id, vet_information_id")
+    .select("id")
     .eq("user_id", user.id)
     .is("deleted_at", null);
 
@@ -116,22 +116,6 @@ export const getAllCareTeamMembers = async (): Promise<VetInformation[]> => {
           members.push(member);
         }
       });
-    }
-  }
-
-  // Also include primary vets from pets table
-  const primaryVetIds = userPets
-    .map((p) => p.vet_information_id)
-    .filter((id): id is string => id !== null && !memberIds.has(id));
-
-  if (primaryVetIds.length > 0) {
-    const { data: primaryVets, error: vetsError } = await supabase
-      .from("vet_information")
-      .select("*")
-      .in("id", primaryVetIds);
-
-    if (!vetsError && primaryVets) {
-      members.push(...primaryVets);
     }
   }
 

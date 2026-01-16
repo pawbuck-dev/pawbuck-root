@@ -19,9 +19,7 @@ function createSupabaseClient() {
 
 /**
  * Check if an email belongs to a care team member linked to this pet
- * Checks both:
- * 1. Care team members via pet_care_team_members junction table
- * 2. Primary vet via pets.vet_information_id
+ * via the pet_care_team_members junction table
  * 
  * @param petId - The pet's ID
  * @param email - The email address to check
@@ -34,31 +32,7 @@ async function isEmailInCareTeam(
   const supabase = createSupabaseClient();
   const normalizedEmail = email.toLowerCase().trim();
 
-  // 1. Check primary vet (via pets.vet_information_id)
-  const { data: petData, error: petError } = await supabase
-    .from("pets")
-    .select(`
-      vet_information_id,
-      vet_information:vet_information_id(email)
-    `)
-    .eq("id", petId)
-    .single();
-
-  if (petError && petError.code !== "PGRST116") {
-    console.error("Error checking primary vet:", petError);
-    throw new Error(`Database error: ${petError.message}`);
-  }
-
-  // Check if primary vet email matches
-  if (petData?.vet_information) {
-    const primaryVetEmail = (petData.vet_information as any)?.email?.toLowerCase()?.trim();
-    if (primaryVetEmail === normalizedEmail) {
-      console.log(`Email ${normalizedEmail} matches PRIMARY VET`);
-      return true;
-    }
-  }
-
-  // 2. Check care team members via junction table
+  // Check care team members via junction table
   const { data: careTeamData, error: careTeamError } = await supabase
     .from("pet_care_team_members")
     .select(`

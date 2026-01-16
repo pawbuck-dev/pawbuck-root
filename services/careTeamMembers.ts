@@ -12,7 +12,7 @@ export type PetCareTeamMember = Tables<"pet_care_team_members"> & {
 };
 
 /**
- * Fetch all care team members for a pet (including linked via junction table)
+ * Fetch all care team members for a pet (via junction table)
  */
 export const getCareTeamMembersForPet = async (petId: string): Promise<CareTeamMember[]> => {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -30,41 +30,16 @@ export const getCareTeamMembersForPet = async (petId: string): Promise<CareTeamM
 
   if (linkError) throw linkError;
 
-  // Also get the primary vet (via vet_information_id in pets table)
-  const { data: petData, error: petError } = await supabase
-    .from("pets")
-    .select("vet_information_id")
-    .eq("id", petId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (petError) throw petError;
-
-  const careTeamMemberIds = new Set<string>();
   const members: CareTeamMember[] = [];
 
   // Add linked members from junction table
   if (linkedMembers) {
     linkedMembers.forEach((link: any) => {
       const member = link.vet_information;
-      if (member && !careTeamMemberIds.has(member.id)) {
-        careTeamMemberIds.add(member.id);
+      if (member) {
         members.push(member as CareTeamMember);
       }
     });
-  }
-
-  // Add primary vet if exists and not already added
-  if (petData?.vet_information_id && !careTeamMemberIds.has(petData.vet_information_id)) {
-    const { data: primaryVet, error: vetError } = await supabase
-      .from("vet_information")
-      .select("*")
-      .eq("id", petData.vet_information_id)
-      .single();
-
-    if (!vetError && primaryVet) {
-      members.push(primaryVet as CareTeamMember);
-    }
   }
 
   return members;

@@ -100,33 +100,7 @@ setMessages((prev) => {
 
 ---
 
-### 4. Missing Null Check in Home Screen
-**File:** `app/(home)/home.tsx`  
-**Line:** 115  
-**Severity:** MEDIUM - Potential runtime error if vet_information_id is null
-
-**Issue:**
-Non-null assertion (`!`) used without proper null check, even though `enabled` checks for it.
-
-**Current Code:**
-```typescript
-queryFn: () => getVetInformation(selectedPet!.vet_information_id!),
-enabled: !!selectedPet?.vet_information_id,
-```
-
-**Fix:**
-```typescript
-queryFn: () => {
-  if (!selectedPet?.vet_information_id) {
-    throw new Error("No vet information ID");
-  }
-  return getVetInformation(selectedPet.vet_information_id);
-},
-```
-
----
-
-### 5. Potential Memory Leak in Notification Handler
+### 4. Potential Memory Leak in Notification Handler
 **File:** `hooks/useNotificationHandler.ts`  
 **Lines:** 10-17, 19-29  
 **Severity:** LOW-MEDIUM - Async operations not cleaned up
@@ -164,7 +138,7 @@ useEffect(() => {
 
 ---
 
-### 6. Incomplete Rollback in Pet Transfer
+### 5. Incomplete Rollback in Pet Transfer
 **File:** `services/petTransfers.ts`  
 **Lines:** 213-223  
 **Severity:** MEDIUM - Partial rollback could leave data inconsistent
@@ -212,7 +186,7 @@ if (petUpdateError) {
 
 ---
 
-### 7. Similar Rollback Issue in Household Invites
+### 6. Similar Rollback Issue in Household Invites
 **File:** `services/householdInvites.ts`  
 **Lines:** 203-213  
 **Severity:** MEDIUM - Same issue as pet transfer
@@ -227,7 +201,7 @@ Same as bug #6 - add error checking for rollback operation.
 
 ## 🟢 LOW PRIORITY / CODE QUALITY ISSUES
 
-### 8. Unused Import in `app/join-household/step3.tsx`
+### 7. Unused Import in `app/join-household/step3.tsx`
 **File:** `app/join-household/step3.tsx`  
 **Line:** 3  
 **Severity:** LOW - Code quality
@@ -240,7 +214,7 @@ Remove unused import.
 
 ---
 
-### 9. Unused Variable in `app/transfer-pet/step3.tsx`
+### 8. Unused Variable in `app/transfer-pet/step3.tsx`
 **File:** `app/transfer-pet/step3.tsx`  
 **Line:** 13  
 **Severity:** LOW - Code quality
@@ -253,7 +227,7 @@ Remove if not needed, or use it for display/logging.
 
 ---
 
-### 10. Non-null Assertions Without Checks
+### 9. Non-null Assertions Without Checks
 **File:** `app/(home)/home.tsx`  
 **Lines:** 101, 108, 115, 122, 130, 143, 154  
 **Severity:** LOW - Code quality, potential runtime errors
@@ -273,7 +247,7 @@ Add explicit null checks in queryFn or use optional chaining with fallbacks.
 
 ---
 
-### 11. Potential Stale Data in Messages Screen
+### 10. Potential Stale Data in Messages Screen
 **File:** `app/(home)/messages.tsx`  
 **Lines:** 66-73  
 **Severity:** LOW - Edge case
@@ -297,7 +271,7 @@ Consider using a ref or state to track if modal was already opened to prevent re
 
 ---
 
-### 12. Missing Error Handling in Async Operations
+### 11. Missing Error Handling in Async Operations
 **File:** Multiple files  
 **Severity:** LOW - Code quality
 

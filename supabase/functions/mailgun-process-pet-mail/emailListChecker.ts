@@ -22,8 +22,7 @@ function createSupabaseClient() {
 
 /**
  * Check if an email belongs to a care team member (vet) associated with the pet
- * This checks both the primary vet (via pets.vet_information_id) and
- * care team members (via pet_care_team_members junction table)
+ * via the pet_care_team_members junction table
  * @param petId - The pet's ID
  * @param senderEmail - The sender's email address
  * @returns CareTeamCheckResult - whether the email is from a care team member
@@ -35,7 +34,7 @@ export async function checkIsCareTeamEmail(
   const supabase = createSupabaseClient();
   const normalizedEmail = senderEmail.toLowerCase().trim();
 
-  // Second, check if the email matches any care team member linked to the pet
+  // Check if the email matches any care team member linked to the pet
   const { data: careTeamLinks, error: careTeamError } = await supabase
     .from("pet_care_team_members")
     .select(

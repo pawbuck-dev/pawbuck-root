@@ -43,7 +43,10 @@ export const createPet = async (petData: TablesInsert<"pets">) => {
   return data;
 };
 
-export const updatePet = async (petId: string, petData: TablesUpdate<"pets">) => {
+export const updatePet = async (
+  petId: string,
+  petData: TablesUpdate<"pets">
+) => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -89,34 +92,12 @@ export const deletePet = async (petId: string) => {
 };
 
 /**
- * Link a vet information record to a pet
- */
-export const linkVetToPet = async (petId: string, vetInformationId: string | null) => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("User must be authenticated to link vet to pet");
-  }
-
-  const { data, error } = await supabase
-    .from("pets")
-    .update({ vet_information_id: vetInformationId })
-    .eq("id", petId)
-    .eq("user_id", user.id)
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  return data;
-};
-
-/**
  * Transfer pet ownership to a new owner by email
  */
-export const transferPetOwnership = async (petId: string, newOwnerEmail: string) => {
+export const transferPetOwnership = async (
+  petId: string,
+  newOwnerEmail: string
+) => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -135,7 +116,9 @@ export const transferPetOwnership = async (petId: string, newOwnerEmail: string)
 
   if (petError) throw petError;
   if (!pet) {
-    throw new Error("Pet not found or you don't have permission to transfer it");
+    throw new Error(
+      "Pet not found or you don't have permission to transfer it"
+    );
   }
 
   // Find new owner by email
@@ -149,7 +132,9 @@ export const transferPetOwnership = async (petId: string, newOwnerEmail: string)
   // For now, we'll use a different approach - search via user management
   // Note: This requires the new owner's user ID, so we might need to adjust this
   // based on your auth setup. For now, we'll expect the caller to provide the user_id
-  throw new Error("transferPetOwnership: Please implement based on your auth system. This requires new owner's user ID.");
+  throw new Error(
+    "transferPetOwnership: Please implement based on your auth system. This requires new owner's user ID."
+  );
 
   // Alternative implementation if you have access to user management:
   // const { data: newOwnerId } = await supabase.rpc('get_user_id_by_email', { email: newOwnerEmail });

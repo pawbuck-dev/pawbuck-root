@@ -22,12 +22,10 @@ import {
   unlinkCareTeamMemberFromPet,
 } from "@/services/careTeamMembers";
 import { fetchMedicines } from "@/services/medicines";
-import { linkVetToPet } from "@/services/pets";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CareTeamMemberType,
   createVetInformation,
-  deleteVetInformation,
   findExistingCareTeamMember,
   updateVetInformation,
   VetInformation,
@@ -123,55 +121,7 @@ export default function Home() {
     enabled: !!selectedPetId,
   });
 
-  // Mutations for vet info
-  const createVetMutation = useMutation({
-    mutationFn: async (vetData: TablesInsert<"vet_information">) => {
-      const newVet = await createVetInformation(vetData);
-      await linkVetToPet(selectedPetId!, newVet.id);
-      return newVet;
-    },
-    onSuccess: (newVet) => {
-      queryClient.setQueryData(["vet_information", newVet.id], newVet);
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      });
-    },
-  });
-
-  const updateVetMutation = useMutation({
-    mutationFn: async (vetData: TablesUpdate<"vet_information">) => {
-      if (!selectedPet?.vet_information_id)
-        throw new Error("No vet info to update");
-      return updateVetInformation(selectedPet.vet_information_id, vetData);
-    },
-    onSuccess: (updatedVet) => {
-      queryClient.setQueryData(["vet_information", updatedVet.id], updatedVet);
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      });
-    },
-  });
-
-  const deleteVetMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedPet?.vet_information_id)
-        throw new Error("No vet info to delete");
-      await deleteVetInformation(selectedPet.vet_information_id);
-      await linkVetToPet(selectedPet.id, null);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.removeQueries({
-        queryKey: ["vet_information", selectedPet?.vet_information_id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      });
-    },
-  });
-
-  // Mutations for care team members (non-veterinarian)
+  // Mutations for care team members
   const createCareTeamMemberMutation = useMutation({
     mutationFn: async ({
       memberData,
@@ -298,10 +248,6 @@ export default function Home() {
     ]);
     setRefreshing(false);
   }, [queryClient, selectedPetId, refreshPendingApprovals]);
-
-  const handleDeleteVetInfo = async () => {
-    await deleteVetMutation.mutateAsync();
-  };
 
   const handleAddCareTeamMember = (type: CareTeamMemberType) => {
     setSelectedMemberType(type);

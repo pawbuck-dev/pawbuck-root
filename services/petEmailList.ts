@@ -34,45 +34,14 @@ export const getWhitelistedEmails = async (petId: string): Promise<PetEmailList[
  * Fetch all whitelisted contacts including care team members
  * Returns a unified list with source information
  * Includes:
- * 1. Primary vet (via pets.vet_information_id)
- * 2. Care team members (via pet_care_team_members junction table)
- * 3. Additional whitelisted emails (from pet_email_list)
+ * 1. Care team members (via pet_care_team_members junction table)
+ * 2. Additional whitelisted emails (from pet_email_list)
  */
 export const getAllWhitelistedContacts = async (petId: string): Promise<WhitelistedContact[]> => {
   const contacts: WhitelistedContact[] = [];
   const seenEmails = new Set<string>();
 
-  // 1. Fetch primary vet for this pet
-  const { data: petData, error: petError } = await supabase
-    .from("pets")
-    .select(`
-      vet_information_id,
-      vet_information:vet_information_id(email, vet_name, type, created_at)
-    `)
-    .eq("id", petId)
-    .single();
-
-  if (petError && petError.code !== "PGRST116") throw petError;
-
-  // Add primary vet to contacts
-  if (petData?.vet_information) {
-    const primaryVet = petData.vet_information as any;
-    if (primaryVet?.email) {
-      const normalizedEmail = primaryVet.email.toLowerCase().trim();
-      if (!seenEmails.has(normalizedEmail)) {
-        seenEmails.add(normalizedEmail);
-        contacts.push({
-          email_id: normalizedEmail,
-          source: "care_team",
-          name: primaryVet.vet_name || undefined,
-          type: primaryVet.type || "veterinarian",
-          created_at: primaryVet.created_at,
-        });
-      }
-    }
-  }
-
-  // 2. Fetch care team members for this pet (via junction table)
+  // 1. Fetch care team members for this pet (via junction table)
   const { data: careTeamLinks, error: careTeamError } = await supabase
     .from("pet_care_team_members")
     .select(`
@@ -104,7 +73,7 @@ export const getAllWhitelistedContacts = async (petId: string): Promise<Whitelis
     });
   }
 
-  // 3. Fetch additional whitelisted emails from pet_email_list
+  // 2. Fetch additional whitelisted emails from pet_email_list
   const { data: emailListData, error: emailListError } = await supabase
     .from("pet_email_list")
     .select("*")
@@ -135,31 +104,13 @@ export const getAllWhitelistedContacts = async (petId: string): Promise<Whitelis
 /**
  * Check if an email is whitelisted for a pet
  * Checks in order:
- * 1. Primary vet (via pets.vet_information_id)
- * 2. Care team members (via pet_care_team_members)
- * 3. Manual whitelist (via pet_email_list)
+ * 1. Care team members (via pet_care_team_members)
+ * 2. Manual whitelist (via pet_email_list)
  */
 export const isEmailWhitelisted = async (petId: string, email: string): Promise<boolean> => {
   const normalizedEmail = email.toLowerCase().trim();
 
-  // 1. Check primary vet first
-  const { data: petData, error: petError } = await supabase
-    .from("pets")
-    .select(`
-      vet_information_id,
-      vet_information:vet_information_id(email)
-    `)
-    .eq("id", petId)
-    .single();
-
-  if (petError && petError.code !== "PGRST116") throw petError;
-
-  if (petData?.vet_information) {
-    const primaryVetEmail = (petData.vet_information as any)?.email?.toLowerCase()?.trim();
-    if (primaryVetEmail === normalizedEmail) return true;
-  }
-
-  // 2. Check care team members via junction table
+  // 1. Check care team members via junction table
   const { data: careTeamLinks, error: careTeamError } = await supabase
     .from("pet_care_team_members")
     .select(`
@@ -177,7 +128,7 @@ export const isEmailWhitelisted = async (petId: string, email: string): Promise<
 
   if (inCareTeam) return true;
 
-  // 3. Check pet_email_list (manual whitelist)
+  // 2. Check pet_email_list (manual whitelist)
   const { data: emailEntry, error: emailError } = await supabase
     .from("pet_email_list")
     .select("is_blocked")
