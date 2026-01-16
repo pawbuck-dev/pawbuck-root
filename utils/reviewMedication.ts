@@ -1,6 +1,11 @@
 import { ScheduleFrequency } from "@/constants/schedules";
 import { TablesInsert } from "@/database.types";
-import { MedicineFormData } from "@/models/medication";
+import {
+  DailyMedicationSchedule,
+  MedicineFormData,
+  MonthlyMedicationSchedule,
+  WeeklyMedicationSchedule,
+} from "@/models/medication";
 
 /**
  * Validation result for medication schedules
@@ -11,6 +16,15 @@ export type ValidationResult = {
 };
 
 /**
+ * Schedule data structure for each medication
+ */
+export type MedicationScheduleData = {
+  daily: DailyMedicationSchedule[];
+  weekly: WeeklyMedicationSchedule[];
+  monthly: MonthlyMedicationSchedule[];
+};
+
+/**
  * Validate that medications have required schedules based on their frequency
  * @param medications - Array of medication data
  * @param schedules - Array of schedule data for each medication
@@ -18,11 +32,7 @@ export type ValidationResult = {
  */
 export const validateMedicationSchedules = (
   medications: TablesInsert<"medicines">[],
-  schedules: {
-    daily: TablesInsert<"daily_medication_schedules">[];
-    weekly: TablesInsert<"weekly_medication_schedules">[];
-    monthly: TablesInsert<"monthly_medication_schedules">[];
-  }[]
+  schedules: MedicationScheduleData[]
 ): ValidationResult => {
   for (let i = 0; i < medications.length; i++) {
     const medication = medications[i];
@@ -57,17 +67,16 @@ export const validateMedicationSchedules = (
 
 /**
  * Transform medications and schedules data into MedicineFormData format
+ * MedicineFormData is a flat structure with all medication fields plus frequency and schedules
  * @param medications - Array of medication data
  * @param schedules - Array of schedule data for each medication
+ * @param petId - The pet ID to inject into each medication (required for OCR-extracted medications)
  * @returns Array of MedicineFormData
  */
 export const transformMedicationsWithSchedules = (
   medications: TablesInsert<"medicines">[],
-  schedules: {
-    daily: TablesInsert<"daily_medication_schedules">[];
-    weekly: TablesInsert<"weekly_medication_schedules">[];
-    monthly: TablesInsert<"monthly_medication_schedules">[];
-  }[]
+  schedules: MedicationScheduleData[],
+  petId: string
 ): MedicineFormData[] => {
   return medications.map((medication, index) => {
     const medicationSchedules = schedules[index] || {
@@ -76,38 +85,39 @@ export const transformMedicationsWithSchedules = (
       monthly: [],
     };
 
+    // Extract all medication fields except 'schedules' (which is the JSON column)
+    const { schedules: _scheduleJson, ...medicationFields } = medication;
+
+    // Base fields with pet_id injected (ensures pet_id is always set)
+    const baseFields = {
+      ...medicationFields,
+      pet_id: petId,
+    };
+
     if (medication.frequency === ScheduleFrequency.DAILY) {
       return {
-        medicine: medication,
-        schedule: {
-          frequency: "Daily",
-          schedules: medicationSchedules.daily,
-        },
-      };
+        ...baseFields,
+        frequency: ScheduleFrequency.DAILY,
+        schedules: medicationSchedules.daily,
+      } as MedicineFormData;
     } else if (medication.frequency === ScheduleFrequency.WEEKLY) {
       return {
-        medicine: medication,
-        schedule: {
-          frequency: "Weekly",
-          schedules: medicationSchedules.weekly,
-        },
-      };
+        ...baseFields,
+        frequency: ScheduleFrequency.WEEKLY,
+        schedules: medicationSchedules.weekly,
+      } as MedicineFormData;
     } else if (medication.frequency === ScheduleFrequency.MONTHLY) {
       return {
-        medicine: medication,
-        schedule: {
-          frequency: "Monthly",
-          schedules: medicationSchedules.monthly,
-        },
-      };
+        ...baseFields,
+        frequency: ScheduleFrequency.MONTHLY,
+        schedules: medicationSchedules.monthly,
+      } as MedicineFormData;
     } else {
       return {
-        medicine: medication,
-        schedule: {
-          frequency: "As Needed",
-          schedules: [],
-        },
-      };
+        ...baseFields,
+        frequency: ScheduleFrequency.AS_NEEDED,
+        schedules: [],
+      } as MedicineFormData;
     }
   });
 };

@@ -1,10 +1,18 @@
 import { MEDICATION_TYPES } from "@/constants/medicines";
 import { ScheduleFrequency } from "@/constants/schedules";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { MedicationSchedule, MedicineFormData } from "@/models/medication";
+import {
+  DailyMedicationSchedule,
+  MedicationSchedule,
+  MedicineFormData,
+  MonthlyMedicationSchedule,
+  WeeklyMedicationSchedule,
+} from "@/models/medication";
 import { formatDate } from "@/utils/dates";
 import {
+  MedicationScheduleData,
   transformMedicationsWithSchedules,
   validateMedicationSchedules,
 } from "@/utils/reviewMedication";
@@ -38,19 +46,16 @@ const ReviewMedicines = ({
   handleSaveMedications,
 }: ReviewMedicinesProps) => {
   const { theme } = useTheme();
+  const { pet } = useSelectedPet();
 
   const [extractedMedications, setExtractedMedications] =
     useState<TablesInsert<"medicines">[]>(initialMedications);
 
   // Schedule state management - track schedules for each medication by index
   const [medicationSchedules, setMedicationSchedules] = useState<
-    {
-      daily: TablesInsert<"daily_medication_schedules">[];
-      weekly: TablesInsert<"weekly_medication_schedules">[];
-      monthly: TablesInsert<"monthly_medication_schedules">[];
-    }[]
+    MedicationScheduleData[]
   >(
-    extractedMedications.map((medication) => ({
+    extractedMedications.map(() => ({
       daily: [],
       weekly: [],
       monthly: [],
@@ -90,41 +95,125 @@ const ReviewMedicines = ({
   // Schedule update handlers
   const updateDailySchedule = (
     medicationIndex: number,
-    schedules: TablesInsert<"daily_medication_schedules">[]
+    schedules: DailyMedicationSchedule[]
   ) => {
-    setMedicationSchedules((prev) => ({
-      ...prev,
-      [medicationIndex]: {
-        ...prev[medicationIndex],
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
         daily: schedules,
-      },
-    }));
+      };
+      return updated;
+    });
   };
 
   const updateWeeklySchedule = (
     medicationIndex: number,
-    schedules: TablesInsert<"weekly_medication_schedules">[]
+    schedules: WeeklyMedicationSchedule[]
   ) => {
-    setMedicationSchedules((prev) => ({
-      ...prev,
-      [medicationIndex]: {
-        ...prev[medicationIndex],
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
         weekly: schedules,
-      },
-    }));
+      };
+      return updated;
+    });
   };
 
   const updateMonthlySchedule = (
     medicationIndex: number,
-    schedules: TablesInsert<"monthly_medication_schedules">[]
+    schedules: MonthlyMedicationSchedule[]
   ) => {
-    setMedicationSchedules((prev) => ({
-      ...prev,
-      [medicationIndex]: {
-        ...prev[medicationIndex],
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
         monthly: schedules,
-      },
-    }));
+      };
+      return updated;
+    });
+  };
+
+  // Helper function to get the correct schedule array based on frequency
+  const getSchedulesForFrequency = (
+    medicationIndex: number,
+    frequency: string | undefined
+  ): MedicationSchedule => {
+    const schedules = medicationSchedules[medicationIndex] || {
+      daily: [],
+      weekly: [],
+      monthly: [],
+    };
+
+    switch (frequency) {
+      case ScheduleFrequency.DAILY:
+        return {
+          frequency: ScheduleFrequency.DAILY,
+          schedules: schedules.daily as DailyMedicationSchedule[],
+        };
+      case ScheduleFrequency.WEEKLY:
+        return {
+          frequency: ScheduleFrequency.WEEKLY,
+          schedules: schedules.weekly as WeeklyMedicationSchedule[],
+        };
+      case ScheduleFrequency.MONTHLY:
+        return {
+          frequency: ScheduleFrequency.MONTHLY,
+          schedules: schedules.monthly as MonthlyMedicationSchedule[],
+        };
+      case ScheduleFrequency.AS_NEEDED:
+      default:
+        return {
+          frequency: ScheduleFrequency.AS_NEEDED,
+          schedules: [],
+        };
+    }
+  };
+
+  // Handler for schedule changes from ScheduleInput component
+  const handleScheduleChange = (
+    medicationIndex: number,
+    frequency: string | undefined,
+    newSchedules:
+      | DailyMedicationSchedule[]
+      | WeeklyMedicationSchedule[]
+      | MonthlyMedicationSchedule[]
+  ) => {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      const current = updated[medicationIndex] || {
+        daily: [],
+        weekly: [],
+        monthly: [],
+      };
+
+      switch (frequency) {
+        case ScheduleFrequency.DAILY:
+          updated[medicationIndex] = {
+            ...current,
+            daily: newSchedules as DailyMedicationSchedule[],
+          };
+          break;
+        case ScheduleFrequency.WEEKLY:
+          updated[medicationIndex] = {
+            ...current,
+            weekly: newSchedules as WeeklyMedicationSchedule[],
+          };
+          break;
+        case ScheduleFrequency.MONTHLY:
+          updated[medicationIndex] = {
+            ...current,
+            monthly: newSchedules as MonthlyMedicationSchedule[],
+          };
+          break;
+        default:
+          // AS_NEEDED - no schedules needed
+          break;
+      }
+
+      return updated;
+    });
   };
 
   const handleFrequencyChange = (
@@ -135,14 +224,15 @@ const ReviewMedicines = ({
     handleUpdateMedication(medicationIndex, "frequency", frequency);
 
     // Clear schedules when frequency changes
-    setMedicationSchedules((prev) => ({
-      ...prev,
-      [medicationIndex]: {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
         daily: [],
         weekly: [],
         monthly: [],
-      },
-    }));
+      };
+      return updated;
+    });
 
     setShowFrequencyPicker(false);
   };
@@ -159,10 +249,11 @@ const ReviewMedicines = ({
       return;
     }
 
-    // Transform data to MedicineFormData[]
+    // Transform data to MedicineFormData[] with pet_id injected
     const medicationsWithSchedules = transformMedicationsWithSchedules(
       extractedMedications,
-      medicationSchedules
+      medicationSchedules,
+      pet.id
     );
 
     handleSaveMedications(medicationsWithSchedules);
@@ -484,23 +575,22 @@ const ReviewMedicines = ({
                 </View>
 
                 {/* Schedule Input */}
-                {medication.frequency && (
-                  <ScheduleInput
-                    schedules={
-                      {
-                        frequency: medication.frequency,
-                        schedules: medicationSchedules[index]?.daily || [],
-                      } as MedicationSchedule
-                    }
-                    onChange={(schedules) =>
-                      handleUpdateMedication(
+                {medication.frequency &&
+                  medication.frequency !== ScheduleFrequency.AS_NEEDED && (
+                    <ScheduleInput
+                      schedules={getSchedulesForFrequency(
                         index,
-                        "schedules",
-                        schedules as any
-                      )
-                    }
-                  />
-                )}
+                        medication.frequency
+                      )}
+                      onChange={(schedules) =>
+                        handleScheduleChange(
+                          index,
+                          medication.frequency,
+                          schedules
+                        )
+                      }
+                    />
+                  )}
               </View>
             ))}
           </View>
