@@ -15,7 +15,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 5000,
+      duration: 500,
       useNativeDriver: true,
     }).start();
 

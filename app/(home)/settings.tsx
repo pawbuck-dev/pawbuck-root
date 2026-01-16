@@ -131,7 +131,8 @@ export default function Settings() {
 
       // Sign out and redirect to welcome screen
       await signOut();
-      router.replace("/welcome");
+      router.dismissAll();
+      router.replace("/");
     } catch (error: any) {
       console.error("Error deleting account:", error);
       Alert.alert(
