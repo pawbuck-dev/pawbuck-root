@@ -1,10 +1,13 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
+import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -17,7 +20,128 @@ import {
 export default function Settings() {
   const router = useRouter();
   const { theme, mode, toggleTheme } = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    setIsDeleting(true);
+
+    try {
+      // Check for pending pet transfers directly from the database
+      const { data: pendingTransfers, error } = await supabase
+        .from("pet_transfers")
+        .select(
+          `
+          id,
+          code,
+          pets!inner(name)
+        `
+        )
+        .eq("from_user_id", user.id)
+        .eq("is_active", true);
+
+      if (error) {
+        throw new Error(error.message || "Failed to check pending transfers");
+      }
+
+      setIsDeleting(false);
+
+      // If there are pending transfers, warn the user first
+      if (pendingTransfers && pendingTransfers.length > 0) {
+        const transfersList = pendingTransfers
+          .map((t) => {
+            const petName = t.pets.name || "Unknown Pet";
+            return `• ${petName} (Code: ${t.code})`;
+          })
+          .join("\n");
+
+        Alert.alert(
+          "Pending Pet Transfers",
+          `You have ${pendingTransfers.length} active pet transfer(s) that will be cancelled:\n\n${transfersList}\n\nOnce your account is deleted, these transfer codes will no longer work and the recipients won't be able to claim the pets.`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Continue Anyway",
+              style: "destructive",
+              onPress: showFirstConfirmation,
+            },
+          ]
+        );
+      } else {
+        // No pending transfers, proceed with regular confirmation
+        showFirstConfirmation();
+      }
+    } catch (error: any) {
+      setIsDeleting(false);
+      console.error("Error checking pending transfers:", error);
+      // Still allow deletion even if we couldn't check transfers
+      showFirstConfirmation();
+    }
+  };
+
+  const showFirstConfirmation = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account?\n\nThis will permanently delete:\n• All your pets and their health records\n• Pet email addresses (they will no longer receive emails)\n• All messages and conversations\n• Your profile and preferences",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: showFinalConfirmation,
+        },
+      ]
+    );
+  };
+
+  const showFinalConfirmation = () => {
+    Alert.alert(
+      "Final Confirmation",
+      "This action cannot be undone. All your data will be permanently deleted and your pet email addresses will stop working immediately.\n\nAre you absolutely sure?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete My Account",
+          style: "destructive",
+          onPress: performAccountDeletion,
+        },
+      ]
+    );
+  };
+
+  const performAccountDeletion = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-account");
+
+      if (error) {
+        throw new Error(error.message || "Failed to delete account");
+      }
+
+      // Sign out and redirect to welcome screen
+      await signOut();
+      router.replace("/welcome");
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to delete account. Please try again."
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSignOut = async () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -212,6 +336,45 @@ export default function Settings() {
             Log Out
           </Text>
         </Pressable>
+
+        {/* Danger Zone */}
+        <View className="mt-8">
+          <Text
+            className="text-sm font-medium mb-3 uppercase tracking-wide"
+            style={{ color: "#EF4444" }}
+          >
+            Danger Zone
+          </Text>
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={isDeleting}
+            className="flex-row items-center justify-center py-4 px-6 rounded-2xl active:opacity-80"
+            style={{
+              backgroundColor: isDeleting ? "#FCA5A520" : "#EF444420",
+              borderWidth: 1,
+              borderColor: "#EF4444",
+              opacity: isDeleting ? 0.7 : 1,
+            }}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color="#EF4444" />
+            )}
+            <Text
+              className="text-base font-semibold ml-2"
+              style={{ color: "#EF4444" }}
+            >
+              {isDeleting ? "Deleting Account..." : "Delete Account"}
+            </Text>
+          </Pressable>
+          <Text
+            className="text-xs mt-2 text-center"
+            style={{ color: theme.secondary }}
+          >
+            This will permanently delete your account and all associated data.
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
