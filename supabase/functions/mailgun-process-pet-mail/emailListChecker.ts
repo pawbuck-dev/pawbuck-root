@@ -2,6 +2,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { Pet, S3Config } from "./types.ts";
 
 export type EmailStatus = "whitelisted" | "blocked" | "unknown";
+export type CareTeamCheckResult =
+  | { isCareTeam: true; name: string }
+  | { isCareTeam: false };
 
 /**
  * Creates a Supabase client with service role key
@@ -15,6 +18,52 @@ function createSupabaseClient() {
   }
 
   return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+/**
+ * Check if an email belongs to a care team member (vet) associated with the pet
+ * This checks both the primary vet (via pets.vet_information_id) and
+ * care team members (via pet_care_team_members junction table)
+ * @param petId - The pet's ID
+ * @param senderEmail - The sender's email address
+ * @returns CareTeamCheckResult - whether the email is from a care team member
+ */
+export async function checkIsCareTeamEmail(
+  petId: string,
+  senderEmail: string
+): Promise<CareTeamCheckResult> {
+  const supabase = createSupabaseClient();
+  const normalizedEmail = senderEmail.toLowerCase().trim();
+
+  // Second, check if the email matches any care team member linked to the pet
+  const { data: careTeamLinks, error: careTeamError } = await supabase
+    .from("pet_care_team_members")
+    .select(
+      `
+      care_team_member_id,
+      vet_information:care_team_member_id(id, email, vet_name, clinic_name)
+    `
+    )
+    .eq("pet_id", petId);
+
+  if (careTeamError) {
+    console.error("Error checking care team members:", careTeamError);
+  } else if (careTeamLinks && careTeamLinks.length > 0) {
+    for (const link of careTeamLinks) {
+      // deno-lint-ignore no-explicit-any
+      const vetInfo = link.vet_information as any;
+      if (vetInfo && vetInfo.email?.toLowerCase().trim() === normalizedEmail) {
+        const name = `${vetInfo.vet_name} (${vetInfo.clinic_name})`;
+        console.log(`Email matches care team member: ${name}`);
+        return { isCareTeam: true, name };
+      }
+    }
+  }
+
+  console.log(
+    `Email ${normalizedEmail} is not from a known care team member for pet ${petId}`
+  );
+  return { isCareTeam: false };
 }
 
 /**
@@ -89,7 +138,9 @@ export async function savePendingApproval(
     .maybeSingle();
 
   if (existing) {
-    console.log(`Pending approval already exists with ID: ${existing.id} (duplicate request)`);
+    console.log(
+      `Pending approval already exists with ID: ${existing.id} (duplicate request)`
+    );
     return { id: existing.id, isNew: false };
   }
 
@@ -118,7 +169,9 @@ export async function savePendingApproval(
         .single();
 
       if (existingAfterRace) {
-        console.log(`Pending approval found after race condition: ${existingAfterRace.id}`);
+        console.log(
+          `Pending approval found after race condition: ${existingAfterRace.id}`
+        );
         return { id: existingAfterRace.id, isNew: false };
       }
     }
@@ -266,18 +319,24 @@ export async function addToEmailList(
   if (existing) {
     // If existing is blocked and we're trying to whitelist it, update to unblock
     if (existing.is_blocked && !isBlocked) {
-      console.log(`Email ${normalizedEmail} was blocked, updating to whitelisted`);
+      console.log(
+        `Email ${normalizedEmail} was blocked, updating to whitelisted`
+      );
       await updateEmailBlockStatus(existing.id, false);
       return;
     }
     // If existing is whitelisted and we're trying to block it, update to block
     if (!existing.is_blocked && isBlocked) {
-      console.log(`Email ${normalizedEmail} was whitelisted, updating to blocked`);
+      console.log(
+        `Email ${normalizedEmail} was whitelisted, updating to blocked`
+      );
       await updateEmailBlockStatus(existing.id, true);
       return;
     }
     // Already in the desired state, nothing to do
-    console.log(`Email ${normalizedEmail} already in desired state (blocked: ${isBlocked})`);
+    console.log(
+      `Email ${normalizedEmail} already in desired state (blocked: ${isBlocked})`
+    );
     return;
   }
 
@@ -292,7 +351,9 @@ export async function addToEmailList(
   if (error) {
     // Handle race condition - unique constraint violation
     if (error.code === "23505") {
-      console.log(`Race condition detected for ${normalizedEmail}, retrying with update`);
+      console.log(
+        `Race condition detected for ${normalizedEmail}, retrying with update`
+      );
       const existingAfterRace = await getEmailEntry(petId, normalizedEmail);
       if (existingAfterRace && existingAfterRace.is_blocked !== isBlocked) {
         await updateEmailBlockStatus(existingAfterRace.id, isBlocked);
@@ -305,4 +366,3 @@ export async function addToEmailList(
 
   console.log(`Email ${normalizedEmail} added to list successfully`);
 }
-

@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: SendMessageRequest = await req.json();
-    const { petId, to, cc, bcc, message } = body;
+    const { petId, to, cc, bcc, message, subject } = body;
 
     // Validate required fields
     if (!petId || !to || !message) {
@@ -235,21 +235,26 @@ Deno.serve(async (req) => {
     const recipientName = careTeamMember?.vet_name || null;
 
     // Get or create thread
-    const { threadId, replyToAddress, isExisting, messageId, subject } =
-      await getOrCreateThread(
-        supabase,
-        user.id,
-        petId,
-        to,
-        recipientName,
-        "New Message"
-      );
+    const {
+      threadId,
+      replyToAddress,
+      isExisting,
+      messageId,
+      subject: existingSubject,
+    } = await getOrCreateThread(
+      supabase,
+      user.id,
+      petId,
+      to,
+      recipientName,
+      "New Message"
+    );
 
     // Determine the email subject
     // If replying to an existing thread and subject doesn't already have RE:, add it
     let emailSubject = subject;
-    if (isExisting && subject) {
-      emailSubject = `RE: ${subject}`;
+    if (!subject && isExisting && existingSubject) {
+      emailSubject = `RE: ${existingSubject}`;
       console.log(
         `Replying to existing thread, subject changed to: ${emailSubject}`
       );

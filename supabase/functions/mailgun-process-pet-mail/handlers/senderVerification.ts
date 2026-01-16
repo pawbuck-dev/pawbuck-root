@@ -1,5 +1,6 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
 import {
+  checkIsCareTeamEmail,
   checkSenderEmailStatus,
   savePendingApproval,
 } from "../emailListChecker.ts";
@@ -17,7 +18,8 @@ import {
 
 /**
  * Verify sender email status and handle blocked/unknown senders
- * @returns SenderVerificationResult - canProceed: true if whitelisted, false with response otherwise
+ * Priority: 1) Care team (auto-verified), 2) Safe sender list, 3) Unknown (requires approval)
+ * @returns SenderVerificationResult - canProceed: true if verified, false with response otherwise
  */
 export async function verifySender(
   pet: Pet,
@@ -25,10 +27,21 @@ export async function verifySender(
   mailgunConfig: MailgunConfig,
   emailInfo: EmailInfo
 ): Promise<SenderVerificationResult> {
-  console.log(`Checking sender email status: ${senderEmail}`);
-  const senderStatus = await checkSenderEmailStatus(pet.id, senderEmail);
+  console.log(`Verifying sender email: ${senderEmail}`);
 
   const petInfo: PetInfo = { id: pet.id, name: pet.name };
+
+  // 1. First check if sender is a care team member (vet) - auto-verified
+  const careTeamCheck = await checkIsCareTeamEmail(pet.id, senderEmail);
+  if (careTeamCheck.isCareTeam) {
+    console.log(
+      `Sender ${senderEmail} is a care team member (${careTeamCheck.name}) - proceeding with processing`
+    );
+    return { canProceed: true };
+  }
+
+  // 2. Check safe sender list status
+  const senderStatus = await checkSenderEmailStatus(pet.id, senderEmail);
 
   // Handle blocked sender
   if (senderStatus === "blocked") {
@@ -39,28 +52,28 @@ export async function verifySender(
     };
   }
 
-  // Handle unknown sender - requires user approval
-  if (senderStatus === "unknown") {
-    console.log(`Sender ${senderEmail} is unknown - saving for user approval`);
-
-    const response = await handleUnknownSender(
-      pet,
-      senderEmail,
-      mailgunConfig,
-      emailInfo
+  // Handle whitelisted sender
+  if (senderStatus === "whitelisted") {
+    console.log(
+      `Sender ${senderEmail} is whitelisted - proceeding with processing`
     );
-
-    return {
-      canProceed: false,
-      response,
-    };
+    return { canProceed: true };
   }
 
-  // Sender is whitelisted - can proceed
-  console.log(
-    `Sender ${senderEmail} is whitelisted - proceeding with processing`
+  // 3. Handle unknown sender - requires user approval
+  console.log(`Sender ${senderEmail} is unknown - saving for user approval`);
+
+  const response = await handleUnknownSender(
+    pet,
+    senderEmail,
+    mailgunConfig,
+    emailInfo
   );
-  return { canProceed: true };
+
+  return {
+    canProceed: false,
+    response,
+  };
 }
 
 /**
