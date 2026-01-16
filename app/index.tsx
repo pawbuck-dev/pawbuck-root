@@ -1,3 +1,5 @@
+import InitialWelcomeScreen from "@/components/InitialWelcomeScreen";
+import SplashScreen from "@/components/SplashScreen";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
@@ -5,8 +7,6 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import SplashScreen from "@/components/SplashScreen";
-import InitialWelcomeScreen from "@/components/InitialWelcomeScreen";
 
 export default function Index() {
   const router = useRouter();

@@ -1,6 +1,5 @@
-import { Image } from "react-native";
-import { View, Text, Animated } from "react-native";
 import { useEffect, useRef } from "react";
+import { Animated, Image, Text, View } from "react-native";
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -16,7 +15,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 500,
+      duration: 5000,
       useNativeDriver: true,
     }).start();
 
@@ -80,7 +79,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <View
-      className="flex-1 items-center justify-center"
+      className="flex-1 items-center justify-center w-full h-full"
       style={{ backgroundColor: "#0A0A0A" }}
     >
       <Animated.View
@@ -99,12 +98,8 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
         {/* Tagline */}
         <View className="items-center mb-16">
-          <Text
-            className="text-2xl font-medium"
-            style={{ color: "#E5E5E5" }}
-          >
-            Pet Life.{" "}
-            <Text style={{ color: "#5FC4C0" }}>Simplified.</Text>
+          <Text className="text-2xl font-medium" style={{ color: "#E5E5E5" }}>
+            Pet Life. <Text style={{ color: "#5FC4C0" }}>Simplified.</Text>
           </Text>
         </View>
 
@@ -142,4 +137,3 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     </View>
   );
 }
-
