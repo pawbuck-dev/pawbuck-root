@@ -156,24 +156,14 @@ async function sendEmailViaMailgun(
     throw new Error("Mailgun API credentials not configured");
   }
 
-  // Build email body with HTML
-  const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-          <p>${body.replace(/\n/g, "<br>")}</p>
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-          <p style="font-size: 12px; color: #666;">
-            This message is about ${petName}. 
-            <a href="${appUrl}/messages">View in app</a>
-          </p>
-        </div>
-      </body>
-    </html>
-  `;
-
-  const textBody = `${body}\n\n---\nThis message is about ${petName}. View in app: ${appUrl}/messages`;
+  // Build plain text email body
+  const textBody = [
+    body,
+    "",
+    "----------------------------------------------------",
+    `This message is about ${petName}.`,
+    `View in app: ${appUrl}/messages`,
+  ].join("\n");
 
   // Build FormData for Mailgun API
   const formData = new FormData();
@@ -192,7 +182,6 @@ async function sendEmailViaMailgun(
 
   formData.append("subject", subject);
   formData.append("text", textBody);
-  formData.append("html", htmlBody);
   formData.append("h:Reply-To", replyTo);
 
   // Add In-Reply-To header for proper email threading
