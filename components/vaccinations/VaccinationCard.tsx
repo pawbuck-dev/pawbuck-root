@@ -23,6 +23,10 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
 
   const hasDocument = !!vaccination.document_url;
 
+  const isExpired =
+    vaccination.next_due_date &&
+    new Date(vaccination.next_due_date) < new Date();
+
   const handleDelete = () => {
     Alert.alert(
       "Delete Vaccination",
@@ -132,12 +136,25 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               />
             </View>
             <Text
-              className="text-base font-semibold flex-1"
-              style={{ color: theme.foreground }}
+              className="text-base font-semibold"
+              style={{ color: theme.foreground, flexShrink: 1 }}
               numberOfLines={2}
             >
               {vaccination.name}
             </Text>
+            {isExpired && (
+              <View
+                className="ml-2 px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${theme.error}20` }}
+              >
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: theme.error }}
+                >
+                  EXPIRED
+                </Text>
+              </View>
+            )}
           </View>
           {hasDocument && (
             <TouchableOpacity
@@ -170,9 +187,17 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
 
           {vaccination.next_due_date && (
             <View className="flex-row items-center mb-2">
-              <Ionicons name="time-outline" size={14} color={theme.primary} />
-              <Text className="text-sm ml-2" style={{ color: theme.primary }}>
-                Next Due: {formatDate(vaccination.next_due_date)}
+              <Ionicons
+                name={isExpired ? "alert-circle" : "time-outline"}
+                size={14}
+                color={isExpired ? theme.error : theme.primary}
+              />
+              <Text
+                className="text-sm ml-2"
+                style={{ color: isExpired ? theme.error : theme.primary }}
+              >
+                {isExpired ? "Expired: " : "Next Due: "}
+                {formatDate(vaccination.next_due_date)}
               </Text>
             </View>
           )}
@@ -239,9 +264,3 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
     </>
   );
 };
-
-
-
-
-
-
