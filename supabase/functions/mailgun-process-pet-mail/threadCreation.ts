@@ -78,7 +78,7 @@ export async function createThreadFromInboundEmail(
   }
 
   console.log(
-    `[ThreadCreation] ✅ Created new thread: ${newThread.id} (reply-to: ${replyToAddress})`
+    `[ThreadCreation] ✅ Created new thread: ${newThread.id} (reply-to: ${params.petEmail})`
   );
 
   return {

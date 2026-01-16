@@ -1355,7 +1355,6 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-u
 
 
 

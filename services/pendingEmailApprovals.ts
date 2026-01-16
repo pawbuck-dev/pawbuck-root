@@ -76,7 +76,7 @@ export const approveEmail = async (
     await addEmail(petId, senderEmail, false);
 
     // Step 3: Re-invoke the process-pet-mail function
-    const { data, error } = await supabase.functions.invoke(
+    const { data } = await supabase.functions.invoke(
       "mailgun-process-pet-mail",
       {
         body: {
@@ -85,11 +85,6 @@ export const approveEmail = async (
         },
       }
     );
-
-    if (error) {
-      console.error("Error re-processing email:", error);
-      return { success: false, error: error.message };
-    }
 
     console.log("Email re-processing result:", data);
     return { success: true };

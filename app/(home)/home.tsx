@@ -12,7 +12,6 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
-import { VetInfoModal } from "@/components/home/VetInfoModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -30,7 +29,6 @@ import {
   createVetInformation,
   deleteVetInformation,
   findExistingCareTeamMember,
-  getVetInformation,
   updateVetInformation,
   VetInformation,
 } from "@/services/vetInformation";
@@ -59,7 +57,15 @@ export default function Home() {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const router = useRouter();
-  const { pets, loadingPets, addingPet, updatePet, updatingPet, deletePet, deletingPet } = usePets();
+  const {
+    pets,
+    loadingPets,
+    addingPet,
+    updatePet,
+    updatingPet,
+    deletePet,
+    deletingPet,
+  } = usePets();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const queryClient = useQueryClient();
 
@@ -69,8 +75,11 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
   const [showCareTeamModal, setShowCareTeamModal] = useState(false);
-  const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
-  const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
+  const [selectedMemberType, setSelectedMemberType] =
+    useState<CareTeamMemberType>("veterinarian");
+  const [selectedMember, setSelectedMember] = useState<VetInformation | null>(
+    null
+  );
 
   // Select first pet by default when pets load
   React.useEffect(() => {
@@ -107,18 +116,6 @@ export default function Home() {
     enabled: !!selectedPetId,
   });
 
-  // Fetch vet information if pet has one linked
-  const { data: vetInfo, isLoading: loadingVetInfo } = useQuery({
-    queryKey: ["vet_information", selectedPet?.vet_information_id],
-    queryFn: () => {
-      if (!selectedPet?.vet_information_id) {
-        throw new Error("No vet information ID available");
-      }
-      return getVetInformation(selectedPet.vet_information_id);
-    },
-    enabled: !!selectedPet?.vet_information_id,
-  });
-
   // Fetch care team members for the selected pet
   const { data: careTeamMembers = [] } = useQuery({
     queryKey: ["care_team_members", selectedPetId],
@@ -136,24 +133,30 @@ export default function Home() {
     onSuccess: (newVet) => {
       queryClient.setQueryData(["vet_information", newVet.id], newVet);
       queryClient.invalidateQueries({ queryKey: ["pets"] });
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      });
     },
   });
 
   const updateVetMutation = useMutation({
     mutationFn: async (vetData: TablesUpdate<"vet_information">) => {
-      if (!selectedPet?.vet_information_id) throw new Error("No vet info to update");
+      if (!selectedPet?.vet_information_id)
+        throw new Error("No vet info to update");
       return updateVetInformation(selectedPet.vet_information_id, vetData);
     },
     onSuccess: (updatedVet) => {
       queryClient.setQueryData(["vet_information", updatedVet.id], updatedVet);
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      });
     },
   });
 
   const deleteVetMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedPet?.vet_information_id) throw new Error("No vet info to delete");
+      if (!selectedPet?.vet_information_id)
+        throw new Error("No vet info to delete");
       await deleteVetInformation(selectedPet.vet_information_id);
       await linkVetToPet(selectedPet.id, null);
     },
@@ -162,7 +165,9 @@ export default function Home() {
       queryClient.removeQueries({
         queryKey: ["vet_information", selectedPet?.vet_information_id],
       });
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      });
     },
   });
 
@@ -201,17 +206,27 @@ export default function Home() {
     onSuccess: (result) => {
       // Invalidate care team members for all affected pets
       result.selectedPetIds.forEach((petId) => {
-        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+        queryClient.invalidateQueries({
+          queryKey: ["care_team_members", petId],
+        });
       });
     },
   });
 
   const updateCareTeamMemberMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: TablesUpdate<"vet_information"> }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: TablesUpdate<"vet_information">;
+    }) => {
       return updateVetInformation(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      });
       queryClient.invalidateQueries({ queryKey: ["vet_information"] });
     },
   });
@@ -221,7 +236,9 @@ export default function Home() {
       await unlinkCareTeamMemberFromPet(selectedPetId!, memberId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      });
     },
   });
 
@@ -267,30 +284,20 @@ export default function Home() {
     setTimeout(() => setEmailCopied(false), 2000);
   }, [selectedPet]);
 
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] }),
+      queryClient.invalidateQueries({
+        queryKey: ["vaccinations", selectedPetId],
+      }),
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
-      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
+      queryClient.invalidateQueries({
+        queryKey: ["care_team_members", selectedPetId],
+      }),
       refreshPendingApprovals(),
     ]);
     setRefreshing(false);
   }, [queryClient, selectedPetId, refreshPendingApprovals]);
-
-
-  const handleSaveVetInfo = async (
-    vetData: TablesInsert<"vet_information"> | TablesUpdate<"vet_information">
-  ) => {
-    if (selectedPet?.vet_information_id && vetInfo) {
-      await updateVetMutation.mutateAsync(vetData as TablesUpdate<"vet_information">);
-    } else {
-      await createVetMutation.mutateAsync(vetData as TablesInsert<"vet_information">);
-    }
-    // Primary vet is automatically whitelisted via pets.vet_information_id relationship
-    // No need to manually add to pet_email_list
-  };
 
   const handleDeleteVetInfo = async () => {
     await deleteVetMutation.mutateAsync();
@@ -304,7 +311,9 @@ export default function Home() {
 
   const handleEditCareTeamMember = (member: VetInformation) => {
     setSelectedMember(member);
-    setSelectedMemberType(((member as any).type as CareTeamMemberType) || "veterinarian");
+    setSelectedMemberType(
+      ((member as any).type as CareTeamMemberType) || "veterinarian"
+    );
     setShowCareTeamModal(true);
   };
 
@@ -347,9 +356,15 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       if (selectedPetId) {
-        queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
-        queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
-        queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+        queryClient.invalidateQueries({
+          queryKey: ["vaccinations", selectedPetId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["medicines", selectedPetId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["care_team_members", selectedPetId],
+        });
       }
       refreshPendingApprovals();
     }, [selectedPetId, queryClient, refreshPendingApprovals])
@@ -387,11 +402,16 @@ export default function Home() {
   // Empty state
   if (pets.length === 0) {
     return (
-      <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
+      <GestureHandlerRootView
+        className="flex-1"
+        style={{ backgroundColor: theme.background }}
+      >
         <LinearGradient
-          colors={isDarkMode 
-            ? ["#050D10", "#0D2B2A", "#050D10"] 
-            : ["#3BD0D2", "#049FB0", "#3BD0D2"]}
+          colors={
+            isDarkMode
+              ? ["#050D10", "#0D2B2A", "#050D10"]
+              : ["#3BD0D2", "#049FB0", "#3BD0D2"]
+          }
           locations={[0, 0.5, 1]}
           style={{
             position: "absolute",
@@ -406,13 +426,13 @@ export default function Home() {
         <View className="flex-1 items-center justify-center px-8">
           <View
             className="w-32 h-32 rounded-full items-center justify-center mb-6"
-            style={{ backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.2)" }}
+            style={{
+              backgroundColor: isDarkMode
+                ? "rgba(255, 255, 255, 0.2)"
+                : "rgba(255, 255, 255, 0.2)",
+            }}
           >
-            <Ionicons 
-              name="paw" 
-              size={64} 
-              color="#FFFFFF" 
-            />
+            <Ionicons name="paw" size={64} color="#FFFFFF" />
           </View>
           <Text
             className="text-3xl font-bold text-center mb-2"
@@ -426,27 +446,34 @@ export default function Home() {
           >
             Add your first furry friend to get started
           </Text>
-          
+
           {/* Option Buttons */}
           <View className="w-full max-w-md gap-3">
             {/* Add Your First Pet */}
             <TouchableOpacity
               onPress={() => router.push("/onboarding/step1")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ 
-                backgroundColor: theme.card, 
-                borderWidth: 1, 
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
               }}
               activeOpacity={0.7}
             >
               <View
                 className="w-8 h-8 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.05)" }}
+                style={{
+                  backgroundColor: isDarkMode
+                    ? theme.border
+                    : "rgba(0, 0, 0, 0.05)",
+                }}
               >
                 <Ionicons name="add" size={20} color={theme.primary} />
               </View>
-              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
+              <Text
+                className="text-lg font-bold"
+                style={{ color: theme.primary }}
+              >
                 Add Your First Pet
               </Text>
             </TouchableOpacity>
@@ -455,15 +482,23 @@ export default function Home() {
             <TouchableOpacity
               onPress={() => router.push("/join-household")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ 
-                backgroundColor: theme.card, 
-                borderWidth: 1, 
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
               }}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.primary} style={{ marginRight: 8 }} />
-              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
+              <MaterialCommunityIcons
+                name="account-group-outline"
+                size={24}
+                color={theme.primary}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                className="text-lg font-bold"
+                style={{ color: theme.primary }}
+              >
                 Join Family Circle
               </Text>
             </TouchableOpacity>
@@ -472,15 +507,23 @@ export default function Home() {
             <TouchableOpacity
               onPress={() => router.push("/transfer-pet")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{ 
-                backgroundColor: theme.card, 
-                borderWidth: 1, 
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)" 
+              style={{
+                backgroundColor: theme.card,
+                borderWidth: 1,
+                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
               }}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="swap-horizontal" size={24} color={theme.primary} style={{ marginRight: 8 }} />
-              <Text className="text-lg font-bold" style={{ color: theme.primary }}>
+              <MaterialCommunityIcons
+                name="swap-horizontal"
+                size={24}
+                color={theme.primary}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                className="text-lg font-bold"
+                style={{ color: theme.primary }}
+              >
                 Transfer Pet with Code
               </Text>
             </TouchableOpacity>
@@ -495,177 +538,170 @@ export default function Home() {
   }
 
   return (
-      <GestureHandlerRootView className="flex-1" style={{ backgroundColor: theme.background }}>
-        {/* Background Gradient - Only in dark mode */}
-        <>
-          <LinearGradient
-            colors={isDarkMode ? ["#050D10", "#0A1B1B", "#050D10"] : ["#ffffff", "#E1F5F8", "#ffffff"]}
-            locations={[0, 0.5, 1]}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          />
-          {/* Animated Floating Particles */}
-          <AnimatedParticles />
-        </>
+    <GestureHandlerRootView
+      className="flex-1"
+      style={{ backgroundColor: theme.background }}
+    >
+      {/* Background Gradient - Only in dark mode */}
+      <>
+        <LinearGradient
+          colors={
+            isDarkMode
+              ? ["#050D10", "#0A1B1B", "#050D10"]
+              : ["#ffffff", "#E1F5F8", "#ffffff"]
+          }
+          locations={[0, 0.5, 1]}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
+        />
+        {/* Animated Floating Particles */}
+        <AnimatedParticles />
+      </>
 
-        {/* Header */}
-        <HomeHeader />
+      {/* Header */}
+      <HomeHeader />
 
-        {/* Main Content with Swipe Gesture */}
-        <GestureDetector gesture={swipeGesture}>
-          <ScrollView
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={theme.primary}
-                colors={[theme.primary]}
-              />
-            }
-          >
-            {/* Pet Selector */}
-            <View className="mb-5 px-4">
-              <PetSelector
-                pets={pets}
-                selectedPetId={selectedPetId}
-                onSelectPet={handleSelectPet}
-                notificationCounts={notificationCounts}
+      {/* Main Content with Swipe Gesture */}
+      <GestureDetector gesture={swipeGesture}>
+        <ScrollView
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }
+        >
+          {/* Pet Selector */}
+          <View className="mb-5 px-4">
+            <PetSelector
+              pets={pets}
+              selectedPetId={selectedPetId}
+              onSelectPet={handleSelectPet}
+              notificationCounts={notificationCounts}
+            />
+          </View>
+
+          {/* Pet Photo Card */}
+          {selectedPet && (
+            <View className="mx-4 mb-4 rounded-3xl overflow-hidden">
+              <PetImage pet={selectedPet} style="hero" />
+            </View>
+          )}
+
+          {/* Pet Email */}
+          {selectedPet && (
+            <View className="mx-4 mb-6 items-center">
+              <TouchableOpacity
+                className="flex-row items-center gap-2 px-5 py-3 rounded-full"
+                style={{
+                  backgroundColor:
+                    mode === "dark" ? theme.card : theme.border + "80",
+                  borderWidth: mode === "dark" ? 1 : 0,
+                  borderColor: theme.border,
+                }}
+                onPress={handleCopyEmail}
+                activeOpacity={0.7}
+              >
+                <Text
+                  className="text-lg font-medium"
+                  style={{ color: emailCopied ? "#22C55E" : theme.foreground }}
+                >
+                  {selectedPet.email_id}@pawbuck.app
+                </Text>
+                <Ionicons
+                  name={emailCopied ? "checkmark" : "copy-outline"}
+                  size={18}
+                  color={emailCopied ? "#22C55E" : theme.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Daily Wellness Section */}
+          {selectedPet && (
+            <View className="mb-6">
+              <DailyWellnessSection
+                petId={selectedPet.id}
+                vaccinations={vaccinations}
+                petCountry={selectedPet.country}
               />
             </View>
+          )}
 
-            {/* Pet Photo Card */}
-            {selectedPet && (
-              <View className="mx-4 mb-4 rounded-3xl overflow-hidden">
-                <PetImage pet={selectedPet} style="hero" />
-              </View>
-            )}
+          {/* Today's Medications Section */}
+          {selectedPet && medicines.length > 0 && (
+            <View className="mb-6">
+              <TodaysMedicationsSection
+                petId={selectedPet.id}
+                medicines={medicines}
+              />
+            </View>
+          )}
 
-            {/* Pet Email */}
-            {selectedPet && (
-              <View className="mx-4 mb-6 items-center">
-                <TouchableOpacity
-                  className="flex-row items-center gap-2 px-5 py-3 rounded-full"
-                  style={{
-                    backgroundColor: mode === "dark" ? theme.card : theme.border + "80",
-                    borderWidth: mode === "dark" ? 1 : 0,
-                    borderColor: theme.border,
-                  }}
-                  onPress={handleCopyEmail}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    className="text-lg font-medium"
-                    style={{ color: emailCopied ? "#22C55E" : theme.foreground }}
-                  >
-                    {selectedPet.email_id}@pawbuck.app
-                  </Text>
-                  <Ionicons
-                    name={emailCopied ? "checkmark" : "copy-outline"}
-                    size={18}
-                    color={emailCopied ? "#22C55E" : theme.secondary}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
+          {/* Daily Intake Section */}
+          {selectedPet && (
+            <View className="mb-6">
+              <DailyIntakeSection petId={selectedPet.id} />
+            </View>
+          )}
 
-            {/* Daily Wellness Section */}
-            {selectedPet && (
-              <View className="mb-6">
-                <DailyWellnessSection
-                  petId={selectedPet.id}
-                  vaccinations={vaccinations}
-                  petCountry={selectedPet.country}
-                />
-              </View>
-            )}
+          {/* Health Records Section */}
+          {selectedPet && (
+            <View className="mb-6">
+              <HealthRecordsSection petId={selectedPet.id} />
+            </View>
+          )}
 
-            {/* Today's Medications Section */}
-            {selectedPet && medicines.length > 0 && (
-              <View className="mb-6">
-                <TodaysMedicationsSection
-                  petId={selectedPet.id}
-                  medicines={medicines}
-                />
-              </View>
-            )}
+          {/* My Care Team Section */}
+          {selectedPet && (
+            <View className="mb-8">
+              <MyCareTeamSection
+                careTeamMembers={careTeamMembers}
+                onAddMember={handleAddCareTeamMember}
+                onEditMember={handleEditCareTeamMember}
+                readOnly={true}
+              />
+            </View>
+          )}
 
-            {/* Daily Intake Section */}
-            {selectedPet && (
-              <View className="mb-6">
-                <DailyIntakeSection petId={selectedPet.id} />
-              </View>
-            )}
+          {/* Bottom Padding for scroll */}
+          <View className="h-4" />
+        </ScrollView>
+      </GestureDetector>
 
-            {/* Health Records Section */}
-            {selectedPet && (
-              <View className="mb-6">
-                <HealthRecordsSection petId={selectedPet.id} />
-              </View>
-            )}
+      {/* Bottom Navigation */}
+      <BottomNavBar activeTab="home" selectedPetId={selectedPetId} />
 
-
-            {/* My Care Team Section */}
-            {selectedPet && (
-              <View className="mb-8">
-                <MyCareTeamSection
-                  vetInfo={vetInfo}
-                  careTeamMembers={careTeamMembers.filter(m => m.id !== vetInfo?.id)}
-                  onAddMember={handleAddCareTeamMember}
-                  onEditMember={handleEditCareTeamMember}
-                  readOnly={true}
-                />
-              </View>
-            )}
-
-            {/* Bottom Padding for scroll */}
-            <View className="h-4" />
-          </ScrollView>
-        </GestureDetector>
-
-        {/* Bottom Navigation */}
-        <BottomNavBar activeTab="home" selectedPetId={selectedPetId} />
-
-        {/* Vet Info Modal */}
-        {showVetModal && selectedPet && (
-          <VetInfoModal
-            visible={showVetModal}
-            onClose={() => setShowVetModal(false)}
-            onSave={handleSaveVetInfo}
-            onDelete={vetInfo ? handleDeleteVetInfo : undefined}
-            vetInfo={vetInfo}
-            petId={selectedPet.id}
-            loading={createVetMutation.isPending || updateVetMutation.isPending}
-          />
-        )}
-
-        {/* Care Team Member Modal */}
-        {showCareTeamModal && selectedPet && (
-          <CareTeamMemberModal
-            visible={showCareTeamModal}
-            onClose={() => {
-              setShowCareTeamModal(false);
-              setSelectedMember(null);
-            }}
-            onSave={handleSaveCareTeamMember}
-            onDelete={selectedMember ? handleDeleteCareTeamMember : undefined}
-            memberInfo={selectedMember}
-            memberType={selectedMemberType}
-            petId={selectedPet.id}
-            allPets={pets}
-            loading={
-              createCareTeamMemberMutation.isPending ||
-              updateCareTeamMemberMutation.isPending ||
-              deleteCareTeamMemberMutation.isPending
-            }
-          />
-        )}
-      </GestureHandlerRootView>
+      {/* Care Team Member Modal */}
+      {showCareTeamModal && selectedPet && (
+        <CareTeamMemberModal
+          visible={showCareTeamModal}
+          onClose={() => {
+            setShowCareTeamModal(false);
+            setSelectedMember(null);
+          }}
+          onSave={handleSaveCareTeamMember}
+          onDelete={selectedMember ? handleDeleteCareTeamMember : undefined}
+          memberInfo={selectedMember}
+          memberType={selectedMemberType}
+          petId={selectedPet.id}
+          allPets={pets}
+          loading={
+            createCareTeamMemberMutation.isPending ||
+            updateCareTeamMemberMutation.isPending ||
+            deleteCareTeamMemberMutation.isPending
+          }
+        />
+      )}
+    </GestureHandlerRootView>
   );
 }

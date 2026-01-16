@@ -1,5 +1,4 @@
 import { useTheme } from "@/context/themeContext";
-import { Tables } from "@/database.types";
 import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,10 +7,7 @@ import { useRouter } from "expo-router";
 import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 
-type VetInfo = Tables<"vet_information">;
-
 type MyCareTeamSectionProps = {
-  vetInfo?: VetInfo | null;
   careTeamMembers?: VetInformation[];
   onAddMember: (type: CareTeamMemberType) => void;
   onEditMember?: (member: VetInformation) => void;
@@ -19,10 +15,18 @@ type MyCareTeamSectionProps = {
   // Care team members are automatically whitelisted via pet_care_team_members junction table
 };
 
-const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap => {
+const getTypeIcon = (
+  type: CareTeamMemberType | null
+):
+  | keyof typeof Ionicons.glyphMap
+  | keyof typeof MaterialCommunityIcons.glyphMap => {
   if (!type) return "stethoscope";
-  
-  const icons: Record<CareTeamMemberType, keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap> = {
+
+  const icons: Record<
+    CareTeamMemberType,
+    | keyof typeof Ionicons.glyphMap
+    | keyof typeof MaterialCommunityIcons.glyphMap
+  > = {
     veterinarian: "stethoscope", // MaterialCommunityIcons
     dog_walker: "paw", // MaterialCommunityIcons (closest to footprints)
     groomer: "content-cut", // MaterialCommunityIcons (scissors)
@@ -34,7 +38,7 @@ const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof Ionicons.gly
 
 const getTypeLabel = (type: CareTeamMemberType | null): string => {
   if (!type) return "Veterinarian";
-  
+
   const labels: Record<CareTeamMemberType, string> = {
     veterinarian: "Veterinarian",
     dog_walker: "Dog Walker",
@@ -45,9 +49,11 @@ const getTypeLabel = (type: CareTeamMemberType | null): string => {
   return labels[type];
 };
 
-const getIconType = (type: CareTeamMemberType | null): "ionicons" | "material" => {
+const getIconType = (
+  type: CareTeamMemberType | null
+): "ionicons" | "material" => {
   if (!type) return "material";
-  
+
   // All care team member icons use MaterialCommunityIcons
   return "material";
 };
@@ -55,48 +61,50 @@ const getIconType = (type: CareTeamMemberType | null): "ionicons" | "material" =
 // Get color for care team member type - matches messages screen colors
 const getTypeColor = (type: CareTeamMemberType | null): string => {
   if (!type) return "#60A5FA"; // Default to veterinarian blue
-  
+
   const colors: Record<CareTeamMemberType, string> = {
     veterinarian: "#60A5FA", // Blue
-    dog_walker: "#4ADE80",   // Green
-    groomer: "#A78BFA",      // Purple
-    pet_sitter: "#F472B6",   // Pink
-    boarding: "#D97706",     // Orange
+    dog_walker: "#4ADE80", // Green
+    groomer: "#A78BFA", // Purple
+    pet_sitter: "#F472B6", // Pink
+    boarding: "#D97706", // Orange
   };
   return colors[type];
 };
 
 // Get background color with opacity for care team member type
-const getTypeBackgroundColor = (type: CareTeamMemberType | null, isDarkMode: boolean): string => {
+const getTypeBackgroundColor = (
+  type: CareTeamMemberType | null,
+  isDarkMode: boolean
+): string => {
   if (!type) {
     return isDarkMode ? "rgba(96, 165, 250, 0.2)" : "rgba(96, 165, 250, 0.15)"; // Default to veterinarian
   }
-  
+
   if (isDarkMode) {
     // For dark mode, use rgba with 0.2 opacity
     const darkColors: Record<CareTeamMemberType, string> = {
-      veterinarian: "rgba(96, 165, 250, 0.2)",   // Blue
-      dog_walker: "rgba(74, 222, 128, 0.2)",     // Green
-      groomer: "rgba(167, 139, 250, 0.2)",       // Purple
-      pet_sitter: "rgba(244, 114, 182, 0.2)",   // Pink
-      boarding: "rgba(217, 119, 6, 0.2)",        // Orange
+      veterinarian: "rgba(96, 165, 250, 0.2)", // Blue
+      dog_walker: "rgba(74, 222, 128, 0.2)", // Green
+      groomer: "rgba(167, 139, 250, 0.2)", // Purple
+      pet_sitter: "rgba(244, 114, 182, 0.2)", // Pink
+      boarding: "rgba(217, 119, 6, 0.2)", // Orange
     };
     return darkColors[type];
   } else {
     // For light mode, use lighter tint with 0.15 opacity
     const lightColors: Record<CareTeamMemberType, string> = {
-      veterinarian: "rgba(96, 165, 250, 0.15)",   // Blue
-      dog_walker: "rgba(74, 222, 128, 0.15)",     // Green
-      groomer: "rgba(167, 139, 250, 0.15)",       // Purple
-      pet_sitter: "rgba(244, 114, 182, 0.15)",   // Pink
-      boarding: "rgba(217, 119, 6, 0.15)",        // Orange
+      veterinarian: "rgba(96, 165, 250, 0.15)", // Blue
+      dog_walker: "rgba(74, 222, 128, 0.15)", // Green
+      groomer: "rgba(167, 139, 250, 0.15)", // Purple
+      pet_sitter: "rgba(244, 114, 182, 0.15)", // Pink
+      boarding: "rgba(217, 119, 6, 0.15)", // Orange
     };
     return lightColors[type];
   }
 };
 
 export default function MyCareTeamSection({
-  vetInfo,
   careTeamMembers = [],
   onAddMember,
   onEditMember,
@@ -116,10 +124,14 @@ export default function MyCareTeamSection({
       if (canOpen) {
         await Linking.openURL(phoneUrl);
       } else {
-        Alert.alert("Phone", `Phone: ${phone}`, [{ text: "OK", style: "cancel" }]);
+        Alert.alert("Phone", `Phone: ${phone}`, [
+          { text: "OK", style: "cancel" },
+        ]);
       }
     } catch (error) {
-      Alert.alert("Phone", `Phone: ${phone}`, [{ text: "OK", style: "cancel" }]);
+      Alert.alert("Phone", `Phone: ${phone}`, [
+        { text: "OK", style: "cancel" },
+      ]);
     }
   };
 
@@ -138,21 +150,13 @@ export default function MyCareTeamSection({
   // All care team members are automatically whitelisted
   const allMembers: VetInformation[] = [];
 
-  // Add primary vet if exists
-  if (vetInfo) {
-    allMembers.push({ ...vetInfo, type: "veterinarian" } as VetInformation);
-  }
-
-  // Add other care team members (excluding primary vet if already added)
   careTeamMembers.forEach((member) => {
-    if (!vetInfo || member.id !== vetInfo.id) {
-      allMembers.push(member);
-    }
+    allMembers.push(member);
   });
 
   // Group by type for "Add" buttons
   const hasMemberByType: Record<CareTeamMemberType, boolean> = {
-    veterinarian: !!vetInfo,
+    veterinarian: false,
     dog_walker: false,
     groomer: false,
     pet_sitter: false,
@@ -183,9 +187,11 @@ export default function MyCareTeamSection({
         className="mb-3"
       >
         <LinearGradient
-          colors={isDarkMode 
-            ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
-            : ["#FFFFFF", "#F8FAFA"]}
+          colors={
+            isDarkMode
+              ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
+              : ["#FFFFFF", "#F8FAFA"]
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -205,7 +211,7 @@ export default function MyCareTeamSection({
           }}
         >
           {/* Icon */}
-          <View 
+          <View
             className="w-12 h-12 rounded-full items-center justify-center mr-3"
             style={{ backgroundColor: typeBgColor }}
           >
@@ -246,11 +252,16 @@ export default function MyCareTeamSection({
                   handleCall(member.phone);
                 }}
                 className="w-11 h-11 rounded-xl items-center justify-center"
-              style={{ backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB" }}
-              activeOpacity={0.7}
-
+                style={{
+                  backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB",
+                }}
+                activeOpacity={0.7}
               >
-                <Ionicons name="call-outline" size={18} color={theme.secondary} />
+                <Ionicons
+                  name="call-outline"
+                  size={18}
+                  color={theme.secondary}
+                />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -259,7 +270,9 @@ export default function MyCareTeamSection({
                 handleEmail(member.email);
               }}
               className="w-11 h-11 rounded-xl items-center justify-center"
-              style={{ backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB" }}
+              style={{
+                backgroundColor: isDarkMode ? theme.border + "40" : "#E5E7EB",
+              }}
               activeOpacity={0.7}
             >
               <Ionicons name="mail-outline" size={20} color={theme.secondary} />
@@ -301,7 +314,10 @@ export default function MyCareTeamSection({
             activeOpacity={0.7}
           >
             <Ionicons name="add" size={18} color="#fff" />
-            <Text className="text-base font-semibold ml-1" style={{ color: "#fff" }}>
+            <Text
+              className="text-base font-semibold ml-1"
+              style={{ color: "#fff" }}
+            >
               Add
             </Text>
           </TouchableOpacity>
@@ -312,9 +328,7 @@ export default function MyCareTeamSection({
       <View>
         {/* Contact List */}
         {allMembers.length > 0 && (
-          <View>
-            {allMembers.map((member) => renderContactCard(member))}
-          </View>
+          <View>{allMembers.map((member) => renderContactCard(member))}</View>
         )}
 
         {/* Empty State */}
@@ -328,168 +342,228 @@ export default function MyCareTeamSection({
 
         {/* Add Buttons for each type - Only show if no members exist and not readOnly */}
         {!readOnly && allMembers.length === 0 && (
-        <>
-          {!hasMemberByType.veterinarian && (
-          <TouchableOpacity
-            onPress={() => onAddMember("veterinarian")}
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderStyle: "dashed",
-              borderColor: theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: getTypeBackgroundColor("veterinarian", isDarkMode) }}
-            >
-              <MaterialCommunityIcons name="stethoscope" size={24} color={getTypeColor("veterinarian")} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
+          <>
+            {!hasMemberByType.veterinarian && (
+              <TouchableOpacity
+                onPress={() => onAddMember("veterinarian")}
+                className="flex-row items-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: theme.border,
+                }}
+                activeOpacity={0.7}
               >
-                Add Veterinarian
-              </Text>
-              <Text className="text-base" style={{ color: theme.secondary }}>
-                Add your vet's contact details
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {!hasMemberByType.dog_walker && (
-          <TouchableOpacity
-            onPress={() => onAddMember("dog_walker")}
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderStyle: "dashed",
-              borderColor: theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: getTypeBackgroundColor("dog_walker", isDarkMode) }}
-            >
-              <MaterialCommunityIcons name="paw" size={24} color={getTypeColor("dog_walker")} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Add Dog Walker
-              </Text>
-              <Text className="text-base" style={{ color: theme.secondary }}>
-                Add your dog walker's contact details
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {!hasMemberByType.groomer && (
-          <TouchableOpacity
-            onPress={() => onAddMember("groomer")}
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderStyle: "dashed",
-              borderColor: theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: getTypeBackgroundColor("groomer", isDarkMode) }}
-            >
-              <MaterialCommunityIcons name="content-cut" size={24} color={getTypeColor("groomer")} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Add Groomer
-              </Text>
-              <Text className="text-base" style={{ color: theme.secondary }}>
-                Add your groomer's contact details
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {!hasMemberByType.pet_sitter && (
-          <TouchableOpacity
-            onPress={() => onAddMember("pet_sitter")}
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderStyle: "dashed",
-              borderColor: theme.border,
-            }}
-            activeOpacity={0.7}
-          >
-            <View
-              className="w-12 h-12 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: getTypeBackgroundColor("pet_sitter", isDarkMode) }}
-            >
-              <MaterialCommunityIcons name="heart" size={24} color={getTypeColor("pet_sitter")} />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Add Pet Sitter
-              </Text>
-              <Text className="text-base" style={{ color: theme.secondary }}>
-                Add your pet sitter's contact details
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-          {!hasMemberByType.boarding && (
-            <TouchableOpacity
-              onPress={() => onAddMember("boarding")}
-              className="flex-row items-center rounded-2xl p-4"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderStyle: "dashed",
-                borderColor: theme.border,
-              }}
-              activeOpacity={0.7}
-            >
                 <View
                   className="w-12 h-12 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: getTypeBackgroundColor("boarding", isDarkMode) }}
+                  style={{
+                    backgroundColor: getTypeBackgroundColor(
+                      "veterinarian",
+                      isDarkMode
+                    ),
+                  }}
                 >
-                  <MaterialCommunityIcons name="home" size={24} color={getTypeColor("boarding")} />
-              </View>
-              <View className="flex-1">
-                <Text
-                  className="text-lg font-semibold"
-                  style={{ color: theme.foreground }}
+                  <MaterialCommunityIcons
+                    name="stethoscope"
+                    size={24}
+                    color={getTypeColor("veterinarian")}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-lg font-semibold"
+                    style={{ color: theme.foreground }}
+                  >
+                    Add Veterinarian
+                  </Text>
+                  <Text
+                    className="text-base"
+                    style={{ color: theme.secondary }}
+                  >
+                    Add your vet's contact details
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {!hasMemberByType.dog_walker && (
+              <TouchableOpacity
+                onPress={() => onAddMember("dog_walker")}
+                className="flex-row items-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: theme.border,
+                }}
+                activeOpacity={0.7}
+              >
+                <View
+                  className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                  style={{
+                    backgroundColor: getTypeBackgroundColor(
+                      "dog_walker",
+                      isDarkMode
+                    ),
+                  }}
                 >
-                  Add Boarding Facility
-                </Text>
-                <Text className="text-base" style={{ color: theme.secondary }}>
-                  Add your boarding facility's contact details
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+                  <MaterialCommunityIcons
+                    name="paw"
+                    size={24}
+                    color={getTypeColor("dog_walker")}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-lg font-semibold"
+                    style={{ color: theme.foreground }}
+                  >
+                    Add Dog Walker
+                  </Text>
+                  <Text
+                    className="text-base"
+                    style={{ color: theme.secondary }}
+                  >
+                    Add your dog walker's contact details
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {!hasMemberByType.groomer && (
+              <TouchableOpacity
+                onPress={() => onAddMember("groomer")}
+                className="flex-row items-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: theme.border,
+                }}
+                activeOpacity={0.7}
+              >
+                <View
+                  className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                  style={{
+                    backgroundColor: getTypeBackgroundColor(
+                      "groomer",
+                      isDarkMode
+                    ),
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="content-cut"
+                    size={24}
+                    color={getTypeColor("groomer")}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-lg font-semibold"
+                    style={{ color: theme.foreground }}
+                  >
+                    Add Groomer
+                  </Text>
+                  <Text
+                    className="text-base"
+                    style={{ color: theme.secondary }}
+                  >
+                    Add your groomer's contact details
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {!hasMemberByType.pet_sitter && (
+              <TouchableOpacity
+                onPress={() => onAddMember("pet_sitter")}
+                className="flex-row items-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: theme.border,
+                }}
+                activeOpacity={0.7}
+              >
+                <View
+                  className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                  style={{
+                    backgroundColor: getTypeBackgroundColor(
+                      "pet_sitter",
+                      isDarkMode
+                    ),
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="heart"
+                    size={24}
+                    color={getTypeColor("pet_sitter")}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-lg font-semibold"
+                    style={{ color: theme.foreground }}
+                  >
+                    Add Pet Sitter
+                  </Text>
+                  <Text
+                    className="text-base"
+                    style={{ color: theme.secondary }}
+                  >
+                    Add your pet sitter's contact details
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {!hasMemberByType.boarding && (
+              <TouchableOpacity
+                onPress={() => onAddMember("boarding")}
+                className="flex-row items-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderStyle: "dashed",
+                  borderColor: theme.border,
+                }}
+                activeOpacity={0.7}
+              >
+                <View
+                  className="w-12 h-12 rounded-full items-center justify-center mr-3"
+                  style={{
+                    backgroundColor: getTypeBackgroundColor(
+                      "boarding",
+                      isDarkMode
+                    ),
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="home"
+                    size={24}
+                    color={getTypeColor("boarding")}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text
+                    className="text-lg font-semibold"
+                    style={{ color: theme.foreground }}
+                  >
+                    Add Boarding Facility
+                  </Text>
+                  <Text
+                    className="text-base"
+                    style={{ color: theme.secondary }}
+                  >
+                    Add your boarding facility's contact details
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
     </View>
   );

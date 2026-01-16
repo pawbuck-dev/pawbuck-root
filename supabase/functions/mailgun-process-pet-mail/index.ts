@@ -213,14 +213,14 @@ Deno.serve(async (req) => {
 
           try {
             // Get recipient name from care team if available
-            const recipientName = await lookupRecipientName(senderEmail);
+            const senderName = await lookupRecipientName(senderEmail);
 
             // Create new thread
             const newThread = await createThreadFromInboundEmail({
               userId: pet.user_id,
               petId: pet.id,
               recipientEmail: senderEmail, // The sender becomes the recipient in the thread
-              recipientName: recipientName,
+              recipientName: senderName,
               subject: parsedEmail.subject,
               petEmail: recipientEmail,
               messageId: messageId, // For email threading support
