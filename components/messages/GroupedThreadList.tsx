@@ -1,16 +1,18 @@
 import { useTheme } from "@/context/themeContext";
-import { MessageThread } from "@/services/messages";
 import { CareTeamMemberType } from "@/services/careTeamMembers";
+import { MessageThread } from "@/services/messages";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Text, View } from "react-native";
 import ThreadListItem from "./ThreadListItem";
 
 interface GroupedThreadListProps {
   threads: MessageThread[];
   category: CareTeamMemberType;
   title: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap | keyof typeof Ionicons.glyphMap;
+  icon:
+    | keyof typeof MaterialCommunityIcons.glyphMap
+    | keyof typeof Ionicons.glyphMap;
   iconType: "material" | "ionicons";
   color: string;
   onThreadPress: (thread: MessageThread) => void;
@@ -37,10 +39,7 @@ export default function GroupedThreadList({
 
   const unreadCount = getUnreadCount
     ? getUnreadCount(threads)
-    : threads.reduce(
-        (sum, thread) => sum + (thread.message_count || 0),
-        0
-      );
+    : threads.reduce((sum, thread) => sum + (thread.unread_count || 0), 0);
 
   return (
     <View className="mb-6">
@@ -86,7 +85,11 @@ export default function GroupedThreadList({
             key={thread.id}
             thread={thread}
             onPress={() => onThreadPress(thread)}
-            onAddToCareTeam={isUnknownCategory && onAddToCareTeam ? () => onAddToCareTeam(thread) : undefined}
+            onAddToCareTeam={
+              isUnknownCategory && onAddToCareTeam
+                ? () => onAddToCareTeam(thread)
+                : undefined
+            }
             showAddButton={isUnknownCategory && !!onAddToCareTeam}
           />
         ))}
@@ -94,4 +97,3 @@ export default function GroupedThreadList({
     </View>
   );
 }
-

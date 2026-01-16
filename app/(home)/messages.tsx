@@ -140,13 +140,13 @@ export default function MessagesScreen() {
   const getUnreadCountForFilter = (filterId: FilterType): number => {
     let count = 0;
 
-    // Count threads for this filter
+    // Count unread messages in threads for this filter
     const filteredThreadsForPet =
       filterId === "all"
         ? threads
         : threads.filter((t) => t.pet_id === filterId);
     count += filteredThreadsForPet.reduce(
-      (sum, thread) => sum + (thread.message_count || 0),
+      (sum, thread) => sum + (thread.unread_count || 0),
       0
     );
 
@@ -162,11 +162,11 @@ export default function MessagesScreen() {
 
   // Get total unread count
   const totalUnread = useMemo(() => {
-    const threadCount = threads.reduce(
-      (sum, thread) => sum + (thread.message_count || 0),
+    const threadUnreadCount = threads.reduce(
+      (sum, thread) => sum + (thread.unread_count || 0),
       0
     );
-    return threadCount + pendingApprovals.length;
+    return threadUnreadCount + pendingApprovals.length;
   }, [threads, pendingApprovals]);
 
   // Group filtered threads
@@ -185,9 +185,9 @@ export default function MessagesScreen() {
 
   // Group filtered threads - must be before any early returns (Rules of Hooks)
   React.useEffect(() => {
-    // Create a stable key from thread IDs to detect actual changes
+    // Create a stable key from thread IDs and unread counts to detect changes
     const threadsKey = filteredThreads
-      .map((t) => t.id)
+      .map((t) => `${t.id}:${t.unread_count ?? 0}:${t.updated_at}`)
       .sort()
       .join(",");
 

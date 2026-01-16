@@ -6,7 +6,12 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
-import { fetchThreadMessages, MessageThread, ThreadMessage } from "@/services/messages";
+import {
+  fetchThreadMessages,
+  markThreadAsRead,
+  MessageThread,
+  ThreadMessage,
+} from "@/services/messages";
 import {
   CareTeamMemberType,
   createVetInformation,
@@ -53,7 +58,8 @@ export default function ThreadDetailView({
   const [sending, setSending] = useState(false);
   const [isInCareTeam, setIsInCareTeam] = useState<boolean | null>(null);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
+  const [selectedMemberType, setSelectedMemberType] =
+    useState<CareTeamMemberType>("veterinarian");
 
   // Fetch messages for this thread
   const {
@@ -75,7 +81,8 @@ export default function ThreadDetailView({
   }, [messages.length]);
 
   // Get recipient display name
-  const recipientName = thread.recipient_name || thread.recipient_email.split("@")[0];
+  const recipientName =
+    thread.recipient_name || thread.recipient_email.split("@")[0];
 
   // Check if recipient is in care team
   useEffect(() => {
@@ -91,10 +98,29 @@ export default function ThreadDetailView({
     checkCareTeam();
   }, [thread.recipient_email]);
 
+  // Mark thread as read when opened
+  useEffect(() => {
+    const markAsRead = async () => {
+      try {
+        await markThreadAsRead(threadId);
+        // Invalidate threads query to refresh unread counts
+        queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+      } catch (error) {
+        console.error("Error marking thread as read:", error);
+      }
+    };
+    markAsRead();
+  }, [threadId, queryClient]);
+
   // Handle adding care team member from thread detail
-  const handleAddCareTeamMemberFromThread = async (data: CareTeamMemberSaveData) => {
+  const handleAddCareTeamMemberFromThread = async (
+    data: CareTeamMemberSaveData
+  ) => {
     if (pets.length === 0) {
-      Alert.alert("Error", "You need to have at least one pet to add a care team member");
+      Alert.alert(
+        "Error",
+        "You need to have at least one pet to add a care team member"
+      );
       return;
     }
 
@@ -121,7 +147,9 @@ export default function ThreadDetailView({
         careTeamMemberId = existingMember.id;
       } else {
         // Create the vet_information record
-        const newMember = await createVetInformation(memberDataWithEmail as TablesInsert<"vet_information">);
+        const newMember = await createVetInformation(
+          memberDataWithEmail as TablesInsert<"vet_information">
+        );
         careTeamMemberId = newMember.id;
       }
 
@@ -132,7 +160,9 @@ export default function ThreadDetailView({
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
       selectedPetIds.forEach((petId) => {
-        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+        queryClient.invalidateQueries({
+          queryKey: ["care_team_members", petId],
+        });
       });
 
       setIsInCareTeam(true);
@@ -169,7 +199,7 @@ export default function ThreadDetailView({
         body: {
           petId: thread.pet_id,
           to: thread.recipient_email,
-          subject: thread.subject.startsWith("Re:") ? thread.subject : `Re: ${thread.subject}`,
+          subject: thread.subject,
           message: replyText.trim(),
         },
       });
@@ -191,10 +221,10 @@ export default function ThreadDetailView({
       }, 100);
     } catch (error: any) {
       console.error("Error sending reply:", error);
-      
+
       // Extract error message from Supabase function error
       let errorMessage = "Failed to send message. Please try again.";
-      
+
       if (error?.message) {
         errorMessage = error.message;
       } else if (error?.error?.message) {
@@ -202,14 +232,19 @@ export default function ThreadDetailView({
       } else if (typeof error === "string") {
         errorMessage = error;
       }
-      
+
       // Provide more helpful error messages
-      if (errorMessage.includes("not configured") || errorMessage.includes("configuration error")) {
-        errorMessage = "Email service is not configured. Please contact support.";
+      if (
+        errorMessage.includes("not configured") ||
+        errorMessage.includes("configuration error")
+      ) {
+        errorMessage =
+          "Email service is not configured. Please contact support.";
       } else if (errorMessage.includes("unavailable")) {
-        errorMessage = "Email service is temporarily unavailable. Please try again later.";
+        errorMessage =
+          "Email service is temporarily unavailable. Please try again later.";
       }
-      
+
       Alert.alert("Error", errorMessage);
     } finally {
       setSending(false);
@@ -226,9 +261,7 @@ export default function ThreadDetailView({
         key={message.id}
         className="px-4 py-3"
         style={{
-          backgroundColor: isOutbound
-            ? `${theme.primary}15`
-            : theme.background,
+          backgroundColor: isOutbound ? `${theme.primary}15` : theme.background,
         }}
       >
         <View
@@ -237,9 +270,7 @@ export default function ThreadDetailView({
           <View
             className="max-w-[80%] rounded-2xl px-4 py-3"
             style={{
-              backgroundColor: isOutbound
-                ? theme.primary
-                : theme.card,
+              backgroundColor: isOutbound ? theme.primary : theme.card,
             }}
           >
             {/* Message Header */}
@@ -247,9 +278,7 @@ export default function ThreadDetailView({
               <Text
                 className="text-xs font-semibold"
                 style={{
-                  color: isOutbound
-                    ? "white"
-                    : theme.foreground,
+                  color: isOutbound ? "white" : theme.foreground,
                 }}
               >
                 {isOutbound ? "You" : recipientName}
@@ -257,9 +286,7 @@ export default function ThreadDetailView({
               <Text
                 className="text-xs ml-2"
                 style={{
-                  color: isOutbound
-                    ? "rgba(255,255,255,0.8)"
-                    : theme.secondary,
+                  color: isOutbound ? "rgba(255,255,255,0.8)" : theme.secondary,
                 }}
               >
                 {moment(message.sent_at).format("MMM D, h:mm A")}
@@ -270,9 +297,7 @@ export default function ThreadDetailView({
             <Text
               className="text-base"
               style={{
-                color: isOutbound
-                  ? "white"
-                  : theme.foreground,
+                color: isOutbound ? "white" : theme.foreground,
               }}
             >
               {message.body}
@@ -356,7 +381,10 @@ export default function ThreadDetailView({
           activeOpacity={0.7}
         >
           <Ionicons name="person-add" size={16} color="white" />
-          <Text className="text-sm font-semibold ml-2" style={{ color: "white" }}>
+          <Text
+            className="text-sm font-semibold ml-2"
+            style={{ color: "white" }}
+          >
             Add to Care Team
           </Text>
         </TouchableOpacity>
@@ -439,9 +467,8 @@ export default function ThreadDetailView({
               disabled={!replyText.trim() || sending}
               className="w-12 h-12 rounded-full items-center justify-center"
               style={{
-                backgroundColor: replyText.trim() && !sending
-                  ? theme.primary
-                  : theme.border,
+                backgroundColor:
+                  replyText.trim() && !sending ? theme.primary : theme.border,
               }}
               activeOpacity={0.7}
             >
@@ -451,7 +478,9 @@ export default function ThreadDetailView({
                 <Ionicons
                   name="send"
                   size={20}
-                  color={replyText.trim() && !sending ? "white" : theme.secondary}
+                  color={
+                    replyText.trim() && !sending ? "white" : theme.secondary
+                  }
                 />
               )}
             </TouchableOpacity>
@@ -476,4 +505,3 @@ export default function ThreadDetailView({
     </View>
   );
 }
-

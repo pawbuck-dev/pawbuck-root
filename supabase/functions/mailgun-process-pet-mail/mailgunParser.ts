@@ -38,7 +38,7 @@ export async function parseMailgunWebhook(
   console.log("Mailgun email metadata:", {
     sender,
     recipient,
-    subject,
+    subject: subject?.replace(/^re:\s*/i, ""),
     messageId,
     date,
   });

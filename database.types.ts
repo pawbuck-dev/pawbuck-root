@@ -429,6 +429,35 @@ export type Database = {
           },
         ]
       }
+      thread_read_status: {
+        Row: {
+          id: string
+          user_id: string
+          thread_id: string
+          last_read_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          thread_id: string
+          last_read_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          thread_id?: string
+          last_read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_read_status_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_email_approvals: {
         Row: {
           attachment_url: string | null

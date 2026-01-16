@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
     // If replying to an existing thread and subject doesn't already have RE:, add it
     let emailSubject = subject;
     if (!subject && existingSubject) {
-      emailSubject = `RE: ${existingSubject}`;
+      emailSubject = existingSubject;
       console.log(
         `[${requestId}] Replying to existing thread, subject changed to: ${emailSubject}`
       );
@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
       to,
       cc ? [cc] : [],
       bcc ? [bcc] : [],
-      emailSubject,
+      subject ? subject : `Re: ${existingSubject}`,
       message,
       replyToAddress,
       pet.name,
@@ -449,7 +449,7 @@ Deno.serve(async (req) => {
       .from("message_threads")
       .update({
         updated_at: new Date().toISOString(),
-        subject: emailSubject.replace("RE: ", ""),
+        subject: emailSubject,
         message_id: sentMessageId,
       })
       .eq("id", threadId);

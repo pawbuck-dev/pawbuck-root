@@ -16,6 +16,8 @@ export interface MessageThread {
   } | null;
   last_message?: ThreadMessage | null;
   message_count?: number;
+  unread_count?: number;
+  last_read_at?: string | null;
 }
 
 export interface ThreadMessage {
@@ -35,12 +37,22 @@ export interface ThreadMessage {
  * Fetch all message threads for the current user
  * Optionally filtered by pet ID
  * Optimized: Uses batched queries instead of N+1 pattern
+ * Includes unread count based on thread_read_status
  */
 export async function fetchMessageThreads(
   petId?: string
 ): Promise<MessageThread[]> {
   console.log(`[fetchMessageThreads] Fetching threads for petId: ${petId}`);
-  
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    console.error("[fetchMessageThreads] No authenticated user");
+    return [];
+  }
+
   // Query 1: Fetch all threads
   let query = supabase
     .from("message_threads")
@@ -82,31 +94,87 @@ export async function fetchMessageThreads(
     .in("thread_id", threadIds)
     .order("sent_at", { ascending: false });
 
-  // Build lookup maps for last message and count per thread
+  // Query 3: Fetch read status for current user
+  const { data: readStatusData } = await supabase
+    .from("thread_read_status")
+    .select("thread_id, last_read_at")
+    .eq("user_id", user.id)
+    .in("thread_id", threadIds);
+
+  // Build read status lookup map
+  const readStatusMap = new Map<string, string>();
+  (readStatusData || []).forEach((status) => {
+    readStatusMap.set(status.thread_id, status.last_read_at);
+  });
+
+  // Build lookup maps for last message, count, and unread count per thread
   const lastMessageMap = new Map<string, ThreadMessage>();
   const countMap = new Map<string, number>();
+  const unreadCountMap = new Map<string, number>();
 
-  // Process messages to extract last message and count per thread
+  // Process messages to extract last message, count, and unread count per thread
   (allMessages || []).forEach((message) => {
     const threadId = message.thread_id;
-    
-    // Increment count for this thread
+
+    // Increment total count for this thread
     countMap.set(threadId, (countMap.get(threadId) || 0) + 1);
-    
+
     // Store only the first (latest) message per thread
     if (!lastMessageMap.has(threadId)) {
       lastMessageMap.set(threadId, message as ThreadMessage);
     }
+
+    // Count unread messages (only inbound messages after last_read_at)
+    if (message.direction === "inbound") {
+      const lastReadAt = readStatusMap.get(threadId);
+      if (!lastReadAt || new Date(message.sent_at) > new Date(lastReadAt)) {
+        unreadCountMap.set(threadId, (unreadCountMap.get(threadId) || 0) + 1);
+      }
+    }
   });
 
-  // Combine threads with their last message and count
+  // Combine threads with their last message, count, and unread count
   const threadsWithMessages = data.map((thread) => ({
     ...thread,
     last_message: lastMessageMap.get(thread.id) || null,
     message_count: countMap.get(thread.id) || 0,
+    unread_count: unreadCountMap.get(thread.id) || 0,
+    last_read_at: readStatusMap.get(thread.id) || null,
   }));
 
   return threadsWithMessages as MessageThread[];
+}
+
+/**
+ * Mark a thread as read for the current user
+ * Uses upsert to create or update the read status
+ */
+export async function markThreadAsRead(threadId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    console.error("[markThreadAsRead] No authenticated user");
+    return;
+  }
+
+  const { error } = await supabase.from("thread_read_status").upsert(
+    {
+      user_id: user.id,
+      thread_id: threadId,
+      last_read_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id,thread_id",
+    }
+  );
+
+  if (error) {
+    console.error("[markThreadAsRead] Error marking thread as read:", error);
+    throw error;
+  }
+
+  console.log(`[markThreadAsRead] Thread ${threadId} marked as read`);
 }
 
 /**
@@ -129,7 +197,9 @@ export async function fetchThreadMessages(
 /**
  * Fetch a single thread by ID
  */
-export async function fetchThread(threadId: string): Promise<MessageThread | null> {
+export async function fetchThread(
+  threadId: string
+): Promise<MessageThread | null> {
   const { data, error } = await supabase
     .from("message_threads")
     .select(
@@ -169,4 +239,3 @@ export async function fetchThread(threadId: string): Promise<MessageThread | nul
     message_count: count || 0,
   } as MessageThread;
 }
-

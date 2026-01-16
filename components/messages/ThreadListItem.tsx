@@ -12,12 +12,17 @@ interface ThreadListItemProps {
   showAddButton?: boolean;
 }
 
-export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showAddButton = false }: ThreadListItemProps) {
-  const { theme, mode } = useTheme();
-  const isDarkMode = mode === "dark";
+export default function ThreadListItem({
+  thread,
+  onPress,
+  onAddToCareTeam,
+  showAddButton = false,
+}: ThreadListItemProps) {
+  const { theme } = useTheme();
 
   // Get recipient display name
-  const recipientName = thread.recipient_name || thread.recipient_email.split("@")[0];
+  const recipientName =
+    thread.recipient_name || thread.recipient_email.split("@")[0];
 
   // Get initials for avatar
   const getInitials = (): string => {
@@ -85,10 +90,7 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
             >
               {recipientName}
             </Text>
-            <Text
-              className="text-xs ml-2"
-              style={{ color: theme.secondary }}
-            >
+            <Text className="text-xs ml-2" style={{ color: theme.secondary }}>
               {getTimeAgo()}
             </Text>
           </View>
@@ -119,7 +121,7 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
             >
               {getLastMessagePreview()}
             </Text>
-            {thread.message_count && thread.message_count > 0 && (
+            {(thread.unread_count ?? 0) > 0 && (
               <View
                 className="ml-2 px-2 py-0.5 rounded-full"
                 style={{ backgroundColor: `${theme.primary}20` }}
@@ -128,7 +130,7 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
                   className="text-xs font-semibold"
                   style={{ color: theme.primary }}
                 >
-                  {thread.message_count}
+                  {thread.unread_count}
                 </Text>
               </View>
             )}
@@ -143,10 +145,7 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
                 color={theme.secondary}
                 style={{ marginRight: 4 }}
               />
-              <Text
-                className="text-xs"
-                style={{ color: theme.secondary }}
-              >
+              <Text className="text-xs" style={{ color: theme.secondary }}>
                 {thread.pets.name}
               </Text>
             </View>
@@ -167,11 +166,7 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
               className="w-8 h-8 rounded-full items-center justify-center"
               style={{ backgroundColor: `${theme.primary}20` }}
             >
-              <Ionicons
-                name="add"
-                size={18}
-                color={theme.primary}
-              />
+              <Ionicons name="add" size={18} color={theme.primary} />
             </View>
           </TouchableOpacity>
         )}
@@ -179,4 +174,3 @@ export default function ThreadListItem({ thread, onPress, onAddToCareTeam, showA
     </TouchableOpacity>
   );
 }
-
