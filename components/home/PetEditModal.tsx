@@ -566,7 +566,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
             Microchip Number
           </Text>
           <TextInput
-            className="p-4 rounded-xl text-base"
+            className="p-4 rounded-xl"
             style={{
               backgroundColor: theme.card,
               color: theme.foreground,

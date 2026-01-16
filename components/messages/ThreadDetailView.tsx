@@ -452,7 +452,7 @@ export default function ThreadDetailView({
               }}
             >
               <TextInput
-                className="text-base flex-1"
+                className="flex-1"
                 style={{ color: theme.foreground }}
                 placeholder="Type a message..."
                 placeholderTextColor={theme.secondary}

@@ -573,7 +573,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               Subject *
             </Text>
             <TextInput
-              className="w-full rounded-xl py-4 px-4 text-base"
+              className="w-full rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -598,7 +598,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               Message *
             </Text>
             <TextInput
-              className="w-full rounded-xl py-4 px-4 text-base"
+              className="w-full rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,

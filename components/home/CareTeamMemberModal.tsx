@@ -401,7 +401,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               Name *
             </Text>
             <TextInput
-              className="rounded-xl py-4 px-4 text-base"
+              className="rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -425,7 +425,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               Email *
             </Text>
             <TextInput
-              className="rounded-xl py-4 px-4 text-base"
+              className="rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -451,7 +451,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               Phone
             </Text>
             <TextInput
-              className="rounded-xl py-4 px-4 text-base"
+              className="rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -476,7 +476,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               Business Name
             </Text>
             <TextInput
-              className="rounded-xl py-4 px-4 text-base"
+              className="rounded-xl py-4 px-4"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,

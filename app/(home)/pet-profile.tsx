@@ -549,7 +549,7 @@ export default function PetProfile() {
                   {isEditing ? (
                     <View className="flex-row items-center gap-2">
                       <TextInput
-                        className="flex-1 py-2 px-3 rounded-lg text-base font-medium"
+                        className="flex-1 py-2 px-3 rounded-lg font-medium"
                         style={{
                           backgroundColor: isDarkMode ? "#374151" : theme.border,
                           color: theme.foreground,
@@ -652,7 +652,7 @@ export default function PetProfile() {
                   </Text>
                   {isEditing ? (
                     <TextInput
-                      className="py-2 px-3 rounded-lg text-base font-medium"
+                      className="py-2 px-3 rounded-lg font-medium"
                       style={{
                         backgroundColor: isDarkMode ? "#374151" : theme.border,
                         color: theme.foreground,

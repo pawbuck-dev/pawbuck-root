@@ -433,7 +433,7 @@ export default function MessagesScreen() {
                 style={{ marginRight: 8 }}
               />
               <TextInput
-                className="flex-1 text-base"
+                className="flex-1"
                 style={{ color: theme.foreground }}
                 placeholder="Search conversations..."
                 placeholderTextColor={theme.secondary}

@@ -143,7 +143,7 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
               Vaccine Name *
             </Text>
             <TextInput
-              className="p-4 rounded-xl text-base"
+              className="p-4 rounded-xl"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -351,7 +351,7 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
               Vet Clinic
             </Text>
             <TextInput
-              className="p-4 rounded-xl text-base"
+              className="p-4 rounded-xl"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
@@ -375,7 +375,7 @@ export const VaccinationReviewModal: React.FC<VaccinationReviewModalProps> = ({
               Notes
             </Text>
             <TextInput
-              className="p-4 rounded-xl text-base"
+              className="p-4 rounded-xl"
               style={{
                 backgroundColor: theme.card,
                 color: theme.foreground,
