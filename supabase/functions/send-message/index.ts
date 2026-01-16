@@ -26,6 +26,7 @@ async function getOrCreateThread(
   petId: string,
   recipientEmail: string,
   recipientName: string | null,
+  replyToAddress: string,
   subject: string
 ): Promise<{
   threadId: string;
@@ -52,11 +53,6 @@ async function getOrCreateThread(
       subject: existingThread.subject,
     };
   }
-
-  // Create new thread
-  const domain = Deno.env.get("EMAIL_DOMAIN") || "pawbuck.app";
-  const newThreadId = crypto.randomUUID();
-  const replyToAddress = generateReplyToAddress(newThreadId, domain);
 
   const { data: newThread, error } = await supabase
     .from("message_threads")
@@ -216,7 +212,7 @@ Deno.serve(async (req) => {
     // Verify pet belongs to user
     const { data: pet, error: petError } = await supabase
       .from("pets")
-      .select("id, name, user_id")
+      .select("id, name, user_id, email")
       .eq("id", petId)
       .eq("user_id", user.id)
       .single();
@@ -238,7 +234,6 @@ Deno.serve(async (req) => {
     const {
       threadId,
       replyToAddress,
-      isExisting,
       messageId,
       subject: existingSubject,
     } = await getOrCreateThread(
@@ -247,13 +242,14 @@ Deno.serve(async (req) => {
       petId,
       to,
       recipientName,
-      "New Message"
+      pet.email,
+      subject || "New Message"
     );
 
     // Determine the email subject
     // If replying to an existing thread and subject doesn't already have RE:, add it
     let emailSubject = subject;
-    if (!subject && isExisting && existingSubject) {
+    if (!subject && existingSubject) {
       emailSubject = `RE: ${existingSubject}`;
       console.log(
         `Replying to existing thread, subject changed to: ${emailSubject}`
@@ -292,10 +288,13 @@ Deno.serve(async (req) => {
       // Don't fail the request if email was sent but storage failed
     }
 
-    // Update thread updated_at
+    // Update thread updated_at and subject
     await supabase
       .from("message_threads")
-      .update({ updated_at: new Date().toISOString() })
+      .update({
+        updated_at: new Date().toISOString(),
+        subject: emailSubject.replace("RE: ", ""),
+      })
       .eq("id", threadId);
 
     return jsonResponse({
