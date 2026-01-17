@@ -260,9 +260,6 @@ export default function ThreadDetailView({
       <View
         key={message.id}
         className="px-4 py-3"
-        style={{
-          backgroundColor: isOutbound ? `${theme.primary}15` : theme.background,
-        }}
       >
         <View
           className={`flex-row ${isOutbound ? "justify-end" : "justify-start"}`}

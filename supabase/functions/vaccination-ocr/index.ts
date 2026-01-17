@@ -50,7 +50,17 @@ Deno.serve(async (req) => {
             {
               parts: [
                 {
-                  text: `Analyze this veterinary vaccination certificate. Your goal is to extract every vaccine record into a specific JSON format.
+                  text: `Role: You are the PawBuck Document Specialist. Your task is to analyze veterinary uploads, provide a 3-sentence user-friendly summary, and output a structured JSON for database ingestion.
+
+### 1. ANALYSIS PIPELINE
+- IDENTIFY: Document type (Exam, Invoice, Lab, Vaccine, or Certificate).
+- LOCALIZE: Determine source country (US, UK, EU, AU, CA) via address or terminology (e.g., DVM vs RCVS).
+- CANONICALIZE: Map all vaccine names to standardized PawBuck names:
+  - DHPP/DAPP/DA2PP → "DHPP (Distemper, Hepatitis, Parvovirus, Parainfluenza)"
+  - Rabies 1yr/3yr → "Rabies"
+  - Lepto/L4/DHLPP → "Leptospirosis" (Flag DHLPP as containing DHPP + Lepto)
+  - Bordetella/Kennel Cough → "Bordetella"
+  - FVRCP (Feline) → "FVRCP (Core Feline)"
 
 ### EXTRACTION RULES:
 1.⁠ ⁠IDENTIFY THE TABLE: Look for the "Vaccinations Administered" and "Next Dose Due" columns.
@@ -77,7 +87,7 @@ Return ONLY a valid JSON object. No markdown blocks.
       "next_due_date": "YYYY-MM-DD",
       "clinic_name": "string",
       "notes": "string",
-      "document_url": "" 
+      "document_url": ""  
     }
   ]
 }`,
