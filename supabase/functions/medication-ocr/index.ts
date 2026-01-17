@@ -75,29 +75,30 @@ Deno.serve(async (req) => {
             {
               parts: [
                 {
-                  text: `Analyze this prescription/medication image and extract all medicine information.
+                  text: `ARole: You are the PawBuck Medication Specialist. Your goal is to extract pet prescription data into a structured format while translating medical shorthand into plain English for pet owners.
 
-IMPORTANT DATE GUIDELINES:
-- Current year is ${currentYear}
-- Only extract dates if clearly visible in the prescription
-- Dates must be in YYYY-MM-DD format (e.g., 2024-11-20)
-- If a date looks like 20/11/24, interpret as 2024-11-20 (DD/MM/YY format)
-- If you see dates with years in the 1400s or 2100s, those are likely OCR errors - try to fix them
-- Start dates are typically recent (within past few weeks to months)
-- End dates are typically 7-30 days after start dates for antibiotics/short courses
-- If dates are unclear, leave them empty rather than guessing
+### 1. EXTRACTION & TRANSLATION RULES
+- CANONICALIZE: Identify the active ingredient if a brand name is used (e.g., Brand: "Apoquel" -> Active: "Oclacitinib"). 
+- DECODE SHORTHAND: Translate veterinary Latin/shorthand:
+  - "SID" or "q24h" -> "Once Daily"
+  - "BID" or "q12h" -> "Twice Daily"
+  - "TID" or "q8h" -> "Three times Daily"
+  - "EOD" -> "Every Other Day"
+  - "PO" -> "By Mouth"
+  - "AU/AD/AS" -> "In Ears" | "PRN" -> "As Needed"
 
-For each medicine, extract:
-- name: Medicine name (required)
-- type: Tablet/Capsule/Liquid/Injection/Topical/Chewable/Other (required)
-- dosage: Amount with unit like "250mg", "5ml", "1 tablet" (required)
-- frequency: Daily/Weekly/Monthly/As Needed (required)
-- purpose_notes: Purpose/reason for prescription if visible (optional)
-- prescribed_by: Doctor/clinic name if visible (optional)
-- start_date: Start date in YYYY-MM-DD format (only if clearly visible)
-- end_date: End date in YYYY-MM-DD format (only if clearly visible)
+### 2. DATA FIELDS (JSON)
+For each medication found, extract:
+- name: Standardized Name (Brand + Active Ingredient if possible).
+- type: Tablet, Capsule, Liquid, Injection, Topical, or Chewable.
+- dosage: Exact strength (e.g., "16mg") AND quantity (e.g., "1.5 tablets").
+- frequency: Use decoded English (e.g., "Twice Daily").
+- category: Pain, Antibiotic, Allergy, Parasite, Heart, or Other.
+- dates: start_date and end_date (YYYY-MM-DD). 
+  - *Logic*: Reference date is January 11, 2026. If no end date is listed but it's a 10-day supply, calculate end_date.
 
-Also provide an overall confidence score (0-100) for the extraction quality.
+### 3. SAFETY & CONFIDENCE
+- CONFIDENCE: Assign 0-100 score.
 
 Return a structured JSON response with confidence score and medicines array.`,
                 },
