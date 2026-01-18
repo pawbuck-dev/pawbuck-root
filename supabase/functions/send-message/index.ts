@@ -118,6 +118,7 @@ async function sendEmailViaMailgun(
   body: string,
   replyTo: string,
   petName: string,
+  petEmailAddress: string,
   inReplyTo?: string | null
 ): Promise<{ messageId: string }> {
   console.log(`[sendEmailViaMailgun] Starting email send...`);
@@ -136,8 +137,8 @@ async function sendEmailViaMailgun(
 
   const apiKey = Deno.env.get("MAILGUN_API_KEY");
   const domain = Deno.env.get("MAIL_DOMAIN");
-  const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
-  const fromName = Deno.env.get("FROM_NAME") || "PetApp Chat";
+  const fromEmail = petEmailAddress; // Use pet-specific address
+  const fromName = `${petName} via Pawbuck`; // Dynamic sender name
   const appUrl = Deno.env.get("APP_URL") || "https://app.pawbuck.app";
 
   console.log(`[sendEmailViaMailgun] Environment config:`);
@@ -157,13 +158,7 @@ async function sendEmailViaMailgun(
   }
 
   // Build plain text email body
-  const textBody = [
-    body,
-    "",
-    "----------------------------------------------------",
-    `This message is about ${petName}.`,
-    `View in app: ${appUrl}/messages`,
-  ].join("\n");
+  const textBody = body;
 
   // Build FormData for Mailgun API
   const formData = new FormData();
@@ -386,6 +381,7 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}]   - replyTo: ${replyToAddress}`);
     console.log(`[${requestId}]   - inReplyTo: ${messageId || "(none)"}`);
 
+    const petEmailAddress = `${pet.email_id}@${DOMAIN}`;
     const { messageId: sentMessageId } = await sendEmailViaMailgun(
       to,
       cc ? [cc] : [],
@@ -394,6 +390,7 @@ Deno.serve(async (req) => {
       message,
       replyToAddress,
       pet.name,
+      petEmailAddress,
       messageId // Pass message_id for In-Reply-To header
     );
     console.log(`[${requestId}] Email sent successfully via Mailgun`);
@@ -401,11 +398,10 @@ Deno.serve(async (req) => {
 
     // Store message in database
     console.log(`[${requestId}] Storing message in database...`);
-    const fromEmail = Deno.env.get("FROM_EMAIL") || "support@pawbuck.app";
     const messageData = {
       thread_id: threadId,
       direction: "outbound",
-      sender_email: user.email || fromEmail,
+      sender_email: petEmailAddress,
       recipient_email: to,
       cc: cc ? [cc] : null,
       bcc: bcc ? [bcc] : null,
