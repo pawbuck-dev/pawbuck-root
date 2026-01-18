@@ -17,7 +17,6 @@ export const pickPdfFile =
         return result.assets[0];
       }
 
-      Alert.alert("Error", "No PDF file selected. Please try again.");
       return null;
     } catch (error) {
       console.error("Error selecting PDF:", error);

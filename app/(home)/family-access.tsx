@@ -9,6 +9,7 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
+import { supabase } from "@/utils/supabase";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import {
 //     createHouseholdInvite,
@@ -84,6 +85,7 @@ export default function FamilyAccess() {
   // const [generating, setGenerating] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
+  const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
 
   // Fetch care team members
   const { data: careTeamMembers = [], isLoading: loadingCareTeam } = useQuery<VetInformation[]>({
@@ -177,26 +179,40 @@ export default function FamilyAccess() {
     });
   };
 
+  const handleEditCareTeamMember = (member: VetInformation) => {
+    setSelectedMember(member);
+    setSelectedMemberType(
+      ((member as any).type as CareTeamMemberType) || "veterinarian"
+    );
+    setShowAddMemberModal(true);
+  };
+
   const handleRemoveCareTeamMember = (memberId: string) => {
+    const member = careTeamMembers.find((m) => m.id === memberId);
+    if (!member) return;
+
     Alert.alert(
       "Remove Care Team Member",
-      "Are you sure you want to remove this care team member?",
+      `Are you sure you want to remove ${member.vet_name || member.clinic_name} from your care team?`,
       [
-        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Cancel", 
+          style: "cancel",
+        },
         {
           text: "Remove",
           style: "destructive",
-          onPress: () => {
-            // TODO: Implement remove care team member
-            Alert.alert("Info", "Remove functionality will be implemented");
+          onPress: async () => {
+            setSelectedMember(member);
+            await handleDeleteCareTeamMember();
           },
         },
       ]
     );
   };
 
-  // Handle adding a new care team member
-  const handleAddCareTeamMember = async (data: CareTeamMemberSaveData) => {
+  // Handle adding or updating a care team member
+  const handleSaveCareTeamMember = async (data: CareTeamMemberSaveData) => {
     if (pets.length === 0) {
       Alert.alert("Error", "You need to have at least one pet to add a care team member");
       return;
@@ -205,41 +221,109 @@ export default function FamilyAccess() {
     const { memberData, selectedPetIds } = data;
 
     try {
-      // Check for existing care team member by email or phone (deduplication)
-      const existingMember = await findExistingCareTeamMember(
-        memberData.email,
-        memberData.phone
-      );
-
-      let careTeamMemberId: string;
-
-      if (existingMember) {
-        // Use existing record - optionally update it with new details
-        await updateVetInformation(existingMember.id, memberData);
-        careTeamMemberId = existingMember.id;
+      if (selectedMember) {
+        // Editing existing member - update the member data
+        await updateVetInformation(selectedMember.id, memberData);
+        Alert.alert("Success", "Care team member updated successfully");
       } else {
-        // Create the vet_information record
-        const newMember = await createVetInformation(memberData as TablesInsert<"vet_information">);
-        careTeamMemberId = newMember.id;
-      }
+        // Creating new member - use deduplication logic
+        const existingMember = await findExistingCareTeamMember(
+          memberData.email,
+          memberData.phone
+        );
 
-      // Link the care team member to selected pets
-      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+        let careTeamMemberId: string;
+
+        if (existingMember) {
+          // Use existing record - optionally update it with new details
+          await updateVetInformation(existingMember.id, memberData);
+          careTeamMemberId = existingMember.id;
+        } else {
+          // Create the vet_information record
+          const newMember = await createVetInformation(memberData as TablesInsert<"vet_information">);
+          careTeamMemberId = newMember.id;
+        }
+
+        // Link the care team member to selected pets
+        await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+        Alert.alert("Success", "Care team member added successfully");
+      }
 
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
-      selectedPetIds.forEach((petId) => {
-        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
-      });
+      if (!selectedMember && selectedPetIds) {
+        selectedPetIds.forEach((petId) => {
+          queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
+        });
+      } else {
+        // When editing, invalidate all pets' care team queries
+        pets.forEach((pet) => {
+          queryClient.invalidateQueries({ queryKey: ["care_team_members", pet.id] });
+        });
+      }
 
-      Alert.alert("Success", "Care team member added successfully");
+      setShowAddMemberModal(false);
+      setSelectedMember(null);
     } catch (error) {
-      console.error("Error adding care team member:", error);
+      console.error("Error saving care team member:", error);
       Alert.alert(
         "Error",
         error instanceof Error
           ? error.message
-          : "Failed to add care team member"
+          : `Failed to ${selectedMember ? "update" : "add"} care team member`
+      );
+      throw error;
+    }
+  };
+
+  const handleDeleteCareTeamMember = async () => {
+    if (!selectedMember) return;
+
+    try {
+      // Get all pets linked to this care team member
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Get all user's pets
+      const { data: userPets } = await supabase
+        .from("pets")
+        .select("id")
+        .eq("user_id", user.id);
+
+      if (userPets) {
+        // Unlink from all user's pets
+        for (const pet of userPets) {
+          try {
+            await supabase
+              .from("pet_care_team_members")
+              .delete()
+              .eq("pet_id", pet.id)
+              .eq("care_team_member_id", selectedMember.id);
+          } catch (err) {
+            // Continue even if unlink fails for some pets
+            console.error(`Error unlinking from pet ${pet.id}:`, err);
+          }
+        }
+      }
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
+      if (userPets) {
+        userPets.forEach((pet) => {
+          queryClient.invalidateQueries({ queryKey: ["care_team_members", pet.id] });
+        });
+      }
+
+      Alert.alert("Success", "Care team member removed successfully");
+      setShowAddMemberModal(false);
+      setSelectedMember(null);
+    } catch (error) {
+      console.error("Error deleting care team member:", error);
+      Alert.alert(
+        "Error",
+        error instanceof Error
+          ? error.message
+          : "Failed to remove care team member"
       );
       throw error;
     }
@@ -290,6 +374,7 @@ export default function FamilyAccess() {
               </View>
               <Pressable
                 onPress={() => {
+                  setSelectedMember(null);
                   setSelectedMemberType("veterinarian");
                   setShowAddMemberModal(true);
                 }}
@@ -311,9 +396,10 @@ export default function FamilyAccess() {
               </Text>
             ) : (
               careTeamMembers.map((member) => (
-                <View
+                <Pressable
                   key={member.id}
-                  className="rounded-2xl p-4 mb-3 flex-row items-center"
+                  onPress={() => handleEditCareTeamMember(member)}
+                  className="rounded-2xl p-4 mb-3 flex-row items-center active:opacity-80"
                   style={{ backgroundColor: theme.card }}
                 >
                   {/* Icon */}
@@ -345,7 +431,10 @@ export default function FamilyAccess() {
                   <View className="flex-row items-center gap-3">
                     {member.phone && (
                       <Pressable
-                        onPress={() => handleCall(member.phone)}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleCall(member.phone);
+                        }}
                         className="active:opacity-70"
                       >
                         <Ionicons name="call-outline" size={20} color={theme.primary} />
@@ -353,20 +442,26 @@ export default function FamilyAccess() {
                     )}
                     {member.email && (
                       <Pressable
-                        onPress={() => handleEmail(member.email)}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleEmail(member.email);
+                        }}
                         className="active:opacity-70"
                       >
                         <Ionicons name="mail-outline" size={20} color={theme.primary} />
                       </Pressable>
                     )}
                     <Pressable
-                      onPress={() => handleRemoveCareTeamMember(member.id)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleRemoveCareTeamMember(member.id);
+                      }}
                       className="active:opacity-70"
                     >
                       <Ionicons name="close-circle" size={20} color="#FF3B30" />
                     </Pressable>
                   </View>
-                </View>
+                </Pressable>
               ))
             )}
           </View>
@@ -576,16 +671,21 @@ export default function FamilyAccess() {
           </View>
         </Modal> */}
 
-        {/* Add Care Team Member Modal */}
+        {/* Add/Edit Care Team Member Modal */}
         {pets.length > 0 && (
           <CareTeamMemberModal
             visible={showAddMemberModal}
-            onClose={() => setShowAddMemberModal(false)}
-            onSave={handleAddCareTeamMember}
+            onClose={() => {
+              setShowAddMemberModal(false);
+              setSelectedMember(null);
+            }}
+            onSave={handleSaveCareTeamMember}
+            onDelete={selectedMember ? handleDeleteCareTeamMember : undefined}
+            memberInfo={selectedMember}
             memberType={selectedMemberType}
             onTypeChange={setSelectedMemberType}
             allPets={pets}
-            petId={pets[0].id} // Required prop, but we'll link to all pets in handleAddCareTeamMember
+            petId={pets[0].id} // Required prop, but we'll link to all pets when adding
           />
         )}
 

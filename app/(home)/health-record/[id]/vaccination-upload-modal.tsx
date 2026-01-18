@@ -111,7 +111,6 @@ export default function VaccinationUploadModal() {
     const image = await takePhoto();
 
     if (!image) {
-      Alert.alert("Error", "No image selected");
       return;
     }
 
@@ -122,7 +121,6 @@ export default function VaccinationUploadModal() {
     const image = await pickImageFromLibrary();
 
     if (!image) {
-      Alert.alert("Error", "No image selected");
       return;
     }
 
@@ -133,7 +131,6 @@ export default function VaccinationUploadModal() {
     const file = await pickPdfFile();
 
     if (!file) {
-      Alert.alert("Error", "No file selected");
       return;
     }
 

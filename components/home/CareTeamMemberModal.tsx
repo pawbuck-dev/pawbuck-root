@@ -603,7 +603,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text className="text-base font-semibold" style={{ color: "#fff" }}>
-                Add Contact
+                {isEditing ? "Save" : "Add Contact"}
               </Text>
             )}
           </TouchableOpacity>

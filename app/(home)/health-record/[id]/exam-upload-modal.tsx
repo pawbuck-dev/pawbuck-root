@@ -163,7 +163,6 @@ export default function ExamUploadModal() {
   const handleTakePhoto = async () => {
     const image = await takePhoto();
     if (!image) {
-      Alert.alert("Error", "No image selected");
       return;
     }
     await handleUploadFile(image);
@@ -172,7 +171,6 @@ export default function ExamUploadModal() {
   const handleUploadFromLibrary = async () => {
     const image = await pickImageFromLibrary();
     if (!image) {
-      Alert.alert("Error", "No image selected");
       return;
     }
     await handleUploadFile(image);
@@ -181,7 +179,6 @@ export default function ExamUploadModal() {
   const handlePickPdfFile = async () => {
     const file = await pickPdfFile();
     if (!file) {
-      Alert.alert("Error", "No file selected");
       return;
     }
     await handleUploadFile(file);

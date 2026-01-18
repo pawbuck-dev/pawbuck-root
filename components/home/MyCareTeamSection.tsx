@@ -182,8 +182,9 @@ export default function MyCareTeamSection({
     return (
       <TouchableOpacity
         key={member.id}
-        onPress={() => onEditMember?.(member)}
-        activeOpacity={0.7}
+        onPress={readOnly ? undefined : () => onEditMember?.(member)}
+        activeOpacity={readOnly ? 1 : 0.7}
+        disabled={readOnly}
         className="mb-3"
       >
         <LinearGradient
