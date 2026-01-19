@@ -4,9 +4,7 @@ import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import MessageListItem from "@/components/messages/MessageListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
-import PrivateImage from "@/components/PrivateImage";
 import { useEmailApproval } from "@/context/emailApprovalContext";
-import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import {
@@ -29,17 +27,13 @@ import {
   ScrollView,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-
-type FilterType = "all" | string; // "all" or pet ID
 
 export default function MessagesScreen() {
   const { theme, mode } = useTheme();
   const queryClient = useQueryClient();
   const { pendingApprovals, setCurrentApproval } = useEmailApproval();
-  const { pets } = usePets();
   const params = useLocalSearchParams<{ email?: string }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
@@ -50,7 +44,6 @@ export default function MessagesScreen() {
     null
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>("all");
 
   // Fetch message threads
   const {
@@ -79,55 +72,37 @@ export default function MessagesScreen() {
     setRefreshing(false);
   };
 
-  // Filter threads based on search query and pet filter
+  // Filter threads based on search query
   const filteredThreads = useMemo(() => {
-    let filtered = threads;
-
-    // Filter by selected pet
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter((thread) => thread.pet_id === selectedFilter);
+    if (!searchQuery.trim()) {
+      return threads;
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (thread) =>
-          thread.recipient_name?.toLowerCase().includes(query) ||
-          thread.recipient_email.toLowerCase().includes(query) ||
-          thread.subject.toLowerCase().includes(query) ||
-          thread.pets?.name?.toLowerCase().includes(query) ||
-          thread.last_message?.body.toLowerCase().includes(query)
-      );
-    }
+    const query = searchQuery.toLowerCase();
+    return threads.filter(
+      (thread) =>
+        thread.recipient_name?.toLowerCase().includes(query) ||
+        thread.recipient_email.toLowerCase().includes(query) ||
+        thread.subject.toLowerCase().includes(query) ||
+        thread.pets?.name?.toLowerCase().includes(query) ||
+        thread.last_message?.body.toLowerCase().includes(query)
+    );
+  }, [threads, searchQuery]);
 
-    return filtered;
-  }, [threads, selectedFilter, searchQuery]);
-
-  // Filter pending approvals by selected pet and search query
+  // Filter pending approvals by search query
   const filteredPendingApprovals = useMemo(() => {
-    let filtered = pendingApprovals;
-
-    // Filter by selected pet
-    if (selectedFilter !== "all") {
-      filtered = filtered.filter(
-        (approval) => approval.pet_id === selectedFilter
-      );
+    if (!searchQuery.trim()) {
+      return pendingApprovals;
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (approval) =>
-          approval.sender_email?.toLowerCase().includes(query) ||
-          approval.pets?.name?.toLowerCase().includes(query) ||
-          approval.document_type?.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [pendingApprovals, selectedFilter, searchQuery]);
+    const query = searchQuery.toLowerCase();
+    return pendingApprovals.filter(
+      (approval) =>
+        approval.sender_email?.toLowerCase().includes(query) ||
+        approval.pets?.name?.toLowerCase().includes(query) ||
+        approval.document_type?.toLowerCase().includes(query)
+    );
+  }, [pendingApprovals, searchQuery]);
 
   // Get "needs_review" messages (validation_status === "incorrect")
   const needsReviewMessages = useMemo(() => {
@@ -135,30 +110,6 @@ export default function MessagesScreen() {
       (approval) => approval.validation_status === "incorrect"
     );
   }, [filteredPendingApprovals]);
-
-  // Get unread count for each filter (threads + pending approvals)
-  const getUnreadCountForFilter = (filterId: FilterType): number => {
-    let count = 0;
-
-    // Count unread messages in threads for this filter
-    const filteredThreadsForPet =
-      filterId === "all"
-        ? threads
-        : threads.filter((t) => t.pet_id === filterId);
-    count += filteredThreadsForPet.reduce(
-      (sum, thread) => sum + (thread.unread_count || 0),
-      0
-    );
-
-    // Count pending approvals for this filter
-    const filteredApprovalsForPet =
-      filterId === "all"
-        ? pendingApprovals
-        : pendingApprovals.filter((a) => a.pet_id === filterId);
-    count += filteredApprovalsForPet.length;
-
-    return count;
-  };
 
   // Get total unread count
   const totalUnread = useMemo(() => {
@@ -235,15 +186,6 @@ export default function MessagesScreen() {
     setCurrentApproval(approval);
   };
 
-  // Get initials for pet avatar
-  const getPetInitials = (petName: string): string => {
-    const parts = petName.split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return petName.substring(0, 2).toUpperCase();
-  };
-
   const hasMessages =
     filteredThreads.length > 0 || needsReviewMessages.length > 0;
 
@@ -310,112 +252,6 @@ export default function MessagesScreen() {
         />
       ) : (
         <>
-          {/* Filter Chips */}
-          <View className="px-4 pb-4" style={{ overflow: "visible" }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                gap: 12,
-                paddingRight: 16,
-                paddingTop: 8,
-              }}
-              style={{ overflow: "visible" }}
-            >
-              {/* All Filter */}
-              <TouchableOpacity
-                onPress={() => setSelectedFilter("all")}
-                activeOpacity={0.7}
-                className="items-center"
-                style={{ overflow: "visible" }}
-              >
-                <View
-                  className="w-14 h-14 rounded-full items-center justify-center mb-1"
-                  style={{
-                    backgroundColor:
-                      selectedFilter === "all" ? theme.primary : theme.card,
-                    borderWidth: 2,
-                    borderColor:
-                      selectedFilter === "all" ? theme.primary : "#22C55E",
-                  }}
-                >
-                  <Text
-                    className="text-base font-bold"
-                    style={{
-                      color: selectedFilter === "all" ? "white" : "#22C55E",
-                    }}
-                  >
-                    All
-                  </Text>
-                </View>
-                {getUnreadCountForFilter("all") > 0 && (
-                  <View
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
-                    style={{ backgroundColor: "#22C55E" }}
-                  >
-                    <Text className="text-xs font-bold text-white">
-                      {getUnreadCountForFilter("all")}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Pet Filters */}
-              {pets.map((pet) => {
-                const unreadCount = getUnreadCountForFilter(pet.id);
-                const isSelected = selectedFilter === pet.id;
-                return (
-                  <TouchableOpacity
-                    key={pet.id}
-                    onPress={() => setSelectedFilter(pet.id)}
-                    activeOpacity={0.7}
-                    className="items-center"
-                    style={{ overflow: "visible" }}
-                  >
-                    <View
-                      className="w-14 h-14 rounded-full items-center justify-center mb-1 overflow-hidden"
-                      style={{
-                        backgroundColor: isSelected
-                          ? theme.primary
-                          : theme.card,
-                        borderWidth: 2,
-                        borderColor: isSelected ? theme.primary : "#22C55E",
-                      }}
-                    >
-                      {pet.photo_url ? (
-                        <PrivateImage
-                          bucketName="pets"
-                          filePath={pet.photo_url}
-                          className="w-14 h-14"
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <Text
-                          className="text-base font-bold"
-                          style={{
-                            color: isSelected ? "white" : "#22C55E",
-                          }}
-                        >
-                          {getPetInitials(pet.name)}
-                        </Text>
-                      )}
-                    </View>
-                    {unreadCount > 0 && (
-                      <View
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
-                        style={{ backgroundColor: "#22C55E" }}
-                      >
-                        <Text className="text-xs font-bold text-white">
-                          {unreadCount}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
           {/* Search Bar */}
           <View className="px-4 pb-4">
             <View
