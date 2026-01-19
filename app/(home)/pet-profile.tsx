@@ -2,6 +2,7 @@ import CountryPicker from "@/components/CountryPicker";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PrivateImage from "@/components/PrivateImage";
 import { usePets } from "@/context/petsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
 import { getPrivateImageUrl } from "@/utils/image";
@@ -23,7 +24,7 @@ export default function PetProfile() {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const { pets, deletePet, deletingPet, loadingPets, updatePet, updatingPet } = usePets();
-  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">("kg");
   const [petImageUrl, setPetImageUrl] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -33,15 +34,8 @@ export default function PetProfile() {
   const [editedCountry, setEditedCountry] = useState<string>("");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
-  // Select first pet by default when pets load
-  useEffect(() => {
-    if (pets.length > 0 && !selectedPetId) {
-      setSelectedPetId(pets[0].id);
-    }
-  }, [pets, selectedPetId]);
-
-  // Get current pet
-  const currentPet = pets.find((p) => p.id === selectedPetId) || pets[0];
+  // Get current pet from context
+  const currentPet = selectedPet || pets[0];
 
   // Load pet image
   useEffect(() => {

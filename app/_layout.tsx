@@ -4,6 +4,7 @@ import { EmailApprovalProvider } from "@/context/emailApprovalContext";
 import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
+import { SelectedPetProvider } from "@/context/selectedPetContext";
 import { ThemeProvider } from "@/context/themeContext";
 import { UserPreferencesProvider } from "@/context/userPreferencesContext";
 import {
@@ -113,19 +114,21 @@ export default function RootLayout() {
           <EmailApprovalProvider>
             <OnboardingProvider>
               <PetsProvider>
-                <UserPreferencesProvider>
-                  <NotificationsProvider>
-                    <GestureHandlerRootView>
-                      <Stack
-                        screenOptions={{
-                          headerShown: false,
-                          animation: "none",
-                        }}
-                      />
-                    </GestureHandlerRootView>
-                    <EmailApprovalModal />
-                  </NotificationsProvider>
-                </UserPreferencesProvider>
+                <SelectedPetProvider>
+                  <UserPreferencesProvider>
+                    <NotificationsProvider>
+                      <GestureHandlerRootView>
+                        <Stack
+                          screenOptions={{
+                            headerShown: false,
+                            animation: "none",
+                          }}
+                        />
+                      </GestureHandlerRootView>
+                      <EmailApprovalModal />
+                    </NotificationsProvider>
+                  </UserPreferencesProvider>
+                </SelectedPetProvider>
               </PetsProvider>
             </OnboardingProvider>
           </EmailApprovalProvider>

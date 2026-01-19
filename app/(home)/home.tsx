@@ -14,6 +14,7 @@ import PetSelector from "@/components/home/PetSelector";
 import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import {
@@ -64,11 +65,11 @@ export default function Home() {
     deletePet,
     deletingPet,
   } = usePets();
+  const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const queryClient = useQueryClient();
 
   // State
-  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [emailCopied, setEmailCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
@@ -78,18 +79,6 @@ export default function Home() {
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(
     null
   );
-
-  // Select first pet by default when pets load
-  React.useEffect(() => {
-    if (pets.length > 0 && !selectedPetId) {
-      setSelectedPetId(pets[0].id);
-    }
-  }, [pets, selectedPetId]);
-
-  // Get the selected pet
-  const selectedPet = useMemo(() => {
-    return pets.find((p) => p.id === selectedPetId) || null;
-  }, [pets, selectedPetId]);
 
   // Compute notification counts per pet from pending approvals
   const notificationCounts = useMemo(() => {
@@ -193,9 +182,12 @@ export default function Home() {
   });
 
   // Handlers
-  const handleSelectPet = useCallback((petId: string) => {
-    setSelectedPetId(petId);
-  }, []);
+  const handleSelectPet = useCallback(
+    (petId: string) => {
+      setSelectedPetId(petId);
+    },
+    [setSelectedPetId]
+  );
 
   // Swipe to change pet
   const handleSwipePet = useCallback(
@@ -212,7 +204,7 @@ export default function Home() {
       }
       setSelectedPetId(pets[newIndex].id);
     },
-    [pets, selectedPetId]
+    [pets, selectedPetId, setSelectedPetId]
   );
 
   const swipeGesture = Gesture.Pan()
