@@ -50,8 +50,10 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
   const { user, isAuthenticated } = useAuth();
   const [pendingApprovals, setPendingApprovals] = useState<PendingApprovalWithPet[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Modal visibility is now always false - UI is handled by Messages screen
+  const isModalVisible = false;
 
   // Get current approval from the list
   const currentApproval = pendingApprovals[currentIndex] ?? null;
@@ -63,7 +65,6 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
   const refreshPendingApprovals = useCallback(async () => {
     if (!isAuthenticated || !user) {
       setPendingApprovals([]);
-      setIsModalVisible(false);
       return;
     }
 
@@ -71,33 +72,11 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
       const approvals = await getPendingApprovals();
       setPendingApprovals(approvals);
       setCurrentIndex(0);
-
-      // Show modal if there are pending approvals
-      if (approvals.length > 0) {
-        setIsModalVisible(true);
-      } else {
-        setIsModalVisible(false);
-      }
     } catch (error) {
       console.error("Error fetching pending approvals:", error);
       setPendingApprovals([]);
     }
   }, [isAuthenticated, user]);
-
-  /**
-   * Move to next approval or close modal if none left
-   */
-  const advanceToNext = useCallback(() => {
-    const nextIndex = currentIndex + 1;
-    if (nextIndex < pendingApprovals.length) {
-      setCurrentIndex(nextIndex);
-    } else {
-      // No more approvals, close modal and refresh
-      setIsModalVisible(false);
-      setPendingApprovals([]);
-      setCurrentIndex(0);
-    }
-  }, [currentIndex, pendingApprovals.length]);
 
   /**
    * Handle approve action
@@ -106,7 +85,6 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
     if (!currentApproval) return;
 
     setIsProcessing(true);
-    setIsModalVisible(false);
     try {
       const result = await approveEmail(
         currentApproval.id,
@@ -121,15 +99,8 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
         setPendingApprovals((prev) =>
           prev.filter((a) => a.id !== currentApproval.id)
         );
-        
-        // Show modal again if there are more approvals (next item will be at same index)
-        if (pendingApprovals.length > 1) {
-          setIsModalVisible(true);
-        } else {
-          setCurrentIndex(0);
-        }
+        setCurrentIndex(0);
       } else {
-        setIsModalVisible(true); // Show modal again on error
         Alert.alert(
           "Error",
           result.error || "Failed to process email. Please try again."
@@ -137,12 +108,11 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
       }
     } catch (error) {
       console.error("Error approving email:", error);
-      setIsModalVisible(true); // Show modal again on error
       Alert.alert("Error", "Failed to approve email. Please try again.");
     } finally {
       setIsProcessing(false);
     }
-  }, [currentApproval, pendingApprovals.length]);
+  }, [currentApproval]);
 
   /**
    * Handle approve anyway action (force process despite incorrect info)
@@ -151,7 +121,6 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
     if (!currentApproval) return;
 
     setIsProcessing(true);
-    setIsModalVisible(false);
     try {
       const result = await approveEmailAnyway(
         currentApproval.id,
@@ -166,15 +135,8 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
         setPendingApprovals((prev) =>
           prev.filter((a) => a.id !== currentApproval.id)
         );
-        
-        // Show modal again if there are more approvals
-        if (pendingApprovals.length > 1) {
-          setIsModalVisible(true);
-        } else {
-          setCurrentIndex(0);
-        }
+        setCurrentIndex(0);
       } else {
-        setIsModalVisible(true);
         Alert.alert(
           "Error",
           result.error || "Failed to process email. Please try again."
@@ -182,12 +144,11 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
       }
     } catch (error) {
       console.error("Error approving email anyway:", error);
-      setIsModalVisible(true);
       Alert.alert("Error", "Failed to process email. Please try again.");
     } finally {
       setIsProcessing(false);
     }
-  }, [currentApproval, pendingApprovals.length]);
+  }, [currentApproval]);
 
   /**
    * Handle reject action
@@ -196,7 +157,6 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
     if (!currentApproval) return;
 
     setIsProcessing(true);
-    setIsModalVisible(false);
     try {
       const result = await rejectEmail(
         currentApproval.id,
@@ -209,15 +169,8 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
         setPendingApprovals((prev) =>
           prev.filter((a) => a.id !== currentApproval.id)
         );
-        
-        // Show modal again if there are more approvals (next item will be at same index)
-        if (pendingApprovals.length > 1) {
-          setIsModalVisible(true);
-        } else {
-          setCurrentIndex(0);
-        }
+        setCurrentIndex(0);
       } else {
-        setIsModalVisible(true); // Show modal again on error
         Alert.alert(
           "Error",
           result.error || "Failed to reject email. Please try again."
@@ -225,25 +178,21 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
       }
     } catch (error) {
       console.error("Error rejecting email:", error);
-      setIsModalVisible(true); // Show modal again on error
       Alert.alert("Error", "Failed to reject email. Please try again.");
     } finally {
       setIsProcessing(false);
     }
-  }, [currentApproval, pendingApprovals.length]);
+  }, [currentApproval]);
 
   /**
-   * Set the current approval and show modal
+   * Set the current approval (used by Messages screen to set context for handlers)
    */
   const setCurrentApproval = useCallback((approval: PendingApprovalWithPet | null) => {
     if (approval) {
       const index = pendingApprovals.findIndex((a) => a.id === approval.id);
       if (index !== -1) {
         setCurrentIndex(index);
-        setIsModalVisible(true);
       }
-    } else {
-      setIsModalVisible(false);
     }
   }, [pendingApprovals]);
 
@@ -295,7 +244,6 @@ export const EmailApprovalProvider: React.FC<{ children: ReactNode }> = ({
       refreshPendingApprovals();
     } else {
       setPendingApprovals([]);
-      setIsModalVisible(false);
     }
   }, [isAuthenticated, user?.id]);
 

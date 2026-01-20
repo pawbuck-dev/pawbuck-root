@@ -1,11 +1,14 @@
-import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import GroupedThreadList from "@/components/messages/GroupedThreadList";
-import MessageListItem from "@/components/messages/MessageListItem";
+import FailedEmailDetailView from "@/components/messages/FailedEmailDetailView";
+import FailedEmailListItem from "@/components/messages/FailedEmailListItem";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
+import PendingEmailDetailView from "@/components/messages/PendingEmailDetailView";
+import PendingEmailListItem from "@/components/messages/PendingEmailListItem";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
+import { FailedEmail, getFailedEmails } from "@/services/failedEmails";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import {
   GroupedThreads,
@@ -33,7 +36,7 @@ import {
 export default function MessagesScreen() {
   const { theme, mode } = useTheme();
   const queryClient = useQueryClient();
-  const { pendingApprovals, setCurrentApproval } = useEmailApproval();
+  const { pendingApprovals, setCurrentApproval, refreshPendingApprovals } = useEmailApproval();
   const params = useLocalSearchParams<{ email?: string }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
@@ -43,6 +46,10 @@ export default function MessagesScreen() {
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
     null
   );
+  const [selectedPendingApproval, setSelectedPendingApproval] =
+    useState<PendingApprovalWithPet | null>(null);
+  const [selectedFailedEmail, setSelectedFailedEmail] =
+    useState<FailedEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch message threads
@@ -53,6 +60,15 @@ export default function MessagesScreen() {
   } = useQuery({
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
+  });
+
+  // Fetch failed emails
+  const {
+    data: failedEmails = [],
+    refetch: refetchFailedEmails,
+  } = useQuery({
+    queryKey: ["failedEmails"],
+    queryFn: () => getFailedEmails(),
   });
 
   // Handle route params to open new message modal with pre-filled email
@@ -68,7 +84,7 @@ export default function MessagesScreen() {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchThreads()]);
+    await Promise.all([refetchThreads(), refreshPendingApprovals(), refetchFailedEmails()]);
     setRefreshing(false);
   };
 
@@ -104,12 +120,21 @@ export default function MessagesScreen() {
     );
   }, [pendingApprovals, searchQuery]);
 
-  // Get "needs_review" messages (validation_status === "incorrect")
-  const needsReviewMessages = useMemo(() => {
-    return filteredPendingApprovals.filter(
-      (approval) => approval.validation_status === "incorrect"
+  // Filter failed emails by search query
+  const filteredFailedEmails = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return failedEmails;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return failedEmails.filter(
+      (email) =>
+        email.sender_email?.toLowerCase().includes(query) ||
+        email.pets?.name?.toLowerCase().includes(query) ||
+        email.subject?.toLowerCase().includes(query) ||
+        email.failure_reason?.toLowerCase().includes(query)
     );
-  }, [filteredPendingApprovals]);
+  }, [failedEmails, searchQuery]);
 
   // Get total unread count
   const totalUnread = useMemo(() => {
@@ -181,13 +206,31 @@ export default function MessagesScreen() {
     setSelectedThread(thread);
   };
 
-  // Handle message press (pending approvals)
-  const handleMessagePress = (approval: PendingApprovalWithPet) => {
+  // Handle pending approval press
+  const handlePendingApprovalPress = (approval: PendingApprovalWithPet) => {
+    // Set the current approval in context (needed for the handlers)
     setCurrentApproval(approval);
+    // Set local state to show detail view
+    setSelectedPendingApproval(approval);
+  };
+
+  // Handle back from pending approval detail view
+  const handlePendingApprovalBack = () => {
+    setSelectedPendingApproval(null);
+  };
+
+  // Handle failed email press
+  const handleFailedEmailPress = (failedEmail: FailedEmail) => {
+    setSelectedFailedEmail(failedEmail);
+  };
+
+  // Handle back from failed email detail view
+  const handleFailedEmailBack = () => {
+    setSelectedFailedEmail(null);
   };
 
   const hasMessages =
-    filteredThreads.length > 0 || needsReviewMessages.length > 0;
+    filteredThreads.length > 0 || filteredPendingApprovals.length > 0 || filteredFailedEmails.length > 0;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -198,9 +241,17 @@ export default function MessagesScreen() {
         <View className="flex-row items-center justify-between">
           {/* Back Button - Pawbuck Logo */}
           <Pressable
-            onPress={() =>
-              selectedThread ? setSelectedThread(null) : router.back()
-            }
+            onPress={() => {
+              if (selectedThread) {
+                setSelectedThread(null);
+              } else if (selectedPendingApproval) {
+                setSelectedPendingApproval(null);
+              } else if (selectedFailedEmail) {
+                setSelectedFailedEmail(null);
+              } else {
+                router.back();
+              }
+            }}
             className="items-center justify-center active:opacity-70"
           >
             <Image
@@ -218,7 +269,7 @@ export default function MessagesScreen() {
             >
               Messages
             </Text>
-            {totalUnread > 0 && !selectedThread && (
+            {totalUnread > 0 && !selectedThread && !selectedPendingApproval && !selectedFailedEmail && (
               <Text
                 className="text-sm mt-0.5"
                 style={{ color: theme.secondary }}
@@ -228,8 +279,8 @@ export default function MessagesScreen() {
             )}
           </View>
 
-          {/* Add Button - Hidden when viewing thread */}
-          {selectedThread ? (
+          {/* Add Button - Hidden when viewing thread, pending approval, or failed email */}
+          {selectedThread || selectedPendingApproval || selectedFailedEmail ? (
             <View className="w-10 h-10" />
           ) : (
             <Pressable
@@ -242,8 +293,22 @@ export default function MessagesScreen() {
         </View>
       </View>
 
-      {/* Thread Detail View */}
-      {selectedThread ? (
+      {/* Failed Email Detail View */}
+      {selectedFailedEmail ? (
+        <FailedEmailDetailView
+          failedEmail={selectedFailedEmail}
+          onBack={handleFailedEmailBack}
+          hideHeader
+        />
+      ) : /* Pending Email Detail View */
+      selectedPendingApproval ? (
+        <PendingEmailDetailView
+          approval={selectedPendingApproval}
+          onBack={handlePendingApprovalBack}
+          hideHeader
+        />
+      ) : /* Thread Detail View */
+      selectedThread ? (
         <ThreadDetailView
           threadId={selectedThread.id}
           thread={selectedThread}
@@ -297,32 +362,40 @@ export default function MessagesScreen() {
               </View>
             ) : (
               <>
-                {/* Needs Review Section */}
-                {needsReviewMessages.length > 0 && (
+                {/* Pending Emails Section */}
+                {filteredPendingApprovals.length > 0 && (
                   <View className="mb-6">
                     <View className="flex-row items-center justify-between mb-3 px-4">
                       <View className="flex-row items-center flex-1">
                         <Ionicons
-                          name="warning"
+                          name="mail-unread"
                           size={20}
-                          color="#EF4444"
+                          color={theme.primary}
                           style={{ marginRight: 8 }}
                         />
                         <Text
                           className="text-base font-bold"
-                          style={{ color: "#EF4444" }}
+                          style={{ color: theme.foreground }}
                         >
-                          Needs Review
+                          Pending Emails
                         </Text>
+                        <View
+                          className="ml-2 px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: theme.primary }}
+                        >
+                          <Text className="text-xs font-bold text-white">
+                            {filteredPendingApprovals.length}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
                     <View>
-                      {needsReviewMessages.map((approval) => (
-                        <MessageListItem
+                      {filteredPendingApprovals.map((approval) => (
+                        <PendingEmailListItem
                           key={approval.id}
                           approval={approval}
-                          onPress={() => handleMessagePress(approval)}
+                          onPress={() => handlePendingApprovalPress(approval)}
                         />
                       ))}
                     </View>
@@ -388,6 +461,46 @@ export default function MessagesScreen() {
                   />
                 )}
 
+                {/* Failed Emails Section - shown at the bottom */}
+                {filteredFailedEmails.length > 0 && (
+                  <View className="mb-6">
+                    <View className="flex-row items-center justify-between mb-3 px-4">
+                      <View className="flex-row items-center flex-1">
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color="#EF4444"
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text
+                          className="text-base font-bold"
+                          style={{ color: theme.foreground }}
+                        >
+                          Failed Emails
+                        </Text>
+                        <View
+                          className="ml-2 px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#EF4444" }}
+                        >
+                          <Text className="text-xs font-bold text-white">
+                            {filteredFailedEmails.length}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View>
+                      {filteredFailedEmails.map((failedEmail) => (
+                        <FailedEmailListItem
+                          key={failedEmail.id}
+                          failedEmail={failedEmail}
+                          onPress={() => handleFailedEmailPress(failedEmail)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                )}
+
                 {/* Empty State */}
                 {!hasMessages && (
                   <View className="flex-1 items-center justify-center py-20 px-4">
@@ -424,9 +537,6 @@ export default function MessagesScreen() {
 
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="messages" />
-
-      {/* Email Approval Modal */}
-      <EmailApprovalModal />
 
       {/* New Message Modal */}
       <NewMessageModal

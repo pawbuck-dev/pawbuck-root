@@ -8,7 +8,7 @@ import {
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
+import { linkCareTeamMemberToAllUserPets } from "@/services/careTeamMembers";
 import { supabase } from "@/utils/supabase";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import {
@@ -218,9 +218,10 @@ export default function FamilyAccess() {
       return;
     }
 
-    const { memberData, selectedPetIds } = data;
+    const { memberData } = data;
 
     try {
+      let linkedPetIds: string[] = [];
       if (selectedMember) {
         // Editing existing member - update the member data
         await updateVetInformation(selectedMember.id, memberData);
@@ -244,15 +245,15 @@ export default function FamilyAccess() {
           careTeamMemberId = newMember.id;
         }
 
-        // Link the care team member to selected pets
-        await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+        // Link the care team member to all user pets
+        linkedPetIds = await linkCareTeamMemberToAllUserPets(careTeamMemberId);
         Alert.alert("Success", "Care team member added successfully");
       }
 
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
-      if (!selectedMember && selectedPetIds) {
-        selectedPetIds.forEach((petId) => {
+      if (!selectedMember) {
+        linkedPetIds.forEach((petId) => {
           queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
         });
       } else {

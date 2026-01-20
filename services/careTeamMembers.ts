@@ -1,4 +1,4 @@
-import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { Tables } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export type CareTeamMemberType = "veterinarian" | "dog_walker" | "groomer" | "pet_sitter" | "boarding";
@@ -197,5 +197,33 @@ export const linkCareTeamMemberToMultiplePets = async (
 
     if (insertError) throw insertError;
   }
+};
+
+/**
+ * Link a care team member to all pets owned by the current user
+ * @returns Array of pet IDs the member was linked to
+ */
+export const linkCareTeamMemberToAllUserPets = async (
+  careTeamMemberId: string
+): Promise<string[]> => {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("User not authenticated");
+
+  const { data: userPets, error: petsError } = await supabase
+    .from("pets")
+    .select("id")
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
+  if (petsError) throw petsError;
+
+  const petIds = userPets?.map((pet) => pet.id) || [];
+  if (petIds.length === 0) {
+    throw new Error("You need to have at least one pet to add a care team member");
+  }
+
+  await linkCareTeamMemberToMultiplePets(petIds, careTeamMemberId);
+  return petIds;
 };
 

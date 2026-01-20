@@ -8,6 +8,22 @@ export interface LockResult {
 }
 
 /**
+ * Email metadata to store when acquiring a processing lock
+ */
+export interface EmailMetadata {
+  senderEmail?: string;
+  subject?: string;
+}
+
+/**
+ * Options for marking email as completed
+ */
+export interface CompletionOptions {
+  documentType?: string;
+  failureReason?: string;
+}
+
+/**
  * Creates a Supabase client with service role key
  */
 function createSupabaseClient() {
@@ -27,17 +43,34 @@ function createSupabaseClient() {
  * we'll get a duplicate key error.
  * 
  * @param emailKey - The unique email identifier (Message-Id for Mailgun, S3 key for SES)
+ * @param metadata - Optional email metadata to store (sender, subject)
  * @returns LockResult - { acquired: true } if lock acquired, 
  *                       { acquired: false, status } if already being processed or completed
  */
-export async function tryAcquireProcessingLock(emailKey: string): Promise<LockResult> {
+export async function tryAcquireProcessingLock(
+  emailKey: string,
+  metadata?: EmailMetadata
+): Promise<LockResult> {
   const supabase = createSupabaseClient();
 
-  // First, try to INSERT a new record with status='processing'
-  const { error: insertError } = await supabase.from("processed_emails").insert({
+  // Build insert data with optional metadata
+  const insertData: Record<string, unknown> = {
     s3_key: emailKey, // Reusing s3_key column for generic email identifier
     status: "processing",
-  });
+  };
+
+  // Add metadata if provided
+  if (metadata?.senderEmail) {
+    insertData.sender_email = metadata.senderEmail;
+  }
+  if (metadata?.subject) {
+    insertData.subject = metadata.subject;
+  }
+
+  // First, try to INSERT a new record with status='processing'
+  const { error: insertError } = await supabase
+    .from("processed_emails")
+    .insert(insertData);
 
   // If insert succeeded, we acquired the lock
   if (!insertError) {
@@ -78,30 +111,85 @@ export async function tryAcquireProcessingLock(emailKey: string): Promise<LockRe
  * @param petId - The pet ID associated with the email
  * @param attachmentCount - Number of attachments processed
  * @param success - Whether processing was successful
+ * @param options - Optional completion details (documentType, failureReason)
  */
 export async function markEmailAsCompleted(
   emailKey: string,
   petId: string,
   attachmentCount: number,
-  success: boolean = true
+  success: boolean = true,
+  options?: CompletionOptions
 ): Promise<void> {
   const supabase = createSupabaseClient();
 
+  // Build update data
+  const updateData: Record<string, unknown> = {
+    status: "completed",
+    pet_id: petId,
+    attachment_count: attachmentCount,
+    success,
+    completed_at: new Date().toISOString(),
+  };
+
+  // Add optional fields
+  if (options?.documentType) {
+    updateData.document_type = options.documentType;
+  }
+  if (options?.failureReason) {
+    updateData.failure_reason = options.failureReason;
+  }
+
   const { error } = await supabase
     .from("processed_emails")
-    .update({
-      status: "completed",
-      pet_id: petId,
-      attachment_count: attachmentCount,
-      success,
-      completed_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq("s3_key", emailKey);
 
   if (error) {
     console.error("Error marking email as completed:", error);
   } else {
-    console.log(`Email marked as completed: ${emailKey}`);
+    console.log(`Email marked as completed: ${emailKey} (success: ${success})`);
   }
 }
 
+/**
+ * Marks email processing as failed.
+ * Convenience wrapper around markEmailAsCompleted with success=false.
+ * 
+ * @param emailKey - The unique email identifier
+ * @param petId - The pet ID associated with the email (if known)
+ * @param failureReason - Description of why processing failed
+ * @param documentType - Type of document being processed (if known)
+ */
+export async function markEmailAsFailed(
+  emailKey: string,
+  petId: string | null,
+  failureReason: string,
+  documentType?: string
+): Promise<void> {
+  const supabase = createSupabaseClient();
+
+  const updateData: Record<string, unknown> = {
+    status: "completed",
+    success: false,
+    completed_at: new Date().toISOString(),
+    failure_reason: failureReason,
+  };
+
+  if (petId) {
+    updateData.pet_id = petId;
+  }
+  if (documentType) {
+    updateData.document_type = documentType;
+  }
+
+  const { error } = await supabase
+    .from("processed_emails")
+    .update(updateData)
+    .eq("s3_key", emailKey);
+
+  if (error) {
+    console.error("Error marking email as failed:", error);
+  } else {
+    console.log(`Email marked as failed: ${emailKey} - ${failureReason}`);
+  }
+}

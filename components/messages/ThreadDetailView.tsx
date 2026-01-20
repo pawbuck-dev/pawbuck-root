@@ -5,7 +5,7 @@ import {
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
-import { linkCareTeamMemberToMultiplePets } from "@/services/careTeamMembers";
+import { linkCareTeamMemberToAllUserPets } from "@/services/careTeamMembers";
 import {
   fetchThreadMessages,
   markThreadAsRead,
@@ -124,9 +124,10 @@ export default function ThreadDetailView({
       return;
     }
 
-    const { memberData, selectedPetIds } = data;
+    const { memberData } = data;
 
     try {
+      let linkedPetIds: string[] = [];
       // Ensure email matches the thread's recipient email
       const memberDataWithEmail = {
         ...memberData,
@@ -153,13 +154,13 @@ export default function ThreadDetailView({
         careTeamMemberId = newMember.id;
       }
 
-      // Link the care team member to selected pets
-      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+      // Link the care team member to all user pets
+      linkedPetIds = await linkCareTeamMemberToAllUserPets(careTeamMemberId);
 
       // Invalidate queries to refresh
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
-      selectedPetIds.forEach((petId) => {
+      linkedPetIds.forEach((petId) => {
         queryClient.invalidateQueries({
           queryKey: ["care_team_members", petId],
         });

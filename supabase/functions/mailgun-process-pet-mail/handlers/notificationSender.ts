@@ -139,9 +139,67 @@ export async function sendSkippedAttachmentsNotification(
 }
 
 /**
+ * Send push notification when attachments fail to process
+ * This handles all failure types: validation, OCR, and DB insert failures
+ */
+export async function sendAttachmentFailureNotification(
+  pet: Pet,
+  emailInfo: EmailInfo,
+  failedAttachments: ProcessedAttachment[]
+): Promise<void> {
+  if (failedAttachments.length === 0) {
+    return;
+  }
+
+  const failedCount = failedAttachments.length;
+  const fileWord = failedCount === 1 ? "document" : "documents";
+
+  // Build failure details for each attachment
+  const failureDetails = failedAttachments.map((att) => {
+    let reason: string;
+    if (att.skippedReason === "no_pet_info") {
+      reason = "No pet identification found";
+    } else if (att.skippedReason === "microchip_mismatch") {
+      reason = "Microchip mismatch";
+    } else if (att.skippedReason === "attributes_mismatch") {
+      reason = "Pet details mismatch";
+    } else if (att.error) {
+      reason = att.error;
+    } else if (att.ocrSuccess === false) {
+      reason = "Failed to extract data";
+    } else {
+      reason = "Failed to save record";
+    }
+    return `${att.filename}: ${reason}`;
+  });
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Failed to Process ${failedCount} ${fileWord} for ${pet.name}`,
+      body: `We received ${failedCount} ${fileWord} from ${emailInfo.from} but couldn't add them to ${pet.name}'s health records.`,
+      data: {
+        type: "email_attachment_failed",
+        petId: pet.id,
+        petName: pet.name,
+        failedCount,
+        failureDetails,
+        senderEmail: emailInfo.from,
+      },
+    });
+    console.log(`Attachment failure notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error(
+      "Failed to send attachment failure notification:",
+      notificationError
+    );
+    // Continue even if notification fails
+  }
+}
+
+/**
  * Format skip reason for display
  */
-function formatSkipReason(reason?: SkipReason): string {
+export function formatSkipReason(reason?: SkipReason): string {
   switch (reason) {
     case "no_pet_info":
       return "No pet identification info found";

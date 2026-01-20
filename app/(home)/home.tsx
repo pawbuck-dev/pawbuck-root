@@ -19,7 +19,7 @@ import { useTheme } from "@/context/themeContext";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import {
   getCareTeamMembersForPet,
-  linkCareTeamMemberToMultiplePets,
+  linkCareTeamMemberToAllUserPets,
   unlinkCareTeamMemberFromPet,
 } from "@/services/careTeamMembers";
 import { fetchMedicines } from "@/services/medicines";
@@ -114,10 +114,8 @@ export default function Home() {
   const createCareTeamMemberMutation = useMutation({
     mutationFn: async ({
       memberData,
-      selectedPetIds,
     }: {
       memberData: TablesInsert<"vet_information">;
-      selectedPetIds: string[];
     }) => {
       // Check for existing care team member by email or phone (deduplication)
       const existingMember = await findExistingCareTeamMember(
@@ -137,14 +135,14 @@ export default function Home() {
         careTeamMemberId = newMember.id;
       }
 
-      // Link to all selected pets
-      await linkCareTeamMemberToMultiplePets(selectedPetIds, careTeamMemberId);
+      // Link to all user pets
+      const petIds = await linkCareTeamMemberToAllUserPets(careTeamMemberId);
 
-      return { careTeamMemberId, selectedPetIds };
+      return { careTeamMemberId, petIds };
     },
     onSuccess: (result) => {
       // Invalidate care team members for all affected pets
-      result.selectedPetIds.forEach((petId) => {
+      result.petIds.forEach((petId) => {
         queryClient.invalidateQueries({
           queryKey: ["care_team_members", petId],
         });
@@ -257,7 +255,7 @@ export default function Home() {
 
   const handleSaveCareTeamMember = async (data: CareTeamMemberSaveData) => {
     if (!selectedPetId) return;
-    const { memberData, selectedPetIds } = data;
+    const { memberData } = data;
 
     try {
       if (selectedMember) {
@@ -267,10 +265,9 @@ export default function Home() {
           data: memberData as TablesUpdate<"vet_information">,
         });
       } else {
-        // Creating new member - use dedup logic and link to all selected pets
+        // Creating new member - use dedup logic and link to all user pets
         await createCareTeamMemberMutation.mutateAsync({
           memberData: memberData as TablesInsert<"vet_information">,
-          selectedPetIds,
         });
       }
       // Care team members are automatically whitelisted via pet_care_team_members junction table

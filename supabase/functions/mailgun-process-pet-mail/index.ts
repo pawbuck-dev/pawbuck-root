@@ -10,15 +10,17 @@ import {
   buildSuccessResponse,
   buildUnauthorizedResponse,
   buildValidationErrorResponse,
+  formatSkipReason,
   logProcessingSummary,
   processAttachments,
+  sendAttachmentFailureNotification,
   sendFailedNotification,
   sendProcessedNotification,
-  sendSkippedAttachmentsNotification,
   verifySender,
 } from "./handlers/index.ts";
 import {
   markEmailAsCompleted,
+  markEmailAsFailed,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
 import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
@@ -38,6 +40,7 @@ console.log("mailgun-process-pet-mail function initialized");
 Deno.serve(async (req) => {
   let pet: Pet | null = null;
   let senderEmail: string | null = null;
+  let messageId: string | null = null;
 
   try {
     // Step 1: Parse multipart/form-data from Mailgun
@@ -111,7 +114,7 @@ Deno.serve(async (req) => {
       date: parsedEmail.date,
     };
 
-    const messageId = extractMessageId(parsedEmail);
+    messageId = extractMessageId(parsedEmail);
     if (!messageId) {
       return buildValidationErrorResponse(
         "No Message-Id found in email headers"
@@ -134,7 +137,10 @@ Deno.serve(async (req) => {
     // Step 8: Acquire processing lock (idempotency)
     // This is done AFTER sender verification so pending approvals don't acquire a lock
     // allowing reprocessing when user approves the email from the app
-    const lockResult = await tryAcquireProcessingLock(messageId);
+    const lockResult = await tryAcquireProcessingLock(messageId, {
+      senderEmail: senderEmail,
+      subject: parsedEmail.subject,
+    });
     if (!lockResult.acquired) {
       const message =
         lockResult.status === "completed"
@@ -325,9 +331,55 @@ Deno.serve(async (req) => {
     // Step 12: Log summary and return success
     logProcessingSummary(processedAttachments);
 
-    // Step 13: Mark email as completed (idempotency)
+    // Step 13: Check for attachment failures
+    // Identify relevant attachments (excluding irrelevant classifications)
+    const relevantAttachments = processedAttachments.filter(
+      (a) => a.classification.type !== "irrelevant"
+    );
+    const successfulInserts = relevantAttachments.filter((a) => a.dbInserted);
+    const failedAttachments = relevantAttachments.filter((a) => !a.dbInserted);
+
+    // If we had relevant attachments but NONE were successfully inserted
+    if (relevantAttachments.length > 0 && successfulInserts.length === 0) {
+      console.log(
+        `[MONITORING] All ${failedAttachments.length} relevant attachment(s) failed to process`
+      );
+
+      // Build failure reasons from ALL failed attachments (including validation failures)
+      const failureReasons = failedAttachments.map((a) => {
+        if (a.skippedReason) {
+          return formatSkipReason(a.skippedReason);
+        } else if (a.error) {
+          return a.error;
+        } else if (a.ocrSuccess === false) {
+          return "Failed to extract data from document";
+        }
+        return "Failed to save to database";
+      });
+
+      // Mark as FAILED in processed_emails
+      await markEmailAsCompleted(
+        messageId,
+        pet.id,
+        processedAttachments.length,
+        false,
+        {
+          documentType: relevantAttachments[0]?.classification.type,
+          failureReason: `Failed to process ${failedAttachments.length} document(s): ${failureReasons.join("; ")}`,
+        }
+      );
+
+      console.log(`[MONITORING] ❌ Email marked as failed - no records inserted`);
+
+      // Send failure notification
+      await sendAttachmentFailureNotification(pet, emailInfo, failedAttachments);
+
+      return buildSuccessResponse(pet, emailInfo, processedAttachments);
+    }
+
+    // Step 14: Mark email as completed successfully (at least some records were inserted)
     console.log(
-      `[MONITORING] Marking email as completed (attachments: ${processedAttachments.length}, message stored: ${messageStored})`
+      `[MONITORING] Marking email as completed (attachments: ${processedAttachments.length}, successful: ${successfulInserts.length}, message stored: ${messageStored})`
     );
 
     await markEmailAsCompleted(
@@ -339,31 +391,22 @@ Deno.serve(async (req) => {
 
     console.log(`[MONITORING] ✅ Email processing completed successfully`);
 
-    // Step 14: Check for skipped attachments due to pet validation failure
-    const skippedAttachments = processedAttachments.filter(
-      (a) =>
-        a.skippedReason === "no_pet_info" ||
-        a.skippedReason === "microchip_mismatch" ||
-        a.skippedReason === "attributes_mismatch"
-    );
-
-    // Step 15: Send notifications
-    // Send skipped notification if any attachments were skipped due to pet validation failure
-    if (skippedAttachments.length > 0) {
-      await sendSkippedAttachmentsNotification(
-        pet,
-        emailInfo,
-        skippedAttachments
-      );
-    }
-
-    // Send processed notification if records were successfully added
+    // Step 15: Send success notification if records were successfully added
     await sendProcessedNotification(pet, emailInfo, processedAttachments);
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error processing Mailgun webhook:", error);
+
+    // Mark email as failed if we have the messageId (lock was acquired)
+    if (messageId) {
+      await markEmailAsFailed(
+        messageId,
+        pet?.id ?? null,
+        errorMessage
+      );
+    }
 
     // Send failure notification if we have pet and sender info
     if (pet && senderEmail) {
