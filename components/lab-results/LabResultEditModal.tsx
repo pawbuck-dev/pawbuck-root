@@ -14,6 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface LabResultEditModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const LabResultEditModal: React.FC<LabResultEditModalProps> = ({
   loading = false,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [testType, setTestType] = useState(labResult.test_type);
   const [labName, setLabName] = useState(labResult.lab_name);
   const [testDate, setTestDate] = useState(labResult.test_date);
@@ -112,7 +114,11 @@ export const LabResultEditModal: React.FC<LabResultEditModalProps> = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

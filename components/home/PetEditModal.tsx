@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const EMAIL_DOMAIN = "@pawbuck.app";
 
@@ -51,6 +52,7 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
   deleting = false,
 }) => {
   const { theme, mode } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [name, setName] = useState(pet.name);
   const [microchipNumber, setMicrochipNumber] = useState(pet.microchip_number || "");
   const [saving, setSaving] = useState(false);
@@ -274,7 +276,11 @@ export const PetEditModal: React.FC<PetEditModalProps> = ({
     <KeyboardAvoidingView
       className="flex-1"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ backgroundColor: theme.background }}
+      style={{
+        backgroundColor: theme.background,
+        paddingTop: Platform.OS === "android" ? top : 0,
+        paddingBottom: Platform.OS === "android" ? bottom : 0,
+      }}
     >
       {/* Header */}
       <View

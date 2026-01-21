@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface LabResultData {
   test_type: string;
@@ -41,6 +42,7 @@ export const LabResultReviewModal: React.FC<LabResultReviewModalProps> = ({
   loading = false,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [data, setData] = useState<LabResultData>(initialData);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(initialData.test_date);
@@ -124,7 +126,11 @@ export const LabResultReviewModal: React.FC<LabResultReviewModalProps> = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

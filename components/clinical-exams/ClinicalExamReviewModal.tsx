@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ClinicalExamReviewModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
   loading = false,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [data, setData] = useState<ClinicalExamData>(initialData);
   const [showExamDatePicker, setShowExamDatePicker] = useState(false);
   const [showFollowUpDatePicker, setShowFollowUpDatePicker] = useState(false);
@@ -76,7 +78,11 @@ export const ClinicalExamReviewModal: React.FC<ClinicalExamReviewModalProps> = (
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

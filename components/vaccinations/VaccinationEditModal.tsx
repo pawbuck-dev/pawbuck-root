@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface VaccinationEditModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const VaccinationEditModal: React.FC<VaccinationEditModalProps> = ({
   loading = false,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [name, setName] = useState(vaccination.name);
   const [date, setDate] = useState(vaccination.date);
   const [nextDueDate, setNextDueDate] = useState(vaccination.next_due_date);
@@ -79,7 +81,11 @@ export const VaccinationEditModal: React.FC<VaccinationEditModalProps> = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

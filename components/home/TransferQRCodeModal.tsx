@@ -5,11 +5,13 @@ import React from "react";
 import {
   Alert,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 
 interface TransferQRCodeModalProps {
@@ -26,6 +28,7 @@ export const TransferQRCodeModal: React.FC<TransferQRCodeModalProps> = ({
   qrCodeData,
 }) => {
   const { theme, mode } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
 
   // Generate QR code data - this would typically come from backend
   // For now, we'll create a placeholder URL/identifier
@@ -46,7 +49,14 @@ export const TransferQRCodeModal: React.FC<TransferQRCodeModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <View
+        className="flex-1"
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
+      >
         {/* Header */}
         <View
           className="px-6 pt-4 pb-4 border-b"

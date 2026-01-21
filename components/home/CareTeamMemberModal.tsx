@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Pet = Tables<"pets">;
 
@@ -106,6 +107,7 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   initialEmail,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const isEditing = !!memberInfo;
   const [currentMemberType, setCurrentMemberType] = useState<CareTeamMemberType>(memberType);
 
@@ -214,7 +216,11 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ClinicalExamEditModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const ClinicalExamEditModal: React.FC<ClinicalExamEditModalProps> = ({
   loading = false,
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [examType, setExamType] = useState(exam.exam_type || "");
   const [examDate, setExamDate] = useState(exam.exam_date);
   const [clinicName, setClinicName] = useState(exam.clinic_name || "");
@@ -99,7 +101,11 @@ export const ClinicalExamEditModal: React.FC<ClinicalExamEditModalProps> = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

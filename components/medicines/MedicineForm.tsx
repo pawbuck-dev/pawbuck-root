@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "../common/DateTimePicker";
 import FrequencySelector from "./FrequencySelector";
 import MedicineTypePicker from "./MedicineTypePicker";
@@ -39,6 +40,7 @@ const MedicineForm = ({
   actionTitle,
 }: MedicineFormProps) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const { pet } = useSelectedPet();
 
   if (!initialData) {
@@ -87,7 +89,11 @@ const MedicineForm = ({
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ backgroundColor: theme.background }}
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
       >
         {/* Header */}
         <View

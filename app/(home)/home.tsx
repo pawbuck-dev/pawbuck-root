@@ -49,7 +49,6 @@ import {
 import {
   Gesture,
   GestureDetector,
-  GestureHandlerRootView,
 } from "react-native-gesture-handler";
 
 export default function Home() {
@@ -72,7 +71,6 @@ export default function Home() {
   // State
   const [emailCopied, setEmailCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showVetModal, setShowVetModal] = useState(false);
   const [showCareTeamModal, setShowCareTeamModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
@@ -337,7 +335,7 @@ export default function Home() {
   // Empty state
   if (pets.length === 0) {
     return (
-      <GestureHandlerRootView
+      <View
         className="flex-1"
         style={{ backgroundColor: theme.background }}
       >
@@ -464,7 +462,7 @@ export default function Home() {
             </TouchableOpacity>
           </View>
         </View>
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
@@ -473,7 +471,7 @@ export default function Home() {
   }
 
   return (
-    <GestureHandlerRootView
+    <View
       className="flex-1"
       style={{ backgroundColor: theme.background }}
     >
@@ -637,6 +635,6 @@ export default function Home() {
           }
         />
       )}
-    </GestureHandlerRootView>
+    </View>
   );
 }

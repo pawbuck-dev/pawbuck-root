@@ -103,7 +103,7 @@ export const MiloChatModal: React.FC = () => {
   const [showPetPicker, setShowPetPicker] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const { bottom } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   // Handle keyboard show/hide on iOS for pageSheet modals
   useEffect(() => {
     if (Platform.OS === "ios") {
@@ -231,6 +231,7 @@ export const MiloChatModal: React.FC = () => {
         style={{
           flex: 1,
           backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
       >

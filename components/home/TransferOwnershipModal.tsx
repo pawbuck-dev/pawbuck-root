@@ -4,11 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
   Modal,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface TransferOwnershipModalProps {
   visible: boolean;
@@ -24,6 +26,7 @@ export const TransferOwnershipModal: React.FC<TransferOwnershipModalProps> = ({
   onGenerateQRCode,
 }) => {
   const { theme, mode } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
 
   return (
     <Modal
@@ -32,7 +35,14 @@ export const TransferOwnershipModal: React.FC<TransferOwnershipModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <View
+        className="flex-1"
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
+      >
         {/* Header */}
         <View
           className="px-6 pt-4 pb-4 border-b"

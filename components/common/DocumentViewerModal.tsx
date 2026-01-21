@@ -7,10 +7,12 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Modal,
+    Platform,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface DocumentViewerModalProps {
   visible: boolean;
@@ -26,6 +28,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   title = "Document",
 }) => {
   const { theme } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +77,14 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <View
+        className="flex-1"
+        style={{
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === "android" ? top : 0,
+          paddingBottom: Platform.OS === "android" ? bottom : 0,
+        }}
+      >
         {/* Header */}
         <View
           className="px-6 pt-4 pb-4 border-b flex-row items-center justify-between"

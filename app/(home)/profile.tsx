@@ -18,9 +18,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
   const { theme, mode } = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const isDarkMode = mode === "dark";
   const router = useRouter();
   const { user } = useAuth();
@@ -267,7 +269,11 @@ export default function Profile() {
         <KeyboardAvoidingView
           className="flex-1"
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ backgroundColor: theme.background }}
+          style={{
+            backgroundColor: theme.background,
+            paddingTop: Platform.OS === "android" ? top : 0,
+            paddingBottom: Platform.OS === "android" ? bottom : 0,
+          }}
         >
           {/* Header */}
           <View

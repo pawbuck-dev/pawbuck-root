@@ -450,14 +450,14 @@ export default function ThreadDetailView({
               }}
             >
               <TextInput
-                className="flex-1"
-                style={{ color: theme.foreground }}
-                placeholder="Type a message..."
-                placeholderTextColor={theme.secondary}
+                style={{
+                  color: theme.foreground,
+                }}
                 value={replyText}
                 onChangeText={setReplyText}
+                placeholder="Type your message..."
+                placeholderTextColor={theme.secondary}
                 multiline
-                textAlignVertical="top"
               />
             </View>
             <TouchableOpacity
