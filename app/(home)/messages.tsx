@@ -377,7 +377,7 @@ export default function MessagesScreen() {
                           className="text-base font-bold"
                           style={{ color: theme.foreground }}
                         >
-                          Pending Emails
+                          Requires Attention
                         </Text>
                         <View
                           className="ml-2 px-2 py-0.5 rounded-full"
