@@ -342,8 +342,8 @@ export default function Home() {
         <LinearGradient
           colors={
             isDarkMode
-              ? ["#050D10", "#0D2B2A", "#050D10"]
-              : ["#3BD0D2", "#049FB0", "#3BD0D2"]
+              ? ["#050D10", "#0A1B1B", "#050D10"]
+              : ["#ffffff", "#E1F5F8", "#ffffff"]
           }
           locations={[0, 0.5, 1]}
           style={{
@@ -362,10 +362,16 @@ export default function Home() {
             style={{
               backgroundColor: isDarkMode
                 ? "rgba(255, 255, 255, 0.2)"
-                : "rgba(255, 255, 255, 0.2)",
+                : theme.card,
+              borderWidth: isDarkMode ? 0 : 1,
+              borderColor: isDarkMode ? "transparent" : theme.border,
             }}
           >
-            <Ionicons name="paw" size={64} color="#FFFFFF" />
+            <Ionicons
+              name="paw"
+              size={64}
+              color={isDarkMode ? "#FFFFFF" : theme.primary}
+            />
           </View>
           <Text
             className="text-3xl font-bold text-center mb-2"
@@ -389,7 +395,7 @@ export default function Home() {
               style={{
                 backgroundColor: theme.card,
                 borderWidth: 1,
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
+                borderColor: theme.border,
               }}
               activeOpacity={0.7}
             >
