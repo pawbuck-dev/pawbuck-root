@@ -28,12 +28,22 @@ import {
   extractSignatureFields,
   verifyMailgunSignature,
 } from "./mailgunValidator.ts";
+import {
+  deleteStoredEmail,
+  retrieveEmailForReprocessing,
+} from "./emailStorage.ts";
 import { storeInboundMessage } from "./messageStorage.ts";
 import { findPetByEmail } from "./petLookup.ts";
 import { lookupRecipientName } from "./recipientNameLookup.ts";
 import { createThreadFromInboundEmail } from "./threadCreation.ts";
 import { findThreadByRecipientAndPet } from "./threadLookup.ts";
-import type { EmailContext, EmailInfo, MailgunConfig, Pet } from "./types.ts";
+import type {
+  EmailContext,
+  EmailInfo,
+  MailgunConfig,
+  ParsedEmail,
+  Pet,
+} from "./types.ts";
 
 console.log("mailgun-process-pet-mail function initialized");
 
@@ -41,41 +51,72 @@ Deno.serve(async (req) => {
   let pet: Pet | null = null;
   let senderEmail: string | null = null;
   let messageId: string | null = null;
+  let isReprocessing = false;
+  let storedEmailPath: string | null = null;
 
   try {
-    // Step 1: Parse multipart/form-data from Mailgun
-    const formData = await req.formData();
+    // Detect request type based on content-type header
+    const contentType = req.headers.get("content-type") || "";
+    let parsedEmail: ParsedEmail;
 
-    // Step 2: Verify Mailgun webhook signature
-    const signatureFields = extractSignatureFields(formData);
-    if (!signatureFields) {
-      return buildValidationErrorResponse(
-        "Missing signature fields (timestamp, token, signature)"
+    if (contentType.includes("application/json")) {
+      // Re-processing request after user approval
+      console.log("Detected re-processing request (JSON body)");
+      isReprocessing = true;
+
+      const body = await req.json();
+      const { fileKey } = body as { bucket?: string; fileKey?: string };
+
+      if (!fileKey) {
+        return buildValidationErrorResponse(
+          "Missing required parameter: fileKey"
+        );
+      }
+
+      console.log(`Re-processing email with fileKey: ${fileKey}`);
+      storedEmailPath = fileKey;
+
+      // Retrieve stored email data from Supabase Storage
+      parsedEmail = await retrieveEmailForReprocessing(fileKey);
+      console.log("Successfully retrieved stored email for re-processing");
+    } else {
+      // Original Mailgun webhook (multipart/form-data)
+      console.log("Detected Mailgun webhook request (form-data)");
+
+      // Step 1: Parse multipart/form-data from Mailgun
+      const formData = await req.formData();
+
+      // Step 2: Verify Mailgun webhook signature
+      const signatureFields = extractSignatureFields(formData);
+      if (!signatureFields) {
+        return buildValidationErrorResponse(
+          "Missing signature fields (timestamp, token, signature)"
+        );
+      }
+
+      const mailgunSecret = Deno.env.get("MAILGUN_SECRET");
+      if (!mailgunSecret) {
+        console.error("MAILGUN_SECRET environment variable not configured");
+        return buildErrorResponse("Server configuration error");
+      }
+
+      const isValidSignature = await verifyMailgunSignature(
+        signatureFields.timestamp,
+        signatureFields.token,
+        signatureFields.signature,
+        mailgunSecret
       );
+
+      if (!isValidSignature) {
+        console.error("Invalid Mailgun signature - rejecting request");
+        return buildUnauthorizedResponse("Invalid webhook signature");
+      }
+
+      console.log("Mailgun signature verified successfully");
+
+      // Step 3: Parse email from Mailgun webhook data
+      parsedEmail = await parseMailgunWebhook(formData);
     }
-
-    const mailgunSecret = Deno.env.get("MAILGUN_SECRET");
-    if (!mailgunSecret) {
-      console.error("MAILGUN_SECRET environment variable not configured");
-      return buildErrorResponse("Server configuration error");
-    }
-
-    const isValidSignature = await verifyMailgunSignature(
-      signatureFields.timestamp,
-      signatureFields.token,
-      signatureFields.signature,
-      mailgunSecret
-    );
-
-    if (!isValidSignature) {
-      console.error("Invalid Mailgun signature - rejecting request");
-      return buildUnauthorizedResponse("Invalid webhook signature");
-    }
-
-    console.log("Mailgun signature verified successfully");
-
-    // Step 3: Parse email from Mailgun webhook data
-    const parsedEmail = await parseMailgunWebhook(formData);
 
     logParsedEmail(parsedEmail);
 
@@ -123,15 +164,23 @@ Deno.serve(async (req) => {
 
     const mailgunConfig: MailgunConfig = { messageId };
 
-    const senderVerification = await verifySender(
-      pet,
-      senderEmail,
-      mailgunConfig,
-      emailInfo
-    );
+    // Skip sender verification for re-processing (sender was already approved)
+    if (!isReprocessing) {
+      const senderVerification = await verifySender(
+        pet,
+        senderEmail,
+        mailgunConfig,
+        emailInfo,
+        parsedEmail
+      );
 
-    if (!senderVerification.canProceed) {
-      return senderVerification.response!;
+      if (!senderVerification.canProceed) {
+        return senderVerification.response!;
+      }
+    } else {
+      console.log(
+        `Skipping sender verification for re-processing (sender already approved): ${senderEmail}`
+      );
     }
 
     // Step 8: Acquire processing lock (idempotency)
@@ -308,6 +357,11 @@ Deno.serve(async (req) => {
         `[MONITORING] ✅ Email processing completed (no attachments)`
       );
 
+      // Clean up stored email if this was a re-processing request
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+
       return buildSuccessResponse(
         pet,
         emailInfo,
@@ -374,6 +428,11 @@ Deno.serve(async (req) => {
       // Send failure notification
       await sendAttachmentFailureNotification(pet, emailInfo, failedAttachments);
 
+      // Clean up stored email if this was a re-processing request
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+
       return buildSuccessResponse(pet, emailInfo, processedAttachments);
     }
 
@@ -393,6 +452,11 @@ Deno.serve(async (req) => {
 
     // Step 15: Send success notification if records were successfully added
     await sendProcessedNotification(pet, emailInfo, processedAttachments);
+
+    // Clean up stored email if this was a re-processing request
+    if (isReprocessing && storedEmailPath) {
+      await deleteStoredEmail(storedEmailPath);
+    }
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {

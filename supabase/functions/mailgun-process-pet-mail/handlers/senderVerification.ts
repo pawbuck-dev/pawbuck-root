@@ -4,9 +4,11 @@ import {
   checkSenderEmailStatus,
   savePendingApproval,
 } from "../emailListChecker.ts";
+import { storeEmailForApproval } from "../emailStorage.ts";
 import type {
   EmailInfo,
   MailgunConfig,
+  ParsedEmail,
   Pet,
   PetInfo,
   SenderVerificationResult,
@@ -19,13 +21,19 @@ import {
 /**
  * Verify sender email status and handle blocked/unknown senders
  * Priority: 1) Care team (auto-verified), 2) Safe sender list, 3) Unknown (requires approval)
+ * @param pet - The pet record
+ * @param senderEmail - The sender's email address
+ * @param mailgunConfig - Mailgun-specific configuration (messageId)
+ * @param emailInfo - Basic email info for responses
+ * @param parsedEmail - The full parsed email data (stored for later re-processing if unknown sender)
  * @returns SenderVerificationResult - canProceed: true if verified, false with response otherwise
  */
 export async function verifySender(
   pet: Pet,
   senderEmail: string,
   mailgunConfig: MailgunConfig,
-  emailInfo: EmailInfo
+  emailInfo: EmailInfo,
+  parsedEmail: ParsedEmail
 ): Promise<SenderVerificationResult> {
   console.log(`Verifying sender email: ${senderEmail}`);
 
@@ -67,7 +75,8 @@ export async function verifySender(
     pet,
     senderEmail,
     mailgunConfig,
-    emailInfo
+    emailInfo,
+    parsedEmail
   );
 
   return {
@@ -77,21 +86,33 @@ export async function verifySender(
 }
 
 /**
- * Handle unknown sender - save pending approval and send notification
+ * Handle unknown sender - store email data, save pending approval and send notification
  * Only sends notification if this is a new approval (not a duplicate/retry)
  */
 async function handleUnknownSender(
   pet: Pet,
   senderEmail: string,
   mailgunConfig: MailgunConfig,
-  emailInfo: EmailInfo
+  emailInfo: EmailInfo,
+  parsedEmail: ParsedEmail
 ): Promise<Response> {
+  // Store the parsed email data to Supabase Storage for later re-processing
+  // This is necessary because Mailgun doesn't store emails like SES/S3
+  console.log(
+    `Storing email data for later re-processing: ${mailgunConfig.messageId}`
+  );
+  const storedEmailPath = await storeEmailForApproval(
+    mailgunConfig.messageId,
+    parsedEmail
+  );
+  console.log(`Email stored at: ${storedEmailPath}`);
+
   // Save to pending_email_approvals (returns existing if duplicate)
-  // For Mailgun, we use messageId as the unique identifier instead of S3 key
+  // Use the storage path as the fileKey so it can be retrieved later
   const { id: pendingApprovalId, isNew } = await savePendingApproval(
     pet,
     senderEmail,
-    { bucket: "mailgun", fileKey: mailgunConfig.messageId }
+    { bucket: "pending-emails", fileKey: storedEmailPath }
   );
 
   // Only send notification if this is a NEW approval (not a retry/duplicate)
