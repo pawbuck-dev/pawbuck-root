@@ -31,7 +31,7 @@ import {
   updateVetInformation,
   VetInformation,
 } from "@/services/vetInformation";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -411,7 +411,7 @@ export default function Home() {
               </Text>
             </TouchableOpacity>
 
-            {/* Join Household */}
+            {/* Join Household
             <TouchableOpacity
               onPress={() => router.push("/join-household")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
@@ -434,10 +434,10 @@ export default function Home() {
               >
                 Join Family Circle
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Transfer Pet */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => router.push("/transfer-pet")}
               className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
               style={{
@@ -459,7 +459,7 @@ export default function Home() {
               >
                 Transfer Pet with Code
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
       </View>
