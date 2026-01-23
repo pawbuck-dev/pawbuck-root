@@ -260,6 +260,40 @@ export const addEmail = async (
 };
 
 /**
+ * Add a whitelisted email for all pets owned by the current user
+ */
+export const addEmailForAllUserPets = async (
+  email: string
+): Promise<PetEmailList[]> => {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("User not authenticated");
+
+  const { data: userPets, error: petsError } = await supabase
+    .from("pets")
+    .select("id")
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+
+  if (petsError) throw petsError;
+
+  const petIds = userPets?.map((pet) => pet.id) || [];
+  if (petIds.length === 0) {
+    throw new Error("You need to have at least one pet to add a safe sender");
+  }
+
+  const results: PetEmailList[] = [];
+  for (const petId of petIds) {
+    const entry = await addEmail(petId, normalizedEmail, false);
+    results.push(entry);
+  }
+
+  return results;
+};
+
+/**
  * Update an existing email entry
  */
 export const updateEmail = async (

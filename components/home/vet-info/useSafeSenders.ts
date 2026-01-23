@@ -1,5 +1,6 @@
+import { usePets } from "@/context/petsContext";
 import {
-  addEmail,
+  addEmailForAllUserPets,
   deleteEmail,
   getWhitelistedEmails,
   PetEmailList,
@@ -50,6 +51,7 @@ export const useSafeSenders = ({
   enabled = true,
 }: UseSafeSendersOptions): UseSafeSendersReturn => {
   const queryClient = useQueryClient();
+  const { pets } = usePets();
 
   // Fetch whitelisted emails
   const { data: whitelistedEmails = [], isLoading } = useQuery({
@@ -61,11 +63,13 @@ export const useSafeSenders = ({
   // Add whitelist email mutation
   const addMutation = useMutation({
     mutationFn: async (emailToAdd: string) => {
-      if (!petId) throw new Error("Pet ID is required");
-      return addEmail(petId, emailToAdd, false);
+      return addEmailForAllUserPets(emailToAdd);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pet_email_list", petId] });
+      queryClient.invalidateQueries({ queryKey: ["pet_email_list"] });
+      pets.forEach((pet) => {
+        queryClient.invalidateQueries({ queryKey: ["pet_email_list", pet.id] });
+      });
     },
     onError: (error) => {
       // Show user-friendly message for duplicate emails
@@ -84,7 +88,10 @@ export const useSafeSenders = ({
       return updateEmail(id, newEmail);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pet_email_list", petId] });
+      queryClient.invalidateQueries({ queryKey: ["pet_email_list"] });
+      pets.forEach((pet) => {
+        queryClient.invalidateQueries({ queryKey: ["pet_email_list", pet.id] });
+      });
     },
     onError: (error) => {
       Alert.alert("Error", "Failed to update email");
@@ -98,7 +105,10 @@ export const useSafeSenders = ({
       return deleteEmail(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pet_email_list", petId] });
+      queryClient.invalidateQueries({ queryKey: ["pet_email_list"] });
+      pets.forEach((pet) => {
+        queryClient.invalidateQueries({ queryKey: ["pet_email_list", pet.id] });
+      });
     },
     onError: (error) => {
       Alert.alert("Error", "Failed to remove email from safe senders");

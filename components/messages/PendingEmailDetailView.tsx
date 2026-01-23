@@ -262,7 +262,7 @@ export default function PendingEmailDetailView({
         >
           {isIncorrect
             ? "Incorrect Pet Information Detected"
-            : "New Vet Email Detected"}
+            : "New Email Detected"}
         </Text>
 
         {/* Document Type Badge */}
@@ -355,7 +355,7 @@ export default function PendingEmailDetailView({
               <Text style={{ color: theme.primary, fontWeight: "600" }}>
                 {petName}
               </Text>{" "}
-              from a vet not currently in your records.
+              from someone we don’t recognize yet.
             </>
           )}
         </Text>
@@ -446,14 +446,6 @@ export default function PendingEmailDetailView({
             </Text>
           </View>
         </View>
-
-        {/* Question (for regular approvals) */}
-        {!isIncorrect && (
-          <Text className="text-center mb-4" style={{ color: theme.secondary }}>
-            Would you like to process this email and add this vet to {petName}'s
-            profile?
-          </Text>
-        )}
       </ScrollView>
 
       {/* Action Buttons */}
@@ -542,7 +534,7 @@ export default function PendingEmailDetailView({
                 <>
                   <Ionicons name="add-circle" size={20} color="white" />
                   <Text className="text-white font-semibold ml-2 text-base">
-                    Yes, Process & Add Vet
+                    Yes, Mark as Safe Sender
                   </Text>
                 </>
               )}
@@ -561,7 +553,7 @@ export default function PendingEmailDetailView({
                   color: isProcessing ? theme.secondary : theme.foreground,
                 }}
               >
-                No, Ignore Email
+                No, Mark as Spam
               </Text>
             </TouchableOpacity>
           </>

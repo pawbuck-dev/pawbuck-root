@@ -3,13 +3,13 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
-    ActivityIndicator,
-    Linking,
-    Modal,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Linking,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export const EmailApprovalModal: React.FC = () => {
@@ -118,7 +118,7 @@ export const EmailApprovalModal: React.FC = () => {
             >
               {isIncorrect
                 ? "Incorrect Pet Information Detected"
-                : "New Vet Email Detected"}
+                : "New Email Detected"}
             </Text>
 
             {/* Document Type Badge (if present) */}
@@ -214,7 +214,7 @@ export const EmailApprovalModal: React.FC = () => {
                   <Text style={{ color: theme.primary, fontWeight: "600" }}>
                     {petName}
                   </Text>{" "}
-                  from a vet not currently in your records.
+                  from someone we don’t recognize yet.
                 </>
               )}
             </Text>
@@ -308,17 +308,6 @@ export const EmailApprovalModal: React.FC = () => {
               </View>
             </View>
 
-            {/* Question (for regular approvals) */}
-            {!isIncorrect && (
-              <Text
-                className="text-center mb-5"
-                style={{ color: theme.secondary }}
-              >
-                Would you like to process this email and add this vet to{" "}
-                {petName}'s profile?
-              </Text>
-            )}
-
             {/* Action Buttons */}
             {isIncorrect ? (
               <>
@@ -396,7 +385,7 @@ export const EmailApprovalModal: React.FC = () => {
                     <>
                       <Ionicons name="add-circle" size={20} color="white" />
                       <Text className="text-white font-semibold ml-2 text-base">
-                        Yes, Process & Add Vet
+                        Yes, Mark as Safe Sender
                       </Text>
                     </>
                   )}
@@ -414,7 +403,7 @@ export const EmailApprovalModal: React.FC = () => {
                       color: isProcessing ? theme.secondary : theme.foreground,
                     }}
                   >
-                    No, Ignore Email
+                    No, Mark as Spam
                   </Text>
                 </TouchableOpacity>
               </>

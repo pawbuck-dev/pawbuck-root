@@ -3,6 +3,7 @@ import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
+import { useSafeSenders, validateEmail } from "@/components/home/vet-info/useSafeSenders";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
@@ -43,6 +44,8 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
+  TouchableOpacity,
   View
 } from "react-native";
 // HIDDEN: Family Access imports - Uncomment to re-enable
@@ -86,12 +89,35 @@ export default function FamilyAccess() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
+  const [newSafeSenderEmail, setNewSafeSenderEmail] = useState("");
+  const [isAddingSafeSender, setIsAddingSafeSender] = useState(false);
+  const [editingSafeSenderId, setEditingSafeSenderId] = useState<number | null>(null);
+  const [editingSafeSenderEmail, setEditingSafeSenderEmail] = useState("");
 
   // Fetch care team members
   const { data: careTeamMembers = [], isLoading: loadingCareTeam } = useQuery<VetInformation[]>({
     queryKey: ["all_care_team_members"],
     queryFn: getAllCareTeamMembers,
   });
+
+  const firstPetId = pets[0]?.id;
+  const {
+    whitelistedEmails,
+    isLoading: loadingSafeSenders,
+    addWhitelistedEmail,
+    updateWhitelistedEmail,
+    deleteWhitelistedEmail,
+    isPending: isSafeSenderPending,
+    isAdding: isSafeSenderAdding,
+    isUpdating: isSafeSenderUpdating,
+  } = useSafeSenders({ petId: firstPetId, enabled: !!firstPetId });
+
+  const careTeamEmailSet = new Set(
+    careTeamMembers.map((member) => member.email?.toLowerCase().trim()).filter(Boolean)
+  );
+  const safeSenderEmails = whitelistedEmails.filter(
+    (emailItem) => !careTeamEmailSet.has(emailItem.email_id.toLowerCase().trim())
+  );
 
   // HIDDEN: Family Access queries - Uncomment to re-enable
   // const { data: invites = [], isLoading: loadingInvites } = useQuery<HouseholdInvite[]>({
@@ -330,6 +356,51 @@ export default function FamilyAccess() {
     }
   };
 
+  const handleAddSafeSender = () => {
+    if (!newSafeSenderEmail.trim()) {
+      Alert.alert("Required", "Please enter an email address");
+      return;
+    }
+    if (!validateEmail(newSafeSenderEmail.trim())) {
+      Alert.alert("Invalid Email", "Please enter a valid email address");
+      return;
+    }
+    addWhitelistedEmail(newSafeSenderEmail.trim());
+    setNewSafeSenderEmail("");
+    setIsAddingSafeSender(false);
+  };
+
+  const handleUpdateSafeSender = () => {
+    if (!editingSafeSenderEmail.trim()) {
+      Alert.alert("Required", "Please enter an email address");
+      return;
+    }
+    if (!validateEmail(editingSafeSenderEmail.trim())) {
+      Alert.alert("Invalid Email", "Please enter a valid email address");
+      return;
+    }
+    if (editingSafeSenderId) {
+      updateWhitelistedEmail(editingSafeSenderId, editingSafeSenderEmail.trim());
+      setEditingSafeSenderId(null);
+      setEditingSafeSenderEmail("");
+    }
+  };
+
+  const startEditingSafeSender = (id: number, email: string) => {
+    setEditingSafeSenderId(id);
+    setEditingSafeSenderEmail(email);
+  };
+
+  const cancelEditingSafeSender = () => {
+    setEditingSafeSenderId(null);
+    setEditingSafeSenderEmail("");
+  };
+
+  const cancelAddingSafeSender = () => {
+    setIsAddingSafeSender(false);
+    setNewSafeSenderEmail("");
+  };
+
   // Count unique care team members (contacts that can communicate)
   const uniqueCareTeamCount = new Set(careTeamMembers.map((m) => m.email)).size;
 
@@ -466,6 +537,156 @@ export default function FamilyAccess() {
               ))
             )}
           </View>
+
+          {/* Safe Senders Section */}
+          {firstPetId && (
+            <View className="mb-8">
+              {/* Section Header */}
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center flex-1">
+                  <MaterialCommunityIcons name="email-check-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold" style={{ color: theme.foreground }}>
+                      Safe Senders
+                    </Text>
+                    <Text className="text-sm" style={{ color: theme.secondary }}>
+                      {safeSenderEmails.length} contacts can communicate
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={() => setIsAddingSafeSender(true)}
+                  disabled={isSafeSenderPending || isAddingSafeSender}
+                  className="px-4 py-2 rounded-lg active:opacity-70"
+                  style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                >
+                  <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
+                    + Add
+                  </Text>
+                </Pressable>
+              </View>
+
+              {isAddingSafeSender && (
+                <View
+                  className="flex-row items-center rounded-2xl p-4 mb-3"
+                  style={{ backgroundColor: theme.card }}
+                >
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color={theme.secondary}
+                    style={{ marginRight: 12 }}
+                  />
+                  <TextInput
+                    className="flex-1"
+                    style={{ color: theme.foreground }}
+                    value={newSafeSenderEmail}
+                    onChangeText={setNewSafeSenderEmail}
+                    placeholder="Enter email address"
+                    placeholderTextColor={theme.secondary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    onPress={handleAddSafeSender}
+                    disabled={isSafeSenderAdding}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {isSafeSenderAdding ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Ionicons name="checkmark" size={24} color={theme.primary} />
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={cancelAddingSafeSender}
+                    disabled={isSafeSenderAdding}
+                    style={{ marginLeft: 8 }}
+                  >
+                    <Ionicons name="close" size={24} color={theme.secondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {loadingSafeSenders ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : safeSenderEmails.length === 0 ? (
+                <Text className="text-base" style={{ color: theme.secondary }}>
+                  No safe senders yet.
+                </Text>
+              ) : (
+                safeSenderEmails.map((emailItem) => (
+                  <View
+                    key={emailItem.id}
+                    className="rounded-2xl p-4 mb-3 flex-row items-center"
+                    style={{ backgroundColor: theme.card }}
+                  >
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color={theme.primary}
+                      style={{ marginRight: 12 }}
+                    />
+                    {editingSafeSenderId === emailItem.id ? (
+                      <>
+                        <TextInput
+                          className="flex-1"
+                          style={{ color: theme.foreground }}
+                          value={editingSafeSenderEmail}
+                          onChangeText={setEditingSafeSenderEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          autoFocus
+                        />
+                        <TouchableOpacity
+                          onPress={handleUpdateSafeSender}
+                          disabled={isSafeSenderUpdating}
+                          style={{ marginLeft: 8 }}
+                        >
+                          {isSafeSenderUpdating ? (
+                            <ActivityIndicator size="small" color={theme.primary} />
+                          ) : (
+                            <Ionicons name="checkmark" size={24} color={theme.primary} />
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={cancelEditingSafeSender}
+                          disabled={isSafeSenderUpdating}
+                          style={{ marginLeft: 8 }}
+                        >
+                          <Ionicons name="close" size={24} color={theme.secondary} />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Text className="flex-1" style={{ color: theme.foreground }}>
+                          {emailItem.email_id}
+                        </Text>
+                        <Pressable
+                          onPress={() => startEditingSafeSender(emailItem.id, emailItem.email_id)}
+                          disabled={isSafeSenderPending}
+                          className="active:opacity-70"
+                        >
+                          <Ionicons name="pencil-outline" size={20} color={theme.secondary} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => deleteWhitelistedEmail(emailItem.id)}
+                          disabled={isSafeSenderPending}
+                          className="active:opacity-70"
+                          style={{ marginLeft: 12 }}
+                        >
+                          <Ionicons name="trash-outline" size={20} color={theme.secondary} />
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
+          )}
 
           {/* HIDDEN: Family Access Section - Uncomment to re-enable */}
           {/* <View className="mb-8">
