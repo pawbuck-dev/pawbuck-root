@@ -177,25 +177,12 @@ export const dismissFailedEmail = async (id: string): Promise<void> => {
 export const getFailedEmailAttachments = async (
   s3Key: string
 ): Promise<Array<{ index: number; filename: string; mimeType: string; size: number }> | null> => {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:177',message:'getFailedEmailAttachments entry',data:{s3Key},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:181',message:'Before supabase.functions.invoke',data:{functionName:'get-failed-email-attachment',s3Key},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const { data, error } = await supabase.functions.invoke("get-failed-email-attachment", {
       body: { s3_key: s3Key },
     });
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:186',message:'After supabase.functions.invoke',data:{hasError:!!error,errorType:error?.constructor?.name,errorStatus:error?.status,errorMessage:error?.message,hasData:!!data,dataKeys:data?Object.keys(data):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     if (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:195',message:'Error from function invoke',data:{errorName:error?.constructor?.name,errorStatus:error?.status,errorMessage:error?.message,errorContext:error?.context},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       console.error("Error getting failed email attachments:", error);
       if (error && typeof error === 'object') {
         try {
@@ -208,9 +195,6 @@ export const getFailedEmailAttachments = async (
     }
 
     if (data?.error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:210',message:'Function returned error in response body',data:{errorCode:data?.code,errorMessage:data?.error},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.error("Function returned error:", data.error);
       if (data.code === "ATTACHMENT_NOT_STORED" || data.code === "NO_ATTACHMENTS") {
         // This is expected - attachment not stored (likely from known sender) or no attachments
@@ -221,21 +205,12 @@ export const getFailedEmailAttachments = async (
     }
 
     if (data?.attachments) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:205',message:'Successfully retrieved attachments',data:{attachmentCount:data.attachments.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       console.log(`Found ${data.attachments.length} attachment(s) for email ${s3Key}`);
       return data.attachments;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:211',message:'No attachments in response',data:{hasData:!!data,dataKeys:data?Object.keys(data):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     return null;
   } catch (err) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:214',message:'Exception in getFailedEmailAttachments',data:{errorType:err?.constructor?.name,errorMessage:err instanceof Error?err.message:String(err),errorStack:err instanceof Error?err.stack:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     console.error("Error calling get-failed-email-attachment function:", err);
     if (err instanceof Error) {
       console.error("Error message:", err.message);
@@ -289,25 +264,16 @@ export const getFailedEmailAttachmentPath = async (
 
     // Check if we got a signed URL directly (preferred) or just a path
     if (data?.signedUrl) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:263',message:'Retrieved signed URL directly',data:{hasSignedUrl:true,filename:data.filename,mimeType:data.mimeType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       console.log(`Retrieved signed URL for index ${attachmentIndex}`);
       // Return the signed URL - the client can use it directly
       return data.signedUrl;
     }
 
     if (data?.attachmentPath) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:271',message:'Retrieved attachment path (fallback)',data:{attachmentPath:data.attachmentPath,filename:data.filename,mimeType:data.mimeType},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       console.log(`Retrieved attachment path for index ${attachmentIndex}: ${data.attachmentPath}`);
       return data.attachmentPath;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'failedEmails.ts:271',message:'No attachmentPath in response',data:{hasData:!!data,dataKeys:data?Object.keys(data):null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     return null;
   } catch (err) {
     console.error("Error calling get-failed-email-attachment function:", err);

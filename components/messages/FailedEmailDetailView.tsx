@@ -5,7 +5,7 @@ import { FailedEmail, getFailedEmailAttachmentPath, getFailedEmailAttachments } 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import moment from "moment";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 interface FailedEmailDetailViewProps {
@@ -44,38 +44,32 @@ export default function FailedEmailDetailView({
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
 
   const hasAttachment = !!failedEmail.s3_key;
+  const isMountedRef = useRef(true);
 
-  // Load attachment path when component mounts if s3_key is available
-  useEffect(() => {
-    if (hasAttachment && failedEmail.s3_key) {
-      loadAttachmentPath();
-    }
-  }, [failedEmail.s3_key]);
-
-  const loadAttachmentPath = async () => {
+  // Memoize loadAttachmentPath to avoid recreating on every render
+  const loadAttachmentPath = useCallback(async () => {
     if (!failedEmail.s3_key) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:55',message:'loadAttachmentPath entry - no s3_key',data:{hasS3Key:!!failedEmail.s3_key},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       console.log("No s3_key available for failed email");
       return;
     }
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:61',message:'loadAttachmentPath entry',data:{s3Key:failedEmail.s3_key},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    // Check if component is still mounted before proceeding
+    if (!isMountedRef.current) {
+      return;
+    }
+    
     console.log("Loading attachments for s3_key:", failedEmail.s3_key);
     setLoadingAttachment(true);
     try {
       // First, get list of all attachments
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:66',message:'Before getFailedEmailAttachments call',data:{s3Key:failedEmail.s3_key},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.log("Calling getFailedEmailAttachments...");
       const attachmentsList = await getFailedEmailAttachments(failedEmail.s3_key);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:68',message:'After getFailedEmailAttachments call',data:{hasAttachmentsList:!!attachmentsList,attachmentCount:attachmentsList?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
+      
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       console.log("Received attachments list:", attachmentsList);
       
       if (attachmentsList && attachmentsList.length > 0) {
@@ -84,6 +78,12 @@ export default function FailedEmailDetailView({
         setAttachmentAvailable(true);
         // Load first attachment by default
         const firstPath = await getFailedEmailAttachmentPath(failedEmail.s3_key, 0);
+        
+        // Check again before setting state
+        if (!isMountedRef.current) {
+          return;
+        }
+        
         if (firstPath) {
           console.log("First attachment path loaded:", firstPath);
           setAttachmentPath(firstPath);
@@ -97,9 +97,11 @@ export default function FailedEmailDetailView({
         setAttachments([]);
       }
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:87',message:'Exception in loadAttachmentPath',data:{errorType:error?.constructor?.name,errorMessage:error instanceof Error?error.message:String(error),errorStack:error instanceof Error?error.stack:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       console.error("Error loading attachments:", error);
       if (error instanceof Error) {
         console.error("Error message:", error.message);
@@ -108,19 +110,45 @@ export default function FailedEmailDetailView({
       setAttachmentAvailable(false);
       setAttachments([]);
     } finally {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FailedEmailDetailView.tsx:96',message:'loadAttachmentPath finally',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      setLoadingAttachment(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoadingAttachment(false);
+      }
     }
-  };
+  }, [failedEmail.s3_key]);
+
+  // Load attachment path when component mounts if s3_key is available
+  useEffect(() => {
+    // Set mounted flag
+    isMountedRef.current = true;
+    
+    if (failedEmail.s3_key) {
+      loadAttachmentPath();
+    }
+    
+    // Cleanup: set mounted flag to false when component unmounts
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [failedEmail.s3_key, loadAttachmentPath]);
 
   const handleSelectAttachment = async (index: number) => {
     if (!failedEmail.s3_key) return;
     
+    // Check if component is still mounted
+    if (!isMountedRef.current) {
+      return;
+    }
+    
     setLoadingAttachment(true);
     try {
       const path = await getFailedEmailAttachmentPath(failedEmail.s3_key, index);
+      
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       if (path) {
         setAttachmentPath(path);
         setSelectedAttachmentIndex(index);
@@ -133,13 +161,21 @@ export default function FailedEmailDetailView({
         );
       }
     } catch (error) {
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       setAttachmentAvailable(false);
       Alert.alert(
         "Error",
         "Failed to load the document. Please try again later."
       );
     } finally {
-      setLoadingAttachment(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoadingAttachment(false);
+      }
     }
   };
 

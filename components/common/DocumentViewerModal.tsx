@@ -52,28 +52,15 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     setError(null);
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DocumentViewerModal.tsx:48',message:'Before getCachedSignedUrl',data:{documentPath,isUrl:documentPath.startsWith('http')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
       // Check if documentPath is already a signed URL (starts with http/https)
       if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DocumentViewerModal.tsx:54',message:'Using direct signed URL',data:{isUrl:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         setSignedUrl(documentPath);
       } else {
         // It's a storage path, need to get signed URL
         const url = await getCachedSignedUrl(documentPath);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DocumentViewerModal.tsx:59',message:'After getCachedSignedUrl',data:{hasUrl:!!url,urlLength:url?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         setSignedUrl(url);
       }
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DocumentViewerModal.tsx:64',message:'Error in loadDocument',data:{errorType:err?.constructor?.name,errorMessage:err instanceof Error?err.message:String(err),documentPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       console.error("Error loading document:", err);
       setError("Failed to load document");
     } finally {
