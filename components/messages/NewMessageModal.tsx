@@ -1,6 +1,7 @@
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { getCareTeamMembersForPet } from "@/services/careTeamMembers";
+import { getWhitelistedEmails } from "@/services/petEmailList";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -24,8 +25,6 @@ interface NewMessageModalProps {
   onClose: () => void;
   onSend?: (message: {
     to: string;
-    cc?: string;
-    bcc?: string;
     subject: string;
     message: string;
     petId: string;
@@ -54,14 +53,9 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     pets.length > 0 ? pets[0].id : null
   );
   const [toContact, setToContact] = useState<WhitelistedContact | null>(null);
-  const [ccContact, setCcContact] = useState<WhitelistedContact | null>(null);
-  const [bccContact, setBccContact] = useState<WhitelistedContact | null>(null);
-  const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [showToDropdown, setShowToDropdown] = useState(false);
-  const [showCcDropdown, setShowCcDropdown] = useState(false);
-  const [showBccDropdown, setShowBccDropdown] = useState(false);
   const [showPetDropdown, setShowPetDropdown] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -77,24 +71,50 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     enabled: !!selectedPetId,
   });
 
-  // Build list of whitelisted contacts
+  // Fetch safe senders (whitelisted emails) for selected pet
+  const { data: safeSenders = [] } = useQuery({
+    queryKey: ["safe_senders", selectedPetId],
+    queryFn: () => getWhitelistedEmails(selectedPetId!),
+    enabled: !!selectedPetId,
+  });
+
+  // Build list of whitelisted contacts with care team first, then safe senders
   const contacts = useMemo(() => {
     const contacts: WhitelistedContact[] = [];
+    const seenEmails = new Set<string>();
 
-    // Add care team members if whitelisted
+    // 1. Add care team members first
     careTeamMembers.forEach((member) => {
       if (member.email) {
+        const normalizedEmail = member.email.toLowerCase().trim();
+        if (!seenEmails.has(normalizedEmail)) {
+          seenEmails.add(normalizedEmail);
+          contacts.push({
+            id: member.id,
+            name: member.vet_name,
+            email: member.email,
+            business: member.clinic_name,
+          });
+        }
+      }
+    });
+
+    // 2. Add safe senders (excluding those already in care team)
+    safeSenders.forEach((sender) => {
+      const normalizedEmail = sender.email_id.toLowerCase().trim();
+      if (!seenEmails.has(normalizedEmail)) {
+        seenEmails.add(normalizedEmail);
         contacts.push({
-          id: member.id,
-          name: member.vet_name,
-          email: member.email,
-          business: member.clinic_name,
+          id: `safe_sender_${sender.id}`,
+          name: sender.email_id.split("@")[0], // Use email prefix as name if no name available
+          email: sender.email_id,
+          business: undefined,
         });
       }
     });
 
     return contacts;
-  }, [careTeamMembers]);
+  }, [careTeamMembers, safeSenders]);
 
   // Pre-fill recipient when initialRecipientEmail is provided and modal opens
   useEffect(() => {
@@ -137,8 +157,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       if (onSend) {
         await onSend({
           to: toContact.email,
-          cc: ccContact?.email,
-          bcc: bccContact?.email,
           subject: subject.trim(),
           message: message.trim(),
           petId: selectedPetId,
@@ -146,11 +164,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       }
       // Reset form
       setToContact(null);
-      setCcContact(null);
-      setBccContact(null);
       setSubject("");
       setMessage("");
-      setShowCcBcc(false);
       onClose();
     } catch (error) {
       Alert.alert("Error", "Failed to send message. Please try again.");
@@ -162,14 +177,9 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
 
   const handleClose = () => {
     setToContact(null);
-    setCcContact(null);
-    setBccContact(null);
     setSubject("");
     setMessage("");
-    setShowCcBcc(false);
     setShowToDropdown(false);
-    setShowCcDropdown(false);
-    setShowBccDropdown(false);
     setShowPetDropdown(false);
     onClose();
   };
@@ -186,12 +196,19 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     showDropdown: boolean,
     onToggleDropdown: () => void
   ) => {
-    const availableContacts = contacts.filter(
-      (c) =>
-        c.id !== toContact?.id &&
-        c.id !== ccContact?.id &&
-        c.id !== bccContact?.id
+    // Separate care team members and safe senders
+    const careTeamContacts = contacts.filter((c) => !c.id.startsWith("safe_sender_"));
+    const safeSenderContacts = contacts.filter((c) => c.id.startsWith("safe_sender_"));
+    
+    const availableCareTeam = careTeamContacts.filter(
+      (c) => c.id !== toContact?.id
     );
+    
+    const availableSafeSenders = safeSenderContacts.filter(
+      (c) => c.id !== toContact?.id
+    );
+
+    const hasAvailableContacts = availableCareTeam.length > 0 || availableSafeSenders.length > 0;
 
     return (
       <View style={{ position: "relative" }}>
@@ -261,37 +278,91 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               >
                 <Text style={{ color: theme.secondary }}>None</Text>
               </TouchableOpacity>
-              {availableContacts.map((contact) => (
-                <TouchableOpacity
-                  key={contact.id}
-                  onPress={() => {
-                    onSelect(contact);
-                    onToggleDropdown();
-                  }}
-                  className="py-3 px-4 border-b"
-                  style={{ borderBottomColor: theme.border + "40" }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    className="font-medium"
-                    style={{ color: theme.foreground }}
-                  >
-                    {contact.name}
-                  </Text>
-                  {contact.business && (
+              
+              {/* Care Team Section */}
+              {availableCareTeam.length > 0 && (
+                <>
+                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
                     <Text
-                      className="text-sm"
+                      className="text-xs font-semibold uppercase"
                       style={{ color: theme.secondary }}
                     >
-                      {contact.business}
+                      Care Team
                     </Text>
+                  </View>
+                  {availableCareTeam.map((contact) => (
+                    <TouchableOpacity
+                      key={contact.id}
+                      onPress={() => {
+                        onSelect(contact);
+                        onToggleDropdown();
+                      }}
+                      className="py-3 px-4 border-b"
+                      style={{ borderBottomColor: theme.border + "40" }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        className="font-medium"
+                        style={{ color: theme.foreground }}
+                      >
+                        {contact.name}
+                      </Text>
+                      {contact.business && (
+                        <Text
+                          className="text-sm"
+                          style={{ color: theme.secondary }}
+                        >
+                          {contact.business}
+                        </Text>
+                      )}
+                      <Text className="text-sm" style={{ color: theme.secondary }}>
+                        {contact.email}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              
+              {/* Safe Senders Section */}
+              {availableSafeSenders.length > 0 && (
+                <>
+                  {availableCareTeam.length > 0 && (
+                    <View className="px-4 py-1" style={{ backgroundColor: theme.border + "20" }} />
                   )}
-                  <Text className="text-sm" style={{ color: theme.secondary }}>
-                    {contact.email}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              {availableContacts.length === 0 && (
+                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
+                    <Text
+                      className="text-xs font-semibold uppercase"
+                      style={{ color: theme.secondary }}
+                    >
+                      Safe Senders
+                    </Text>
+                  </View>
+                  {availableSafeSenders.map((contact) => (
+                    <TouchableOpacity
+                      key={contact.id}
+                      onPress={() => {
+                        onSelect(contact);
+                        onToggleDropdown();
+                      }}
+                      className="py-3 px-4 border-b"
+                      style={{ borderBottomColor: theme.border + "40" }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        className="font-medium"
+                        style={{ color: theme.foreground }}
+                      >
+                        {contact.name}
+                      </Text>
+                      <Text className="text-sm" style={{ color: theme.secondary }}>
+                        {contact.email}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+              
+              {!hasAvailableContacts && (
                 <View className="py-4 px-4">
                   <Text
                     className="text-sm text-center"
@@ -371,8 +442,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                 className="text-sm"
                 style={{ color: theme.foreground, lineHeight: 20 }}
               >
-                You can only send messages to whitelisted contacts in your Care
-                Team.{" "}
+                You can send messages to Care Team members and Safe Senders.{" "}
                 <Text
                   onPress={handleManageContacts}
                   style={{ color: "#22C55E", fontWeight: "600" }}
@@ -397,8 +467,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                   onPress={() => {
                     setShowPetDropdown(!showPetDropdown);
                     setShowToDropdown(false);
-                    setShowCcDropdown(false);
-                    setShowBccDropdown(false);
                   }}
                   className="flex-row items-center rounded-xl py-4 px-4"
                   style={{
@@ -451,8 +519,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                             setShowPetDropdown(false);
                             // Reset contact selection when pet changes
                             setToContact(null);
-                            setCcContact(null);
-                            setBccContact(null);
                           }}
                           className="py-3 px-4 border-b"
                           style={{
@@ -486,31 +552,12 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
 
           {/* To Field */}
           <View className="mb-4" style={{ zIndex: showToDropdown ? 50 : 3 }}>
-            <View className="flex-row items-center justify-between mb-2">
-              <Text
-                className="text-sm font-medium"
-                style={{ color: theme.secondary }}
-              >
-                To *
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowCcBcc(!showCcBcc)}
-                className="flex-row items-center"
-                activeOpacity={0.7}
-              >
-                <Text
-                  className="text-sm font-medium mr-1"
-                  style={{ color: theme.primary }}
-                >
-                  CC/BCC
-                </Text>
-                <Ionicons
-                  name={showCcBcc ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color={theme.primary}
-                />
-              </TouchableOpacity>
-            </View>
+            <Text
+              className="text-sm font-medium mb-2"
+              style={{ color: theme.secondary }}
+            >
+              To *
+            </Text>
             {renderContactDropdown(
               contacts,
               toContact,
@@ -518,57 +565,9 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               showToDropdown,
               () => {
                 setShowToDropdown(!showToDropdown);
-                setShowCcDropdown(false);
-                setShowBccDropdown(false);
               }
             )}
           </View>
-
-          {/* CC Field */}
-          {showCcBcc && (
-            <View className="mb-4" style={{ zIndex: showCcDropdown ? 50 : 2 }}>
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                CC
-              </Text>
-              {renderContactDropdown(
-                contacts,
-                ccContact,
-                setCcContact,
-                showCcDropdown,
-                () => {
-                  setShowCcDropdown(!showCcDropdown);
-                  setShowToDropdown(false);
-                  setShowBccDropdown(false);
-                }
-              )}
-            </View>
-          )}
-
-          {/* BCC Field */}
-          {showCcBcc && (
-            <View className="mb-4" style={{ zIndex: showBccDropdown ? 50 : 1 }}>
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                BCC
-              </Text>
-              {renderContactDropdown(
-                contacts,
-                bccContact,
-                setBccContact,
-                showBccDropdown,
-                () => {
-                  setShowBccDropdown(!showBccDropdown);
-                  setShowToDropdown(false);
-                  setShowCcDropdown(false);
-                }
-              )}
-            </View>
-          )}
 
           {/* Subject Field */}
           <View className="mb-4">
