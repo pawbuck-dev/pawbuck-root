@@ -32,6 +32,8 @@ export default function PetProfile() {
   const [editedWeightValue, setEditedWeightValue] = useState<string>("");
   const [editedColor, setEditedColor] = useState<string>("");
   const [editedCountry, setEditedCountry] = useState<string>("");
+  const [editedMicrochipNumber, setEditedMicrochipNumber] = useState<string>("");
+  const [editedPassportNumber, setEditedPassportNumber] = useState<string>("");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   // Get current pet from context
@@ -64,6 +66,8 @@ export default function PetProfile() {
       }
       setEditedColor((currentPet as any).color || "");
       setEditedCountry(currentPet.country || "");
+      setEditedMicrochipNumber(currentPet.microchip_number || "");
+      setEditedPassportNumber((currentPet as any).pet_passport_number || "");
     }
   }, [isEditing, currentPet, weightUnit]);
 
@@ -132,6 +136,8 @@ export default function PetProfile() {
     setEditedWeightValue("");
     setEditedColor("");
     setEditedCountry("");
+    setEditedMicrochipNumber("");
+    setEditedPassportNumber("");
   };
 
   const handleSave = async () => {
@@ -166,6 +172,21 @@ export default function PetProfile() {
       // Handle country
       if (editedCountry) {
         updateData.country = editedCountry;
+      }
+
+      // Handle microchip number - only update if it's empty in the database
+      if (!currentPet.microchip_number && editedMicrochipNumber.trim()) {
+        // Validate microchip number (should be 15 digits)
+        if (editedMicrochipNumber.trim().length !== 15) {
+          Alert.alert("Invalid Microchip Number", "Microchip number must be exactly 15 digits");
+          return;
+        }
+        updateData.microchip_number = editedMicrochipNumber.trim();
+      }
+
+      // Handle passport number - only update if it's empty in the database
+      if (!(currentPet as any).pet_passport_number && editedPassportNumber.trim()) {
+        updateData.pet_passport_number = editedPassportNumber.trim();
       }
 
       await updatePet(currentPet.id, updateData);
@@ -683,17 +704,62 @@ export default function PetProfile() {
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Microchip Number
                   </Text>
-                  <Text
-                    className="text-base font-medium"
-                    style={{ color: theme.foreground }}
-                  >
-                    {currentPet.microchip_number || "Not set"}
-                  </Text>
+                  {isEditing && !currentPet.microchip_number ? (
+                    <TextInput
+                      className="py-2 px-3 rounded-lg font-medium"
+                      style={{
+                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        color: theme.foreground,
+                        maxWidth: "90%", // Limit width to prevent overflow
+                      }}
+                      value={editedMicrochipNumber}
+                      onChangeText={(text) => {
+                        // Only allow digits and limit to 15 characters
+                        const digitsOnly = text.replace(/[^0-9]/g, "");
+                        if (digitsOnly.length <= 15) {
+                          setEditedMicrochipNumber(digitsOnly);
+                        }
+                      }}
+                      placeholder="Enter 15-digit microchip number"
+                      placeholderTextColor={theme.secondary}
+                      keyboardType="numeric"
+                      maxLength={15}
+                    />
+                  ) : (
+                    <Text
+                      className="text-base font-medium"
+                      style={{ color: theme.foreground }}
+                    >
+                      {currentPet.microchip_number || "Not set"}
+                    </Text>
+                  )}
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
+                <View className="ml-2" style={{ minWidth: 60, alignItems: "flex-end" }}>
+                  {currentPet.microchip_number ? (
+                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                      <Text className="text-xs" style={{ color: theme.secondary }}>
+                        Locked
+                      </Text>
+                    </View>
+                  ) : isEditing ? (
+                    <Pressable
+                      onPress={handleCancel}
+                      className="px-2 py-1 rounded"
+                      style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                    >
+                      <Text className="text-xs" style={{ color: theme.secondary }}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={handleEdit}
+                      className="px-2 py-1 rounded"
+                      style={{ backgroundColor: `${theme.primary}20` }}
+                    >
+                      <Ionicons name="pencil-outline" size={16} color={theme.primary} />
+                    </Pressable>
+                  )}
                 </View>
               </View>
 
@@ -713,17 +779,60 @@ export default function PetProfile() {
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
                     Pet Passport Number
                   </Text>
-                  <Text
-                    className="text-base font-medium"
-                    style={{ color: theme.foreground }}
-                  >
-                    {(currentPet as any).pet_passport_number || "Not set"}
-                  </Text>
+                  {isEditing && !(currentPet as any).pet_passport_number ? (
+                    <TextInput
+                      className="py-2 px-3 rounded-lg font-medium"
+                      style={{
+                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        color: theme.foreground,
+                        maxWidth: "90%", // Limit width to prevent overflow
+                      }}
+                      value={editedPassportNumber}
+                      onChangeText={(text) => {
+                        // Limit to 20 characters (typical passport number length)
+                        if (text.length <= 20) {
+                          setEditedPassportNumber(text);
+                        }
+                      }}
+                      placeholder="Enter passport number"
+                      placeholderTextColor={theme.secondary}
+                      maxLength={20}
+                    />
+                  ) : (
+                    <Text
+                      className="text-base font-medium"
+                      style={{ color: theme.foreground }}
+                    >
+                      {(currentPet as any).pet_passport_number || "Not set"}
+                    </Text>
+                  )}
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
+                <View className="ml-2" style={{ minWidth: 60, alignItems: "flex-end" }}>
+                  {(currentPet as any).pet_passport_number ? (
+                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                      <Text className="text-xs" style={{ color: theme.secondary }}>
+                        Locked
+                      </Text>
+                    </View>
+                  ) : isEditing ? (
+                    <Pressable
+                      onPress={handleCancel}
+                      className="px-2 py-1 rounded"
+                      style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                    >
+                      <Text className="text-xs" style={{ color: theme.secondary }}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={handleEdit}
+                      className="px-2 py-1 rounded"
+                      style={{ backgroundColor: `${theme.primary}20` }}
+                    >
+                      <Ionicons name="pencil-outline" size={16} color={theme.primary} />
+                    </Pressable>
+                  )}
                 </View>
               </View>
 

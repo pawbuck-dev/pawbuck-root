@@ -22,8 +22,11 @@ interface ParsedEmail {
 
 /**
  * Get attachment from stored email for failed email processing
- * This function retrieves the stored email JSON and extracts the first attachment,
- * then uploads it temporarily to the pets bucket for viewing
+ * This function retrieves the stored email JSON and extracts attachments,
+ * then uploads them temporarily to the pets bucket for viewing
+ * 
+ * If attachment_index is provided, returns that specific attachment.
+ * If not provided, returns a list of all attachments.
  */
 Deno.serve(async (req) => {
   // Handle CORS
@@ -32,7 +35,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { s3_key } = await req.json();
+    const { s3_key, attachment_index } = await req.json();
 
     if (!s3_key) {
       return new Response(
@@ -78,7 +81,7 @@ Deno.serve(async (req) => {
     const emailJson = await emailData.text();
     const parsedEmail: ParsedEmail = JSON.parse(emailJson);
 
-    // Get the first attachment
+    // Get attachments
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
       return new Response(
         JSON.stringify({ error: "No attachments found in email" }),
@@ -89,51 +92,81 @@ Deno.serve(async (req) => {
       );
     }
 
-    const firstAttachment = parsedEmail.attachments[0];
+    // If attachment_index is provided, return that specific attachment
+    if (attachment_index !== undefined && attachment_index !== null) {
+      const index = parseInt(String(attachment_index), 10);
+      if (isNaN(index) || index < 0 || index >= parsedEmail.attachments.length) {
+        return new Response(
+          JSON.stringify({ error: "Invalid attachment index" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
 
-    // Upload the attachment to pets bucket temporarily for viewing
-    // Use a path that includes the email identifier
-    const tempPath = `temp-email-attachments/${sanitizedId}/${firstAttachment.filename}`;
-    
-    // Decode base64 content
-    // Handle both standard base64 and data URLs
-    let base64Content = firstAttachment.content;
-    if (base64Content.includes(",")) {
-      // Remove data URL prefix if present (e.g., "data:image/png;base64,")
-      base64Content = base64Content.split(",")[1];
-    }
-    
-    const binaryString = atob(base64Content);
-    const fileData = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+      const attachment = parsedEmail.attachments[index];
+      const tempPath = `temp-email-attachments/${sanitizedId}/${attachment.filename}`;
+      
+      // Decode base64 content
+      // Handle both standard base64 and data URLs
+      let base64Content = attachment.content;
+      if (base64Content.includes(",")) {
+        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+        base64Content = base64Content.split(",")[1];
+      }
+      
+      const binaryString = atob(base64Content);
+      const fileData = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
 
-    // Upload to pets bucket
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("pets")
-      .upload(tempPath, fileData, {
-        contentType: firstAttachment.mimeType,
-        upsert: true, // Overwrite if exists
-      });
+      // Upload to pets bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("pets")
+        .upload(tempPath, fileData, {
+          contentType: attachment.mimeType,
+          upsert: true, // Overwrite if exists
+        });
 
-    if (uploadError) {
-      console.error("Error uploading attachment:", uploadError);
+      if (uploadError) {
+        console.error("Error uploading attachment:", uploadError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to prepare attachment for viewing",
+            details: uploadError.message 
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Return the storage path
       return new Response(
         JSON.stringify({ 
-          error: "Failed to prepare attachment for viewing",
-          details: uploadError.message 
+          attachmentPath: tempPath,
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
         }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    // Return the storage path
+    // If no index provided, return list of all attachments
+    const attachmentsList = parsedEmail.attachments.map((att, index) => ({
+      index,
+      filename: att.filename,
+      mimeType: att.mimeType,
+      size: att.size,
+    }));
+
     return new Response(
       JSON.stringify({ 
-        attachmentPath: tempPath,
-        filename: firstAttachment.filename,
-        mimeType: firstAttachment.mimeType,
+        attachments: attachmentsList,
+        totalCount: attachmentsList.length,
       }),
       {
         status: 200,

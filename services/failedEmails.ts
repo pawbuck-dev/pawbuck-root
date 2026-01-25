@@ -169,21 +169,65 @@ export const dismissFailedEmail = async (id: string): Promise<void> => {
 };
 
 /**
- * Get attachment path from stored email for failed email
- * This retrieves the first attachment from the stored email JSON
+ * Get list of all attachments from stored email for failed email
  */
-export const getFailedEmailAttachmentPath = async (
+export const getFailedEmailAttachments = async (
   s3Key: string
-): Promise<string | null> => {
+): Promise<Array<{ index: number; filename: string; mimeType: string; size: number }> | null> => {
   try {
-    // The s3_key is the messageId, we need to retrieve the stored email JSON
-    // and extract the first attachment, then upload it temporarily for viewing
     const { data, error } = await supabase.functions.invoke("get-failed-email-attachment", {
       body: { s3_key: s3Key },
     });
 
     if (error) {
+      console.error("Error getting failed email attachments:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
+      return null;
+    }
+
+    if (data?.error) {
+      console.error("Function returned error:", data.error);
+      if (data.code === "ATTACHMENT_NOT_STORED") {
+        return null;
+      }
+      return null;
+    }
+
+    if (data?.attachments) {
+      console.log(`Found ${data.attachments.length} attachment(s) for email ${s3Key}`);
+      return data.attachments;
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Error calling get-failed-email-attachment function:", err);
+    if (err instanceof Error) {
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+    }
+    return null;
+  }
+};
+
+/**
+ * Get attachment path from stored email for failed email
+ * @param s3Key - The email identifier
+ * @param attachmentIndex - Index of the attachment to retrieve (0-based)
+ */
+export const getFailedEmailAttachmentPath = async (
+  s3Key: string,
+  attachmentIndex: number = 0
+): Promise<string | null> => {
+  try {
+    // The s3_key is the messageId, we need to retrieve the stored email JSON
+    // and extract the specified attachment, then upload it temporarily for viewing
+    const { data, error } = await supabase.functions.invoke("get-failed-email-attachment", {
+      body: { s3_key: s3Key, attachment_index: attachmentIndex },
+    });
+
+    if (error) {
       console.error("Error getting failed email attachment:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
       // Check if it's a 404 (attachment not stored) vs other errors
       if (error.message?.includes("404") || error.message?.includes("not found")) {
         // This is expected for known senders - don't log as error
@@ -193,14 +237,26 @@ export const getFailedEmailAttachmentPath = async (
     }
 
     // Check if the response indicates attachment is not available
-    if (data?.error && data.code === "ATTACHMENT_NOT_STORED") {
-      console.log("Attachment not stored (likely from known sender)");
+    if (data?.error) {
+      console.error("Function returned error:", data.error);
+      if (data.code === "ATTACHMENT_NOT_STORED") {
+        console.log("Attachment not stored (likely from known sender)");
+      }
       return null;
     }
 
-    return data?.attachmentPath || null;
+    if (data?.attachmentPath) {
+      console.log(`Retrieved attachment path for index ${attachmentIndex}: ${data.attachmentPath}`);
+      return data.attachmentPath;
+    }
+
+    return null;
   } catch (err) {
     console.error("Error calling get-failed-email-attachment function:", err);
+    if (err instanceof Error) {
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+    }
     return null;
   }
 };

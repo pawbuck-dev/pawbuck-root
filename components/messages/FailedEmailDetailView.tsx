@@ -1,6 +1,6 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useTheme } from "@/context/themeContext";
-import { FailedEmail, getFailedEmailAttachmentPath } from "@/services/failedEmails";
+import { FailedEmail, getFailedEmailAttachmentPath, getFailedEmailAttachments } from "@/services/failedEmails";
 import { Ionicons } from "@expo/vector-icons";
 import moment from "moment";
 import React, { useEffect, useState } from "react";
@@ -30,10 +30,12 @@ export default function FailedEmailDetailView({
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
   const [loadingAttachment, setLoadingAttachment] = useState(false);
+  const [attachmentAvailable, setAttachmentAvailable] = useState<boolean | null>(null);
+  const [attachments, setAttachments] = useState<Array<{ index: number; filename: string; mimeType: string; size: number }>>([]);
+  const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
 
   const petName = failedEmail.pets?.name || "Unknown Pet";
   const hasAttachment = !!failedEmail.s3_key;
-  const [attachmentAvailable, setAttachmentAvailable] = useState<boolean | null>(null);
 
   // Load attachment path when component mounts if s3_key is available
   useEffect(() => {
@@ -47,54 +49,53 @@ export default function FailedEmailDetailView({
     
     setLoadingAttachment(true);
     try {
-      const path = await getFailedEmailAttachmentPath(failedEmail.s3_key);
-      if (path) {
-        setAttachmentPath(path);
+      // First, get list of all attachments
+      const attachmentsList = await getFailedEmailAttachments(failedEmail.s3_key);
+      if (attachmentsList && attachmentsList.length > 0) {
+        setAttachments(attachmentsList);
         setAttachmentAvailable(true);
+        // Load first attachment by default
+        const firstPath = await getFailedEmailAttachmentPath(failedEmail.s3_key, 0);
+        if (firstPath) {
+          setAttachmentPath(firstPath);
+          setSelectedAttachmentIndex(0);
+        }
       } else {
         setAttachmentAvailable(false);
       }
     } catch (error) {
-      console.error("Error loading attachment path:", error);
+      console.error("Error loading attachments:", error);
       setAttachmentAvailable(false);
     } finally {
       setLoadingAttachment(false);
     }
   };
 
-  const handleViewAttachment = async () => {
-    // If we already know attachment is not available, don't try again
-    if (attachmentAvailable === false) {
-      return;
-    }
-
-    if (!attachmentPath && failedEmail.s3_key) {
-      // Try to load it if we haven't yet
-      setLoadingAttachment(true);
-      try {
-        const path = await getFailedEmailAttachmentPath(failedEmail.s3_key);
-        if (path) {
-          setAttachmentPath(path);
-          setAttachmentAvailable(true);
-          setShowDocumentViewer(true);
-        } else {
-          setAttachmentAvailable(false);
-          Alert.alert(
-            "Attachment Unavailable",
-            "The document attachment could not be retrieved. This may occur if the email was from a known sender and wasn't stored, or if the stored email data has been deleted."
-          );
-        }
-      } catch (error) {
+  const handleSelectAttachment = async (index: number) => {
+    if (!failedEmail.s3_key) return;
+    
+    setLoadingAttachment(true);
+    try {
+      const path = await getFailedEmailAttachmentPath(failedEmail.s3_key, index);
+      if (path) {
+        setAttachmentPath(path);
+        setSelectedAttachmentIndex(index);
+        setShowDocumentViewer(true);
+      } else {
         setAttachmentAvailable(false);
         Alert.alert(
-          "Error",
-          "Failed to load the document. Please try again later."
+          "Attachment Unavailable",
+          "The document attachment could not be retrieved. This may occur if the email was from a known sender and wasn't stored, or if the stored email data has been deleted."
         );
-      } finally {
-        setLoadingAttachment(false);
       }
-    } else if (attachmentPath) {
-      setShowDocumentViewer(true);
+    } catch (error) {
+      setAttachmentAvailable(false);
+      Alert.alert(
+        "Error",
+        "Failed to load the document. Please try again later."
+      );
+    } finally {
+      setLoadingAttachment(false);
     }
   };
 
@@ -611,53 +612,57 @@ export default function FailedEmailDetailView({
           </View>
         </View>
 
-        {/* View Attachment Button - Only show if attachment is available */}
-        {hasAttachment && attachmentAvailable !== false && (
-          <TouchableOpacity
-            onPress={handleViewAttachment}
-            disabled={loadingAttachment}
-            className="rounded-xl p-4 mb-4 flex-row items-center justify-between"
-            style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
-              opacity: loadingAttachment ? 0.6 : 1,
-            }}
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center flex-1">
-              <View
-                className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-                style={{ backgroundColor: `${theme.primary}20` }}
+        {/* View Attachments Section - Show all attachments */}
+        {hasAttachment && attachmentAvailable !== false && attachments.length > 0 && (
+          <View className="mb-4">
+            <Text className="text-sm font-medium mb-3" style={{ color: theme.secondary }}>
+              Attachments ({attachments.length})
+            </Text>
+            {attachments.map((att, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => handleSelectAttachment(index)}
+                disabled={loadingAttachment}
+                className="rounded-xl p-4 mb-2 flex-row items-center justify-between"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: selectedAttachmentIndex === index ? theme.primary : theme.border,
+                  opacity: loadingAttachment ? 0.6 : 1,
+                }}
+                activeOpacity={0.7}
               >
-                {loadingAttachment ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
-                ) : (
-                  <Ionicons name="document-text" size={24} color={theme.primary} />
-                )}
-              </View>
-              <View className="flex-1">
-                <Text
-                  className="text-base font-semibold mb-1"
-                  style={{ color: theme.foreground }}
-                >
-                  {loadingAttachment ? "Loading..." : "View Document"}
-                </Text>
-                <Text
-                  className="text-sm"
-                  style={{ color: theme.secondary }}
-                  numberOfLines={1}
-                >
-                  {loadingAttachment
-                    ? "Retrieving attachment..."
-                    : "Tap to view the original attachment"}
-                </Text>
-              </View>
-            </View>
-            {!loadingAttachment && (
-              <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
-            )}
-          </TouchableOpacity>
+                <View className="flex-row items-center flex-1">
+                  <View
+                    className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+                    style={{ backgroundColor: `${theme.primary}20` }}
+                  >
+                    {loadingAttachment && selectedAttachmentIndex === index ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Ionicons name="document-text" size={24} color={theme.primary} />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className="text-base font-semibold mb-1"
+                      style={{ color: theme.foreground }}
+                      numberOfLines={1}
+                    >
+                      {att.filename}
+                    </Text>
+                    <Text
+                      className="text-xs"
+                      style={{ color: theme.secondary }}
+                    >
+                      {att.mimeType} • {(att.size / 1024).toFixed(1)} KB
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
 
         {/* Info Note */}
@@ -699,12 +704,12 @@ export default function FailedEmailDetailView({
       </ScrollView>
 
       {/* Document Viewer Modal */}
-      {hasAttachment && attachmentPath && (
+      {hasAttachment && attachmentPath && selectedAttachmentIndex !== null && attachments.length > 0 && (
         <DocumentViewerModal
           visible={showDocumentViewer}
           onClose={() => setShowDocumentViewer(false)}
           documentPath={attachmentPath}
-          title="Email Attachment"
+          title={attachments[selectedAttachmentIndex]?.filename || "Email Attachment"}
         />
       )}
 
