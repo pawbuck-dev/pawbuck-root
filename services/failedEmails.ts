@@ -15,6 +15,7 @@ export interface FailedEmail {
   started_at: string | null;
   pets?: {
     name: string;
+    breed: string | null;
   } | null;
 }
 
@@ -56,7 +57,8 @@ export const getFailedEmails = async (): Promise<FailedEmail[]> => {
       completed_at,
       started_at,
       pets (
-        name
+        name,
+        breed
       )
     `
     )
@@ -96,7 +98,8 @@ export const getFailedEmailById = async (
       completed_at,
       started_at,
       pets (
-        name
+        name,
+        breed
       )
     `
     )
@@ -181,7 +184,13 @@ export const getFailedEmailAttachments = async (
 
     if (error) {
       console.error("Error getting failed email attachments:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
+      if (error && typeof error === 'object') {
+        try {
+          console.error("Error details:", JSON.stringify(error, null, 2));
+        } catch (e) {
+          console.error("Error message:", error.message || String(error));
+        }
+      }
       return null;
     }
 
@@ -227,7 +236,13 @@ export const getFailedEmailAttachmentPath = async (
 
     if (error) {
       console.error("Error getting failed email attachment:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
+      if (error && typeof error === 'object') {
+        try {
+          console.error("Error details:", JSON.stringify(error, null, 2));
+        } catch (e) {
+          console.error("Error message:", error.message || String(error));
+        }
+      }
       // Check if it's a 404 (attachment not stored) vs other errors
       if (error.message?.includes("404") || error.message?.includes("not found")) {
         // This is expected for known senders - don't log as error
