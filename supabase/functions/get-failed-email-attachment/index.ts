@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
       console.error("Error downloading stored email:", downloadError);
       // Email might not be stored if sender was known/whitelisted
       // In that case, the attachment was never uploaded and can't be retrieved
+      // Return 200 OK with error code so client can read the response body
       return new Response(
         JSON.stringify({ 
           error: "Attachment not available",
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
           code: "ATTACHMENT_NOT_STORED"
         }),
         {
-          status: 404,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -84,9 +85,12 @@ Deno.serve(async (req) => {
     // Get attachments
     if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No attachments found in email" }),
+        JSON.stringify({ 
+          error: "No attachments found in email",
+          code: "NO_ATTACHMENTS"
+        }),
         {
-          status: 404,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
@@ -108,6 +112,9 @@ Deno.serve(async (req) => {
       const attachment = parsedEmail.attachments[index];
       const tempPath = `temp-email-attachments/${sanitizedId}/${attachment.filename}`;
       
+      console.log(`Preparing to upload attachment: ${attachment.filename} to path: ${tempPath}`);
+      console.log(`Attachment size: ${attachment.size} bytes, mimeType: ${attachment.mimeType}`);
+      
       // Decode base64 content
       // Handle both standard base64 and data URLs
       let base64Content = attachment.content;
@@ -118,14 +125,19 @@ Deno.serve(async (req) => {
       
       const binaryString = atob(base64Content);
       const fileData = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+      
+      console.log(`Decoded file data size: ${fileData.length} bytes`);
 
       // Upload to pets bucket
+      console.log(`Uploading to pets bucket at path: ${tempPath}`);
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("pets")
         .upload(tempPath, fileData, {
           contentType: attachment.mimeType,
           upsert: true, // Overwrite if exists
         });
+      
+      console.log(`Upload result - hasData: ${!!uploadData}, hasError: ${!!uploadError}, uploadData.path: ${uploadData?.path}`);
 
       if (uploadError) {
         console.error("Error uploading attachment:", uploadError);
@@ -141,10 +153,86 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Return the storage path
+      // Verify upload was successful
+      if (!uploadData || !uploadData.path) {
+        console.error("Upload returned no data or path");
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to verify attachment upload",
+            details: "Upload response missing path"
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Use the actual path returned from upload (might be different due to sanitization)
+      const actualPath = uploadData.path;
+      console.log(`Successfully uploaded attachment to: ${actualPath} (requested: ${tempPath})`);
+
+      // Verify the file exists by trying to get its metadata
+      const { data: fileInfo, error: fileCheckError } = await supabase.storage
+        .from("pets")
+        .list(actualPath.split("/").slice(0, -1).join("/"), {
+          limit: 1,
+          search: attachment.filename,
+        });
+
+      if (fileCheckError) {
+        console.error("Error verifying file exists:", fileCheckError);
+        // Continue anyway - the upload might have succeeded
+      } else {
+        console.log(`File verification - found ${fileInfo?.length || 0} matching file(s)`);
+      }
+
+      // Create a signed URL immediately and return it instead of the path
+      // This avoids path encoding issues and ensures the file is accessible
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from("pets")
+        .createSignedUrl(actualPath, 3600);
+
+      if (signedUrlError) {
+        console.error("Error creating signed URL:", signedUrlError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to create signed URL for attachment",
+            details: signedUrlError.message,
+            path: actualPath
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Verify signed URL was created successfully
+      if (!signedUrlData || !signedUrlData.signedUrl) {
+        console.error("Signed URL data is missing or invalid");
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to create signed URL for attachment",
+            details: "Signed URL data is missing",
+            path: actualPath
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      console.log(`Successfully created signed URL for path: ${actualPath}`);
+      console.log(`Signed URL length: ${signedUrlData.signedUrl.length} characters`);
+
+      // Return the signed URL directly instead of the path
+      // This avoids any path encoding/access issues on the client side
       return new Response(
         JSON.stringify({ 
-          attachmentPath: tempPath,
+          signedUrl: signedUrlData.signedUrl,
+          attachmentPath: actualPath, // Keep for reference
           filename: attachment.filename,
           mimeType: attachment.mimeType,
         }),

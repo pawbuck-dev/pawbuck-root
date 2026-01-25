@@ -24,6 +24,7 @@ import {
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
 import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
+import { storeEmailForApproval } from "./emailStorage.ts";
 import {
   extractSignatureFields,
   verifyMailgunSignature,
@@ -53,11 +54,11 @@ Deno.serve(async (req) => {
   let messageId: string | null = null;
   let isReprocessing = false;
   let storedEmailPath: string | null = null;
+  let parsedEmail: ParsedEmail | null = null;
 
   try {
     // Detect request type based on content-type header
     const contentType = req.headers.get("content-type") || "";
-    let parsedEmail: ParsedEmail;
 
     if (contentType.includes("application/json")) {
       // Re-processing request after user approval
@@ -428,6 +429,19 @@ Deno.serve(async (req) => {
 
       console.log(`[MONITORING] ❌ Email marked as failed - no records inserted`);
 
+      // Store email JSON for failed processing so attachments can be retrieved later
+      // Only store if not already stored (for unknown senders) and not a re-processing request
+      if (!isReprocessing && !storedEmailPath) {
+        try {
+          console.log(`[MONITORING] Storing email JSON for failed processing: ${messageId}`);
+          await storeEmailForApproval(messageId, parsedEmail);
+          console.log(`[MONITORING] Email JSON stored for attachment retrieval`);
+        } catch (storageError) {
+          // Log but don't fail - storage failure shouldn't break the flow
+          console.error(`[MONITORING] Failed to store email JSON for failed processing:`, storageError);
+        }
+      }
+
       // Send failure notification
       await sendAttachmentFailureNotification(pet, emailInfo, failedAttachments);
 
@@ -473,6 +487,19 @@ Deno.serve(async (req) => {
         pet?.id ?? null,
         errorMessage
       );
+    }
+
+    // Store email JSON for failed processing so attachments can be retrieved later
+    // Only store if we have parsedEmail and it's not a re-processing request
+    if (messageId && parsedEmail !== null && !isReprocessing) {
+      try {
+        console.log(`[MONITORING] Storing email JSON for failed processing (exception): ${messageId}`);
+        await storeEmailForApproval(messageId, parsedEmail);
+        console.log(`[MONITORING] Email JSON stored for attachment retrieval`);
+      } catch (storageError) {
+        // Log but don't fail - storage failure shouldn't break the flow
+        console.error(`[MONITORING] Failed to store email JSON for failed processing:`, storageError);
+      }
     }
 
     // Send failure notification if we have pet and sender info

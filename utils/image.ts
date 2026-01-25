@@ -14,11 +14,23 @@ export const getPrivateImageUrl = async (
   expiresIn = 3600
 ) => {
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'image.ts:17',message:'Before createSignedUrl',data:{imagePath,expiresIn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const { data, error } = await supabase.storage
       .from("pets")
       .createSignedUrl(imagePath, expiresIn); // URL valid for 1 hour
 
-    if (error) throw error;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'image.ts:23',message:'After createSignedUrl',data:{hasError:!!error,errorMessage:error?.message,errorStatus:error?.status,hasData:!!data,hasSignedUrl:!!data?.signedUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
+    if (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/6159b4ab-31b3-4ac9-9974-35393e1704ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'image.ts:28',message:'Error creating signed URL',data:{errorName:error?.constructor?.name,errorMessage:error?.message,errorStatus:error?.status,imagePath},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      throw error;
+    }
 
     return data.signedUrl;
   } catch (error) {
