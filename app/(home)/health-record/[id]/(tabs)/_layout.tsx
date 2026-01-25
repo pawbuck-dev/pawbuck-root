@@ -104,7 +104,7 @@ export default function HealthRecordsLayout() {
             className="text-xl font-bold"
             style={{ color: theme.foreground }}
           >
-            Health Records
+            {petName}'s Health Records
           </Text>
 
           {/* Add Button */}

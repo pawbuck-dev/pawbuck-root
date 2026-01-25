@@ -62,12 +62,48 @@ export default function FailedEmailListItem({
     );
   };
 
-  // Get truncated failure reason for preview
-  const getFailurePreview = (): string => {
+  // Extract primary issue and confidence from error message
+  const getFailurePreview = (): { primaryIssue: string; confidence: number | null } => {
     const reason = failedEmail.failure_reason;
-    if (!reason) return "Processing failed";
-    // Truncate to ~50 chars
-    return reason.length > 50 ? reason.substring(0, 47) + "..." : reason;
+    if (!reason) return { primaryIssue: "Processing failed", confidence: null };
+
+    // Extract confidence
+    const confidenceMatch = reason.match(/Overall confidence: (\d+)%/);
+    const confidence = confidenceMatch ? parseInt(confidenceMatch[1], 10) : null;
+
+    // Extract primary issue (first sentence or first mismatch)
+    let primaryIssue = reason;
+    
+    // Try to extract the main issue
+    const mismatchPatterns = [
+      /([^:]+) mismatch[^.]*/,
+      /([^:]+) is close[^.]*/,
+      /([^:]+) partial match[^.]*/,
+      /Multiple mismatches found: ([^.]*)/,
+      /No pet identification found[^.]*/,
+      /Microchip number mismatch[^.]*/,
+    ];
+
+    for (const pattern of mismatchPatterns) {
+      const match = reason.match(pattern);
+      if (match) {
+        primaryIssue = match[0].trim();
+        break;
+      }
+    }
+
+    // If no specific pattern found, use first sentence
+    const firstSentence = reason.split(".")[0];
+    if (firstSentence && firstSentence.length < 80) {
+      primaryIssue = firstSentence;
+    }
+
+    // Truncate if too long
+    if (primaryIssue.length > 60) {
+      primaryIssue = primaryIssue.substring(0, 57) + "...";
+    }
+
+    return { primaryIssue, confidence };
   };
 
   // Format time ago
@@ -79,7 +115,7 @@ export default function FailedEmailListItem({
 
   const senderName = getSenderName();
   const businessName = getBusinessName();
-  const failurePreview = getFailurePreview();
+  const { primaryIssue, confidence } = getFailurePreview();
   const timeAgo = getTimeAgo();
   const docTypeName = getDocumentTypeName(failedEmail.document_type);
 
@@ -138,8 +174,35 @@ export default function FailedEmailListItem({
               style={{ color: theme.secondary }}
               numberOfLines={1}
             >
-              {failurePreview}
+              {primaryIssue}
             </Text>
+            {confidence !== null && (
+              <View
+                className="ml-2 px-2 py-0.5 rounded"
+                style={{
+                  backgroundColor:
+                    confidence >= 70
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : confidence >= 50
+                      ? "rgba(245, 158, 11, 0.15)"
+                      : accentBgColor,
+                }}
+              >
+                <Text
+                  className="text-xs font-semibold"
+                  style={{
+                    color:
+                      confidence >= 70
+                        ? "#22C55E"
+                        : confidence >= 50
+                        ? "#F59E0B"
+                        : accentColor,
+                  }}
+                >
+                  {confidence}%
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 

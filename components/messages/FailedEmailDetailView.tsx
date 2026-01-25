@@ -1,9 +1,10 @@
+import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { useTheme } from "@/context/themeContext";
-import { FailedEmail } from "@/services/failedEmails";
+import { FailedEmail, getFailedEmailAttachmentPath } from "@/services/failedEmails";
 import { Ionicons } from "@expo/vector-icons";
 import moment from "moment";
-import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 interface FailedEmailDetailViewProps {
   failedEmail: FailedEmail;
@@ -17,8 +18,142 @@ export default function FailedEmailDetailView({
   hideHeader = false,
 }: FailedEmailDetailViewProps) {
   const { theme } = useTheme();
+  const [expandedSections, setExpandedSections] = useState<{
+    fields: boolean;
+    matches: boolean;
+    mismatches: boolean;
+  }>({
+    fields: false,
+    matches: false,
+    mismatches: false,
+  });
+  const [showDocumentViewer, setShowDocumentViewer] = useState(false);
+  const [attachmentPath, setAttachmentPath] = useState<string | null>(null);
+  const [loadingAttachment, setLoadingAttachment] = useState(false);
 
   const petName = failedEmail.pets?.name || "Unknown Pet";
+  const hasAttachment = !!failedEmail.s3_key;
+  const [attachmentAvailable, setAttachmentAvailable] = useState<boolean | null>(null);
+
+  // Load attachment path when component mounts if s3_key is available
+  useEffect(() => {
+    if (hasAttachment && failedEmail.s3_key) {
+      loadAttachmentPath();
+    }
+  }, [failedEmail.s3_key]);
+
+  const loadAttachmentPath = async () => {
+    if (!failedEmail.s3_key) return;
+    
+    setLoadingAttachment(true);
+    try {
+      const path = await getFailedEmailAttachmentPath(failedEmail.s3_key);
+      if (path) {
+        setAttachmentPath(path);
+        setAttachmentAvailable(true);
+      } else {
+        setAttachmentAvailable(false);
+      }
+    } catch (error) {
+      console.error("Error loading attachment path:", error);
+      setAttachmentAvailable(false);
+    } finally {
+      setLoadingAttachment(false);
+    }
+  };
+
+  const handleViewAttachment = async () => {
+    // If we already know attachment is not available, don't try again
+    if (attachmentAvailable === false) {
+      return;
+    }
+
+    if (!attachmentPath && failedEmail.s3_key) {
+      // Try to load it if we haven't yet
+      setLoadingAttachment(true);
+      try {
+        const path = await getFailedEmailAttachmentPath(failedEmail.s3_key);
+        if (path) {
+          setAttachmentPath(path);
+          setAttachmentAvailable(true);
+          setShowDocumentViewer(true);
+        } else {
+          setAttachmentAvailable(false);
+          Alert.alert(
+            "Attachment Unavailable",
+            "The document attachment could not be retrieved. This may occur if the email was from a known sender and wasn't stored, or if the stored email data has been deleted."
+          );
+        }
+      } catch (error) {
+        setAttachmentAvailable(false);
+        Alert.alert(
+          "Error",
+          "Failed to load the document. Please try again later."
+        );
+      } finally {
+        setLoadingAttachment(false);
+      }
+    } else if (attachmentPath) {
+      setShowDocumentViewer(true);
+    }
+  };
+
+  // Parse error message to extract structured information
+  const parseErrorDetails = (errorMessage: string) => {
+    const details = {
+      confidence: null as number | null,
+      matchedFields: [] as string[],
+      mismatchedFields: [] as string[],
+      missingFields: [] as string[],
+      recommendation: null as string | null,
+    };
+
+    // Extract confidence percentage
+    const confidenceMatch = errorMessage.match(/Overall confidence: (\d+)%/);
+    if (confidenceMatch) {
+      details.confidence = parseInt(confidenceMatch[1], 10);
+    }
+
+    // Extract recommendation
+    const recommendationMatch = errorMessage.match(/\(([^)]+)\)/);
+    if (recommendationMatch) {
+      details.recommendation = recommendationMatch[1];
+    }
+
+    // Extract matched fields
+    const matchedMatch = errorMessage.match(/Matched: ([^.]+)/);
+    if (matchedMatch) {
+      details.matchedFields = matchedMatch[1].split(", ").filter(Boolean);
+    }
+
+    // Extract mismatched fields
+    const mismatchPatterns = [
+      /Multiple mismatches found: ([^.]+)/,
+      /([^:]+) mismatch[^.]*/,
+      /([^:]+) is close[^.]*/,
+      /([^:]+) partial match[^.]*/,
+    ];
+    for (const pattern of mismatchPatterns) {
+      const match = errorMessage.match(pattern);
+      if (match) {
+        const mismatches = match[1].split(", ").filter(Boolean);
+        details.mismatchedFields.push(...mismatches);
+        break;
+      }
+    }
+
+    // Extract missing fields
+    const missingMatch = errorMessage.match(/Missing: ([^.]+)/);
+    if (missingMatch) {
+      details.missingFields = missingMatch[1].split(", ").filter(Boolean);
+    }
+
+    return details;
+  };
+
+  const errorDetails = failedEmail.failure_reason
+    ? parseErrorDetails(failedEmail.failure_reason)
+    : null;
 
   // Error color
   const errorColor = "#EF4444";
@@ -203,11 +338,169 @@ export default function FailedEmailDetailView({
             </Text>
           </View>
           <Text
-            className="text-sm ml-7 leading-5"
+            className="text-sm ml-7 leading-5 mb-3"
             style={{ color: theme.foreground }}
           >
             {failedEmail.failure_reason || "An unknown error occurred while processing this email."}
           </Text>
+
+          {/* Confidence Score */}
+          {errorDetails && errorDetails.confidence !== null && (
+            <View
+              className="ml-7 mt-2 p-2 rounded-lg"
+              style={{ backgroundColor: theme.card }}
+            >
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-medium" style={{ color: theme.secondary }}>
+                  Validation Confidence
+                </Text>
+                <Text
+                  className="text-sm font-bold"
+                  style={{
+                    color:
+                      errorDetails.confidence >= 70
+                        ? "#22C55E"
+                        : errorDetails.confidence >= 50
+                        ? "#F59E0B"
+                        : errorColor,
+                  }}
+                >
+                  {errorDetails.confidence}%
+                </Text>
+              </View>
+              {errorDetails.recommendation && (
+                <Text className="text-xs mt-1" style={{ color: theme.secondary }}>
+                  {errorDetails.recommendation}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Expandable Sections */}
+          {errorDetails && 
+           ((errorDetails.matchedFields?.length > 0) ||
+            errorDetails.mismatchedFields?.length > 0 ||
+            errorDetails.missingFields?.length > 0) && (
+            <View className="ml-7 mt-3">
+              {/* Matched Fields */}
+              {errorDetails.matchedFields && errorDetails.matchedFields.length > 0 && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setExpandedSections((prev) => ({
+                      ...prev,
+                      matches: !prev.matches,
+                    }))
+                  }
+                  className="mb-2"
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#22C55E"
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className="text-xs font-medium" style={{ color: theme.foreground }}>
+                        Matched Fields ({errorDetails.matchedFields.length})
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={expandedSections.matches ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={theme.secondary}
+                    />
+                  </View>
+                  {expandedSections.matches && (
+                    <View className="mt-1 pl-5">
+                      {errorDetails.matchedFields.map((field, idx) => (
+                        <Text
+                          key={idx}
+                          className="text-xs mb-1"
+                          style={{ color: theme.secondary }}
+                        >
+                          • {field}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* Mismatched Fields */}
+              {errorDetails.mismatchedFields && errorDetails.mismatchedFields.length > 0 && (
+                <TouchableOpacity
+                  onPress={() =>
+                    setExpandedSections((prev) => ({
+                      ...prev,
+                      mismatches: !prev.mismatches,
+                    }))
+                  }
+                  className="mb-2"
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      <Ionicons
+                        name="close-circle"
+                        size={16}
+                        color={errorColor}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className="text-xs font-medium" style={{ color: theme.foreground }}>
+                        Mismatched Fields ({errorDetails.mismatchedFields.length})
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={expandedSections.mismatches ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={theme.secondary}
+                    />
+                  </View>
+                  {expandedSections.mismatches && (
+                    <View className="mt-1 pl-5">
+                      {errorDetails.mismatchedFields.map((field, idx) => (
+                        <Text
+                          key={idx}
+                          className="text-xs mb-1"
+                          style={{ color: errorColor }}
+                        >
+                          • {field}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* Missing Fields */}
+              {errorDetails.missingFields && errorDetails.missingFields.length > 0 && (
+                <View>
+                  <View className="flex-row items-center mb-1">
+                    <Ionicons
+                      name="help-circle"
+                      size={16}
+                      color={theme.secondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text className="text-xs font-medium" style={{ color: theme.foreground }}>
+                      Missing Fields ({errorDetails.missingFields.length})
+                    </Text>
+                  </View>
+                  <View className="pl-5">
+                    {errorDetails.missingFields.map((field, idx) => (
+                      <Text
+                        key={idx}
+                        className="text-xs mb-1"
+                        style={{ color: theme.secondary }}
+                      >
+                        • {field}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Subject Card (if available) */}
@@ -318,6 +611,55 @@ export default function FailedEmailDetailView({
           </View>
         </View>
 
+        {/* View Attachment Button - Only show if attachment is available */}
+        {hasAttachment && attachmentAvailable !== false && (
+          <TouchableOpacity
+            onPress={handleViewAttachment}
+            disabled={loadingAttachment}
+            className="rounded-xl p-4 mb-4 flex-row items-center justify-between"
+            style={{
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+              opacity: loadingAttachment ? 0.6 : 1,
+            }}
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-center flex-1">
+              <View
+                className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+                style={{ backgroundColor: `${theme.primary}20` }}
+              >
+                {loadingAttachment ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Ionicons name="document-text" size={24} color={theme.primary} />
+                )}
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-base font-semibold mb-1"
+                  style={{ color: theme.foreground }}
+                >
+                  {loadingAttachment ? "Loading..." : "View Document"}
+                </Text>
+                <Text
+                  className="text-sm"
+                  style={{ color: theme.secondary }}
+                  numberOfLines={1}
+                >
+                  {loadingAttachment
+                    ? "Retrieving attachment..."
+                    : "Tap to view the original attachment"}
+                </Text>
+              </View>
+            </View>
+            {!loadingAttachment && (
+              <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* Info Note */}
         <View
           className="rounded-xl p-4"
@@ -334,16 +676,37 @@ export default function FailedEmailDetailView({
               color={theme.secondary}
               style={{ marginRight: 8, marginTop: 2 }}
             />
-            <Text
-              className="text-sm flex-1 leading-5"
-              style={{ color: theme.secondary }}
-            >
-              If this email contained important documents, please ask the sender
-              to resend it or upload the documents manually through the app.
-            </Text>
+            <View className="flex-1">
+              <Text
+                className="text-sm leading-5 mb-2"
+                style={{ color: theme.secondary }}
+              >
+                {errorDetails && errorDetails.confidence !== null && errorDetails.confidence >= 50
+                  ? "The document information doesn't fully match your pet's profile. You can upload this document manually through the app, and we'll help you review and add the information."
+                  : errorDetails && errorDetails.missingFields && errorDetails.missingFields.length > 0
+                  ? `The document is missing ${errorDetails.missingFields.length === 1 ? "a required field" : "required fields"} (${errorDetails.missingFields.join(", ")}). Please upload the document manually through the app to review and add the information.`
+                  : "The document couldn't be automatically processed. Please upload it manually through the app to review and add the information to your pet's health records."}
+              </Text>
+              <Text
+                className="text-xs leading-4 mt-1"
+                style={{ color: theme.secondary, opacity: 0.8 }}
+              >
+                Tip: When uploading manually, you can review and confirm all the details before saving.
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
+
+      {/* Document Viewer Modal */}
+      {hasAttachment && attachmentPath && (
+        <DocumentViewerModal
+          visible={showDocumentViewer}
+          onClose={() => setShowDocumentViewer(false)}
+          documentPath={attachmentPath}
+          title="Email Attachment"
+        />
+      )}
 
       {/* Bottom spacing for consistency */}
       {/* <View

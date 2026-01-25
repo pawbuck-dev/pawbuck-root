@@ -401,14 +401,17 @@ Deno.serve(async (req) => {
 
       // Build failure reasons from ALL failed attachments (including validation failures)
       const failureReasons = failedAttachments.map((a) => {
-        if (a.skippedReason) {
-          return formatSkipReason(a.skippedReason);
+        // Use detailed validation error if available
+        if (a.skippedReason && a.petValidation) {
+          return formatSkipReason(a.skippedReason, a.petValidation, pet, a.filename);
+        } else if (a.skippedReason) {
+          return formatSkipReason(a.skippedReason, undefined, pet, a.filename);
         } else if (a.error) {
-          return a.error;
+          return a.filename ? `Document '${a.filename}': ${a.error}` : a.error;
         } else if (a.ocrSuccess === false) {
-          return "Failed to extract data from document";
+          return a.filename ? `Document '${a.filename}': Failed to extract data from document` : "Failed to extract data from document";
         }
-        return "Failed to save to database";
+        return a.filename ? `Document '${a.filename}': Failed to save to database` : "Failed to save to database";
       });
 
       // Mark as FAILED in processed_emails

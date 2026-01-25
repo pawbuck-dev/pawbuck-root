@@ -167,3 +167,40 @@ export const dismissFailedEmail = async (id: string): Promise<void> => {
     throw error;
   }
 };
+
+/**
+ * Get attachment path from stored email for failed email
+ * This retrieves the first attachment from the stored email JSON
+ */
+export const getFailedEmailAttachmentPath = async (
+  s3Key: string
+): Promise<string | null> => {
+  try {
+    // The s3_key is the messageId, we need to retrieve the stored email JSON
+    // and extract the first attachment, then upload it temporarily for viewing
+    const { data, error } = await supabase.functions.invoke("get-failed-email-attachment", {
+      body: { s3_key: s3Key },
+    });
+
+    if (error) {
+      console.error("Error getting failed email attachment:", error);
+      // Check if it's a 404 (attachment not stored) vs other errors
+      if (error.message?.includes("404") || error.message?.includes("not found")) {
+        // This is expected for known senders - don't log as error
+        console.log("Attachment not available in stored email data");
+      }
+      return null;
+    }
+
+    // Check if the response indicates attachment is not available
+    if (data?.error && data.code === "ATTACHMENT_NOT_STORED") {
+      console.log("Attachment not stored (likely from known sender)");
+      return null;
+    }
+
+    return data?.attachmentPath || null;
+  } catch (err) {
+    console.error("Error calling get-failed-email-attachment function:", err);
+    return null;
+  }
+};

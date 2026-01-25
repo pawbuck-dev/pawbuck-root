@@ -1,5 +1,6 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
-import type { EmailInfo, Pet, ProcessedAttachment, SkipReason } from "../types.ts";
+import type { EmailInfo, Pet, ProcessedAttachment, PetValidationResult, SkipReason } from "../types.ts";
+import { formatDetailedError } from "../petValidator.ts";
 
 /**
  * Send push notification after successful email processing
@@ -89,30 +90,9 @@ export async function sendSkippedAttachmentsNotification(
     return;
   }
 
-  // Build details about skipped attachments
+  // Build details about skipped attachments using detailed validation
   const skippedDetails = skippedAttachments.map((att) => {
-    const reason = formatSkipReason(att.skippedReason);
-    const validation = att.petValidation;
-    
-    if (validation) {
-      const extracted = validation.extractedInfo;
-      const details: string[] = [];
-      
-      if (extracted.microchip) {
-        details.push(`microchip: ${extracted.microchip}`);
-      }
-      if (extracted.name) {
-        details.push(`name: ${extracted.name}`);
-      }
-      if (extracted.breed) {
-        details.push(`breed: ${extracted.breed}`);
-      }
-      
-      if (details.length > 0) {
-        return `${att.filename}: ${reason} (found: ${details.join(", ")})`;
-      }
-    }
-    return `${att.filename}: ${reason}`;
+    return formatSkipReason(att.skippedReason, att.petValidation, pet, att.filename);
   });
 
   const skippedCount = skippedAttachments.length;
@@ -156,6 +136,12 @@ export async function sendAttachmentFailureNotification(
 
   // Build failure details for each attachment
   const failureDetails = failedAttachments.map((att) => {
+    // Use detailed validation error if available
+    if (att.petValidation) {
+      return formatDetailedValidationError(att.petValidation, pet, att.filename);
+    }
+    
+    // Fallback to simple reason
     let reason: string;
     if (att.skippedReason === "no_pet_info") {
       reason = "No pet identification found";
@@ -197,9 +183,38 @@ export async function sendAttachmentFailureNotification(
 }
 
 /**
- * Format skip reason for display
+ * Format detailed validation error with confidence scores and field-specific information
  */
-export function formatSkipReason(reason?: SkipReason): string {
+export function formatDetailedValidationError(
+  validation: PetValidationResult,
+  pet: Pet,
+  filename?: string
+): string {
+  const detailedError = formatDetailedError(validation, pet);
+  
+  if (filename) {
+    return `Document '${filename}': ${detailedError}`;
+  }
+  
+  return detailedError;
+}
+
+/**
+ * Format skip reason for display
+ * Uses detailed validation if PetValidationResult is available
+ */
+export function formatSkipReason(
+  reason?: SkipReason,
+  validation?: PetValidationResult,
+  pet?: Pet,
+  filename?: string
+): string {
+  // If we have detailed validation info, use it
+  if (validation && pet) {
+    return formatDetailedValidationError(validation, pet, filename);
+  }
+  
+  // Fallback to simple reason
   switch (reason) {
     case "no_pet_info":
       return "No pet identification info found";

@@ -15,6 +15,20 @@ const FUZZY_MATCH_THRESHOLD = 0.7;
 // Age tolerance in years for matching
 const AGE_TOLERANCE_YEARS = 1;
 
+// Field weights for weighted scoring (must sum to 100)
+const FIELD_WEIGHTS = {
+  microchip: 100,  // If present, exact match required
+  name: 40,
+  breed: 30,
+  age: 20,
+  gender: 10,
+};
+
+// High confidence threshold for individual fields
+const HIGH_CONFIDENCE_THRESHOLD = 0.9;
+// Minimum confidence for partial match acceptance
+const PARTIAL_MATCH_MIN_CONFIDENCE = 0.75;
+
 /**
  * Extract all pet information from a document using Gemini AI
  */
@@ -207,26 +221,104 @@ function similarityRatio(str1: string, str2: string): number {
 }
 
 /**
- * Fuzzy match two strings
+ * Check if one name is likely a nickname of another
+ */
+function isLikelyNickname(name1: string, name2: string): boolean {
+  const n1 = name1.toLowerCase().trim();
+  const n2 = name2.toLowerCase().trim();
+  
+  // One is a substring of the other (e.g., "Max" in "Maximus")
+  if (n1.includes(n2) || n2.includes(n1)) {
+    const shorter = n1.length < n2.length ? n1 : n2;
+    const longer = n1.length >= n2.length ? n1 : n2;
+    // If shorter is at least 60% of longer, likely nickname
+    if (shorter.length >= longer.length * 0.6) {
+      return true;
+    }
+  }
+  
+  // Common nickname patterns
+  const nicknamePatterns: Record<string, string[]> = {
+    "maximus": ["max"],
+    "maximilian": ["max"],
+    "alexander": ["alex"],
+    "alexandra": ["alex"],
+    "christopher": ["chris"],
+    "christina": ["chris"],
+    "william": ["will", "bill"],
+    "robert": ["rob", "bob"],
+    "richard": ["rick", "dick"],
+    "jennifer": ["jen", "jenny"],
+    "elizabeth": ["liz", "beth"],
+  };
+  
+  const patterns = nicknamePatterns[longer] || [];
+  return patterns.includes(shorter);
+}
+
+/**
+ * Check if one breed is an abbreviation or partial match of another
+ */
+function isBreedAbbreviation(breed1: string, breed2: string): boolean {
+  const b1 = breed1.toLowerCase().trim();
+  const b2 = breed2.toLowerCase().trim();
+  
+  // One contains the other (e.g., "Golden" in "Golden Retriever")
+  if (b1.includes(b2) || b2.includes(b1)) {
+    const shorter = b1.length < b2.length ? b1 : b2;
+    const longer = b1.length >= b2.length ? b1 : b2;
+    // If shorter is at least 70% of longer, likely abbreviation
+    if (shorter.length >= longer.length * 0.7) {
+      return true;
+    }
+  }
+  
+  // Check if one is a word from the other (e.g., "Retriever" from "Golden Retriever")
+  const words1 = b1.split(/\s+/);
+  const words2 = b2.split(/\s+/);
+  
+  // If all words from shorter are in longer, it's likely an abbreviation
+  const shorter = words1.length < words2.length ? words1 : words2;
+  const longer = words1.length >= words2.length ? words1 : words2;
+  
+  return shorter.every(word => longer.some(lw => lw.includes(word) || word.includes(lw)));
+}
+
+/**
+ * Enhanced fuzzy match with intelligent nickname/abbreviation detection
  */
 function fuzzyMatch(
   extracted: string | null,
   expected: string,
-  threshold: number = FUZZY_MATCH_THRESHOLD
-): { similarity: number; matches: boolean } {
+  threshold: number = FUZZY_MATCH_THRESHOLD,
+  fieldType: "name" | "breed" = "name"
+): { similarity: number; matches: boolean; isLikelyVariation?: boolean } {
   if (!extracted) {
     return { similarity: 0, matches: false };
   }
 
   const similarity = similarityRatio(extracted, expected);
   
+  // Check for intelligent variations
+  let isLikelyVariation = false;
+  if (fieldType === "name" && similarity >= 0.6 && similarity < threshold) {
+    isLikelyVariation = isLikelyNickname(extracted, expected);
+  } else if (fieldType === "breed" && similarity >= 0.7 && similarity < threshold) {
+    isLikelyVariation = isBreedAbbreviation(extracted, expected);
+  }
+  
+  // Accept if above threshold OR if it's a likely variation
+  const matches = similarity >= threshold || isLikelyVariation;
+  
   console.log(
-    `Fuzzy match: "${extracted}" vs "${expected}" = ${(similarity * 100).toFixed(1)}% (threshold: ${threshold * 100}%)`
+    `Fuzzy match: "${extracted}" vs "${expected}" = ${(similarity * 100).toFixed(1)}% ` +
+    `(threshold: ${threshold * 100}%, matches: ${matches}, variation: ${isLikelyVariation})`
   );
 
   return {
     similarity,
-    matches: similarity >= threshold,
+    matches,
+    isLikelyVariation,
   };
 }
 
@@ -284,29 +376,37 @@ function parseAgeToYears(ageString: string): number | null {
 
 /**
  * Check if extracted age matches pet's age from date of birth
+ * Returns match result with difference for detailed error messages
  */
 function matchAge(
   extractedAge: string | null,
   dateOfBirth: string,
-  toleranceYears: number = AGE_TOLERANCE_YEARS
-): boolean {
-  if (!extractedAge) return false;
+  toleranceYears: number = AGE_TOLERANCE_YEARS,
+  hasStrongOtherMatches: boolean = false
+): { matches: boolean; difference: number; extractedYears: number; actualYears: number } {
+  if (!extractedAge) {
+    return { matches: false, difference: Infinity, extractedYears: 0, actualYears: 0 };
+  }
 
   const extractedYears = parseAgeToYears(extractedAge);
-  if (extractedYears === null) return false;
+  if (extractedYears === null) {
+    return { matches: false, difference: Infinity, extractedYears: 0, actualYears: 0 };
+  }
 
   const actualYears = calculateAgeInYears(dateOfBirth);
   const difference = Math.abs(extractedYears - actualYears);
-
-  const matches = difference <= toleranceYears;
+  
+  // Increase tolerance if we have strong matches in other fields
+  const effectiveTolerance = hasStrongOtherMatches ? toleranceYears * 2 : toleranceYears;
+  const matches = difference <= effectiveTolerance;
   
   console.log(
     `Age match: extracted "${extractedAge}" (${extractedYears.toFixed(1)} years) vs ` +
     `DOB ${dateOfBirth} (${actualYears.toFixed(1)} years) = ${matches ? "MATCH" : "NO MATCH"} ` +
-    `(diff: ${difference.toFixed(1)} years, tolerance: ${toleranceYears})`
+    `(diff: ${difference.toFixed(1)} years, tolerance: ${effectiveTolerance})`
   );
 
-  return matches;
+  return { matches, difference, extractedYears, actualYears };
 }
 
 /**
@@ -377,6 +477,128 @@ function matchMicrochip(extractedMicrochip: string | null, expectedMicrochip: st
 }
 
 /**
+ * Calculate weighted confidence score based on field matches
+ */
+export function calculateValidationConfidence(
+  matchDetails: MatchDetails,
+  extractedInfo: ExtractedPetInfo,
+  pet: Pet
+): { confidence: number; recommendation: string; fieldBreakdown: Record<string, number> } {
+  let totalScore = 0;
+  let maxPossibleScore = 0;
+  const fieldBreakdown: Record<string, number> = {};
+
+  // Microchip (100% weight if present)
+  if (extractedInfo.microchip) {
+    maxPossibleScore += FIELD_WEIGHTS.microchip;
+    if (matchDetails.microchipMatch) {
+      totalScore += FIELD_WEIGHTS.microchip;
+      fieldBreakdown.microchip = 100;
+    } else {
+      fieldBreakdown.microchip = 0;
+    }
+  }
+
+  // Name (40% weight)
+  if (extractedInfo.name) {
+    maxPossibleScore += FIELD_WEIGHTS.name;
+    if (matchDetails.nameMatch) {
+      const similarity = matchDetails.nameMatch.similarity;
+      const score = FIELD_WEIGHTS.name * similarity;
+      totalScore += score;
+      fieldBreakdown.name = similarity * 100;
+    } else {
+      fieldBreakdown.name = 0;
+    }
+  }
+
+  // Breed (30% weight)
+  if (extractedInfo.breed) {
+    maxPossibleScore += FIELD_WEIGHTS.breed;
+    if (matchDetails.breedMatch) {
+      const similarity = matchDetails.breedMatch.similarity;
+      const score = FIELD_WEIGHTS.breed * similarity;
+      totalScore += score;
+      fieldBreakdown.breed = similarity * 100;
+    } else {
+      fieldBreakdown.breed = 0;
+    }
+  }
+
+  // Age (20% weight)
+  if (extractedInfo.age && pet.date_of_birth) {
+    maxPossibleScore += FIELD_WEIGHTS.age;
+    if (matchDetails.ageMatch) {
+      totalScore += FIELD_WEIGHTS.age;
+      fieldBreakdown.age = 100;
+    } else {
+      fieldBreakdown.age = 0;
+    }
+  }
+
+  // Gender (10% weight)
+  if (extractedInfo.gender) {
+    maxPossibleScore += FIELD_WEIGHTS.gender;
+    if (matchDetails.genderMatch) {
+      totalScore += FIELD_WEIGHTS.gender;
+      fieldBreakdown.gender = 100;
+    } else {
+      fieldBreakdown.gender = 0;
+    }
+  }
+
+  const confidence = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
+
+  let recommendation: string;
+  if (confidence >= 90) {
+    recommendation = "High confidence";
+  } else if (confidence >= 70) {
+    recommendation = "Medium confidence";
+  } else if (confidence >= 50) {
+    recommendation = "Low confidence - manual review needed";
+  } else {
+    recommendation = "Very low confidence";
+  }
+
+  return { confidence, recommendation, fieldBreakdown };
+}
+
+/**
+ * Determine if partial matches should be accepted based on high-confidence fields
+ */
+export function shouldAcceptPartialMatch(
+  matchDetails: MatchDetails,
+  confidence: number,
+  hasStrongMatches: boolean
+): boolean {
+  // If overall confidence is high enough, accept
+  if (confidence >= PARTIAL_MATCH_MIN_CONFIDENCE) {
+    return true;
+  }
+
+  // If we have strong name + breed matches (both 90%+), accept even if below threshold
+  if (hasStrongMatches) {
+    const nameStrong = matchDetails.nameMatch && matchDetails.nameMatch.similarity >= HIGH_CONFIDENCE_THRESHOLD;
+    const breedStrong = matchDetails.breedMatch && matchDetails.breedMatch.similarity >= HIGH_CONFIDENCE_THRESHOLD;
+    
+    if (nameStrong && breedStrong) {
+      return true;
+    }
+  }
+
+  // If we have name + age matches (both high confidence), accept
+  const nameMatches = matchDetails.nameMatch?.matches && 
+                      matchDetails.nameMatch.similarity >= HIGH_CONFIDENCE_THRESHOLD;
+  const ageMatches = matchDetails.ageMatch === true;
+  
+  if (nameMatches && ageMatches) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Validate pet from document against expected pet record
  * Uses microchip as primary validator, falls back to attributes combination
  */
@@ -438,33 +660,41 @@ export async function validatePetFromDocument(
     }
   }
 
-  // PRIORITY 2: Attributes validation (name + age + breed + gender)
+  // PRIORITY 2: Attributes validation (name + age + breed + gender) with intelligent matching
   console.log("\n--- Attributes validation (no microchip found) ---");
   method = "attributes";
   let matchCount = 0;
   let availableAttributes = 0;
 
-  // Name match (fuzzy)
+  // Name match (fuzzy with nickname detection)
+  let nameMatch: { similarity: number; matches: boolean; isLikelyVariation?: boolean } | undefined;
   if (extractedInfo.name) {
-    const nameMatch = fuzzyMatch(extractedInfo.name, pet.name);
+    nameMatch = fuzzyMatch(extractedInfo.name, pet.name, FUZZY_MATCH_THRESHOLD, "name");
     matchDetails.nameMatch = nameMatch;
     if (nameMatch.matches) matchCount++;
     availableAttributes++;
   } 
 
-  // Age match (with tolerance)
-  if (extractedInfo.age && pet.date_of_birth) {
-    const ageMatches = matchAge(extractedInfo.age, pet.date_of_birth);
-    matchDetails.ageMatch = ageMatches;
-    if (ageMatches) matchCount++;
+  // Breed match (fuzzy with abbreviation detection)
+  let breedMatch: { similarity: number; matches: boolean; isLikelyVariation?: boolean } | undefined;
+  if (extractedInfo.breed) {
+    breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed, FUZZY_MATCH_THRESHOLD, "breed");
+    matchDetails.breedMatch = breedMatch;
+    if (breedMatch.matches) matchCount++;
     availableAttributes++;
   }
 
-  // Breed match (fuzzy)
-  if (extractedInfo.breed) {
-    const breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed);
-    matchDetails.breedMatch = breedMatch;
-    if (breedMatch.matches) matchCount++;
+  // Check if we have strong matches (name + breed both high confidence)
+  const hasStrongNameMatch = nameMatch && nameMatch.similarity >= HIGH_CONFIDENCE_THRESHOLD;
+  const hasStrongBreedMatch = breedMatch && breedMatch.similarity >= HIGH_CONFIDENCE_THRESHOLD;
+  const hasStrongMatches = hasStrongNameMatch && hasStrongBreedMatch;
+
+  // Age match (with flexible tolerance based on other matches)
+  let ageMatchResult: { matches: boolean; difference: number; extractedYears: number; actualYears: number } | undefined;
+  if (extractedInfo.age && pet.date_of_birth) {
+    ageMatchResult = matchAge(extractedInfo.age, pet.date_of_birth, AGE_TOLERANCE_YEARS, hasStrongMatches);
+    matchDetails.ageMatch = ageMatchResult.matches;
+    if (ageMatchResult.matches) matchCount++;
     availableAttributes++;
   }
 
@@ -478,9 +708,17 @@ export async function validatePetFromDocument(
 
   const minAttributeMatches = availableAttributes * MIN_ATTRIBUTE_MATCH_THRESHOLD;
 
-  console.log(`\nAttribute matches: ${matchCount}/${minAttributeMatches} required`);
+  console.log(`\nAttribute matches: ${matchCount}/${availableAttributes} found, ${minAttributeMatches.toFixed(1)} required`);
 
-  if (matchCount >= minAttributeMatches) {
+  // Calculate weighted confidence score
+  const confidenceResult = calculateValidationConfidence(matchDetails, extractedInfo, pet);
+  console.log(`Weighted confidence: ${confidenceResult.confidence.toFixed(1)}% (${confidenceResult.recommendation})`);
+
+  // Check if we should accept based on weighted confidence or high-confidence partial matches
+  const shouldAccept = matchCount >= minAttributeMatches || 
+                       shouldAcceptPartialMatch(matchDetails, confidenceResult.confidence, hasStrongMatches);
+
+  if (shouldAccept) {
     console.log("✅ Attributes validated successfully");
     isValid = true;
   } else {
@@ -495,6 +733,151 @@ export async function validatePetFromDocument(
     matchDetails,
     skipReason,
   };
+}
+
+/**
+ * Format detailed error message for user display
+ */
+export function formatDetailedError(
+  result: PetValidationResult,
+  pet: Pet
+): string {
+  const { isValid, method, extractedInfo, matchDetails, skipReason } = result;
+  
+  if (isValid) {
+    return `Validation passed for ${pet.name}`;
+  }
+
+  const confidenceResult = calculateValidationConfidence(matchDetails, extractedInfo, pet);
+  const confidence = confidenceResult.confidence;
+  
+  // No pet info found
+  if (skipReason === "no_pet_info") {
+    const searchedFields: string[] = [];
+    if (extractedInfo.microchip === null) searchedFields.push("microchip number");
+    if (extractedInfo.name === null) searchedFields.push("pet name");
+    if (extractedInfo.age === null) searchedFields.push("age");
+    if (extractedInfo.breed === null) searchedFields.push("breed");
+    if (extractedInfo.gender === null) searchedFields.push("gender");
+    
+    return `No pet identification found. Document did not contain: ${searchedFields.join(", ")}.`;
+  }
+
+  // Microchip mismatch
+  if (skipReason === "microchip_mismatch") {
+    return `Microchip number mismatch. Document shows: '${extractedInfo.microchip}' but expected: '${pet.microchip_number}' for ${pet.name}.`;
+  }
+
+  // Attributes mismatch - build detailed message
+  if (skipReason === "attributes_mismatch") {
+    const details: string[] = [];
+    const matchedFields: string[] = [];
+    const mismatchedFields: string[] = [];
+    const missingFields: string[] = [];
+
+    // Name
+    if (extractedInfo.name) {
+      if (matchDetails.nameMatch) {
+        const sim = matchDetails.nameMatch.similarity;
+        if (matchDetails.nameMatch.matches) {
+          if (sim >= HIGH_CONFIDENCE_THRESHOLD) {
+            matchedFields.push(`name ('${extractedInfo.name}', ${(sim * 100).toFixed(0)}% similarity)`);
+          } else {
+            matchedFields.push(`name ('${extractedInfo.name}', ${(sim * 100).toFixed(0)}% similarity)`);
+          }
+        } else {
+          if (matchDetails.nameMatch.isLikelyVariation) {
+            mismatchedFields.push(`name is close: '${extractedInfo.name}' vs '${pet.name}' (${(sim * 100).toFixed(0)}% similarity) - may be a nickname`);
+          } else {
+            mismatchedFields.push(`name ('${extractedInfo.name}' vs '${pet.name}', ${(sim * 100).toFixed(0)}% similarity)`);
+          }
+        }
+      }
+    } else {
+      missingFields.push("name");
+    }
+
+    // Age
+    if (extractedInfo.age && pet.date_of_birth) {
+      if (matchDetails.ageMatch) {
+        matchedFields.push("age");
+      } else {
+        // Recalculate to get difference for error message
+        const ageResult = matchAge(extractedInfo.age, pet.date_of_birth, AGE_TOLERANCE_YEARS, false);
+        if (ageResult.actualYears > 0) {
+          mismatchedFields.push(`age ('${extractedInfo.age}' vs expected ~${ageResult.actualYears.toFixed(1)} years, ${ageResult.difference.toFixed(1)} year difference)`);
+        } else {
+          mismatchedFields.push(`age ('${extractedInfo.age}' - could not calculate expected age)`);
+        }
+      }
+    } else {
+      missingFields.push("age");
+    }
+
+    // Breed
+    if (extractedInfo.breed) {
+      if (matchDetails.breedMatch && matchDetails.breedMatch.matches) {
+        const sim = matchDetails.breedMatch.similarity;
+        if (sim >= HIGH_CONFIDENCE_THRESHOLD) {
+          matchedFields.push(`breed ('${extractedInfo.breed}', ${(sim * 100).toFixed(0)}% similarity)`);
+        } else {
+          matchedFields.push(`breed ('${extractedInfo.breed}', ${(sim * 100).toFixed(0)}% similarity)`);
+        }
+      } else {
+        const sim = matchDetails.breedMatch?.similarity || 0;
+        if (matchDetails.breedMatch?.isLikelyVariation) {
+          mismatchedFields.push(`breed partial match: '${extractedInfo.breed}' vs '${pet.breed}' (${(sim * 100).toFixed(0)}% similarity) - may be abbreviated`);
+        } else {
+          mismatchedFields.push(`breed ('${extractedInfo.breed}' vs '${pet.breed}', ${(sim * 100).toFixed(0)}% similarity)`);
+        }
+      }
+    } else {
+      missingFields.push("breed");
+    }
+
+    // Gender
+    if (extractedInfo.gender) {
+      if (matchDetails.genderMatch) {
+        matchedFields.push("gender");
+      } else {
+        mismatchedFields.push(`gender ('${extractedInfo.gender}' vs '${pet.sex}')`);
+      }
+    } else {
+      missingFields.push("gender");
+    }
+
+    // Build message
+    let message = "";
+    
+    if (mismatchedFields.length > 0) {
+      if (mismatchedFields.length === 1) {
+        message = `${mismatchedFields[0].charAt(0).toUpperCase() + mismatchedFields[0].slice(1)}. `;
+      } else {
+        message = `Multiple mismatches found: ${mismatchedFields.join(", ")}. `;
+      }
+    }
+
+    if (matchedFields.length > 0) {
+      message += `Matched: ${matchedFields.join(", ")}. `;
+    }
+
+    if (missingFields.length > 0) {
+      message += `Missing: ${missingFields.join(", ")}. `;
+    }
+
+    message += `Overall confidence: ${confidence.toFixed(0)}% (${confidenceResult.recommendation}).`;
+
+    // Add helpful context
+    if (confidence >= 50 && confidence < 70) {
+      message += " High-confidence fields match - this may still be the same pet. Consider manual review.";
+    } else if (confidence < 50) {
+      message += " Need at least 2 matching fields for validation.";
+    }
+
+    return message;
+  }
+
+  return "Validation failed for unknown reason.";
 }
 
 /**
