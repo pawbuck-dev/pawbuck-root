@@ -184,13 +184,13 @@ export const getFailedEmailAttachments = async (
 
     if (error) {
       console.error("Error getting failed email attachments:", error);
-      if (error && typeof error === 'object') {
-        try {
-          console.error("Error details:", JSON.stringify(error, null, 2));
-        } catch (e) {
-          console.error("Error message:", error.message || String(error));
-        }
-      }
+      // Safely extract error information without stringifying the entire object
+      const errorInfo = {
+        name: error.name || 'Unknown',
+        message: error.message || String(error),
+        ...(error.context && { context: error.context }),
+      };
+      console.error("Error details:", errorInfo);
       return null;
     }
 
@@ -238,13 +238,13 @@ export const getFailedEmailAttachmentPath = async (
 
     if (error) {
       console.error("Error getting failed email attachment:", error);
-      if (error && typeof error === 'object') {
-        try {
-          console.error("Error details:", JSON.stringify(error, null, 2));
-        } catch (e) {
-          console.error("Error message:", error.message || String(error));
-        }
-      }
+      // Safely extract error information without stringifying the entire object
+      const errorInfo = {
+        name: error.name || 'Unknown',
+        message: error.message || String(error),
+        ...(error.context && { context: error.context }),
+      };
+      console.error("Error details:", errorInfo);
       // Check if it's a 404 (attachment not stored) vs other errors
       if (error.message?.includes("404") || error.message?.includes("not found")) {
         // This is expected for known senders - don't log as error
