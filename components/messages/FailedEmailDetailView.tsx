@@ -333,16 +333,7 @@ export default function FailedEmailDetailView({
         contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Error Icon - Large red circle with exclamation mark */}
-        <View className="items-center mb-4">
-          <View
-            className="w-24 h-24 rounded-full items-center justify-center"
-            style={{ backgroundColor: `${errorColor}20` }}
-          >
-            <Ionicons name="alert-circle" size={48} color={errorColor} />
-          </View>
-        </View>
-
+    
         {/* Processing Failed Title */}
         <Text
           className="text-2xl font-bold text-center mb-2"
@@ -458,7 +449,7 @@ export default function FailedEmailDetailView({
                   className="text-xs font-medium mb-1"
                   style={{ color: theme.secondary }}
                 >
-                  PATIENT
+                  Pet
                 </Text>
                 <Text
                   className="text-base font-semibold"
