@@ -1,4 +1,4 @@
-import { callGeminiAPI } from "../_shared/gemini-api";
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import type { DocumentClassification, ParsedAttachment } from "./types.ts";
 
 /**
