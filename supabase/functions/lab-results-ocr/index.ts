@@ -172,7 +172,6 @@ Return structured JSON with confidence score and lab result data.`,
             },
           },
         },
-      },
       "lab-results-ocr"
     );
 

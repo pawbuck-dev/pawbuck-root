@@ -47,6 +47,9 @@ export async function callGeminiAPI(
       body: JSON.stringify(requestBody),
     });
 
+    // Check status before trying to parse response
+    const status = response.status;
+    
     if (response.ok) {
       const data = await response.json();
       console.log(`${logContext} Successfully used preferred model: ${PREFERRED_MODEL}`);
@@ -59,7 +62,7 @@ export async function callGeminiAPI(
     }
 
     // If 404, try fallback model
-    if (response.status === 404) {
+    if (status === 404) {
       console.warn(
         `${logContext} Preferred model ${PREFERRED_MODEL} returned 404, falling back to ${FALLBACK_MODEL}`
       );
@@ -89,26 +92,28 @@ export async function callGeminiAPI(
         errorText
       );
       throw new Error(
-        `Gemini API error: Both ${PREFERRED_MODEL} (404) and ${FALLBACK_MODEL} (${fallbackResponse.status}) failed. ${errorText.substring(0, 200)}`
+        `API Error: Both ${PREFERRED_MODEL} (404) and ${FALLBACK_MODEL} (${fallbackResponse.status}) failed. ${errorText.substring(0, 200)}`
       );
     }
 
     // Non-404 error from preferred model - don't fallback, propagate immediately
     const errorText = await response.text().catch(() => "Unable to read error response");
     console.error(
-      `${logContext} Preferred model error (${response.status}):`,
+      `${logContext} Preferred model error (${status}):`,
       errorText
     );
     throw new Error(
-      `Gemini API error: ${response.status} - ${errorText.substring(0, 200)}`
+      `API Error: ${status} - ${errorText.substring(0, 200)}`
     );
   } catch (error) {
-    // Re-throw if it's already an Error we created
-    if (error instanceof Error) {
+    // Re-throw if it's already an Error we created (has "API Error" prefix)
+    if (error instanceof Error && error.message.startsWith("API Error")) {
       throw error;
     }
-    // Wrap unexpected errors
-    throw new Error(`Unexpected error calling Gemini API: ${String(error)}`);
+    // Wrap unexpected errors (network errors, etc.)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`${logContext} Unexpected error:`, errorMessage);
+    throw new Error(`API Error: ${errorMessage}`);
   }
 }
 
