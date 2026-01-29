@@ -1,13 +1,14 @@
 // Lab Results OCR using Gemini 2.5 Flash with structured function calling
 // Analyzes lab result images and extracts structured test data
 import {
-    errorResponse,
-    handleCorsRequest,
-    jsonResponse,
+  errorResponse,
+  handleCorsRequest,
+  jsonResponse,
 } from "../_shared/cors.ts";
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import {
-    getFileAsBase64,
-    getMimeTypeFromPath,
+  getFileAsBase64,
+  getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
 
 interface LabTestResult {
@@ -44,12 +45,6 @@ Deno.serve(async (req) => {
       throw new Error("Missing bucket or path in request body");
     }
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY not configured");
-    }
-
     console.log(`[Lab Results OCR] Processing file from ${bucket}/${path}`);
 
     // Download the file and convert to base64 using shared utility
@@ -61,14 +56,8 @@ Deno.serve(async (req) => {
     const currentYear = new Date().getFullYear();
 
     // Use Gemini 2.5 Flash with structured function calling
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+    const apiResult = await callGeminiAPI(
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
           contents: [
             {
               parts: [
@@ -182,26 +171,12 @@ Return structured JSON with confidence score and lab result data.`,
               required: ["confidence", "labResult"],
             },
           },
-        }),
-      }
+        },
+      },
+      "lab-results-ocr"
     );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", errorText);
-      
-      if (geminiResponse.status === 429) {
-        throw new Error("Rate limit exceeded. Please try again later.");
-      }
-      if (geminiResponse.status === 402) {
-        throw new Error("AI usage limit reached. Please add credits to continue.");
-      }
-      
-      throw new Error(`AI parsing error: ${geminiResponse.status}`);
-    }
-
-    const geminiData = await geminiResponse.json();
-    const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = apiResult.data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
       throw new Error("No content in AI response");

@@ -1,3 +1,4 @@
+import { callGeminiAPI } from "../_shared/gemini-api";
 import type { DocumentClassification, ParsedAttachment } from "./types.ts";
 
 /**
@@ -8,9 +9,6 @@ export async function classifyAttachment(
   emailSubject: string,
   emailBody: string | null
 ): Promise<DocumentClassification> {
-  const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-  if (!GOOGLE_GEMINI_API_KEY) throw new Error("API Key not configured");
-
   // Strict schema ensures valid JSON every time
   const responseSchema = {
     type: "object",
@@ -34,45 +32,38 @@ export async function classifyAttachment(
   };
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+    const apiResult = await callGeminiAPI(
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are a veterinary records expert. Classify the attached document (which may be an image or a multi-page PDF). 
+        contents: [
+          {
+            parts: [
+              {
+                text: `You are a veterinary records expert. Classify the attached document (which may be an image or a multi-page PDF). 
                   
                   Context:
                   - Subject: ${emailSubject}
                   - Filename: ${attachment.filename}`,
+              },
+              {
+                inline_data: {
+                  // This will now handle 'application/pdf' or 'image/jpeg/png'
+                  mime_type: attachment.mimeType,
+                  data: attachment.content,
                 },
-                {
-                  inline_data: {
-                    // This will now handle 'application/pdf' or 'image/jpeg/png'
-                    mime_type: attachment.mimeType,
-                    data: attachment.content,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            response_mime_type: "application/json",
-            response_schema: responseSchema,
+              },
+            ],
           },
-        }),
-      }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          response_mime_type: "application/json",
+          response_schema: responseSchema,
+        },
+      },
+      "classifyAttachment"
     );
 
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-    const data = await response.json();
-    const result = JSON.parse(data.candidates[0].content.parts[0].text);
+    const result = JSON.parse(apiResult.data.candidates[0].content.parts[0].text);
 
     return result as DocumentClassification;
   } catch (error) {

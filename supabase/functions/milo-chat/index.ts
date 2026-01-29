@@ -4,6 +4,7 @@ import {
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 
 interface ChatMessage {
@@ -329,12 +330,6 @@ Deno.serve(async (req) => {
       throw new Error("Message is required");
     }
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY not configured");
-    }
-
     console.log(`[Milo Chat] Processing message: "${message.substring(0, 50)}..."`);
 
     // Build the full system prompt with pet context
@@ -356,14 +351,10 @@ Deno.serve(async (req) => {
     const tools = pet?.id ? [{ functionDeclarations }] : undefined;
 
     // Call Gemini API with function calling
-    let geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+    let apiResult;
+    try {
+      apiResult = await callGeminiAPI(
+        {
           systemInstruction: {
             parts: [{ text: systemPrompt }],
           },
@@ -393,22 +384,21 @@ Deno.serve(async (req) => {
               threshold: "BLOCK_MEDIUM_AND_ABOVE",
             },
           ],
-        }),
-      }
-    );
+        },
+        "milo-chat"
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Gemini API error:", errorMessage);
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", errorText);
-
-      if (geminiResponse.status === 429) {
+      if (errorMessage.includes("429")) {
         throw new Error("I'm a bit overwhelmed right now. Please try again in a moment! 🐕");
       }
 
       throw new Error("Sorry, I'm having trouble thinking right now. Please try again! 🐕");
     }
 
-    let geminiData = await geminiResponse.json();
+    let geminiData = apiResult.data;
     let candidate = geminiData.candidates?.[0];
 
     // Handle function calls (loop to handle multiple calls if needed)
@@ -451,14 +441,9 @@ Deno.serve(async (req) => {
       });
 
       // Call Gemini again with the function result
-      geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+      try {
+        apiResult = await callGeminiAPI(
+          {
             systemInstruction: {
               parts: [{ text: systemPrompt }],
             },
@@ -488,17 +473,16 @@ Deno.serve(async (req) => {
                 threshold: "BLOCK_MEDIUM_AND_ABOVE",
               },
             ],
-          }),
-        }
-      );
-
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error("Gemini API error after function call:", errorText);
+          },
+          "milo-chat"
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Gemini API error after function call:", errorMessage);
         throw new Error("Sorry, I'm having trouble processing the data. Please try again! 🐕");
       }
 
-      geminiData = await geminiResponse.json();
+      geminiData = apiResult.data;
       candidate = geminiData.candidates?.[0];
       iterations++;
     }

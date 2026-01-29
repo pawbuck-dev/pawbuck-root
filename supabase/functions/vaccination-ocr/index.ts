@@ -5,6 +5,7 @@ import {
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import {
   getFileAsBase64,
   getMimeTypeFromPath,
@@ -23,12 +24,6 @@ Deno.serve(async (req) => {
       throw new Error("Missing bucket or path in request body");
     }
 
-    const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-
-    if (!GOOGLE_GEMINI_API_KEY) {
-      throw new Error("GOOGLE_GEMINI_API_KEY not configured");
-    }
-
     console.log(`[Vaccination OCR] Processing file from ${bucket}/${path}`);
 
     // Download the file and convert to base64 using shared utility
@@ -38,14 +33,8 @@ Deno.serve(async (req) => {
     console.log(`[Vaccination OCR] File MIME type: ${mimeType}`);
 
     // Use Gemini Vision API to directly analyze the vaccination certificate image
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+    const apiResult = await callGeminiAPI(
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
           contents: [
             {
               parts: [
@@ -107,18 +96,12 @@ Return ONLY a valid JSON object. No markdown blocks.
             topP: 1,
             maxOutputTokens: 2048,
           },
-        }),
-      }
+        },
+      },
+      "vaccination-ocr"
     );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", errorText);
-      throw new Error(`AI parsing error: ${geminiResponse.status}`);
-    }
-
-    const geminiData = await geminiResponse.json();
-    const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = apiResult.data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
       throw new Error("No content in AI response");

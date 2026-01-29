@@ -32,16 +32,12 @@ const PARTIAL_MATCH_MIN_CONFIDENCE = 0.75;
 /**
  * Extract all pet information from a document using Gemini AI
  */
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
+
 export async function extractPetInfoFromDocument(
   attachment: ParsedAttachment,
   emailSubject: string
 ): Promise<ExtractedPetInfo> {
-  const GOOGLE_GEMINI_API_KEY = Deno.env.get("GOOGLE_GEMINI_API_KEY");
-  if (!GOOGLE_GEMINI_API_KEY) {
-    console.error("GOOGLE_GEMINI_API_KEY not configured for pet info extraction");
-    return createEmptyExtraction();
-  }
-
   const responseSchema = {
     type: "object",
     properties: {
@@ -74,17 +70,13 @@ export async function extractPetInfoFromDocument(
   };
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_GEMINI_API_KEY}`,
+    const apiResult = await callGeminiAPI(
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are analyzing a veterinary document to extract pet identification information.
+        contents: [
+          {
+            parts: [
+              {
+                text: `You are analyzing a veterinary document to extract pet identification information.
 
 Context:
 - Email Subject: ${emailSubject}
@@ -112,32 +104,26 @@ Extract ALL of the following information if present in the document:
 
 Return null for any field that is not clearly visible in the document.
 Provide an overall confidence score (0-100) based on how clearly the information was extracted.`,
+              },
+              {
+                inline_data: {
+                  mime_type: attachment.mimeType,
+                  data: attachment.content,
                 },
-                {
-                  inline_data: {
-                    mime_type: attachment.mimeType,
-                    data: attachment.content,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            response_mime_type: "application/json",
-            response_schema: responseSchema,
+              },
+            ],
           },
-        }),
-      }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          response_mime_type: "application/json",
+          response_schema: responseSchema,
+        },
+      },
+      "extractPetInfoFromDocument"
     );
 
-    if (!response.ok) {
-      console.error(`Gemini API error for pet info extraction: ${response.status}`);
-      return createEmptyExtraction();
-    }
-
-    const data = await response.json();
-    const result = JSON.parse(data.candidates[0].content.parts[0].text);
+    const result = JSON.parse(apiResult.data.candidates[0].content.parts[0].text);
 
     // convert all values to null if they are "null" or "undefined"
     result.microchip = result.microchip === "null" || result.microchip === "undefined" ? null : result.microchip;
