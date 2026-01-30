@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     // Use Gemini 2.5 Flash with structured function calling
     const apiResult = await callGeminiAPI(
       {
-          contents: [
+        contents: [
             {
               parts: [
                 {
@@ -169,7 +169,6 @@ Return a structured JSON response with confidence score and medicines array.`,
             },
           },
         },
-      },
       "medication-ocr"
     );
 

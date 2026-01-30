@@ -9,6 +9,7 @@ import {
   getFileAsBase64,
   getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
+import { callGeminiAPI } from "../_shared/gemini-api.ts";
 
 interface ClinicalExamExtraction {
   exam_type: string;
@@ -44,8 +45,6 @@ Deno.serve(async (req) => {
       throw new Error("Missing bucket or path in request body");
     }
 
-import { callGeminiAPI } from "../_shared/gemini-api.ts";
-
     console.log(`[Clinical Exam OCR] Processing file from ${bucket}/${path}`);
 
     // Download the file and convert to base64 using shared utility
@@ -64,7 +63,7 @@ import { callGeminiAPI } from "../_shared/gemini-api.ts";
     // Use Gemini Vision API with structured function calling
     const apiResult = await callGeminiAPI(
       {
-          contents: [
+        contents: [
             {
               parts: [
                 {
@@ -193,7 +192,6 @@ Return structured JSON with confidence score and exam data.`,
             },
           },
         },
-      },
       "clinical-exam-ocr"
     );
 

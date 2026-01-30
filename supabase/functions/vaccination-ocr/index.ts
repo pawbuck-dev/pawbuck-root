@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // Use Gemini Vision API to directly analyze the vaccination certificate image
     const apiResult = await callGeminiAPI(
       {
-          contents: [
+        contents: [
             {
               parts: [
                 {
@@ -97,7 +97,6 @@ Return ONLY a valid JSON object. No markdown blocks.
             maxOutputTokens: 2048,
           },
         },
-      },
       "vaccination-ocr"
     );
 
