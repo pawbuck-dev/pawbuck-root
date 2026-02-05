@@ -1,4 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import ContactModal from "@/components/contact/ContactModal";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { supabase } from "@/utils/supabase";
@@ -22,6 +23,7 @@ export default function Settings() {
   const { theme, mode, toggleTheme } = useTheme();
   const { signOut, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -296,6 +298,28 @@ export default function Settings() {
             }}
           />
 
+          {/* FAQ */}
+          <SettingsOption
+            icon="help-circle-outline"
+            title="FAQ"
+            subtitle="Frequently asked questions"
+            iconColor="#3BD0D2"
+            onPress={() => {
+              router.push("/(home)/faq");
+            }}
+          />
+
+          {/* Contact Us */}
+          <SettingsOption
+            icon="mail-outline"
+            title="Contact Us"
+            subtitle="Get help and support"
+            iconColor="#60A5FA"
+            onPress={() => {
+              setShowContactModal(true);
+            }}
+          />
+
           {/* HIDDEN: Pet Transfer Features - Uncomment to re-enable */}
           {/* <SettingsOption
             icon="swap-horizontal"
@@ -379,6 +403,12 @@ export default function Settings() {
 
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="profile" />
+
+      {/* Contact Modal */}
+      <ContactModal
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </View>
   );
 }
