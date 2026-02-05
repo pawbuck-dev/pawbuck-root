@@ -143,16 +143,28 @@ export const useVaccineCategories = (): UseVaccineCategoriesResult => {
       };
     }
 
-    // Get canonical keys for all pet vaccinations
+    // Get canonical keys for all pet vaccinations that are NOT expired
+    // A vaccination is expired if next_due_date exists and is in the past
     const petVaccinationCanonicalKeys = new Set<string>();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+
     for (const vaccination of vaccinations) {
-      const canonicalKey = getCanonicalKeyForVaccination(
-        vaccination.name,
-        equivalencies,
-        requirements
-      );
-      if (canonicalKey) {
-        petVaccinationCanonicalKeys.add(canonicalKey);
+      // Check if vaccination is expired
+      const isExpired =
+        vaccination.next_due_date &&
+        new Date(vaccination.next_due_date) < today;
+
+      // Only count non-expired vaccinations
+      if (!isExpired) {
+        const canonicalKey = getCanonicalKeyForVaccination(
+          vaccination.name,
+          equivalencies,
+          requirements
+        );
+        if (canonicalKey) {
+          petVaccinationCanonicalKeys.add(canonicalKey);
+        }
       }
     }
 
