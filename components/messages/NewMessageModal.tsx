@@ -1,11 +1,12 @@
+import { CONTACT_EMAIL } from "@/constants/contact";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { getCareTeamMembersForPet } from "@/services/careTeamMembers";
-import { getWhitelistedEmails } from "@/services/petEmailList";
+import { addEmail, getWhitelistedEmails } from "@/services/petEmailList";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -58,6 +59,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   const [showToDropdown, setShowToDropdown] = useState(false);
   const [showPetDropdown, setShowPetDropdown] = useState(false);
   const [sending, setSending] = useState(false);
+  const lastProcessedEmailRef = useRef<string | null>(null);
 
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId) || null,
@@ -78,7 +80,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     enabled: !!selectedPetId,
   });
 
-  // Build list of whitelisted contacts with care team first, then safe senders
+  // Build list of whitelisted contacts with care team first, then safe senders, then support email
   const contacts = useMemo(() => {
     const contacts: WhitelistedContact[] = [];
     const seenEmails = new Set<string>();
@@ -113,24 +115,63 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       }
     });
 
+    // 3. Always add support email as a special contact (even if not whitelisted)
+    const supportEmail = CONTACT_EMAIL.toLowerCase();
+    if (!seenEmails.has(supportEmail)) {
+      contacts.push({
+        id: "support_email",
+        name: "PawBuck Support",
+        email: CONTACT_EMAIL,
+        business: "Support Team",
+      });
+    }
+
     return contacts;
   }, [careTeamMembers, safeSenders]);
 
   // Pre-fill recipient when initialRecipientEmail is provided and modal opens
   useEffect(() => {
-    if (visible && initialRecipientEmail && contacts.length > 0) {
-      const matchingContact = contacts.find(
-        (contact) =>
-          contact.email.toLowerCase() === initialRecipientEmail.toLowerCase()
-      );
-      if (matchingContact) {
-        // Always set the contact if it matches, even if one is already selected
-        // This allows the email param to override any previously selected contact
-        setToContact(matchingContact);
+    if (!visible) {
+      lastProcessedEmailRef.current = null;
+      return;
+    }
+
+    if (initialRecipientEmail) {
+      const normalizedEmail = initialRecipientEmail.toLowerCase();
+      
+      // Skip if we've already processed this email for this modal opening
+      if (lastProcessedEmailRef.current === normalizedEmail) {
+        return;
       }
-    } else if (visible && !initialRecipientEmail) {
+      
+      // Check if it's the support email first (always available, doesn't need contacts)
+      if (normalizedEmail === CONTACT_EMAIL.toLowerCase()) {
+        setToContact({
+          id: "support_email",
+          name: "PawBuck Support",
+          email: CONTACT_EMAIL,
+          business: "Support Team",
+        });
+        lastProcessedEmailRef.current = normalizedEmail;
+        return;
+      }
+      
+      // Otherwise, find matching contact in the list (wait for contacts to be available)
+      if (contacts.length > 0) {
+        const matchingContact = contacts.find(
+          (contact) => contact.email.toLowerCase() === normalizedEmail
+        );
+        if (matchingContact) {
+          // Always set the contact if it matches, even if one is already selected
+          // This allows the email param to override any previously selected contact
+          setToContact(matchingContact);
+          lastProcessedEmailRef.current = normalizedEmail;
+        }
+      }
+    } else {
       // Reset contact if modal opens without an initial email
       setToContact(null);
+      lastProcessedEmailRef.current = null;
     }
   }, [visible, initialRecipientEmail, contacts]);
 
@@ -154,6 +195,19 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
 
     setSending(true);
     try {
+      // Auto-whitelist support email if it's the recipient and not already whitelisted
+      if (toContact.email.toLowerCase() === CONTACT_EMAIL.toLowerCase()) {
+        try {
+          await addEmail(selectedPetId, CONTACT_EMAIL, false);
+          console.log("Auto-whitelisted support email for pet:", selectedPetId);
+        } catch (error: any) {
+          // Ignore if already whitelisted or other non-critical errors
+          if (!error.message?.includes("already in your safe senders")) {
+            console.log("Could not auto-whitelist support email:", error);
+          }
+        }
+      }
+
       if (onSend) {
         await onSend({
           to: toContact.email,
@@ -196,9 +250,14 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     showDropdown: boolean,
     onToggleDropdown: () => void
   ) => {
-    // Separate care team members and safe senders
-    const careTeamContacts = contacts.filter((c) => !c.id.startsWith("safe_sender_"));
-    const safeSenderContacts = contacts.filter((c) => c.id.startsWith("safe_sender_"));
+    // Separate care team members, safe senders, and support email
+    const careTeamContacts = contacts.filter(
+      (c) => !c.id.startsWith("safe_sender_") && c.id !== "support_email"
+    );
+    const safeSenderContacts = contacts.filter(
+      (c) => c.id.startsWith("safe_sender_")
+    );
+    const supportContact = contacts.find((c) => c.id === "support_email");
     
     const availableCareTeam = careTeamContacts.filter(
       (c) => c.id !== toContact?.id
@@ -208,7 +267,10 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       (c) => c.id !== toContact?.id
     );
 
-    const hasAvailableContacts = availableCareTeam.length > 0 || availableSafeSenders.length > 0;
+    const hasAvailableContacts =
+      availableCareTeam.length > 0 ||
+      availableSafeSenders.length > 0 ||
+      (supportContact && supportContact.id !== toContact?.id);
 
     return (
       <View style={{ position: "relative" }}>
@@ -359,6 +421,50 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       </Text>
                     </TouchableOpacity>
                   ))}
+                </>
+              )}
+
+              {/* Support Email Section */}
+              {supportContact && supportContact.id !== toContact?.id && (
+                <>
+                  {(availableCareTeam.length > 0 || availableSafeSenders.length > 0) && (
+                    <View className="px-4 py-1" style={{ backgroundColor: theme.border + "20" }} />
+                  )}
+                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
+                    <Text
+                      className="text-xs font-semibold uppercase"
+                      style={{ color: theme.secondary }}
+                    >
+                      Support
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      onSelect(supportContact);
+                      onToggleDropdown();
+                    }}
+                    className="py-3 px-4 border-b"
+                    style={{ borderBottomColor: theme.border + "40" }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      className="font-medium"
+                      style={{ color: theme.foreground }}
+                    >
+                      {supportContact.name}
+                    </Text>
+                    {supportContact.business && (
+                      <Text
+                        className="text-sm"
+                        style={{ color: theme.secondary }}
+                      >
+                        {supportContact.business}
+                      </Text>
+                    )}
+                    <Text className="text-sm" style={{ color: theme.secondary }}>
+                      {supportContact.email}
+                    </Text>
+                  </TouchableOpacity>
                 </>
               )}
               

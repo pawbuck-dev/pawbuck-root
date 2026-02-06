@@ -5,6 +5,10 @@ export type OnboardingEventType =
   | "email_onboarding_completed"
   | "health_records_tooltip_shown"
   | "health_records_tooltip_completed"
+  | "pet_passport_onboarding_shown"
+  | "pet_passport_onboarding_completed"
+  | "messages_onboarding_shown"
+  | "messages_onboarding_completed"
   | "onboarding_reset";
 
 interface OnboardingEvent {

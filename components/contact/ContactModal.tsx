@@ -2,7 +2,8 @@ import { CONTACT_EMAIL } from "@/constants/contact";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Alert, Linking, Modal, Platform, Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Alert, Modal, Platform, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ContactModalProps {
@@ -13,6 +14,7 @@ interface ContactModalProps {
 export default function ContactModal({ visible, onClose }: ContactModalProps) {
   const { theme, mode } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
+  const router = useRouter();
 
   const handleCopyEmail = async () => {
     try {
@@ -24,40 +26,15 @@ export default function ContactModal({ visible, onClose }: ContactModalProps) {
     }
   };
 
-  const handleSendEmail = async () => {
-    const mailtoUrl = `mailto:${CONTACT_EMAIL}?subject=Support Request`;
-    try {
-      const canOpen = await Linking.canOpenURL(mailtoUrl);
-      if (canOpen) {
-        await Linking.openURL(mailtoUrl);
-      } else {
-        // Fallback: Copy email with subject suggestion
-        const emailWithSubject = `${CONTACT_EMAIL} (Subject: Support Request)`;
-        await Clipboard.setStringAsync(emailWithSubject);
-        Alert.alert(
-          "Email Client Not Available",
-          "Your email address has been copied to clipboard. Please paste it into your email app.",
-          [{ text: "OK" }]
-        );
-      }
-    } catch (error) {
-      console.error("Failed to open email client:", error);
-      // Fallback: Copy email with subject suggestion
-      try {
-        const emailWithSubject = `${CONTACT_EMAIL} (Subject: Support Request)`;
-        await Clipboard.setStringAsync(emailWithSubject);
-        Alert.alert(
-          "Email Client Not Available",
-          "Your email address has been copied to clipboard. Please paste it into your email app.",
-          [{ text: "OK" }]
-        );
-      } catch (copyError) {
-        Alert.alert(
-          "Error",
-          "Unable to open email client. Please copy the email address manually."
-        );
-      }
-    }
+  const handleSendEmail = () => {
+    // Close the contact modal
+    onClose();
+    
+    // Navigate to messages screen with support email pre-filled
+    router.push({
+      pathname: "/(home)/messages",
+      params: { email: CONTACT_EMAIL },
+    });
   };
 
   return (

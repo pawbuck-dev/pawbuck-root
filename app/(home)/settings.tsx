@@ -1,14 +1,15 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import ContactModal from "@/components/contact/ContactModal";
+import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboardingModal";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
-import { resetOnboardingFlags } from "@/utils/onboardingStorage";
+import { hasSeenPetPassportOnboarding, resetOnboardingFlags } from "@/utils/onboardingStorage";
 import { trackOnboardingEvent } from "@/utils/analytics";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +27,21 @@ export default function Settings() {
   const { signOut, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showPetPassportOnboarding, setShowPetPassportOnboarding] = useState(false);
+
+  // Check if pet passport onboarding should be shown
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const hasSeen = await hasSeenPetPassportOnboarding();
+      if (!hasSeen) {
+        // Show after a short delay to let the screen render
+        setTimeout(() => {
+          setShowPetPassportOnboarding(true);
+        }, 500);
+      }
+    };
+    checkOnboarding();
+  }, []);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -441,6 +457,12 @@ export default function Settings() {
       <ContactModal
         visible={showContactModal}
         onClose={() => setShowContactModal(false)}
+      />
+
+      {/* Pet Passport Onboarding Modal */}
+      <PetPassportOnboardingModal
+        visible={showPetPassportOnboarding}
+        onClose={() => setShowPetPassportOnboarding(false)}
       />
     </View>
   );

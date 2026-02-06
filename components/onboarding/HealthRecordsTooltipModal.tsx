@@ -117,7 +117,8 @@ export default function HealthRecordsTooltipModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                  Forward vaccine PDFs, prescriptions, lab results, or vet summaries to your pet's email address. PawBuck will automatically extract and organize the information.
+                 Send records to your pet’s email.We’ll handle the rest.
+
                 </Text>
               </View>
             </View>
@@ -150,7 +151,7 @@ export default function HealthRecordsTooltipModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                  Tap the + button in the top right corner to upload documents directly from your device. You can also manually enter information if needed.
+                Upload files from your device.
                 </Text>
               </View>
             </View>
@@ -179,7 +180,7 @@ export default function HealthRecordsTooltipModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                  Vaccination certificates, medication prescriptions, lab test results, vet visit summaries, invoices, and more.
+                  Vaccination certificates, medication prescriptions, lab test results, vet visit summaries and invoices.
                 </Text>
               </View>
             </View>

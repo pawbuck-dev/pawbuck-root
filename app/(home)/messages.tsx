@@ -1,11 +1,12 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import FailedEmailDetailView from "@/components/messages/FailedEmailDetailView";
 import FailedEmailListItem from "@/components/messages/FailedEmailListItem";
+import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import PendingEmailDetailView from "@/components/messages/PendingEmailDetailView";
 import PendingEmailListItem from "@/components/messages/PendingEmailListItem";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
+import MessagesOnboardingModal from "@/components/onboarding/MessagesOnboardingModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
 import { FailedEmail, getFailedEmails } from "@/services/failedEmails";
@@ -15,12 +16,13 @@ import {
   groupThreadsByType,
 } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
+import { hasSeenMessagesOnboarding } from "@/utils/onboardingStorage";
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -51,6 +53,7 @@ export default function MessagesScreen() {
   const [selectedFailedEmail, setSelectedFailedEmail] =
     useState<FailedEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMessagesOnboarding, setShowMessagesOnboarding] = useState(false);
 
   // Fetch message threads
   const {
@@ -70,6 +73,23 @@ export default function MessagesScreen() {
     queryKey: ["failedEmails"],
     queryFn: () => getFailedEmails(),
   });
+
+  // Check if messages onboarding should be shown
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      // Only show if no thread, pending approval, or failed email is selected
+      if (!selectedThread && !selectedPendingApproval && !selectedFailedEmail) {
+        const hasSeen = await hasSeenMessagesOnboarding();
+        if (!hasSeen) {
+          // Show after a short delay to let the screen render
+          setTimeout(() => {
+            setShowMessagesOnboarding(true);
+          }, 500);
+        }
+      }
+    };
+    checkOnboarding();
+  }, [selectedThread, selectedPendingApproval, selectedFailedEmail]);
 
   // Handle route params to open new message modal with pre-filled email
   React.useEffect(() => {
@@ -579,6 +599,12 @@ export default function MessagesScreen() {
             );
           }
         }}
+      />
+
+      {/* Messages Onboarding Modal */}
+      <MessagesOnboardingModal
+        visible={showMessagesOnboarding}
+        onClose={() => setShowMessagesOnboarding(false)}
       />
     </View>
   );

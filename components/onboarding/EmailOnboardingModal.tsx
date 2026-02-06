@@ -103,13 +103,13 @@ export default function EmailOnboardingModal({
               className="text-2xl font-bold mb-2 text-center"
               style={{ color: theme.foreground }}
             >
-              Your pet has an email address!
+              Your pet has an email!
             </Text>
             <Text
               className="text-base text-center px-4"
               style={{ color: theme.secondary }}
             >
-              Forward vet documents to this email and PawBuck will automatically organize them
+              Send records to your pet’s email.We’ll handle the rest.
             </Text>
           </View>
 
@@ -179,7 +179,8 @@ export default function EmailOnboardingModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                  Simply forward any vet document (vaccination records, prescriptions, lab results, invoices) to this email address. PawBuck will automatically extract and organize the information into your pet's health profile.
+                  Forward any pet health documents — or ask your vet to send them. PawBuck does the rest.{" "}
+                  Vaccines • Prescriptions • Lab results • Invoices
                 </Text>
               </View>
             </View>
