@@ -2,6 +2,8 @@ import BottomNavBar from "@/components/home/BottomNavBar";
 import ContactModal from "@/components/contact/ContactModal";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
+import { resetOnboardingFlags } from "@/utils/onboardingStorage";
+import { trackOnboardingEvent } from "@/utils/analytics";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -317,6 +319,37 @@ export default function Settings() {
             iconColor="#60A5FA"
             onPress={() => {
               setShowContactModal(true);
+            }}
+          />
+
+          {/* Re-show Onboarding */}
+          <SettingsOption
+            icon="refresh-outline"
+            title="Re-show Onboarding"
+            subtitle="View onboarding tips again"
+            iconColor="#3BD0D2"
+            onPress={async () => {
+              Alert.alert(
+                "Re-show Onboarding",
+                "This will reset the onboarding modals so you can see them again. Continue?",
+                [
+                  {
+                    text: "Cancel",
+                    style: "cancel",
+                  },
+                  {
+                    text: "Reset",
+                    onPress: async () => {
+                      await resetOnboardingFlags();
+                      await trackOnboardingEvent("onboarding_reset");
+                      Alert.alert(
+                        "Onboarding Reset",
+                        "Onboarding modals will appear again when you navigate to the home screen or health records section."
+                      );
+                    },
+                  },
+                ]
+              );
             }}
           />
 

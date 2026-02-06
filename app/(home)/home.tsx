@@ -12,10 +12,12 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
+import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { hasSeenEmailOnboarding } from "@/utils/onboardingStorage";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import {
   getCareTeamMembersForPet,
@@ -37,7 +39,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -77,6 +79,7 @@ export default function Home() {
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(
     null
   );
+  const [showEmailOnboarding, setShowEmailOnboarding] = useState(false);
 
   // Compute notification counts per pet from pending approvals
   const notificationCounts = useMemo(() => {
@@ -284,6 +287,19 @@ export default function Home() {
       setSelectedMember(null);
     }
   };
+
+  // Check if email onboarding should be shown
+  useEffect(() => {
+    const checkEmailOnboarding = async () => {
+      if (selectedPet?.email_id) {
+        const hasSeen = await hasSeenEmailOnboarding();
+        if (!hasSeen) {
+          setShowEmailOnboarding(true);
+        }
+      }
+    };
+    checkEmailOnboarding();
+  }, [selectedPet?.email_id]);
 
   // Refetch data when screen comes into focus
   useFocusEffect(
@@ -639,6 +655,15 @@ export default function Home() {
             updateCareTeamMemberMutation.isPending ||
             deleteCareTeamMemberMutation.isPending
           }
+        />
+      )}
+
+      {/* Email Onboarding Modal */}
+      {selectedPet?.email_id && (
+        <EmailOnboardingModal
+          visible={showEmailOnboarding}
+          petEmail={`${selectedPet.email_id}@pawbuck.app`}
+          onClose={() => setShowEmailOnboarding(false)}
         />
       )}
     </View>

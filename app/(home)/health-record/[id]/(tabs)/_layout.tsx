@@ -1,7 +1,9 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import HealthRecordsTooltipModal from "@/components/onboarding/HealthRecordsTooltipModal";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { hasSeenHealthRecordsTooltip } from "@/utils/onboardingStorage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   MaterialTopTabNavigationEventMap,
@@ -37,10 +39,22 @@ export default function HealthRecordsLayout() {
   const { pet } = useSelectedPet();
   const segments = useSegments();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Find the pet by ID (convert string param to number)
   const petFromPets = pets.find((p) => p.id.toString() === id);
   const petName = petFromPets?.name || "Pet";
+
+  // Check if health records tooltip should be shown
+  useEffect(() => {
+    const checkTooltip = async () => {
+      const hasSeen = await hasSeenHealthRecordsTooltip();
+      if (!hasSeen) {
+        setShowTooltip(true);
+      }
+    };
+    checkTooltip();
+  }, []);
 
   // Track active tab from route segments
   useEffect(() => {
@@ -234,6 +248,12 @@ export default function HealthRecordsLayout() {
 
       {/* Bottom Navigation Bar */}
       <BottomNavBar activeTab="records" />
+
+      {/* Health Records Tooltip Modal */}
+      <HealthRecordsTooltipModal
+        visible={showTooltip}
+        onClose={() => setShowTooltip(false)}
+      />
     </View>
   );
 }
