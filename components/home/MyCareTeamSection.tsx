@@ -334,11 +334,66 @@ export default function MyCareTeamSection({
 
         {/* Empty State */}
         {allMembers.length === 0 && (
-          <View className="items-center justify-center py-8">
-            <Text className="text-lg" style={{ color: theme.secondary }}>
-              No care team members yet
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => {
+              if (readOnly) {
+                router.push("/(home)/settings");
+              } else {
+                router.push("/(home)/family-access");
+              }
+            }}
+            className="rounded-2xl p-5 mb-2"
+            style={{
+              backgroundColor: `${theme.primary}15`,
+              borderWidth: 2,
+              borderStyle: "dashed",
+              borderColor: theme.primary,
+            }}
+            activeOpacity={0.7}
+          >
+            <View className="flex-row items-start">
+              <View
+                className="w-12 h-12 rounded-full items-center justify-center mr-4"
+                style={{ backgroundColor: `${theme.primary}30` }}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={24}
+                  color={theme.primary}
+                />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-lg font-bold mb-1"
+                  style={{ color: theme.foreground }}
+                >
+                  {readOnly ? "Add Your Care Team" : "Build Your Care Team"}
+                </Text>
+                <Text
+                  className="text-sm leading-5 mb-3"
+                  style={{ color: theme.secondary }}
+                >
+                  {readOnly
+                    ? "Add your vet, groomer, or walker to easily message them and share health records."
+                    : "Add your vet, groomer, or walker to easily message them and share health records."}
+                </Text>
+                <View className="flex-row items-center">
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: theme.primary }}
+                  >
+                    {readOnly ? "Go to Settings" : "Add Care Team Member"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={theme.primary}
+                    style={{ marginLeft: 4 }}
+                  />
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
         )}
 
         {/* Add Buttons for each type - Only show if no members exist and not readOnly */}

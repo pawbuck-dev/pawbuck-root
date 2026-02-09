@@ -117,7 +117,7 @@ export default function HealthRecordsTooltipModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                 Send records to your pet’s email.We’ll handle the rest.
+                 Send records to your pet’s email. We’ll handle the rest.
 
                 </Text>
               </View>
@@ -151,7 +151,11 @@ export default function HealthRecordsTooltipModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                Upload files from your device.
+                  Tap the{" "}
+                  <Text style={{ color: theme.primary, fontWeight: "600" }}>
+                    +
+                  </Text>{" "}
+                  icon in the top right to add records. You can capture a new photo or upload files from your gallery.
                 </Text>
               </View>
             </View>

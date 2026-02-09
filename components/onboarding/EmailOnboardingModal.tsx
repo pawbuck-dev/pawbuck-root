@@ -109,7 +109,7 @@ export default function EmailOnboardingModal({
               className="text-base text-center px-4"
               style={{ color: theme.secondary }}
             >
-              Send records to your pet’s email.We’ll handle the rest.
+              Send records to your pet’s email. We’ll handle the rest.
             </Text>
           </View>
 
@@ -179,8 +179,10 @@ export default function EmailOnboardingModal({
                   className="text-sm leading-5"
                   style={{ color: theme.secondary }}
                 >
-                  Forward any pet health documents — or ask your vet to send them. PawBuck does the rest.{" "}
-                  Vaccines • Prescriptions • Lab results • Invoices
+                  Forward any health docs—or have your vet send them over—and we'll take it from there.{" "}
+                  <Text style={{ fontWeight: "600", color: theme.foreground }}>
+                    Your pet's vaccines, prescriptions, and invoices, all organized in one place.
+                  </Text>
                 </Text>
               </View>
             </View>
