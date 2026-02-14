@@ -1,0 +1,28 @@
+# Consumer App Persona
+
+This document describes the patterns, conventions, and architecture for the PawBuck consumer app.
+
+## Overview
+The consumer app is a React Native application built with Expo Router, designed for pet owners to manage their pets' health records.
+
+## Key Technologies
+- React Native with Expo
+- Expo Router for navigation
+- Supabase for backend services
+- TypeScript
+- NativeWind for styling
+
+## Architecture Patterns
+- File-based routing with Expo Router
+- Component-based architecture
+- Custom hooks for data fetching
+- Context API for global state
+- React Query for server state management
+
+## Conventions
+- Components in `components/` directory
+- Screens in `app/` directory (Expo Router)
+- Services in `services/` directory
+- Hooks in `hooks/` directory
+- Utils in `utils/` directory
+- Constants in `constants/` directory

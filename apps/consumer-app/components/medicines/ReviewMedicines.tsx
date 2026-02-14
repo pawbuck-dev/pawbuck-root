@@ -1,0 +1,682 @@
+import { MEDICATION_TYPES } from "@/constants/medicines";
+import { ScheduleFrequency } from "@/constants/schedules";
+import { useSelectedPet } from "@/context/selectedPetContext";
+import { useTheme } from "@/context/themeContext";
+import { TablesInsert } from "@/database.types";
+import {
+  DailyMedicationSchedule,
+  MedicationSchedule,
+  MedicineFormData,
+  MonthlyMedicationSchedule,
+  WeeklyMedicationSchedule,
+} from "@/models/medication";
+import { formatDate } from "@/utils/dates";
+import {
+  MedicationScheduleData,
+  transformMedicationsWithSchedules,
+  validateMedicationSchedules,
+} from "@/utils/reviewMedication";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import DateTimePicker from "../common/DateTimePicker";
+import FrequencySelector from "./FrequencySelector";
+import MedicineTypePicker from "./MedicineTypePicker";
+import ScheduleInput from "./ScheduleInput";
+
+type ReviewMedicinesProps = {
+  initialMedications: TablesInsert<"medicines">[];
+  extractionConfidence: number;
+  isProcessing: boolean;
+  handleSaveMedications: (medicationsWithSchedules: MedicineFormData[]) => void;
+};
+
+const ReviewMedicines = ({
+  initialMedications,
+  extractionConfidence,
+  isProcessing,
+  handleSaveMedications,
+}: ReviewMedicinesProps) => {
+  const { theme } = useTheme();
+  const { pet } = useSelectedPet();
+
+  const [extractedMedications, setExtractedMedications] =
+    useState<TablesInsert<"medicines">[]>(initialMedications);
+
+  // Schedule state management - track schedules for each medication by index
+  const [medicationSchedules, setMedicationSchedules] = useState<
+    MedicationScheduleData[]
+  >(
+    extractedMedications.map(() => ({
+      daily: [],
+      weekly: [],
+      monthly: [],
+    }))
+  );
+
+  const [showTypePicker, setShowTypePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
+  const [editingMedicationIndex, setEditingMedicationIndex] = useState<
+    number | null
+  >(null);
+  const [editingDateType, setEditingDateType] = useState<
+    "startDate" | "endDate" | null
+  >(null);
+  const [editingDate, setEditingDate] = useState<Date | null>(null);
+
+  const handleRemoveMedication = (index: number) => {
+    setExtractedMedications(extractedMedications.filter((_, i) => i !== index));
+    // Also remove schedule data for this medication
+    const newSchedules = medicationSchedules.filter((_, i) => i !== index);
+    setMedicationSchedules(newSchedules);
+  };
+
+  const handleUpdateMedication = (
+    index: number,
+    field: string,
+    value: string
+  ) => {
+    setExtractedMedications(
+      extractedMedications.map((medication, i) =>
+        i === index ? { ...medication, [field]: value } : medication
+      )
+    );
+  };
+
+  // Schedule update handlers
+  const updateDailySchedule = (
+    medicationIndex: number,
+    schedules: DailyMedicationSchedule[]
+  ) => {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
+        daily: schedules,
+      };
+      return updated;
+    });
+  };
+
+  const updateWeeklySchedule = (
+    medicationIndex: number,
+    schedules: WeeklyMedicationSchedule[]
+  ) => {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
+        weekly: schedules,
+      };
+      return updated;
+    });
+  };
+
+  const updateMonthlySchedule = (
+    medicationIndex: number,
+    schedules: MonthlyMedicationSchedule[]
+  ) => {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        ...updated[medicationIndex],
+        monthly: schedules,
+      };
+      return updated;
+    });
+  };
+
+  // Helper function to get the correct schedule array based on frequency
+  const getSchedulesForFrequency = (
+    medicationIndex: number,
+    frequency: string | undefined
+  ): MedicationSchedule => {
+    const schedules = medicationSchedules[medicationIndex] || {
+      daily: [],
+      weekly: [],
+      monthly: [],
+    };
+
+    switch (frequency) {
+      case ScheduleFrequency.DAILY:
+        return {
+          frequency: ScheduleFrequency.DAILY,
+          schedules: schedules.daily as DailyMedicationSchedule[],
+        };
+      case ScheduleFrequency.WEEKLY:
+        return {
+          frequency: ScheduleFrequency.WEEKLY,
+          schedules: schedules.weekly as WeeklyMedicationSchedule[],
+        };
+      case ScheduleFrequency.MONTHLY:
+        return {
+          frequency: ScheduleFrequency.MONTHLY,
+          schedules: schedules.monthly as MonthlyMedicationSchedule[],
+        };
+      case ScheduleFrequency.AS_NEEDED:
+      default:
+        return {
+          frequency: ScheduleFrequency.AS_NEEDED,
+          schedules: [],
+        };
+    }
+  };
+
+  // Handler for schedule changes from ScheduleInput component
+  const handleScheduleChange = (
+    medicationIndex: number,
+    frequency: string | undefined,
+    newSchedules:
+      | DailyMedicationSchedule[]
+      | WeeklyMedicationSchedule[]
+      | MonthlyMedicationSchedule[]
+  ) => {
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      const current = updated[medicationIndex] || {
+        daily: [],
+        weekly: [],
+        monthly: [],
+      };
+
+      switch (frequency) {
+        case ScheduleFrequency.DAILY:
+          updated[medicationIndex] = {
+            ...current,
+            daily: newSchedules as DailyMedicationSchedule[],
+          };
+          break;
+        case ScheduleFrequency.WEEKLY:
+          updated[medicationIndex] = {
+            ...current,
+            weekly: newSchedules as WeeklyMedicationSchedule[],
+          };
+          break;
+        case ScheduleFrequency.MONTHLY:
+          updated[medicationIndex] = {
+            ...current,
+            monthly: newSchedules as MonthlyMedicationSchedule[],
+          };
+          break;
+        default:
+          // AS_NEEDED - no schedules needed
+          break;
+      }
+
+      return updated;
+    });
+  };
+
+  const handleFrequencyChange = (
+    medicationIndex: number,
+    frequency: ScheduleFrequency
+  ) => {
+    // Update medication frequency
+    handleUpdateMedication(medicationIndex, "frequency", frequency);
+
+    // Clear schedules when frequency changes
+    setMedicationSchedules((prev) => {
+      const updated = [...prev];
+      updated[medicationIndex] = {
+        daily: [],
+        weekly: [],
+        monthly: [],
+      };
+      return updated;
+    });
+
+    setShowFrequencyPicker(false);
+  };
+
+  const handleSave = () => {
+    // Validate schedules for each medication
+    const validation = validateMedicationSchedules(
+      extractedMedications,
+      medicationSchedules
+    );
+
+    if (!validation.isValid) {
+      Alert.alert("Schedule Required", validation.errorMessage);
+      return;
+    }
+
+    // Transform data to MedicineFormData[] with pet_id injected
+    const medicationsWithSchedules = transformMedicationsWithSchedules(
+      extractedMedications,
+      medicationSchedules,
+      pet.id
+    );
+
+    handleSaveMedications(medicationsWithSchedules);
+  };
+
+  return (
+    <>
+      <View style={{ backgroundColor: theme.background }} className="flex-1">
+        {/* Header */}
+        <View
+          className="px-6 pt-4 pb-4 border-b"
+          style={{
+            backgroundColor: theme.card,
+            borderBottomColor: theme.background,
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <TouchableOpacity
+              onPress={() => {
+                router.back();
+              }}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.primary} />
+            </TouchableOpacity>
+            <Text
+              className="text-lg font-semibold"
+              style={{ color: theme.foreground }}
+            >
+              Review Medicines
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <Text
+            className="text-sm text-center"
+            style={{ color: theme.secondary }}
+          >
+            {extractedMedications.length} medicine
+            {extractedMedications.length !== 1 ? "s" : ""} found •{" "}
+            {extractionConfidence}% confidence
+          </Text>
+        </View>
+
+        {/* Medications List */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="p-6 gap-4">
+            {extractedMedications.map((medication, index) => (
+              <View
+                key={index}
+                className="p-4 rounded-xl"
+                style={{ backgroundColor: theme.card }}
+              >
+                {/* Header with remove button */}
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: theme.secondary }}
+                  >
+                    Medicine {index + 1}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveMedication(index)}
+                    disabled={isProcessing}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Medicine Name */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Medicine Name *
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.name}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "name", text)
+                    }
+                    placeholder="e.g., Amoxicillin"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Type */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Type *
+                  </Text>
+                  <TouchableOpacity
+                    className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                    style={{
+                      backgroundColor: theme.background,
+                    }}
+                    onPress={() => {
+                      setEditingMedicationIndex(index);
+                      setShowTypePicker(true);
+                    }}
+                    disabled={isProcessing}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {medication.type}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={20}
+                      color={theme.secondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Dosage */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Dosage *
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.dosage}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "dosage", text)
+                    }
+                    placeholder="e.g., 250mg, 1 tablet"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Start Date */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Start Date
+                  </Text>
+                  <View
+                    className="p-3 rounded-xl px-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{ color: theme.foreground }}
+                    >
+                      {formatDate(medication.start_date)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditingDate(
+                          medication.start_date
+                            ? new Date(medication.start_date)
+                            : null
+                        );
+                        setEditingDateType("startDate");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color={theme.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* End Date */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    End Date (Optional)
+                  </Text>
+                  <View
+                    className="p-3 rounded-xl px-4 flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{
+                        color: medication.end_date
+                          ? theme.foreground
+                          : theme.secondary,
+                      }}
+                    >
+                      {medication.end_date
+                        ? formatDate(medication.end_date)
+                        : "Leave blank if ongoing"}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditingDate(
+                          medication.end_date
+                            ? new Date(medication.end_date)
+                            : null
+                        );
+                        setEditingDateType("endDate");
+                      }}
+                      disabled={isProcessing}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={18}
+                        color={theme.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Prescribed By */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Prescribed By (Optional)
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.prescribed_by || ""}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "prescribed_by", text)
+                    }
+                    placeholder="Vet clinic name"
+                    placeholderTextColor={theme.secondary}
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Purpose/Notes */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Purpose/Notes (Optional)
+                  </Text>
+                  <TextInput
+                    className="w-full rounded-xl py-4 px-4 text-start"
+                    style={{
+                      backgroundColor: theme.background,
+                      color: theme.foreground,
+                    }}
+                    value={medication.purpose || ""}
+                    onChangeText={(text) =>
+                      handleUpdateMedication(index, "purpose", text)
+                    }
+                    placeholder="e.g., Ear infection, pain relief"
+                    placeholderTextColor={theme.secondary}
+                    multiline
+                    numberOfLines={2}
+                    textAlignVertical="top"
+                    editable={!isProcessing}
+                  />
+                </View>
+
+                {/* Frequency Input */}
+                <View className="mb-3">
+                  <Text
+                    className="text-xs font-medium mb-1"
+                    style={{ color: theme.secondary }}
+                  >
+                    Frequency *
+                  </Text>
+                  <TouchableOpacity
+                    className="w-full rounded-xl py-4 px-4 flex-row items-center justify-between"
+                    style={{
+                      backgroundColor: theme.background,
+                    }}
+                    onPress={() => {
+                      setEditingMedicationIndex(index);
+                      setShowFrequencyPicker(true);
+                    }}
+                    disabled={isProcessing}
+                  >
+                    <Text
+                      className="text-base"
+                      style={{
+                        color: medication.frequency
+                          ? theme.foreground
+                          : theme.secondary,
+                      }}
+                    >
+                      {medication.frequency || "Select frequency"}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={20}
+                      color={theme.secondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Schedule Input */}
+                {medication.frequency &&
+                  medication.frequency !== ScheduleFrequency.AS_NEEDED && (
+                    <ScheduleInput
+                      schedules={getSchedulesForFrequency(
+                        index,
+                        medication.frequency
+                      )}
+                      onChange={(schedules) =>
+                        handleScheduleChange(
+                          index,
+                          medication.frequency,
+                          schedules
+                        )
+                      }
+                    />
+                  )}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Save Button */}
+        <View
+          className="p-6 pt-4 border-t"
+          style={{ borderTopColor: theme.background }}
+        >
+          <TouchableOpacity
+            className="p-4 rounded-xl items-center"
+            style={{
+              backgroundColor: isProcessing
+                ? theme.secondary + "40"
+                : theme.primary,
+            }}
+            onPress={handleSave}
+            disabled={isProcessing || extractedMedications.length === 0}
+          >
+            <Text className="text-base font-semibold text-white">
+              {isProcessing
+                ? "Saving..."
+                : `Save ${extractedMedications.length} Medicine${extractedMedications.length !== 1 ? "s" : ""}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Time Picker Modal for Review Mode */}
+      {editingDateType !== null && editingMedicationIndex !== null && (
+        <DateTimePicker
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          onSave={(date: Date) => {
+            setShowDatePicker(false);
+            if (editingDateType === "startDate") {
+              handleUpdateMedication(
+                editingMedicationIndex,
+                "start_date",
+                date.toISOString()
+              );
+            } else if (editingDateType === "endDate") {
+              handleUpdateMedication(
+                editingMedicationIndex,
+                "end_date",
+                date.toISOString()
+              );
+            }
+          }}
+          date={editingDate || new Date()}
+          mode="date"
+        />
+      )}
+
+      {/* Type Picker */}
+      {editingMedicationIndex !== null && (
+        <MedicineTypePicker
+          showTypePicker={showTypePicker}
+          setShowTypePicker={setShowTypePicker}
+          onSelectType={(type) =>
+            handleUpdateMedication(editingMedicationIndex, "type", type)
+          }
+          selectedType={
+            extractedMedications[editingMedicationIndex]
+              .type as MEDICATION_TYPES
+          }
+        />
+      )}
+
+      {/* Frequency Picker */}
+      {editingMedicationIndex !== null && (
+        <FrequencySelector
+          selectedFrequency={
+            extractedMedications[editingMedicationIndex]
+              .frequency as ScheduleFrequency
+          }
+          showFrequencyPicker={showFrequencyPicker}
+          setShowFrequencyPicker={setShowFrequencyPicker}
+          onSelectFrequency={(frequency) => {
+            handleFrequencyChange(editingMedicationIndex, frequency);
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+export default ReviewMedicines;

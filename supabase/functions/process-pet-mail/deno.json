@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "postal-mime": "npm:postal-mime@2.3.2",
+    "supabase": "jsr:@supabase/supabase-js@2",
+    "@std/encoding": "jsr:@std/encoding"
+  }
+}

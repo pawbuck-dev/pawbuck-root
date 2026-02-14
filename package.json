@@ -1,0 +1,29 @@
+{
+  "name": "pawbuck-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "backend/*",
+    "admin-dashboard"
+  ],
+  "scripts": {
+    "consumer:start": "cd apps/consumer-app && npm start",
+    "consumer:android": "cd apps/consumer-app && npm run android",
+    "consumer:ios": "cd apps/consumer-app && npm run ios",
+    "consumer:build": "cd apps/consumer-app && npm run build",
+    "consumer:test": "cd apps/consumer-app && npm test",
+    "provider:test": "cd apps/provider-app && npm test",
+    "backend:build": "cd backend/PawBuck.API && dotnet build",
+    "backend:run": "cd backend/PawBuck.API && dotnet run",
+    "backend:test": "cd backend && dotnet test",
+    "admin:test": "cd admin-dashboard && npm test",
+    "test:all": "npm run consumer:test && npm run backend:test && npm run admin:test",
+    "supabase:start": "cd supabase && supabase start",
+    "supabase:stop": "cd supabase && supabase stop",
+    "supabase:types": "cd supabase && supabase gen types typescript --local > apps/consumer-app/database.types.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

@@ -1,0 +1,25 @@
+# Provider App Persona
+
+This document describes the patterns, conventions, and architecture for the PawBuck provider app.
+
+## Overview
+The provider app is a React Native application built with Expo Router, designed for veterinarians, groomers, and other pet care providers.
+
+## Key Technologies
+- React Native with Expo
+- Expo Router for navigation
+- Supabase for backend services
+- TypeScript
+- NativeWind for styling
+
+## Architecture Patterns
+- File-based routing with Expo Router
+- Component-based architecture
+- Custom hooks for data fetching
+- Context API for global state
+- React Query for server state management
+
+## Differences from Consumer App
+- Provider-specific UI/UX
+- Different feature set focused on provider workflows
+- Provider authentication and authorization
