@@ -24,6 +24,7 @@ import {
   linkCareTeamMemberToAllUserPets,
   unlinkCareTeamMemberFromPet,
 } from "@/services/careTeamMembers";
+import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
@@ -81,14 +82,26 @@ export default function Home() {
   );
   const [showEmailOnboarding, setShowEmailOnboarding] = useState(false);
 
-  // Compute notification counts per pet from pending approvals
+  // Fetch message threads (shared cache with Messages screen / BottomNavBar) for per-pet unread
+  const { data: messageThreads = [] } = useQuery({
+    queryKey: ["messageThreads"],
+    queryFn: () => fetchMessageThreads(),
+  });
+
+  // Compute notification counts per pet: pending approvals + unread messages in threads
   const notificationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     pendingApprovals.forEach((approval) => {
       counts[approval.pet_id] = (counts[approval.pet_id] || 0) + 1;
     });
+    messageThreads.forEach((thread) => {
+      const petId = thread.pet_id;
+      if (petId) {
+        counts[petId] = (counts[petId] || 0) + (thread.unread_count ?? 0);
+      }
+    });
     return counts;
-  }, [pendingApprovals]);
+  }, [pendingApprovals, messageThreads]);
 
   // Fetch vaccinations for selected pet
   const { data: vaccinations = [] } = useQuery({
@@ -235,6 +248,7 @@ export default function Home() {
       queryClient.invalidateQueries({
         queryKey: ["care_team_members", selectedPetId],
       }),
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
       refreshPendingApprovals(),
     ]);
     setRefreshing(false);

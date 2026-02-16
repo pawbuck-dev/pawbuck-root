@@ -1,12 +1,15 @@
 import { useChat } from "@/context/chatContext";
+import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { fetchMessageThreads } from "@/services/messages";
+import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
-import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import React, { useMemo } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
 
 // Milo mascot image
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
@@ -33,6 +36,20 @@ export default function BottomNavBar({
   const pathname = usePathname();
   const { openChat } = useChat();
   const { pets } = usePets();
+  const { pendingApprovals } = useEmailApproval();
+
+  const { data: threads = [] } = useQuery({
+    queryKey: ["messageThreads"],
+    queryFn: () => fetchMessageThreads(),
+  });
+
+  const unreadCount = useMemo(() => {
+    const threadUnread = threads.reduce(
+      (sum, t) => sum + (t.unread_count ?? 0),
+      0
+    );
+    return threadUnread + pendingApprovals.length;
+  }, [threads, pendingApprovals]);
 
   // Use provided selectedPetId or fall back to first pet
   const petIdForNavigation = selectedPetId ?? pets[0]?.id;
@@ -145,6 +162,9 @@ export default function BottomNavBar({
             );
           }
 
+          const showUnreadBadge = item.id === "messages" && unreadCount > 0;
+          const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
+
           return (
             <TouchableOpacity
               key={item.id}
@@ -157,11 +177,29 @@ export default function BottomNavBar({
                 borderRadius: 14,
               }}
             >
-              <Ionicons
-                name={isActive ? item.activeIcon : item.icon}
-                size={24}
-                color={isActive ? activeColor : inactiveColor}
-              />
+              <View className="relative items-center justify-center">
+                <Ionicons
+                  name={isActive ? item.activeIcon : item.icon}
+                  size={24}
+                  color={isActive ? activeColor : inactiveColor}
+                />
+                {showUnreadBadge && (
+                  <View
+                    className="absolute -right-2 -top-1 min-w-[18px] items-center justify-center rounded-full px-1"
+                    style={{
+                      backgroundColor: activeColor,
+                      height: 18,
+                    }}
+                  >
+                    <Text
+                      className="text-[10px] font-bold text-white"
+                      numberOfLines={1}
+                    >
+                      {badgeLabel}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
