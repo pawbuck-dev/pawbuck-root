@@ -78,6 +78,56 @@ export async function sendFailedNotification(
 }
 
 /**
+ * Send a single combined notification when both records were added and some attachments were skipped.
+ * Prevents the user from getting two separate notifications for one email.
+ */
+export async function sendCombinedProcessedAndSkippedNotification(
+  pet: Pet,
+  emailInfo: EmailInfo,
+  processedAttachments: ProcessedAttachment[],
+  skippedAttachments: ProcessedAttachment[]
+): Promise<void> {
+  const successfulRecords = processedAttachments.filter((a) => a.dbInserted);
+  const documentTypes = [
+    ...new Set(
+      successfulRecords.map((a) => formatDocumentType(a.classification.type))
+    ),
+  ];
+  const documentCount = successfulRecords.reduce(
+    (count, a) => count + (a.dbRecordIds?.length || 1),
+    0
+  );
+  const documentTypesText = documentTypes.join(", ");
+  const recordWord = documentCount === 1 ? "record has" : "records have";
+  const skippedCount = skippedAttachments.length;
+  const skippedWord = skippedCount === 1 ? "document was" : "documents were";
+
+  const body =
+    skippedCount > 0
+      ? `${documentCount} new ${documentTypesText} ${recordWord} been added for ${pet.name} from ${emailInfo.from}. ${skippedCount} ${skippedWord} skipped due to validation — check the app for details.`
+      : `${documentCount} new ${documentTypesText} ${recordWord} been added for ${pet.name} from ${emailInfo.from}`;
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `New Health Records for ${pet.name}`,
+      body,
+      data: {
+        type: "email_processed",
+        petId: pet.id,
+        petName: pet.name,
+        recordTypes: [
+          ...new Set(successfulRecords.map((a) => a.classification.type)),
+        ],
+        skippedCount,
+      },
+    });
+    console.log(`Combined processed+skipped notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send combined notification:", notificationError);
+  }
+}
+
+/**
  * Send push notification when attachments are skipped due to pet validation failure
  */
 export async function sendSkippedAttachmentsNotification(

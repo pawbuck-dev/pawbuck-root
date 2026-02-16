@@ -62,7 +62,10 @@ export async function sendNotificationToUser(
     };
   }
 
-  return await sendPushNotifications(tokens, notification);
+  // Dedupe tokens so the same device (if registered multiple times) gets only one notification
+  const uniqueTokens = [...new Set(tokens)];
+
+  return await sendPushNotifications(uniqueTokens, notification);
 }
 
 /**

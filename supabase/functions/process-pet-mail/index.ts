@@ -12,6 +12,7 @@ import {
   buildValidationErrorResponse,
   logProcessingSummary,
   processAttachments,
+  sendCombinedProcessedAndSkippedNotification,
   sendFailedNotification,
   sendProcessedNotification,
   sendSkippedAttachmentsNotification,
@@ -289,19 +290,27 @@ Deno.serve(async (req) => {
 
     // Step 12: Check for skipped attachments due to pet validation failure
     const skippedAttachments = processedAttachments.filter(
-      (a) => a.skippedReason === "no_pet_info" || 
-             a.skippedReason === "microchip_mismatch" || 
+      (a) => a.skippedReason === "no_pet_info" ||
+             a.skippedReason === "microchip_mismatch" ||
              a.skippedReason === "attributes_mismatch"
     );
 
-    // Step 13: Send notifications
-    // Send skipped notification if any attachments were skipped due to pet validation failure
-    if (skippedAttachments.length > 0) {
-      await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
-    }
+    const hasProcessed = processedAttachments.some((a) => a.dbInserted);
+    const hasSkipped = skippedAttachments.length > 0;
 
-    // Send processed notification if records were successfully added
-    await sendProcessedNotification(pet, emailInfo, processedAttachments);
+    // Step 13: Send a single notification per email (avoid duplicate notifications)
+    if (hasProcessed && hasSkipped) {
+      await sendCombinedProcessedAndSkippedNotification(
+        pet,
+        emailInfo,
+        processedAttachments,
+        skippedAttachments
+      );
+    } else if (hasSkipped) {
+      await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
+    } else if (hasProcessed) {
+      await sendProcessedNotification(pet, emailInfo, processedAttachments);
+    }
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);
   } catch (error) {
