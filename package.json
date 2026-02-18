@@ -14,7 +14,8 @@
     "postprebuild": "cp debug.keystore android/app/debug.keystore",
     "generate:types": "supabase gen types typescript --local > database.types.ts",
     "generate:migration": "supabase db diff --local -f",
-    "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local"
+    "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local",
+    "eas": "eas"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",
@@ -74,6 +75,7 @@
     "tailwindcss": "^3.4.18"
   },
   "devDependencies": {
+    "eas-cli": "^16.0.0",
     "@types/imap": "^0.8.40",
     "@types/mailparser": "^3.4.5",
     "@types/react": "~19.1.0",

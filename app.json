@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pawbuck",
     "slug": "pawbuck",
-    "version": "1.0.2",
+    "version": "1.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "Pawbuck",
@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pawbuck.app",
+      "buildNumber": "32",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
