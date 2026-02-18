@@ -11,6 +11,38 @@ export interface GroupedThreads {
   unknown: MessageThread[]; // Threads that don't match any care team member
 }
 
+/** Threads grouped by pet_id (for multi-pet message list) */
+export type GroupedThreadsByPet = Record<string, MessageThread[]>;
+
+/**
+ * Group message threads by pet (sync).
+ * Use when user has more than one pet. Each group is sorted by updated_at descending.
+ */
+export function groupThreadsByPet(
+  threads: MessageThread[]
+): GroupedThreadsByPet {
+  const grouped: GroupedThreadsByPet = {};
+
+  if (threads.length === 0) return grouped;
+
+  threads.forEach((thread) => {
+    const petId = thread.pet_id ?? "unknown";
+    if (!grouped[petId]) {
+      grouped[petId] = [];
+    }
+    grouped[petId].push(thread);
+  });
+
+  Object.keys(grouped).forEach((petId) => {
+    grouped[petId].sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+  });
+
+  return grouped;
+}
+
 /**
  * Fetch care team member types for all recipients in threads
  * This matches threads to care team members by email address

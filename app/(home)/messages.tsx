@@ -1,4 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import PetSelector from "@/components/home/PetSelector";
 import FailedEmailDetailView from "@/components/messages/FailedEmailDetailView";
 import FailedEmailListItem from "@/components/messages/FailedEmailListItem";
 import GroupedThreadList from "@/components/messages/GroupedThreadList";
@@ -8,11 +9,14 @@ import PendingEmailListItem from "@/components/messages/PendingEmailListItem";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
 import MessagesOnboardingModal from "@/components/onboarding/MessagesOnboardingModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
+import { usePets } from "@/context/petsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { FailedEmail, getFailedEmails } from "@/services/failedEmails";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import {
   GroupedThreads,
+  groupThreadsByPet,
   groupThreadsByType,
 } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
@@ -38,6 +42,8 @@ import {
 export default function MessagesScreen() {
   const { theme, mode } = useTheme();
   const queryClient = useQueryClient();
+  const { pets } = usePets();
+  const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const { pendingApprovals, setCurrentApproval, refreshPendingApprovals } = useEmailApproval();
   const params = useLocalSearchParams<{ email?: string }>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -165,7 +171,36 @@ export default function MessagesScreen() {
     return threadUnreadCount + pendingApprovals.length;
   }, [threads, pendingApprovals]);
 
-  // Group filtered threads
+  // Group by pet (for pet selector notification counts when multi-pet)
+  const groupedByPet = useMemo(
+    () => groupThreadsByPet(filteredThreads),
+    [filteredThreads]
+  );
+
+  // When multi-pet: show only selected pet's threads (grouped by type). When single-pet: show all.
+  const threadsToGroup = useMemo(() => {
+    if (pets.length <= 1) return filteredThreads;
+    const effectivePetId = selectedPetId ?? pets[0]?.id;
+    if (!effectivePetId) return filteredThreads;
+    return filteredThreads.filter((t) => t.pet_id === effectivePetId);
+  }, [filteredThreads, pets.length, selectedPetId, pets]);
+
+  // Per-pet notification counts for PetSelector (unread threads + pending approvals)
+  const messageNotificationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    pendingApprovals.forEach((a) => {
+      if (a.pet_id) counts[a.pet_id] = (counts[a.pet_id] ?? 0) + 1;
+    });
+    Object.entries(groupedByPet).forEach(([petId, list]) => {
+      if (petId !== "unknown") {
+        const unread = list.reduce((s, t) => s + (t.unread_count ?? 0), 0);
+        counts[petId] = (counts[petId] ?? 0) + unread;
+      }
+    });
+    return counts;
+  }, [pendingApprovals, groupedByPet]);
+
+  // Group threads by care team type (input is threadsToGroup: selected pet when multi-pet, else all)
   const [filteredGroupedThreads, setFilteredGroupedThreads] =
     React.useState<GroupedThreads>({
       veterinarian: [],
@@ -179,26 +214,17 @@ export default function MessagesScreen() {
   // Track the last processed threads to avoid infinite loops
   const lastProcessedThreadsRef = React.useRef<string>("");
 
-  // Group filtered threads - must be before any early returns (Rules of Hooks)
+  // Group threads by care team type (uses threadsToGroup: selected pet when multi-pet, else all)
   React.useEffect(() => {
-    // Create a stable key from thread IDs and unread counts to detect changes
-    const threadsKey = filteredThreads
+    const threadsKey = threadsToGroup
       .map((t) => `${t.id}:${t.unread_count ?? 0}:${t.updated_at}`)
       .sort()
       .join(",");
 
-    // Skip if we've already processed these exact threads
-    if (threadsKey === lastProcessedThreadsRef.current) {
-      return;
-    }
+    if (threadsKey === lastProcessedThreadsRef.current) return;
+    if (loadingThreads) return;
 
-    // Skip grouping while loading
-    if (loadingThreads) {
-      return;
-    }
-
-    // Handle empty threads
-    if (filteredThreads.length === 0) {
+    if (threadsToGroup.length === 0) {
       lastProcessedThreadsRef.current = threadsKey;
       setFilteredGroupedThreads({
         veterinarian: [],
@@ -211,15 +237,13 @@ export default function MessagesScreen() {
       return;
     }
 
-    // Mark as processing
     lastProcessedThreadsRef.current = threadsKey;
-
     const groupFilteredThreads = async () => {
-      const grouped = await groupThreadsByType(filteredThreads);
+      const grouped = await groupThreadsByType(threadsToGroup);
       setFilteredGroupedThreads(grouped);
     };
     groupFilteredThreads();
-  }, [filteredThreads, loadingThreads]);
+  }, [threadsToGroup, loadingThreads]);
 
   // Handle thread press
   const handleThreadPress = (thread: MessageThread) => {
@@ -249,8 +273,27 @@ export default function MessagesScreen() {
     setSelectedFailedEmail(null);
   };
 
+  // When multi-pet, show pending/failed for selected pet only
+  const effectivePetId = pets.length > 1 ? (selectedPetId ?? pets[0]?.id) : null;
+  const pendingForDisplay = useMemo(
+    () =>
+      effectivePetId
+        ? filteredPendingApprovals.filter((a) => a.pet_id === effectivePetId)
+        : filteredPendingApprovals,
+    [filteredPendingApprovals, effectivePetId]
+  );
+  const failedForDisplay = useMemo(
+    () =>
+      effectivePetId
+        ? filteredFailedEmails.filter((e) => e.pet_id === effectivePetId)
+        : filteredFailedEmails,
+    [filteredFailedEmails, effectivePetId]
+  );
+
   const hasMessages =
-    filteredThreads.length > 0 || filteredPendingApprovals.length > 0 || filteredFailedEmails.length > 0;
+    threadsToGroup.length > 0 ||
+    pendingForDisplay.length > 0 ||
+    failedForDisplay.length > 0;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -364,6 +407,18 @@ export default function MessagesScreen() {
             </View>
           </View>
 
+          {/* Pet Selector (when user has more than one pet) */}
+          {pets.length > 1 && (
+            <View className="mb-4 px-2">
+              <PetSelector
+                pets={pets}
+                selectedPetId={selectedPetId ?? pets[0]?.id ?? null}
+                onSelectPet={setSelectedPetId}
+                notificationCounts={messageNotificationCounts}
+              />
+            </View>
+          )}
+
           {/* Messages List */}
           <ScrollView
             className="flex-1"
@@ -383,7 +438,7 @@ export default function MessagesScreen() {
             ) : (
               <>
                 {/* Pending Emails Section */}
-                {filteredPendingApprovals.length > 0 && (
+                {pendingForDisplay.length > 0 && (
                   <View className="mb-6">
                     <View className="flex-row items-center justify-between mb-3 px-4">
                       <View className="flex-row items-center flex-1">
@@ -404,14 +459,14 @@ export default function MessagesScreen() {
                           style={{ backgroundColor: theme.primary }}
                         >
                           <Text className="text-xs font-bold text-white">
-                            {filteredPendingApprovals.length}
+                            {pendingForDisplay.length}
                           </Text>
                         </View>
                       </View>
                     </View>
 
                     <View>
-                      {filteredPendingApprovals.map((approval) => (
+                      {pendingForDisplay.map((approval) => (
                         <PendingEmailListItem
                           key={approval.id}
                           approval={approval}
@@ -422,7 +477,7 @@ export default function MessagesScreen() {
                   </View>
                 )}
 
-                {/* Grouped Thread Sections */}
+                {/* Grouped Thread Sections (by care team type; data is for selected pet when multi-pet) */}
                 <GroupedThreadList
                   threads={filteredGroupedThreads.veterinarian}
                   category="veterinarian"
@@ -468,7 +523,6 @@ export default function MessagesScreen() {
                   color="#D97706"
                   onThreadPress={handleThreadPress}
                 />
-                {/* Show unknown threads if any */}
                 {filteredGroupedThreads.unknown.length > 0 && (
                   <GroupedThreadList
                     threads={filteredGroupedThreads.unknown}
@@ -482,7 +536,7 @@ export default function MessagesScreen() {
                 )}
 
                 {/* Failed Emails Section - shown at the bottom */}
-                {filteredFailedEmails.length > 0 && (
+                {failedForDisplay.length > 0 && (
                   <View className="mb-6">
                     <View className="flex-row items-center justify-between mb-3 px-4">
                       <View className="flex-row items-center flex-1">
@@ -503,14 +557,14 @@ export default function MessagesScreen() {
                           style={{ backgroundColor: "#EF4444" }}
                         >
                           <Text className="text-xs font-bold text-white">
-                            {filteredFailedEmails.length}
+                            {failedForDisplay.length}
                           </Text>
                         </View>
                       </View>
                     </View>
 
                     <View>
-                      {filteredFailedEmails.map((failedEmail) => (
+                      {failedForDisplay.map((failedEmail) => (
                         <FailedEmailListItem
                           key={failedEmail.id}
                           failedEmail={failedEmail}
