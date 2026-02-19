@@ -1,5 +1,5 @@
 import { encodeBase64 } from "@std/encoding";
-import { createClient } from "supabase";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Create a Supabase client for use in Deno Edge Functions
