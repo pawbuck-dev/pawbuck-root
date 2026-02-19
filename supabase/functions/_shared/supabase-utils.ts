@@ -1,5 +1,29 @@
-import { encodeBase64 } from "@std/encoding";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/** Inline base64 encode to avoid std/encoding bundler issues in Supabase Edge */
+function encodeBase64(data: Uint8Array): string {
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  const l = data.length;
+  let i = 2;
+  for (; i < l; i += 3) {
+    result += abc[data[i - 2]! >> 2];
+    result += abc[((data[i - 2]! & 0x03) << 4) | (data[i - 1]! >> 4)];
+    result += abc[((data[i - 1]! & 0x0f) << 2) | (data[i]! >> 6)];
+    result += abc[data[i]! & 0x3f];
+  }
+  if (i === l + 1) {
+    result += abc[data[i - 2]! >> 2];
+    result += abc[(data[i - 2]! & 0x03) << 4];
+    result += "==";
+  } else if (i === l) {
+    result += abc[data[i - 2]! >> 2];
+    result += abc[((data[i - 2]! & 0x03) << 4) | (data[i - 1]! >> 4)];
+    result += abc[(data[i - 1]! & 0x0f) << 2];
+    result += "=";
+  }
+  return result;
+}
 
 /**
  * Create a Supabase client for use in Deno Edge Functions
