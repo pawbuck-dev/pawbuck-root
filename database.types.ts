@@ -385,6 +385,8 @@ export type Database = {
       message_threads: {
         Row: {
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           message_id: string | null
           pet_id: string
@@ -397,6 +399,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           message_id?: string | null
           pet_id: string
@@ -409,6 +413,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           message_id?: string | null
           pet_id?: string
@@ -745,6 +751,30 @@ export type Database = {
           last_seen?: string
           token?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      email_delete_audit: {
+        Row: {
+          id: string
+          thread_id: string
+          user_id: string | null
+          action: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          user_id?: string | null
+          action: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          user_id?: string | null
+          action?: string
+          created_at?: string
         }
         Relationships: []
       }

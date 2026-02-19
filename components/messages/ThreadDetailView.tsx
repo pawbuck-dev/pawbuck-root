@@ -10,6 +10,8 @@ import {
   fetchThreadMessages,
   markThreadAsRead,
   MessageThread,
+  restoreThread,
+  softDeleteThread,
   ThreadMessage,
 } from "@/services/messages";
 import {
@@ -42,6 +44,12 @@ interface ThreadDetailViewProps {
   thread: MessageThread;
   onBack: () => void;
   hideHeader?: boolean;
+  /** When true, thread is from Trash: show Restore, hide reply and delete */
+  isTrash?: boolean;
+  /** Called after restore so parent can refresh and go back */
+  onRestore?: () => void;
+  /** Called after delete so parent can refresh and go back */
+  onDeleted?: () => void;
 }
 
 export default function ThreadDetailView({
@@ -49,6 +57,9 @@ export default function ThreadDetailView({
   thread,
   onBack,
   hideHeader = false,
+  isTrash = false,
+  onRestore,
+  onDeleted,
 }: ThreadDetailViewProps) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
@@ -60,6 +71,8 @@ export default function ThreadDetailView({
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
+  const [deleting, setDeleting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   // Fetch messages for this thread
   const {
@@ -252,6 +265,57 @@ export default function ThreadDetailView({
     }
   };
 
+  const handleDelete = async () => {
+    Alert.alert(
+      "Move to Trash",
+      "This conversation will move to Trash. Health records already added from this thread will not be removed. It will be permanently deleted after 30 days.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Move to Trash",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await softDeleteThread(threadId);
+              queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+              queryClient.invalidateQueries({ queryKey: ["trashThreads"] });
+              onDeleted?.();
+              onBack();
+            } catch (e) {
+              console.error(e);
+              Alert.alert(
+                "Error",
+                e instanceof Error ? e.message : "Failed to move to Trash"
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      await restoreThread(threadId);
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+      queryClient.invalidateQueries({ queryKey: ["trashThreads"] });
+      onRestore?.();
+      onBack();
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        "Error",
+        e instanceof Error ? e.message : "Failed to restore"
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   // Render a single message
   const renderMessage = (message: ThreadMessage, index: number) => {
     const isOutbound = message.direction === "outbound";
@@ -339,34 +403,84 @@ export default function ThreadDetailView({
               {thread.subject}
             </Text>
           </View>
-          {/* Spacer to balance the back button */}
-          <View className="w-10 h-10 mr-4" />
+          {isTrash ? (
+            <TouchableOpacity
+              onPress={handleRestore}
+              disabled={restoring}
+              className="w-10 h-10 items-center justify-center mr-4"
+            >
+              {restoring ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Ionicons name="arrow-undo" size={22} color={theme.primary} />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleDelete}
+              disabled={deleting}
+              className="w-10 h-10 items-center justify-center mr-4"
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={theme.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={22} color={theme.error} />
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {/* Thread Info Bar - shown when header is hidden */}
       {hideHeader && (
         <View
-          className="items-center px-4 py-3 border-b"
+          className="flex-row items-center justify-between px-4 py-3 border-b"
           style={{
             backgroundColor: theme.card,
             borderBottomColor: theme.border,
           }}
         >
-          <Text
-            className="text-base font-semibold text-center"
-            style={{ color: theme.foreground }}
-            numberOfLines={1}
-          >
-            {recipientName}
-          </Text>
-          <Text
-            className="text-sm text-center"
-            style={{ color: theme.secondary }}
-            numberOfLines={1}
-          >
-            {thread.subject}
-          </Text>
+          <View className="flex-1 items-center">
+            <Text
+              className="text-base font-semibold text-center"
+              style={{ color: theme.foreground }}
+              numberOfLines={1}
+            >
+              {recipientName}
+            </Text>
+            <Text
+              className="text-sm text-center"
+              style={{ color: theme.secondary }}
+              numberOfLines={1}
+            >
+              {thread.subject}
+            </Text>
+          </View>
+          {isTrash ? (
+            <TouchableOpacity
+              onPress={handleRestore}
+              disabled={restoring}
+              className="w-10 h-10 items-center justify-center"
+            >
+              {restoring ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Ionicons name="arrow-undo" size={22} color={theme.primary} />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleDelete}
+              disabled={deleting}
+              className="w-10 h-10 items-center justify-center"
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={theme.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={22} color={theme.error} />
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -427,7 +541,8 @@ export default function ThreadDetailView({
         </ScrollView>
       )}
 
-      {/* Reply Input */}
+      {/* Reply Input - hidden when viewing from Trash */}
+      {!isTrash && (
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
@@ -485,6 +600,7 @@ export default function ThreadDetailView({
           </View>
         </View>
       </KeyboardAvoidingView>
+      )}
 
       {/* Add Care Team Member Modal */}
       {pets.length > 0 && (

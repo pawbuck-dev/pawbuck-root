@@ -13,7 +13,11 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { FailedEmail, getFailedEmails } from "@/services/failedEmails";
-import { fetchMessageThreads, MessageThread } from "@/services/messages";
+import {
+  fetchMessageThreads,
+  fetchTrashThreads,
+  MessageThread,
+} from "@/services/messages";
 import {
   GroupedThreads,
   groupThreadsByPet,
@@ -60,6 +64,7 @@ export default function MessagesScreen() {
     useState<FailedEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showMessagesOnboarding, setShowMessagesOnboarding] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
 
   // Fetch message threads
   const {
@@ -78,6 +83,17 @@ export default function MessagesScreen() {
   } = useQuery({
     queryKey: ["failedEmails"],
     queryFn: () => getFailedEmails(),
+  });
+
+  // Fetch trash threads (soft-deleted)
+  const {
+    data: trashThreads = [],
+    isLoading: loadingTrash,
+    refetch: refetchTrashThreads,
+  } = useQuery({
+    queryKey: ["trashThreads", selectedPetId ?? undefined],
+    queryFn: () => fetchTrashThreads(selectedPetId ?? undefined),
+    enabled: showTrash,
   });
 
   // Check if messages onboarding should be shown
@@ -110,7 +126,12 @@ export default function MessagesScreen() {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchThreads(), refreshPendingApprovals(), refetchFailedEmails()]);
+    await Promise.all([
+      refetchThreads(),
+      refreshPendingApprovals(),
+      refetchFailedEmails(),
+      refetchTrashThreads(),
+    ]);
     setRefreshing(false);
   };
 
@@ -342,8 +363,11 @@ export default function MessagesScreen() {
             )}
           </View>
 
-          {/* Add Button - Hidden when viewing thread, pending approval, or failed email */}
-          {selectedThread || selectedPendingApproval || selectedFailedEmail ? (
+          {/* Add Button - Hidden when viewing thread, pending approval, failed email, or Trash */}
+          {selectedThread ||
+          selectedPendingApproval ||
+          selectedFailedEmail ||
+          showTrash ? (
             <View className="w-10 h-10" />
           ) : (
             <Pressable
@@ -377,10 +401,68 @@ export default function MessagesScreen() {
           thread={selectedThread}
           onBack={() => setSelectedThread(null)}
           hideHeader
+          isTrash={showTrash}
+          onRestore={() => {
+            refetchTrashThreads();
+            refetchThreads();
+          }}
+          onDeleted={() => {
+            refetchThreads();
+            refetchTrashThreads();
+          }}
         />
       ) : (
         <>
-          {/* Search Bar */}
+          {/* Inbox / Trash toggle */}
+          <View className="flex-row px-4 pb-3 gap-2">
+            <Pressable
+              onPress={() => setShowTrash(false)}
+              className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
+              style={{
+                backgroundColor: !showTrash ? theme.primary : theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Ionicons
+                name="mail-open-outline"
+                size={20}
+                color={!showTrash ? "white" : theme.secondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                className="text-sm font-semibold"
+                style={{ color: !showTrash ? "white" : theme.foreground }}
+              >
+                Inbox
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setShowTrash(true)}
+              className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
+              style={{
+                backgroundColor: showTrash ? theme.primary : theme.card,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={showTrash ? "white" : theme.secondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                className="text-sm font-semibold"
+                style={{ color: showTrash ? "white" : theme.foreground }}
+              >
+                Trash
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Search Bar - only when Inbox */}
+          {!showTrash && (
           <View className="px-4 pb-4">
             <View
               className="flex-row items-center px-4 py-3 rounded-2xl"
@@ -406,6 +488,7 @@ export default function MessagesScreen() {
               />
             </View>
           </View>
+          )}
 
           {/* Pet Selector (when user has more than one pet) */}
           {pets.length > 1 && (
@@ -431,10 +514,54 @@ export default function MessagesScreen() {
               />
             }
           >
-            {loadingThreads ? (
+            {loadingThreads || (showTrash && loadingTrash) ? (
               <View className="flex-1 items-center justify-center py-20">
                 <ActivityIndicator size="large" color={theme.primary} />
               </View>
+            ) : showTrash ? (
+              <>
+                <View className="px-4 pb-2">
+                  <Text
+                    className="text-sm"
+                    style={{ color: theme.secondary }}
+                  >
+                    Deleted conversations are permanently removed after 30 days.
+                    Health records already added are kept.
+                  </Text>
+                </View>
+                {trashThreads.length === 0 ? (
+                  <View className="flex-1 items-center justify-center py-20 px-4">
+                    <Ionicons
+                      name="trash-outline"
+                      size={48}
+                      color={theme.secondary}
+                      style={{ opacity: 0.5, marginBottom: 12 }}
+                    />
+                    <Text
+                      className="text-base font-semibold text-center"
+                      style={{ color: theme.foreground }}
+                    >
+                      Trash is empty
+                    </Text>
+                    <Text
+                      className="text-sm text-center mt-1"
+                      style={{ color: theme.secondary }}
+                    >
+                      Conversations you delete will appear here
+                    </Text>
+                  </View>
+                ) : (
+                  <GroupedThreadList
+                    threads={trashThreads}
+                    category="unknown"
+                    title="Trash"
+                    icon="trash-outline"
+                    iconType="ionicons"
+                    color={theme.secondary}
+                    onThreadPress={handleThreadPress}
+                  />
+                )}
+              </>
             ) : (
               <>
                 {/* Pending Emails Section */}

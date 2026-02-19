@@ -10,6 +10,8 @@ export interface MessageThread {
   subject: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   // Joined data
   pets?: {
     name: string;
@@ -53,7 +55,7 @@ export async function fetchMessageThreads(
     return [];
   }
 
-  // Query 1: Fetch all threads
+  // Query 1: Fetch all threads (inbox only: not deleted)
   let query = supabase
     .from("message_threads")
     .select(
@@ -64,6 +66,7 @@ export async function fetchMessageThreads(
       )
     `
     )
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   if (petId) {
@@ -238,4 +241,131 @@ export async function fetchThread(
     last_message: messages?.[0] || null,
     message_count: count || 0,
   } as MessageThread;
+}
+
+/** Trash: threads that were soft-deleted. Health records already extracted are not affected. */
+export async function fetchTrashThreads(
+  petId?: string
+): Promise<MessageThread[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  let query = supabase
+    .from("message_threads")
+    .select(
+      `
+      *,
+      pets (
+        name
+      )
+    `
+    )
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+
+  if (petId) query = query.eq("pet_id", petId);
+  const { data, error } = await query;
+  if (error) {
+    console.error("[fetchTrashThreads] Error:", error);
+    throw error;
+  }
+  if (!data || data.length === 0) return [];
+
+  const threadIds = data.map((t) => t.id);
+  const { data: allMessages } = await supabase
+    .from("thread_messages")
+    .select("*")
+    .in("thread_id", threadIds)
+    .order("sent_at", { ascending: false });
+
+  const readStatusData = await supabase
+    .from("thread_read_status")
+    .select("thread_id, last_read_at")
+    .eq("user_id", user.id)
+    .in("thread_id", threadIds);
+  const readStatusMap = new Map<string, string>();
+  (readStatusData.data || []).forEach((s) =>
+    readStatusMap.set(s.thread_id, s.last_read_at)
+  );
+
+  const lastMessageMap = new Map<string, ThreadMessage>();
+  const countMap = new Map<string, number>();
+  const unreadCountMap = new Map<string, number>();
+  (allMessages || []).forEach((message) => {
+    const tid = message.thread_id;
+    countMap.set(tid, (countMap.get(tid) || 0) + 1);
+    if (!lastMessageMap.has(tid))
+      lastMessageMap.set(tid, message as ThreadMessage);
+    if (message.direction === "inbound") {
+      const lastRead = readStatusMap.get(tid);
+      if (
+        !lastRead ||
+        new Date(message.sent_at) > new Date(lastRead)
+      ) {
+        unreadCountMap.set(tid, (unreadCountMap.get(tid) || 0) + 1);
+      }
+    }
+  });
+
+  return data.map((thread) => ({
+    ...thread,
+    last_message: lastMessageMap.get(thread.id) || null,
+    message_count: countMap.get(thread.id) || 0,
+    unread_count: unreadCountMap.get(thread.id) || 0,
+    last_read_at: readStatusMap.get(thread.id) || null,
+  })) as MessageThread[];
+}
+
+/**
+ * Move a thread to Trash (soft delete). Does not delete health records already extracted.
+ * Records audit for compliance.
+ */
+export async function softDeleteThread(threadId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { error: updateError } = await supabase
+    .from("message_threads")
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: user.id,
+    })
+    .eq("id", threadId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw updateError;
+
+  await supabase.from("email_delete_audit").insert({
+    thread_id: threadId,
+    user_id: user.id,
+    action: "deleted",
+  });
+}
+
+/**
+ * Restore a thread from Trash. Records audit for compliance.
+ */
+export async function restoreThread(threadId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { error: updateError } = await supabase
+    .from("message_threads")
+    .update({ deleted_at: null, deleted_by: null })
+    .eq("id", threadId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw updateError;
+
+  await supabase.from("email_delete_audit").insert({
+    thread_id: threadId,
+    user_id: user.id,
+    action: "restored",
+  });
 }
