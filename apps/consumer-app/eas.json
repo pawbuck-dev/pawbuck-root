@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 16.28.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview-local": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "./credentials/asc-api-key.p8",
+        "ascApiKeyIssuerId": "92f1c55e-1fbc-464a-82aa-de55752872db",
+        "ascApiKeyId": "548V7M36WF",
+        "ascAppId": "6756702520"
+      }
+    }
+  }
+}
