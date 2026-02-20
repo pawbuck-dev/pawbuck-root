@@ -12,12 +12,13 @@
     "prebuild": "expo prebuild",
     "prebuild:clean": "expo prebuild --clean",
     "postprebuild": "cp debug.keystore android/app/debug.keystore",
-    "generate:types": "supabase gen types typescript --local > database.types.ts",
+    "generate:types": "cd ../../supabase && supabase gen types typescript --local > ../../apps/consumer-app/database.types.ts",
     "generate:migration": "supabase db diff --local -f",
     "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local",
     "eas": "eas"
   },
   "dependencies": {
+    "@pawbuck/milo": "workspace:*",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",

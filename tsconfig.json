@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pawbuck/milo": ["./packages/milo-core/src"],
+      "@pawbuck/milo/*": ["./packages/milo-core/src/*"]
+    }
+  },
+  "include": ["packages/milo-core/src"],
+  "exclude": ["node_modules", "apps", "admin-dashboard", "backend", "supabase"]
+}
