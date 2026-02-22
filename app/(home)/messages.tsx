@@ -386,6 +386,9 @@ export default function MessagesScreen() {
           failedEmail={selectedFailedEmail}
           onBack={handleFailedEmailBack}
           hideHeader
+          onDeleted={() => {
+            refetchFailedEmails();
+          }}
         />
       ) : /* Pending Email Detail View */
       selectedPendingApproval ? (

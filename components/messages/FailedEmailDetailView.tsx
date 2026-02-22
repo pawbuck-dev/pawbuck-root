@@ -1,8 +1,14 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { FailedEmail, getFailedEmailAttachmentPath, getFailedEmailAttachments } from "@/services/failedEmails";
+import {
+  dismissFailedEmail,
+  FailedEmail,
+  getFailedEmailAttachmentPath,
+  getFailedEmailAttachments,
+} from "@/services/failedEmails";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import moment from "moment";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -12,16 +18,21 @@ interface FailedEmailDetailViewProps {
   failedEmail: FailedEmail;
   onBack: () => void;
   hideHeader?: boolean;
+  /** Called after delete so parent can refresh and navigate back */
+  onDeleted?: () => void;
 }
 
 export default function FailedEmailDetailView({
   failedEmail,
   onBack,
   hideHeader = false,
+  onDeleted,
 }: FailedEmailDetailViewProps) {
   const { theme } = useTheme();
   const { pets } = usePets();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [deleting, setDeleting] = useState(false);
   
   // Get full pet info including breed
   const pet = pets.find((p) => p.id === failedEmail.pet_id);
@@ -236,6 +247,37 @@ export default function FailedEmailDetailView({
     ? parseErrorDetails(failedEmail.failure_reason)
     : null;
 
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete failed email",
+      "This will remove this failed email from your list. Any health records you added manually will not be affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await dismissFailedEmail(failedEmail.id);
+              queryClient.invalidateQueries({ queryKey: ["failedEmails"] });
+              onDeleted?.();
+              onBack();
+            } catch (e) {
+              console.error(e);
+              Alert.alert(
+                "Error",
+                e instanceof Error ? e.message : "Failed to delete"
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Error color
   const errorColor = "#EF4444";
 
@@ -323,7 +365,18 @@ export default function FailedEmailDetailView({
               Failed Email
             </Text>
           </View>
-          <View className="w-10 h-10 mr-4" />
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={deleting}
+            className="w-10 h-10 items-center justify-center mr-4"
+            activeOpacity={0.7}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color={theme.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={22} color={theme.error} />
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
@@ -349,6 +402,30 @@ export default function FailedEmailDetailView({
         >
           Email for {petName} • {formattedTime}
         </Text>
+
+        {/* Delete button - visible when header is hidden (e.g. from Messages screen) */}
+        {hideHeader && (
+          <TouchableOpacity
+            onPress={handleDelete}
+            disabled={deleting}
+            className="flex-row items-center justify-center rounded-xl py-3 px-4 mb-4"
+            style={{
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+            activeOpacity={0.7}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color={theme.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={theme.error} style={{ marginRight: 8 }} />
+            )}
+            <Text className="text-base font-semibold" style={{ color: theme.error }}>
+              Delete email
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Subject Card */}
         {failedEmail.subject && (
