@@ -4,20 +4,20 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads } from "@/services/messages";
 import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Milo mascot image
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 type NavItem = {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  activeIcon: keyof typeof Ionicons.glyphMap;
+  iconFamily: "ionicons" | "material";
+  icon: string;
+  activeIcon: string;
   route?: string;
 };
 
@@ -26,17 +26,24 @@ type BottomNavBarProps = {
   selectedPetId?: string | null;
 };
 
+const CIRCLE = 48;
+const MILO = 60;
+const BAR_V_PAD = 8;
+const BAR_H_PAD = 8;
+const BAR_HEIGHT = CIRCLE + BAR_V_PAD * 2;
+
 export default function BottomNavBar({
   activeTab = "home",
   selectedPetId,
 }: BottomNavBarProps) {
   const { theme, mode } = useTheme();
-  const isDarkMode = mode === "dark";
+  const isDark = mode === "dark";
   const router = useRouter();
   const pathname = usePathname();
   const { openChat } = useChat();
   const { pets } = usePets();
   const { pendingApprovals } = useEmailApproval();
+  const insets = useSafeAreaInsets();
 
   const { data: threads = [] } = useQuery({
     queryKey: ["messageThreads"],
@@ -44,158 +51,121 @@ export default function BottomNavBar({
   });
 
   const unreadCount = useMemo(() => {
-    const threadUnread = threads.reduce(
-      (sum, t) => sum + (t.unread_count ?? 0),
-      0
-    );
+    const threadUnread = threads.reduce((sum, t) => sum + (t.unread_count ?? 0), 0);
     return threadUnread + pendingApprovals.length;
   }, [threads, pendingApprovals]);
 
-  // Use provided selectedPetId or fall back to first pet
   const petIdForNavigation = selectedPetId ?? pets[0]?.id;
 
   const navItems: NavItem[] = [
-    { id: "home", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
-    { id: "records", icon: "clipboard-outline", activeIcon: "clipboard", route: "/(home)/health-record/[id]" },
-    { id: "milo", icon: "chatbubble-outline", activeIcon: "chatbubble" }, // Center Milo chat
-    { id: "messages", icon: "mail-outline", activeIcon: "mail", route: "/(home)/messages" },
-    { id: "profile", icon: "settings-outline", activeIcon: "settings", route: "/(home)/settings" },
+    { id: "home", iconFamily: "ionicons", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
+    { id: "records", iconFamily: "material", icon: "heart-pulse", activeIcon: "heart-pulse", route: "/(home)/health-record/[id]" },
+    { id: "messages", iconFamily: "ionicons", icon: "chatbubbles-outline", activeIcon: "chatbubbles", route: "/(home)/messages" },
+    { id: "profile", iconFamily: "ionicons", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
   ];
 
-  const handleNavPress = (item: NavItem) => {
-    if (item.id === "milo") {
+  const handleNavPress = (id: string) => {
+    if (id === "milo") {
       openChat();
       return;
     }
-    if (item.route) {
-      // Handle dynamic route for health records
-      if (item.id === "records") {
-        if (petIdForNavigation) {
-          router.push(`/(home)/health-record/${petIdForNavigation}` as any);
-        }
-        return;
-      }
-      router.push(item.route as any);
+    const item = navItems.find((n) => n.id === id);
+    if (!item?.route) return;
+    if (item.id === "records") {
+      if (petIdForNavigation) router.push(`/(home)/health-record/${petIdForNavigation}` as any);
+      return;
     }
+    router.push(item.route as any);
   };
 
-  const activeColor = "#3BD0D2";
-  const inactiveColor = isDarkMode ? "hsl(215, 20%, 45%)" : "hsl(215, 20%, 55%)";
+  const ACTIVE = "#3BD0D2";
+  const ICON_INACTIVE = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.65)";
+  const BAR_BG = isDark ? "#1E2B2B" : "#D8DEDE";
+  const RING = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.10)";
+  const RING_INNER = isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.45)";
+  const MILO_RING = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+
+  const renderIcon = (item: NavItem, isActive: boolean) => {
+    const color = isActive ? "#FFFFFF" : ICON_INACTIVE;
+    const size = 22;
+    if (item.iconFamily === "material") {
+      return <MaterialCommunityIcons name={item.icon as any} size={size} color={color} />;
+    }
+    return (
+      <Ionicons
+        name={(isActive ? item.activeIcon : item.icon) as any}
+        size={size}
+        color={color}
+      />
+    );
+  };
 
   return (
-    <View className="px-4 pb-6 pt-8">
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 16,
+        paddingTop: 4,
+        paddingBottom: Math.max(insets.bottom > 0 ? 2 : 6, Platform.OS === "android" ? 6 : 0),
+        gap: 6,
+      }}
+    >
+      {/* Main pill bar with 4 nav icons */}
       <View
-        className="flex-row items-center justify-around rounded-3xl"
         style={{
-          backgroundColor: theme.card,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-          height: 46,
-          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: BAR_BG,
+          borderRadius: BAR_HEIGHT / 2,
+          height: BAR_HEIGHT,
+          paddingHorizontal: BAR_H_PAD,
+          gap: 6,
         }}
       >
         {navItems.map((item) => {
           const isActive = item.id === activeTab || (item.route && pathname === item.route);
-          const isMiloCenter = item.id === "milo";
-
-          if (isMiloCenter) {
-            // Center Milo Avatar - elevated above the bar
-            return (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleNavPress(item)}
-                activeOpacity={0.8}
-                className="items-center justify-center"
-                style={{
-                  marginTop: -20,
-                }}
-              >
-                {/* Outer glow ring */}
-                <View
-                  className="w-[60px] h-[60px] rounded-full items-center justify-center"
-                  style={{
-                    backgroundColor: theme.card,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.15,
-                    shadowRadius: 12,
-                    elevation: 8,
-                  }}
-                >
-                  {/* Border ring with gradient effect */}
-                  <LinearGradient
-                    colors={["#3BD0D2", "#2BA8AA", "#3BD0D2"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 34,
-                      padding: 3,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 62,
-                        height: 62,
-                        borderRadius: 31,
-                        backgroundColor: theme.card,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <Image
-                        source={MILO_AVATAR}
-                        style={{ width: 62, height: 62, borderRadius: 31 }}
-                        contentFit="cover"
-                      />
-                    </View>
-                  </LinearGradient>
-                </View>
-              </TouchableOpacity>
-            );
-          }
-
-          const showUnreadBadge = item.id === "messages" && unreadCount > 0;
-          const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
+          const showBadge = item.id === "messages" && unreadCount > 0;
+          const badgeText = unreadCount > 99 ? "99+" : String(unreadCount).padStart(2, "0");
 
           return (
             <TouchableOpacity
               key={item.id}
-              onPress={() => handleNavPress(item)}
+              onPress={() => handleNavPress(item.id)}
               activeOpacity={0.7}
-              className="items-center justify-center"
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 14,
+                width: CIRCLE,
+                height: CIRCLE,
+                borderRadius: CIRCLE / 2,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isActive ? ACTIVE : RING_INNER,
+                borderWidth: isActive ? 0 : 1.5,
+                borderColor: isActive ? "transparent" : RING,
               }}
             >
-              <View className="relative items-center justify-center">
-                <Ionicons
-                  name={isActive ? item.activeIcon : item.icon}
-                  size={24}
-                  color={isActive ? activeColor : inactiveColor}
-                />
-                {showUnreadBadge && (
+              <View style={{ position: "relative" }}>
+                {renderIcon(item, !!isActive)}
+                {showBadge && (
                   <View
-                    className="absolute -right-2 -top-1 min-w-[18px] items-center justify-center rounded-full px-1"
                     style={{
-                      backgroundColor: activeColor,
-                      height: 18,
+                      position: "absolute",
+                      top: -9,
+                      right: -12,
+                      minWidth: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      backgroundColor: "#EF4444",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 4,
+                      borderWidth: 2.5,
+                      borderColor: BAR_BG,
                     }}
                   >
-                    <Text
-                      className="text-[10px] font-bold text-white"
-                      numberOfLines={1}
-                    >
-                      {badgeLabel}
+                    <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff" }}>
+                      {badgeText}
                     </Text>
                   </View>
                 )}
@@ -204,7 +174,32 @@ export default function BottomNavBar({
           );
         })}
       </View>
+
+      {/* Milo avatar - separate circle outside the bar */}
+      <TouchableOpacity
+        onPress={() => handleNavPress("milo")}
+        activeOpacity={0.8}
+        style={{
+          width: MILO,
+          height: MILO,
+          borderRadius: MILO / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 3,
+          borderColor: MILO_RING,
+          backgroundColor: isDark ? "#1E2B2B" : "#D6DADA",
+        }}
+      >
+        <Image
+          source={MILO_AVATAR}
+          style={{
+            width: MILO - 6,
+            height: MILO - 6,
+            borderRadius: (MILO - 6) / 2,
+          }}
+          contentFit="cover"
+        />
+      </TouchableOpacity>
     </View>
   );
 }
-

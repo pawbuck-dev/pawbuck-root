@@ -2,15 +2,12 @@ import InitialWelcomeScreen from "@/components/InitialWelcomeScreen";
 import SplashScreen from "@/components/SplashScreen";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
-import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
-  const { theme, mode } = useTheme();
   const { isAuthenticated, loading } = useAuth();
   const { isOnboardingComplete } = useOnboarding();
   const [showSplash, setShowSplash] = useState(true);
@@ -29,14 +26,10 @@ export default function Index() {
     setShowWelcome(true);
   };
 
-  // Show loading screen while checking authentication
+  // Show loading screen while checking authentication (SplashScreen sets StatusBar by theme)
   if (loading) {
     return (
-      <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
-      >
-        <StatusBar style="light" />
+      <View className="flex-1">
         <SplashScreen onFinish={handleSplashFinish} />
       </View>
     );
@@ -47,21 +40,15 @@ export default function Index() {
     return null;
   }
 
-  // Show splash screen first
+  // Show splash screen (Figma light 1386:41126 / dark 1340:30146)
   if (showSplash) {
     return (
       <View className="flex-1">
-        <StatusBar style="light" />
         <SplashScreen onFinish={handleSplashFinish} />
       </View>
     );
   }
 
-  // Show initial welcome screen after splash
-  return (
-    <>
-      <StatusBar style="light" />
-      <InitialWelcomeScreen />
-    </>
-  );
+  // Show initial welcome screen after splash (Figma 1340:31045 dark / 1386:42025 light)
+  return <InitialWelcomeScreen />;
 }

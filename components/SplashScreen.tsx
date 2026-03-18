@@ -1,139 +1,108 @@
+import { useTheme } from "@/context/themeContext";
 import { useEffect, useRef } from "react";
-import { Animated, Image, Text, View } from "react-native";
+import {
+  Animated,
+  Dimensions,
+  Image,
+  StyleSheet,
+  View,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
 
+/**
+ * Splash screen — Figma node 1592:38599 (dark).
+ * Dark teal bg, radial glow, centered PawBuck logo, no text.
+ */
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
+const DARK_BG = "#182424";
+const OVERLAY_TINT = "rgba(11,150,150,0.06)";
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const LOGO_SIZE = 199;
+
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
+  const { mode } = useTheme();
+  const isDark = mode === "dark";
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const dot1Anim = useRef(new Animated.Value(0.3)).current;
-  const dot2Anim = useRef(new Animated.Value(0.3)).current;
-  const dot3Anim = useRef(new Animated.Value(0.3)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
-    // Fade in animation
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // Loading dots animation - continuous loop
-    const createDotAnimation = (animValue: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(animValue, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animValue, {
-            toValue: 0.3,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-    };
-
-    const dot1Loop = createDotAnimation(dot1Anim, 0);
-    const dot2Loop = createDotAnimation(dot2Anim, 200);
-    const dot3Loop = createDotAnimation(dot3Anim, 400);
-
-    dot1Loop.start();
-    dot2Loop.start();
-    dot3Loop.start();
-
-    // Auto transition after 2-3 seconds
-    const timer = setTimeout(() => {
-      dot1Loop.stop();
-      dot2Loop.stop();
-      dot3Loop.stop();
-      onFinish();
-    }, 2500);
-
-    return () => {
-      clearTimeout(timer);
-      dot1Loop.stop();
-      dot2Loop.stop();
-      dot3Loop.stop();
-    };
+    const timer = setTimeout(onFinish, 2500);
+    return () => clearTimeout(timer);
   }, []);
 
-  const dot1Opacity = dot1Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
-
-  const dot2Opacity = dot2Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
-
-  const dot3Opacity = dot3Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
-  });
-
   return (
-    <View
-      className="flex-1 items-center justify-center w-full h-full"
-      style={{ backgroundColor: "#0A0A0A" }}
-    >
+    <View style={[styles.container, { backgroundColor: DARK_BG }]}>
+      <StatusBar style="light" />
+
+      {/* Background glow decoration (Figma "bg" group 1592:38600) */}
+      <Image
+        source={require("@/assets/images/splash-bg.png")}
+        style={styles.bgImage}
+        resizeMode="cover"
+      />
+
+      {/* Teal overlay (Figma "overlay" 1592:38601, 6% #0B9696) */}
+      <View style={styles.overlay} pointerEvents="none" />
+
+      {/* Centered PawBuck logo (Figma "pawbuck-logo" 1592:38610, 199×199) */}
       <Animated.View
-        style={{
-          opacity: fadeAnim,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+        style={[
+          styles.logoContainer,
+          { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+        ]}
       >
-        {/* Logo */}
         <Image
-          source={require("@/assets/images/icon.png")}
-          style={{ width: 120, height: 120, marginBottom: 32 }}
+          source={require("@/assets/images/splash-logo.png")}
+          style={styles.logo}
           resizeMode="contain"
         />
-
-        {/* Tagline */}
-        <View className="items-center mb-16">
-          <Text className="text-2xl font-medium" style={{ color: "#E5E5E5" }}>
-            Pet Life. <Text style={{ color: "#5FC4C0" }}>Simplified.</Text>
-          </Text>
-        </View>
-
-        {/* Loading Dots */}
-        <View className="flex-row items-center gap-2">
-          <Animated.View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: "#5FC4C0",
-              opacity: dot1Opacity,
-            }}
-          />
-          <Animated.View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: "#5FC4C0",
-              opacity: dot2Opacity,
-            }}
-          />
-          <Animated.View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: "#5FC4C0",
-              opacity: dot3Opacity,
-            }}
-          />
-        </View>
       </Animated.View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bgImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: SCREEN_W,
+    height: SCREEN_H,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: OVERLAY_TINT,
+  },
+  logoContainer: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+  },
+});

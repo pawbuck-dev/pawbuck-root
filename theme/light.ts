@@ -1,9 +1,9 @@
 import { Theme } from "./model";
 
+/** Figma UI Design (Light) — e.g. onboarding/sign in 1386:41126, 1386:42025 */
 export const lightTheme: Theme = {
-  // Light teal-tinted white - hsl(180, 20%, 97%)
-  background: "#F5FAFA",
-  backgroundEnd: "#EEF4F4",
+  background: "#F2F7F7",
+  backgroundEnd: "#E8F2F2",
 
   // Dark blue-gray text - hsl(220, 25%, 15%)
   foreground: "#1D2433",

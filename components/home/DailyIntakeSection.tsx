@@ -1,11 +1,9 @@
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LinearGradient } from "expo-linear-gradient";
 import moment from "moment";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
 import DailyIntakeConfigModal from "./DailyIntakeConfigModal";
 
 type DailyIntakeSectionProps = {
@@ -17,68 +15,50 @@ type DailyIntakeData = {
   foodIntake: number;
   waterTarget: number;
   foodTarget: number;
-  lastResetDate: string; // YYYY-MM-DD format
+  lastResetDate: string;
 };
 
 const STORAGE_KEY_PREFIX = "daily_intake_";
 const DEFAULT_WATER_TARGET = 6;
-const DEFAULT_FOOD_TARGET = 3;
+const DEFAULT_FOOD_TARGET = 4;
 
-// Circular progress indicator for intake tracking
-const IntakeProgressCircle = ({
-  progress,
-  color,
+const IconRow = ({
+  count,
+  total,
+  filledColor,
+  emptyColor,
   icon,
-  size = 72,
-  strokeWidth = 6,
-  isLightMode = false,
 }: {
-  progress: number; // 0-100
-  color: string;
-  icon: React.ReactNode;
-  size?: number;
-  strokeWidth?: number;
-  isLightMode?: boolean;
-}) => {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-  return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
-        {/* Background circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={isLightMode ? "#E5E7EB" : "rgba(255, 255, 255, 0.1)"}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* Progress circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-        />
-      </Svg>
-      {/* Icon in center */}
-      <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-        {icon}
+  count: number;
+  total: number;
+  filledColor: string;
+  emptyColor: string;
+  icon: "paw" | "water";
+}) => (
+  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginVertical: 8 }}>
+    {Array.from({ length: total }).map((_, i) => (
+      <View key={i}>
+        {icon === "paw" ? (
+          <MaterialCommunityIcons
+            name="paw"
+            size={18}
+            color={i < count ? filledColor : emptyColor}
+          />
+        ) : (
+          <Ionicons
+            name="water"
+            size={18}
+            color={i < count ? filledColor : emptyColor}
+          />
+        )}
       </View>
-    </View>
-  );
-};
+    ))}
+  </View>
+);
 
 export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
   const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
   const [loading, setLoading] = useState(true);
   const [waterIntake, setWaterIntake] = useState(0);
   const [foodIntake, setFoodIntake] = useState(0);
@@ -88,16 +68,13 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
 
   const storageKey = `${STORAGE_KEY_PREFIX}${petId}`;
 
-  // Check if we need to reset for a new day
   const checkAndResetDaily = useCallback(async () => {
     try {
       const today = moment().format("YYYY-MM-DD");
       const stored = await AsyncStorage.getItem(storageKey);
-      
+
       if (stored) {
         const data: DailyIntakeData = JSON.parse(stored);
-        
-        // If last reset was not today, reset the intake values but keep targets
         if (data.lastResetDate !== today) {
           const resetData: DailyIntakeData = {
             waterIntake: 0,
@@ -111,17 +88,13 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
           setFoodIntake(0);
           setWaterTarget(resetData.waterTarget);
           setFoodTarget(resetData.foodTarget);
-          return resetData;
         } else {
-          // Same day, load existing data
           setWaterIntake(data.waterIntake || 0);
           setFoodIntake(data.foodIntake || 0);
           setWaterTarget(data.waterTarget || DEFAULT_WATER_TARGET);
           setFoodTarget(data.foodTarget || DEFAULT_FOOD_TARGET);
-          return data;
         }
       } else {
-        // No data exists, initialize with defaults
         const initialData: DailyIntakeData = {
           waterIntake: 0,
           foodIntake: 0,
@@ -130,19 +103,12 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
           lastResetDate: today,
         };
         await AsyncStorage.setItem(storageKey, JSON.stringify(initialData));
-        setWaterIntake(0);
-        setFoodIntake(0);
-        setWaterTarget(DEFAULT_WATER_TARGET);
-        setFoodTarget(DEFAULT_FOOD_TARGET);
-        return initialData;
       }
     } catch (error) {
       console.error("Error checking/resetting daily intake:", error);
-      return null;
     }
   }, [storageKey]);
 
-  // Load data on mount
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -152,270 +118,183 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
     loadData();
   }, [checkAndResetDaily]);
 
-  // Save to storage when values change
-  const saveToStorage = useCallback(async (water: number, food: number, waterTgt?: number, foodTgt?: number) => {
-    try {
-      const today = moment().format("YYYY-MM-DD");
-      const data: DailyIntakeData = {
-        waterIntake: water,
-        foodIntake: food,
-        waterTarget: waterTgt ?? waterTarget,
-        foodTarget: foodTgt ?? foodTarget,
-        lastResetDate: today,
-      };
-      await AsyncStorage.setItem(storageKey, JSON.stringify(data));
-    } catch (error) {
-      console.error("Error saving daily intake:", error);
-    }
-  }, [storageKey, waterTarget, foodTarget]);
+  const saveToStorage = useCallback(
+    async (water: number, food: number, waterTgt?: number, foodTgt?: number) => {
+      try {
+        const today = moment().format("YYYY-MM-DD");
+        const data: DailyIntakeData = {
+          waterIntake: water,
+          foodIntake: food,
+          waterTarget: waterTgt ?? waterTarget,
+          foodTarget: foodTgt ?? foodTarget,
+          lastResetDate: today,
+        };
+        await AsyncStorage.setItem(storageKey, JSON.stringify(data));
+      } catch (error) {
+        console.error("Error saving daily intake:", error);
+      }
+    },
+    [storageKey, waterTarget, foodTarget]
+  );
 
   const handleWaterIncrement = async () => {
     if (waterIntake < waterTarget) {
-      const newValue = waterIntake + 1;
-      setWaterIntake(newValue);
-      await saveToStorage(newValue, foodIntake);
+      const v = waterIntake + 1;
+      setWaterIntake(v);
+      await saveToStorage(v, foodIntake);
     }
   };
-
   const handleWaterDecrement = async () => {
     if (waterIntake > 0) {
-      const newValue = waterIntake - 1;
-      setWaterIntake(newValue);
-      await saveToStorage(newValue, foodIntake);
+      const v = waterIntake - 1;
+      setWaterIntake(v);
+      await saveToStorage(v, foodIntake);
     }
   };
-
   const handleFoodIncrement = async () => {
     if (foodIntake < foodTarget) {
-      const newValue = foodIntake + 1;
-      setFoodIntake(newValue);
-      await saveToStorage(waterIntake, newValue);
+      const v = foodIntake + 1;
+      setFoodIntake(v);
+      await saveToStorage(waterIntake, v);
     }
   };
-
   const handleFoodDecrement = async () => {
     if (foodIntake > 0) {
-      const newValue = foodIntake - 1;
-      setFoodIntake(newValue);
-      await saveToStorage(waterIntake, newValue);
+      const v = foodIntake - 1;
+      setFoodIntake(v);
+      await saveToStorage(waterIntake, v);
     }
   };
 
-  // Update targets (configurable)
-  const handleUpdateTargets = useCallback(async (newWaterTarget: number, newFoodTarget: number) => {
-    setWaterTarget(newWaterTarget);
-    setFoodTarget(newFoodTarget);
-    // Save targets with current intake values
-    await saveToStorage(waterIntake, foodIntake, newWaterTarget, newFoodTarget);
-  }, [waterIntake, foodIntake, saveToStorage]);
+  const handleUpdateTargets = useCallback(
+    async (newWaterTarget: number, newFoodTarget: number) => {
+      setWaterTarget(newWaterTarget);
+      setFoodTarget(newFoodTarget);
+      await saveToStorage(waterIntake, foodIntake, newWaterTarget, newFoodTarget);
+    },
+    [waterIntake, foodIntake, saveToStorage]
+  );
 
-  const isDarkMode = mode === "dark";
-  const waterProgress = waterTarget > 0 ? (waterIntake / waterTarget) * 100 : 0;
-  const foodProgress = foodTarget > 0 ? (foodIntake / foodTarget) * 100 : 0;
   if (loading) {
     return (
-      <View className="px-4">
+      <View style={{ paddingHorizontal: 20 }}>
         <ActivityIndicator size="small" color={theme.primary} />
       </View>
     );
   }
 
+  const cardBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+  const isAndroid = Platform.OS === "android";
+  const cardBorderStyle = isAndroid
+    ? {}
+    : { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" };
+  const btnBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)";
+
   return (
-    <View className="px-4">
-      {/* Daily Intake Card */}
-      <LinearGradient
-        colors={isDarkMode 
-          ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]  // dark card #1C2128
-          : ["#FFFFFF", "#F8FAFA"]}  // light card - crisp white to subtle teal tint
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          borderRadius: 24,
-          padding: 20,
-          borderWidth: isDarkMode ? 1 : 0,
-          borderColor: theme.border,
-          // Shadow for iOS - matches Tailwind shadow-lg
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.1,
-          shadowRadius: 15,
-          // Shadow for Android
-          elevation: 10,
-        }}
-      >
-        {/* Card Header */}
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center flex-1">
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-              style={{
-                backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE",
-              }}
-            >
-              <Ionicons
-                name="water"
-                size={24}
-                color={isDarkMode ? "#60A5FA" : "#3B82F6"}
-              />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-bold"
-                style={{ color: theme.foreground }}
-              >
-                Daily Intake
-              </Text>
-              <Text
-                className="text-sm"
-                style={{ color: theme.secondary }}
-              >
-                Track food & water
-              </Text>
-            </View>
+    <View style={{ paddingHorizontal: 20 }}>
+      {/* Section header */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground }}>
+          Daily Intake
+        </Text>
+        <TouchableOpacity onPress={() => setShowConfigModal(true)}>
+          <Ionicons name="settings-outline" size={20} color={theme.secondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Two cards side by side */}
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        {/* Food Card */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: cardBg,
+            borderRadius: 20,
+            padding: 14,
+            ...cardBorderStyle,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <MaterialCommunityIcons name="food-drumstick" size={20} color="#F97316" />
+            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground }}>Food</Text>
           </View>
-          <View className="flex-row items-center">
-            <TouchableOpacity
-              onPress={() => setShowConfigModal(true)}
-              className="w-8 h-8 items-center justify-center"
-            >
-              <Ionicons name="settings-outline" size={18} color={theme.secondary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Intake Items */}
-        <View className="gap-3">
-          {/* Water Tracking Item */}
-          <View
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: isDarkMode
-                ? "rgba(255, 255, 255, 0.05)"
-                : "#F8FAFC",
-            }}
-          >
-            {/* Progress Circle */}
-            <IntakeProgressCircle
-              progress={waterProgress}
-              color="#3B82F6"
-              icon={<Ionicons name="water" size={24} color="#3B82F6" />}
-              size={56}
-              strokeWidth={5}
-              isLightMode={!isDarkMode}
-            />
-
-            {/* Text Content */}
-            <View className="flex-1 ml-3">
-              <Text
-                className="text-base font-bold"
-                style={{ color: theme.foreground }}
-              >
-                Water
-              </Text>
-              <Text
-                className="text-sm mt-0.5"
-                style={{ color: theme.secondary }}
-              >
-                {waterIntake}/{waterTarget} bowls
-              </Text>
-            </View>
-
-            {/* Controls */}
-            <View className="flex-row gap-2">
-              <TouchableOpacity
-                onPress={handleWaterDecrement}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.1)" : "#E5E7EB",
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons 
-                  name="remove" 
-                  size={18} 
-                  color={isDarkMode ? theme.foreground : "#4B5563"} 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleWaterIncrement}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "#DBEAFE",
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add" size={18} color="#3B82F6" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Food Tracking Item */}
-          <View
-            className="flex-row items-center rounded-2xl p-4"
-            style={{
-              backgroundColor: isDarkMode
-                ? "rgba(255, 255, 255, 0.05)"
-                : "#F8FAFC",
-            }}
-          >
-            {/* Progress Circle */}
-            <IntakeProgressCircle
-              progress={foodProgress}
-              color="#F97316"
-              icon={<MaterialCommunityIcons name="silverware-fork-knife" size={24} color="#F97316" />}
-              size={56}
-              strokeWidth={5}
-              isLightMode={!isDarkMode}
-            />
-
-            {/* Text Content */}
-            <View className="flex-1 ml-3">
-              <Text
-                className="text-base font-bold"
-                style={{ color: theme.foreground }}
-              >
-                Food
-              </Text>
-              <Text
-                className="text-sm mt-0.5"
-                style={{ color: theme.secondary }}
-              >
-                {foodIntake}/{foodTarget} meals
-              </Text>
-            </View>
-
-            {/* Controls */}
-            <View className="flex-row gap-2">
+          <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 4 }}>
+            {foodIntake}/{foodTarget} meals daily
+          </Text>
+          <IconRow
+            count={foodIntake}
+            total={foodTarget}
+            filledColor="#F97316"
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}
+            icon="paw"
+          />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+            <Text style={{ fontSize: 13, color: theme.secondary }}>
+              {foodIntake}/{foodTarget} meals
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
                 onPress={handleFoodDecrement}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isDarkMode ? "rgba(255, 255, 255, 0.1)" : "#E5E7EB",
-                }}
-                activeOpacity={0.7}
+                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
               >
-                <Ionicons 
-                  name="remove" 
-                  size={18} 
-                  color={isDarkMode ? theme.foreground : "#4B5563"} 
-                />
+                <Ionicons name="remove" size={16} color={theme.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleFoodIncrement}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{
-                  backgroundColor: isDarkMode ? "rgba(249, 115, 22, 0.2)" : "#FFEDD5",
-                }}
-                activeOpacity={0.7}
+                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(249,115,22,0.15)" }}
               >
-                <Ionicons name="add" size={18} color="#F97316" />
+                <Ionicons name="add" size={16} color="#F97316" />
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      </LinearGradient>
 
-      {/* Configuration Modal */}
+        {/* Water Card */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: cardBg,
+            borderRadius: 20,
+            padding: 14,
+            ...cardBorderStyle,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Ionicons name="water" size={20} color="#3B82F6" />
+            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground }}>Water</Text>
+          </View>
+          <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 4 }}>
+            {waterIntake}/{waterTarget} cups daily
+          </Text>
+          <IconRow
+            count={waterIntake}
+            total={waterTarget}
+            filledColor="#3B82F6"
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}
+            icon="water"
+          />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+            <Text style={{ fontSize: 13, color: theme.secondary }}>
+              {waterIntake}/{waterTarget} cups
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={handleWaterDecrement}
+                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
+              >
+                <Ionicons name="remove" size={16} color={theme.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleWaterIncrement}
+                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(59,130,246,0.15)" }}
+              >
+                <Ionicons name="add" size={16} color="#3B82F6" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+
       <DailyIntakeConfigModal
         visible={showConfigModal}
         onClose={() => setShowConfigModal(false)}

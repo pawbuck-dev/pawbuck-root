@@ -1,17 +1,15 @@
-import { AnimatedParticles } from "@/components/animations/AnimatedParticles";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
+import CatchUpSection from "@/components/home/CatchUpSection";
 import DailyIntakeSection from "@/components/home/DailyIntakeSection";
-import DailyWellnessSection from "@/components/home/DailyWellnessSection";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import HomeHeader from "@/components/home/HomeHeader";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
-import TodaysMedicationsSection from "@/components/home/TodaysMedicationsSection";
 import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -38,7 +36,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -71,24 +68,19 @@ export default function Home() {
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const queryClient = useQueryClient();
 
-  // State
   const [emailCopied, setEmailCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showCareTeamModal, setShowCareTeamModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
-  const [selectedMember, setSelectedMember] = useState<VetInformation | null>(
-    null
-  );
+  const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
   const [showEmailOnboarding, setShowEmailOnboarding] = useState(false);
 
-  // Fetch message threads (shared cache with Messages screen / BottomNavBar) for per-pet unread
   const { data: messageThreads = [] } = useQuery({
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
   });
 
-  // Compute notification counts per pet: pending approvals + unread messages in threads
   const notificationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     pendingApprovals.forEach((approval) => {
@@ -103,81 +95,58 @@ export default function Home() {
     return counts;
   }, [pendingApprovals, messageThreads]);
 
-  // Fetch vaccinations for selected pet
   const { data: vaccinations = [] } = useQuery({
     queryKey: ["vaccinations", selectedPetId],
     queryFn: () => getVaccinationsByPetId(selectedPetId!),
     enabled: !!selectedPetId,
   });
 
-  // Fetch medications for selected pet
   const { data: medicines = [] } = useQuery({
     queryKey: ["medicines", selectedPetId],
     queryFn: () => fetchMedicines(selectedPetId!),
     enabled: !!selectedPetId,
   });
 
-  // Fetch care team members for the selected pet
   const { data: careTeamMembers = [] } = useQuery({
     queryKey: ["care_team_members", selectedPetId],
     queryFn: () => getCareTeamMembersForPet(selectedPetId!),
     enabled: !!selectedPetId,
   });
 
-  // Mutations for care team members
   const createCareTeamMemberMutation = useMutation({
     mutationFn: async ({
       memberData,
     }: {
       memberData: TablesInsert<"vet_information">;
     }) => {
-      // Check for existing care team member by email or phone (deduplication)
       const existingMember = await findExistingCareTeamMember(
         memberData.email,
         memberData.phone
       );
-
       let careTeamMemberId: string;
-
       if (existingMember) {
-        // Use existing record - optionally update it with new details
         await updateVetInformation(existingMember.id, memberData);
         careTeamMemberId = existingMember.id;
       } else {
-        // Create new record
         const newMember = await createVetInformation(memberData);
         careTeamMemberId = newMember.id;
       }
-
-      // Link to all user pets
       const petIds = await linkCareTeamMemberToAllUserPets(careTeamMemberId);
-
       return { careTeamMemberId, petIds };
     },
     onSuccess: (result) => {
-      // Invalidate care team members for all affected pets
       result.petIds.forEach((petId) => {
-        queryClient.invalidateQueries({
-          queryKey: ["care_team_members", petId],
-        });
+        queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
       });
     },
   });
 
   const updateCareTeamMemberMutation = useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: TablesUpdate<"vet_information">;
-    }) => {
+    mutationFn: async ({ id, data }: { id: string; data: TablesUpdate<"vet_information"> }) => {
       return updateVetInformation(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
       queryClient.invalidateQueries({ queryKey: ["vet_information"] });
     },
   });
@@ -187,27 +156,20 @@ export default function Home() {
       await unlinkCareTeamMemberFromPet(selectedPetId!, memberId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
     },
   });
 
-  // Handlers
   const handleSelectPet = useCallback(
-    (petId: string) => {
-      setSelectedPetId(petId);
-    },
+    (petId: string) => setSelectedPetId(petId),
     [setSelectedPetId]
   );
 
-  // Swipe to change pet
   const handleSwipePet = useCallback(
     (direction: "left" | "right") => {
       if (pets.length <= 1) return;
       const currentIndex = pets.findIndex((p) => p.id === selectedPetId);
       if (currentIndex === -1) return;
-
       let newIndex: number;
       if (direction === "right") {
         newIndex = (currentIndex + 1) % pets.length;
@@ -222,11 +184,8 @@ export default function Home() {
   const swipeGesture = Gesture.Pan()
     .activeOffsetX([-20, 20])
     .onEnd((event) => {
-      if (event.velocityX < -500) {
-        handleSwipePet("left");
-      } else if (event.velocityX > 500) {
-        handleSwipePet("right");
-      }
+      if (event.velocityX < -500) handleSwipePet("left");
+      else if (event.velocityX > 500) handleSwipePet("right");
     })
     .runOnJS(true);
 
@@ -241,13 +200,9 @@ export default function Home() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: ["vaccinations", selectedPetId],
-      }),
+      queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
-      queryClient.invalidateQueries({
-        queryKey: ["care_team_members", selectedPetId],
-      }),
+      queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
       refreshPendingApprovals(),
     ]);
@@ -262,31 +217,24 @@ export default function Home() {
 
   const handleEditCareTeamMember = (member: VetInformation) => {
     setSelectedMember(member);
-    setSelectedMemberType(
-      ((member as any).type as CareTeamMemberType) || "veterinarian"
-    );
+    setSelectedMemberType(((member as any).type as CareTeamMemberType) || "veterinarian");
     setShowCareTeamModal(true);
   };
 
   const handleSaveCareTeamMember = async (data: CareTeamMemberSaveData) => {
     if (!selectedPetId) return;
     const { memberData } = data;
-
     try {
       if (selectedMember) {
-        // Editing existing member - only update the member data
         await updateCareTeamMemberMutation.mutateAsync({
           id: selectedMember.id,
           data: memberData as TablesUpdate<"vet_information">,
         });
       } else {
-        // Creating new member - use dedup logic and link to all user pets
         await createCareTeamMemberMutation.mutateAsync({
           memberData: memberData as TablesInsert<"vet_information">,
         });
       }
-      // Care team members are automatically whitelisted via pet_care_team_members junction table
-      // No need to manually add to pet_email_list
       setShowCareTeamModal(false);
       setSelectedMember(null);
     } catch (error) {
@@ -302,32 +250,22 @@ export default function Home() {
     }
   };
 
-  // Check if email onboarding should be shown
   useEffect(() => {
     const checkEmailOnboarding = async () => {
       if (selectedPet?.email_id) {
         const hasSeen = await hasSeenEmailOnboarding();
-        if (!hasSeen) {
-          setShowEmailOnboarding(true);
-        }
+        if (!hasSeen) setShowEmailOnboarding(true);
       }
     };
     checkEmailOnboarding();
   }, [selectedPet?.email_id]);
 
-  // Refetch data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (selectedPetId) {
-        queryClient.invalidateQueries({
-          queryKey: ["vaccinations", selectedPetId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["medicines", selectedPetId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["care_team_members", selectedPetId],
-        });
+        queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
       }
       refreshPendingApprovals();
     }, [selectedPetId, queryClient, refreshPendingApprovals])
@@ -336,12 +274,9 @@ export default function Home() {
   // Loading states
   if (addingPet) {
     return (
-      <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
-      >
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text className="mt-4 text-xl" style={{ color: theme.foreground }}>
+        <Text style={{ marginTop: 16, fontSize: 20, color: theme.foreground }}>
           Adding your pet...
         </Text>
       </View>
@@ -350,12 +285,9 @@ export default function Home() {
 
   if (loadingPets) {
     return (
-      <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
-      >
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text className="mt-4 text-xl" style={{ color: theme.foreground }}>
+        <Text style={{ marginTop: 16, fontSize: 20, color: theme.foreground }}>
           Loading your pets...
         </Text>
       </View>
@@ -365,180 +297,80 @@ export default function Home() {
   // Empty state
   if (pets.length === 0) {
     return (
-      <View
-        className="flex-1"
-        style={{ backgroundColor: theme.background }}
-      >
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ["#050D10", "#0A1B1B", "#050D10"]
-              : ["#ffffff", "#E1F5F8", "#ffffff"]
-          }
-          locations={[0, 0.5, 1]}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-        />
-        <AnimatedParticles />
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
         <HomeHeader />
-        <View className="flex-1 items-center justify-center px-8">
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <View
-            className="w-32 h-32 rounded-full items-center justify-center mb-6"
             style={{
-              backgroundColor: isDarkMode
-                ? "rgba(255, 255, 255, 0.2)"
-                : theme.card,
+              width: 128,
+              height: 128,
+              borderRadius: 64,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+              backgroundColor: isDarkMode ? "rgba(255,255,255,0.2)" : theme.card,
               borderWidth: isDarkMode ? 0 : 1,
               borderColor: isDarkMode ? "transparent" : theme.border,
             }}
           >
-            <Ionicons
-              name="paw"
-              size={64}
-              color={isDarkMode ? "#FFFFFF" : theme.primary}
-            />
+            <Ionicons name="paw" size={64} color={isDarkMode ? "#FFFFFF" : theme.primary} />
           </View>
-          <Text
-            className="text-3xl font-bold text-center mb-2"
-            style={{ color: theme.foreground }}
-          >
+          <Text style={{ fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 8, color: theme.foreground }}>
             No pets yet
           </Text>
-          <Text
-            className="text-lg text-center mb-8"
-            style={{ color: theme.secondary }}
-          >
+          <Text style={{ fontSize: 18, textAlign: "center", marginBottom: 32, color: theme.secondary }}>
             Add your first furry friend to get started
           </Text>
-
-          {/* Option Buttons */}
-          <View className="w-full max-w-md gap-3">
-            {/* Add Your First Pet */}
-            <TouchableOpacity
-              onPress={() => router.push("/onboarding/step1")}
-              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
+          <TouchableOpacity
+            onPress={() => router.push("/onboarding/step1")}
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              paddingHorizontal: 32,
+              paddingVertical: 16,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+            activeOpacity={0.7}
+          >
+            <View
               style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+                backgroundColor: isDarkMode ? theme.border : "rgba(0,0,0,0.05)",
               }}
-              activeOpacity={0.7}
             >
-              <View
-                className="w-8 h-8 rounded-full items-center justify-center mr-3"
-                style={{
-                  backgroundColor: isDarkMode
-                    ? theme.border
-                    : "rgba(0, 0, 0, 0.05)",
-                }}
-              >
-                <Ionicons name="add" size={20} color={theme.primary} />
-              </View>
-              <Text
-                className="text-lg font-bold"
-                style={{ color: theme.primary }}
-              >
-                Add Your First Pet
-              </Text>
-            </TouchableOpacity>
-
-            {/* Join Household
-            <TouchableOpacity
-              onPress={() => router.push("/join-household")}
-              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="account-group-outline"
-                size={24}
-                color={theme.primary}
-                style={{ marginRight: 8 }}
-              />
-              <Text
-                className="text-lg font-bold"
-                style={{ color: theme.primary }}
-              >
-                Join Family Circle
-              </Text>
-            </TouchableOpacity> */}
-
-            {/* Transfer Pet */}
-            {/* <TouchableOpacity
-              onPress={() => router.push("/transfer-pet")}
-              className="px-8 py-4 rounded-2xl flex-row items-center justify-center"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: isDarkMode ? theme.border : "rgba(0, 0, 0, 0.1)",
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="swap-horizontal"
-                size={24}
-                color={theme.primary}
-                style={{ marginRight: 8 }}
-              />
-              <Text
-                className="text-lg font-bold"
-                style={{ color: theme.primary }}
-              >
-                Transfer Pet with Code
-              </Text>
-            </TouchableOpacity> */}
-          </View>
+              <Ionicons name="add" size={20} color={theme.primary} />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.primary }}>
+              Add Your First Pet
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  if (!selectedPet) {
-    return null;
-  }
+  if (!selectedPet) return null;
 
   return (
-    <View
-      className="flex-1"
-      style={{ backgroundColor: theme.background }}
-    >
-      {/* Background Gradient - Only in dark mode */}
-      <>
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ["#050D10", "#0A1B1B", "#050D10"]
-              : ["#ffffff", "#E1F5F8", "#ffffff"]
-          }
-          locations={[0, 0.5, 1]}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-        />
-        {/* Animated Floating Particles */}
-        <AnimatedParticles />
-      </>
-
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
       <HomeHeader />
 
-      {/* Main Content with Swipe Gesture */}
+      {/* Main Scrollable Content */}
       <GestureDetector gesture={swipeGesture}>
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -550,7 +382,7 @@ export default function Home() {
           }
         >
           {/* Pet Selector */}
-          <View className="mb-5 px-4">
+          <View style={{ marginBottom: 16 }}>
             <PetSelector
               pets={pets}
               selectedPetId={selectedPetId}
@@ -559,80 +391,47 @@ export default function Home() {
             />
           </View>
 
-          {/* Pet Photo Card */}
+          {/* Pet Photo Card with Email Overlay */}
           {selectedPet && (
-            <View className="mx-4 mb-4 rounded-3xl overflow-hidden">
-              <PetImage pet={selectedPet} style="hero" />
-            </View>
-          )}
-
-          {/* Pet Email */}
-          {selectedPet && (
-            <View className="mx-4 mb-6 items-center">
-              <TouchableOpacity
-                className="flex-row items-center gap-2 px-5 py-3 rounded-full"
-                style={{
-                  backgroundColor:
-                    mode === "dark" ? theme.card : theme.border + "80",
-                  borderWidth: mode === "dark" ? 1 : 0,
-                  borderColor: theme.border,
-                }}
-                onPress={handleCopyEmail}
-                activeOpacity={0.7}
-              >
-                <Text
-                  className="text-lg font-medium"
-                  style={{ color: emailCopied ? "#22C55E" : theme.foreground }}
-                >
-                  {selectedPet.email_id}@pawbuck.app
-                </Text>
-                <Ionicons
-                  name={emailCopied ? "checkmark" : "copy-outline"}
-                  size={18}
-                  color={emailCopied ? "#22C55E" : theme.secondary}
-                />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Daily Wellness Section */}
-          {selectedPet && (
-            <View className="mb-6">
-              <DailyWellnessSection
-                petId={selectedPet.id}
-                vaccinations={vaccinations}
-                petCountry={selectedPet.country}
+            <View style={{ marginBottom: 20 }}>
+              <PetImage
+                pet={selectedPet}
+                style="hero"
+                onCopyEmail={handleCopyEmail}
+                emailCopied={emailCopied}
               />
             </View>
           )}
 
-          {/* Today's Medications Section */}
-          {selectedPet && medicines.length > 0 && (
-            <View className="mb-6">
-              <TodaysMedicationsSection
+          {/* Catch Up Section (Vaccinations & Medication Alerts) */}
+          {selectedPet && (
+            <View style={{ marginBottom: 24 }}>
+              <CatchUpSection
                 petId={selectedPet.id}
+                vaccinations={vaccinations}
                 medicines={medicines}
+                petCountry={selectedPet.country}
               />
             </View>
           )}
 
           {/* Daily Intake Section */}
           {selectedPet && (
-            <View className="mb-6">
+            <View style={{ marginBottom: 24 }}>
               <DailyIntakeSection petId={selectedPet.id} />
             </View>
           )}
 
           {/* Health Records Section */}
           {selectedPet && (
-            <View className="mb-6">
+            <View style={{ marginBottom: 24 }}>
               <HealthRecordsSection petId={selectedPet.id} />
             </View>
           )}
 
           {/* My Care Team Section */}
           {selectedPet && (
-            <View className="mb-8">
+            <View style={{ marginBottom: 32 }}>
               <MyCareTeamSection
                 careTeamMembers={careTeamMembers}
                 onAddMember={handleAddCareTeamMember}
@@ -642,8 +441,7 @@ export default function Home() {
             </View>
           )}
 
-          {/* Bottom Padding for scroll */}
-          <View className="h-4" />
+          <View style={{ height: 8 }} />
         </ScrollView>
       </GestureDetector>
 

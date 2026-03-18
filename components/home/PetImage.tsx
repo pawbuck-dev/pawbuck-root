@@ -20,13 +20,21 @@ import PrivateImage from "../PrivateImage";
 type PetImageProps = {
   pet: Pet;
   style?: "default" | "hero";
+  onCopyEmail?: () => void;
+  emailCopied?: boolean;
 };
 
-export default function PetImage({ pet, style = "default" }: PetImageProps) {
-  const { theme } = useTheme();
+export default function PetImage({
+  pet,
+  style = "default",
+  onCopyEmail,
+  emailCopied = false,
+}: PetImageProps) {
+  const { theme, mode } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const isDark = mode === "dark";
 
   const updateImage = async (image: ImagePickerAsset) => {
     try {
@@ -52,18 +60,12 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
 
   const handleTakePhoto = async () => {
     const image = await takePhoto();
-
-    if (image) {
-      await updateImage(image);
-    }
+    if (image) await updateImage(image);
   };
 
   const handleUpload = async () => {
     const image = await pickImageFromLibrary();
-
-    if (image) {
-      await updateImage(image);
-    }
+    if (image) await updateImage(image);
   };
 
   const handlePhotoUpload = () => {
@@ -71,91 +73,127 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
       "Upload Photo",
       "Choose an option",
       [
-        {
-          text: "Take Photo",
-          onPress: handleTakePhoto,
-        },
-        {
-          text: "Choose from Gallery",
-          onPress: handleUpload,
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Take Photo", onPress: handleTakePhoto },
+        { text: "Choose from Gallery", onPress: handleUpload },
+        { text: "Cancel", style: "cancel" },
       ],
       { cancelable: true }
     );
   };
 
-  // Hero style - large image for the card
   if (style === "hero") {
     return (
-      <TouchableOpacity
-        onPress={handlePhotoUpload}
-        activeOpacity={0.9}
-        disabled={uploading}
-        className="w-full aspect-[16/8] items-center justify-center"
+      <View
         style={{
+          marginHorizontal: 20,
+          borderRadius: 20,
+          overflow: "hidden",
           backgroundColor: theme.dashedCard,
         }}
       >
-        {uploading && (
-          <View className="absolute inset-0 items-center justify-center z-10 bg-black/30">
-            <ActivityIndicator size="large" color="#fff" />
-          </View>
-        )}
+        <TouchableOpacity
+          onPress={handlePhotoUpload}
+          activeOpacity={0.9}
+          disabled={uploading}
+          style={{ width: "100%", aspectRatio: 16 / 10, justifyContent: "center", alignItems: "center" }}
+        >
+          {uploading && (
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+                backgroundColor: "rgba(0,0,0,0.3)",
+              }}
+            >
+              <ActivityIndicator size="large" color="#fff" />
+            </View>
+          )}
 
-        {pet.photo_url ? (
-          <>
+          {pet.photo_url ? (
             <PrivateImage
               bucketName="pets"
               filePath={pet.photo_url}
-              className="w-full h-full"
+              style={{ width: "100%", height: "100%" }}
               resizeMode="cover"
             />
-            {/* Camera icon overlay */}
-            <View
-              className="absolute bottom-4 right-4 w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <Ionicons name="camera-outline" size={20} color="#fff" />
+          ) : (
+            <View style={{ alignItems: "center", justifyContent: "center", flex: 1 }}>
+              <Ionicons name="camera-outline" size={40} color={theme.secondary} />
+              <Text style={{ fontSize: 14, fontWeight: "500", color: theme.secondary, marginTop: 8 }}>
+                Add Photo
+              </Text>
             </View>
-          </>
-        ) : (
-          <View className="items-center justify-center flex-1">
+          )}
+
+          {/* Camera icon overlay */}
+          {pet.photo_url && !uploading && (
             <View
-              className="w-24 h-24 rounded-2xl items-center justify-center mb-3"
               style={{
-                backgroundColor: theme.border,
-                borderWidth: 2,
-                borderStyle: "dashed",
-                borderColor: theme.secondary,
+                position: "absolute",
+                bottom: 48,
+                right: 12,
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(0,0,0,0.4)",
               }}
             >
-              <Ionicons name="camera-outline" size={40} color={theme.secondary} />
+              <Ionicons name="camera-outline" size={18} color="#fff" />
             </View>
-            <Text
-              className="text-base font-medium"
-              style={{ color: theme.secondary }}
-            >
-              Add Photo
+          )}
+        </TouchableOpacity>
+
+        {/* Email bar overlay at bottom of image card */}
+        {pet.email_id && (
+          <TouchableOpacity
+            onPress={onCopyEmail}
+            activeOpacity={0.7}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              backgroundColor: isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.6)",
+              gap: 8,
+            }}
+          >
+            <Ionicons name="mail-outline" size={16} color="rgba(255,255,255,0.8)" />
+            <Text style={{ fontSize: 13, color: emailCopied ? "#4ADE80" : "rgba(255,255,255,0.9)" }}>
+              {pet.email_id}@pawbuck.com
             </Text>
-          </View>
+            <Ionicons
+              name={emailCopied ? "checkmark-circle" : "copy-outline"}
+              size={14}
+              color={emailCopied ? "#4ADE80" : "rgba(255,255,255,0.6)"}
+            />
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
     );
   }
 
-  // Default style - circular avatar
   return (
-    <View className="items-center mb-5">
+    <View style={{ alignItems: "center", marginBottom: 20 }}>
       <TouchableOpacity
         onPress={handlePhotoUpload}
         activeOpacity={0.7}
         disabled={uploading}
-        className="w-40 h-40 rounded-full items-center justify-center overflow-hidden"
         style={{
+          width: 160,
+          height: 160,
+          borderRadius: 80,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
           backgroundColor: theme.dashedCard,
           borderWidth: pet.photo_url ? 0 : 2,
           borderStyle: "dashed",
@@ -163,23 +201,18 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
         }}
       >
         {uploading && <ActivityIndicator size="small" color={theme.primary} />}
-
         {!uploading && pet.photo_url && (
           <PrivateImage
             bucketName="pets"
             filePath={pet.photo_url}
-            className="w-40 h-40"
+            style={{ width: 160, height: 160 }}
             resizeMode="cover"
           />
         )}
-
         {!uploading && !pet.photo_url && (
           <>
             <Ionicons name="camera-outline" size={40} color={theme.secondary} />
-            <Text
-              className="text-xs mt-2 font-medium"
-              style={{ color: theme.secondary }}
-            >
+            <Text style={{ fontSize: 12, marginTop: 8, fontWeight: "500", color: theme.secondary }}>
               Add Photo
             </Text>
           </>

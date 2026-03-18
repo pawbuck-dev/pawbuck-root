@@ -3,6 +3,6 @@
 @tailwind utilities;
 
 * {
-  font-family: Outfit_400Regular, system-ui, sans-serif;
+  font-family: Poppins_400Regular, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
