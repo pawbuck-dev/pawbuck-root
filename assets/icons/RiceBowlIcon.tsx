@@ -2,30 +2,26 @@ import React from "react";
 import Svg, { Path } from "react-native-svg";
 import type { IconProps } from "./types";
 
-/** Figma Iconography: rice-bowl-01 (variants: stroke, bold). Replace path with Figma export. */
 export function RiceBowlIcon({
   size = 24,
   color = "#0D0F0F",
-  variant = "linear",
   ...rest
 }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
-      {variant === "linear" && (
-        <Path
-          d="M12 4c-3 0-5 2-5 5v6c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V9c0-3-2-5-5-5zM8 10h8M12 8v2"
-          stroke={color}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
-      {variant === "bold" && (
-        <Path
-          d="M12 4c-3 0-5 2-5 5v6c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V9c0-3-2-5-5-5z"
-          fill={color}
-        />
-      )}
+    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none" {...rest}>
+      <Path
+        d="M5.2149 15.9985H24.1163C26.2532 15.9985 27.0361 16.4928 26.5029 18.6411C25.5625 22.4308 22.8995 23.3721 20.439 25.8456C19.841 26.4469 20.7715 27.3353 20.772 27.9965C20.773 29.2415 19.5889 29.3308 18.6458 29.3308H10.6853C9.74218 29.3308 8.55815 29.2415 8.55914 27.9965C8.55964 27.3493 9.46224 26.4189 8.89211 25.8456C6.43164 23.3721 3.76874 22.4308 2.8282 18.6411C2.29501 16.4928 3.0779 15.9985 5.2149 15.9985Z"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M24.6649 15.9988C24.6649 13.6109 22.1319 11.9835 19.9986 12.922M4.6665 15.9988C4.6665 14.2746 5.9578 12.8541 7.61974 12.6643C6.53441 10.2104 8.83459 7.45824 11.3845 8.02235M11.3845 8.02235C12.0195 4.43656 17.3119 4.43656 17.9469 8.02235C20.5566 7.44505 22.7628 10.2422 21.7212 12.6427M11.3845 8.02235C12.1759 8.19743 12.862 8.6557 13.3325 9.28629"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }

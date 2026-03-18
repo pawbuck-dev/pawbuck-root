@@ -4,7 +4,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Platform, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, Text, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 
 type MyCareTeamSectionProps = {
   careTeamMembers?: VetInformation[];
@@ -46,12 +47,12 @@ const getTypeColor = (type: CareTeamMemberType | null): string => {
   return type ? colors[type] : "#60A5FA";
 };
 
-const PLACEHOLDER_IMAGES: Record<CareTeamMemberType, any> = {
-  veterinarian: null,
-  dog_walker: null,
-  groomer: null,
-  pet_sitter: null,
-  boarding: null,
+const CARE_TEAM_IMAGES: Record<CareTeamMemberType, any> = {
+  veterinarian: require("@/assets/images/vet.png"),
+  dog_walker: require("@/assets/images/walker.png"),
+  groomer: require("@/assets/images/gromer.png"),
+  pet_sitter: require("@/assets/images/care.png"),
+  boarding: require("@/assets/images/care.png"),
 };
 
 export default function MyCareTeamSection({
@@ -107,36 +108,50 @@ export default function MyCareTeamSection({
         disabled={readOnly}
         style={{
           backgroundColor: cardBg,
-          borderRadius: 20,
-          padding: 16,
-          marginBottom: 12,
+          borderRadius: 24,
+          paddingLeft: 18,
+          paddingTop: 18,
+          paddingBottom: 18,
+          paddingRight: 0,
+          marginBottom: 14,
+          overflow: "hidden",
           ...cardBorderStyle,
         }}
       >
         {/* Type label row */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
-          <MaterialCommunityIcons name={typeIcon as any} size={14} color={typeColor} />
-          <Text style={{ fontSize: 12, fontWeight: "600", color: typeColor }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <MaterialCommunityIcons name={typeIcon as any} size={18} color={isDark ? theme.foreground : "#1D2433"} />
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
             {typeLabel}
           </Text>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground, marginBottom: 2 }}>
+        <View style={{ flexDirection: "row" }}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground, marginBottom: 3 }}>
               {displayName}
             </Text>
             {clinicName && clinicName !== displayName && (
-              <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 10 }}>
+              <Text style={{ fontSize: 14, color: theme.secondary, marginBottom: 14 }}>
                 {clinicName}
               </Text>
             )}
             {!clinicName || clinicName === displayName ? (
-              <View style={{ height: 10 }} />
+              <View style={{ height: 14 }} />
             ) : null}
 
-            {/* Action buttons */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: "row", gap: 10 }}>
               {member.phone && (
                 <TouchableOpacity
                   onPress={(e) => {
@@ -147,15 +162,17 @@ export default function MyCareTeamSection({
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    paddingHorizontal: 12,
-                    paddingVertical: 7,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
                     borderRadius: 100,
-                    backgroundColor: btnBg,
-                    gap: 5,
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+                    backgroundColor: "transparent",
+                    gap: 6,
                   }}
                 >
-                  <Ionicons name="call-outline" size={14} color={theme.secondary} />
-                  <Text style={{ fontSize: 12, fontWeight: "500", color: theme.secondary }}>
+                  <Ionicons name="call-outline" size={15} color={theme.foreground} />
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
                     Call
                   </Text>
                 </TouchableOpacity>
@@ -169,35 +186,31 @@ export default function MyCareTeamSection({
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
                   borderRadius: 100,
-                  backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "rgba(59,208,210,0.1)",
-                  gap: 5,
+                  backgroundColor: theme.primary,
+                  gap: 6,
                 }}
               >
-                <Ionicons name="mail-outline" size={14} color={theme.primary} />
-                <Text style={{ fontSize: 12, fontWeight: "500", color: theme.primary }}>
+                <Ionicons name="mail-outline" size={15} color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: "600", color: "#FFFFFF" }}>
                   Email
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Placeholder for 3D character image */}
-          <View
+          <Image
+            source={CARE_TEAM_IMAGES[type]}
             style={{
-              width: 80,
-              height: 80,
-              borderRadius: 12,
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginLeft: 8,
+              width: 140,
+              height: 140,
+              marginTop: -10,
+              marginRight: -8,
             }}
-          >
-            <MaterialCommunityIcons name={typeIcon as any} size={32} color={`${typeColor}40`} />
-          </View>
+            contentFit="contain"
+          />
         </View>
       </TouchableOpacity>
     );
@@ -207,7 +220,7 @@ export default function MyCareTeamSection({
     <View style={{ paddingHorizontal: 20 }}>
       {/* Section Header */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground }}>
+        <Text style={{ fontSize: 18, fontWeight: "500", color: isDark ? "#FFFFFF" : "#0D0F0F", lineHeight: 21.6, textTransform: "capitalize" }}>
           My Care Team
         </Text>
         <TouchableOpacity

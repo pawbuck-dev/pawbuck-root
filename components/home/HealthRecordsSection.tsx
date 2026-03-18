@@ -60,7 +60,7 @@ export default function HealthRecordsSection({ petId }: HealthRecordsSectionProp
 
   return (
     <View style={{ paddingHorizontal: 20 }}>
-      <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground, marginBottom: 14 }}>
+      <Text style={{ fontSize: 18, fontWeight: "500", color: isDark ? "#FFFFFF" : "#0D0F0F", lineHeight: 21.6, textTransform: "capitalize", marginBottom: 14 }}>
         Health Records
       </Text>
 

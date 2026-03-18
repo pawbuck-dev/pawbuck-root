@@ -1,3 +1,4 @@
+import BookVetVisitSection from "@/components/home/BookVetVisitSection";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
   CareTeamMemberModal,
@@ -365,7 +366,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
-      <HomeHeader />
+      <HomeHeader notificationCount={selectedPetId ? (notificationCounts[selectedPetId] || 0) : 0} />
 
       {/* Main Scrollable Content */}
       <GestureDetector gesture={swipeGesture}>
@@ -400,6 +401,13 @@ export default function Home() {
                 onCopyEmail={handleCopyEmail}
                 emailCopied={emailCopied}
               />
+            </View>
+          )}
+
+          {/* Book A Vet Visit */}
+          {selectedPet && (
+            <View style={{ marginBottom: 24 }}>
+              <BookVetVisitSection petName={selectedPet.name} />
             </View>
           )}
 

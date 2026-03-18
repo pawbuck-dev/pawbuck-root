@@ -1,6 +1,7 @@
+import { RiceBowlIcon, WaterGlassIcon } from "@/assets/icons";
 import { useTheme } from "@/context/themeContext";
 import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
@@ -10,34 +11,26 @@ type DailyIntakeSectionProps = {
   petId: string;
 };
 
-const IconRow = ({
+const ProgressIcons = ({
   count,
   total,
   filledColor,
   emptyColor,
-  icon,
+  type,
 }: {
   count: number;
   total: number;
   filledColor: string;
   emptyColor: string;
-  icon: "paw" | "water";
+  type: "food" | "water";
 }) => (
-  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginVertical: 8 }}>
+  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 12, justifyContent: "center" }}>
     {Array.from({ length: total }).map((_, i) => (
       <View key={i}>
-        {icon === "paw" ? (
-          <MaterialCommunityIcons
-            name="paw"
-            size={18}
-            color={i < count ? filledColor : emptyColor}
-          />
+        {type === "food" ? (
+          <RiceBowlIcon size={28} color={i < count ? filledColor : emptyColor} />
         ) : (
-          <Ionicons
-            name="water"
-            size={18}
-            color={i < count ? filledColor : emptyColor}
-          />
+          <WaterGlassIcon size={28} filled={i < count} color="#93C5FD" />
         )}
       </View>
     ))}
@@ -122,7 +115,7 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
     <View style={{ paddingHorizontal: 20 }}>
       {/* Section header */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground }}>
+        <Text style={{ fontSize: 18, fontWeight: "500", color: isDark ? "#FFFFFF" : "#0D0F0F", lineHeight: 21.6, textTransform: "capitalize" }}>
           Daily Intake
         </Text>
         <TouchableOpacity onPress={() => setShowConfigModal(true)}>
@@ -138,42 +131,44 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
             flex: 1,
             backgroundColor: cardBg,
             borderRadius: 20,
-            padding: 14,
+            paddingHorizontal: 14,
+            paddingTop: 16,
+            paddingBottom: 14,
             ...cardBorderStyle,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <MaterialCommunityIcons name="food-drumstick" size={20} color="#F97316" />
-            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground }}>Food</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <RiceBowlIcon size={22} color={isDark ? theme.foreground : "#1D2433"} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Food</Text>
           </View>
-          <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 4 }}>
-            {foodIntake}/{foodTarget} meals daily
+          <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2, marginLeft: 30 }}>
+            {foodIntake * 150}g/{foodTarget * 150}g daily
           </Text>
-          <IconRow
+
+          <ProgressIcons
             count={foodIntake}
             total={foodTarget}
-            filledColor="#F97316"
-            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}
-            icon="paw"
+            filledColor={isDark ? "#3BD0D2" : "#2BA89E"}
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
+            type="food"
           />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-            <Text style={{ fontSize: 13, color: theme.secondary }}>
+
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+            <TouchableOpacity
+              onPress={handleFoodDecrement}
+              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
+            >
+              <Ionicons name="remove" size={18} color={theme.foreground} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
               {foodIntake}/{foodTarget} meals
             </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                onPress={handleFoodDecrement}
-                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-              >
-                <Ionicons name="remove" size={16} color={theme.secondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleFoodIncrement}
-                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(249,115,22,0.15)" }}
-              >
-                <Ionicons name="add" size={16} color="#F97316" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={handleFoodIncrement}
+              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
+            >
+              <Ionicons name="add" size={18} color={theme.foreground} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -183,42 +178,44 @@ export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
             flex: 1,
             backgroundColor: cardBg,
             borderRadius: 20,
-            padding: 14,
+            paddingHorizontal: 14,
+            paddingTop: 16,
+            paddingBottom: 14,
             ...cardBorderStyle,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <Ionicons name="water" size={20} color="#3B82F6" />
-            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground }}>Water</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="water-outline" size={22} color={isDark ? "#FFFFFF" : "#1D2433"} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Water</Text>
           </View>
-          <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 4 }}>
-            {waterIntake}/{waterTarget} cups daily
+          <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2, marginLeft: 30 }}>
+            {waterIntake * 250}ml/{waterTarget * 250}ml daily
           </Text>
-          <IconRow
+
+          <ProgressIcons
             count={waterIntake}
             total={waterTarget}
-            filledColor="#3B82F6"
-            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}
-            icon="water"
+            filledColor={isDark ? "#60A5FA" : "#3B82F6"}
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
+            type="water"
           />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-            <Text style={{ fontSize: 13, color: theme.secondary }}>
+
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+            <TouchableOpacity
+              onPress={handleWaterDecrement}
+              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
+            >
+              <Ionicons name="remove" size={18} color={theme.foreground} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
               {waterIntake}/{waterTarget} cups
             </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                onPress={handleWaterDecrement}
-                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-              >
-                <Ionicons name="remove" size={16} color={theme.secondary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleWaterIncrement}
-                style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(59,130,246,0.15)" }}
-              >
-                <Ionicons name="add" size={16} color="#3B82F6" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={handleWaterIncrement}
+              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
+            >
+              <Ionicons name="add" size={18} color={theme.foreground} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
