@@ -144,6 +144,53 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_intake: {
+        Row: {
+          id: string
+          pet_id: string
+          user_id: string
+          date: string
+          food_intake: number
+          water_intake: number
+          food_target: number
+          water_target: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          user_id: string
+          date?: string
+          food_intake?: number
+          water_intake?: number
+          food_target?: number
+          water_target?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          user_id?: string
+          date?: string
+          food_intake?: number
+          water_intake?: number
+          food_target?: number
+          water_target?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_intake_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_invites: {
         Row: {
           code: string

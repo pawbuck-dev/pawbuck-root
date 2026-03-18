@@ -1,26 +1,14 @@
 import { useTheme } from "@/context/themeContext";
+import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import moment from "moment";
-import React, { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
 import DailyIntakeConfigModal from "./DailyIntakeConfigModal";
 
 type DailyIntakeSectionProps = {
   petId: string;
 };
-
-type DailyIntakeData = {
-  waterIntake: number;
-  foodIntake: number;
-  waterTarget: number;
-  foodTarget: number;
-  lastResetDate: string;
-};
-
-const STORAGE_KEY_PREFIX = "daily_intake_";
-const DEFAULT_WATER_TARGET = 6;
-const DEFAULT_FOOD_TARGET = 4;
 
 const IconRow = ({
   count,
@@ -59,123 +47,63 @@ const IconRow = ({
 export default function DailyIntakeSection({ petId }: DailyIntakeSectionProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const [loading, setLoading] = useState(true);
-  const [waterIntake, setWaterIntake] = useState(0);
-  const [foodIntake, setFoodIntake] = useState(0);
-  const [waterTarget, setWaterTarget] = useState(DEFAULT_WATER_TARGET);
-  const [foodTarget, setFoodTarget] = useState(DEFAULT_FOOD_TARGET);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const queryClient = useQueryClient();
+  const queryKey = ["daily_intake", petId];
 
-  const storageKey = `${STORAGE_KEY_PREFIX}${petId}`;
+  const { data: intake, isLoading } = useQuery({
+    queryKey,
+    queryFn: () => getDailyIntake(petId),
+    enabled: !!petId,
+  });
 
-  const checkAndResetDaily = useCallback(async () => {
-    try {
-      const today = moment().format("YYYY-MM-DD");
-      const stored = await AsyncStorage.getItem(storageKey);
-
-      if (stored) {
-        const data: DailyIntakeData = JSON.parse(stored);
-        if (data.lastResetDate !== today) {
-          const resetData: DailyIntakeData = {
-            waterIntake: 0,
-            foodIntake: 0,
-            waterTarget: data.waterTarget || DEFAULT_WATER_TARGET,
-            foodTarget: data.foodTarget || DEFAULT_FOOD_TARGET,
-            lastResetDate: today,
-          };
-          await AsyncStorage.setItem(storageKey, JSON.stringify(resetData));
-          setWaterIntake(0);
-          setFoodIntake(0);
-          setWaterTarget(resetData.waterTarget);
-          setFoodTarget(resetData.foodTarget);
-        } else {
-          setWaterIntake(data.waterIntake || 0);
-          setFoodIntake(data.foodIntake || 0);
-          setWaterTarget(data.waterTarget || DEFAULT_WATER_TARGET);
-          setFoodTarget(data.foodTarget || DEFAULT_FOOD_TARGET);
-        }
-      } else {
-        const initialData: DailyIntakeData = {
-          waterIntake: 0,
-          foodIntake: 0,
-          waterTarget: DEFAULT_WATER_TARGET,
-          foodTarget: DEFAULT_FOOD_TARGET,
-          lastResetDate: today,
-        };
-        await AsyncStorage.setItem(storageKey, JSON.stringify(initialData));
+  const mutation = useMutation({
+    mutationFn: (updates: Partial<Pick<DailyIntake, "food_intake" | "water_intake" | "food_target" | "water_target">>) =>
+      updateDailyIntake(petId, updates),
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<DailyIntake>(queryKey);
+      if (previous) {
+        queryClient.setQueryData<DailyIntake>(queryKey, { ...previous, ...updates });
       }
-    } catch (error) {
-      console.error("Error checking/resetting daily intake:", error);
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await checkAndResetDaily();
-      setLoading(false);
-    };
-    loadData();
-  }, [checkAndResetDaily]);
-
-  const saveToStorage = useCallback(
-    async (water: number, food: number, waterTgt?: number, foodTgt?: number) => {
-      try {
-        const today = moment().format("YYYY-MM-DD");
-        const data: DailyIntakeData = {
-          waterIntake: water,
-          foodIntake: food,
-          waterTarget: waterTgt ?? waterTarget,
-          foodTarget: foodTgt ?? foodTarget,
-          lastResetDate: today,
-        };
-        await AsyncStorage.setItem(storageKey, JSON.stringify(data));
-      } catch (error) {
-        console.error("Error saving daily intake:", error);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous);
       }
     },
-    [storageKey, waterTarget, foodTarget]
-  );
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
 
-  const handleWaterIncrement = async () => {
-    if (waterIntake < waterTarget) {
-      const v = waterIntake + 1;
-      setWaterIntake(v);
-      await saveToStorage(v, foodIntake);
-    }
+  const foodIntake = intake?.food_intake ?? 0;
+  const waterIntake = intake?.water_intake ?? 0;
+  const foodTarget = intake?.food_target ?? 4;
+  const waterTarget = intake?.water_target ?? 6;
+
+  const handleFoodIncrement = () => {
+    if (foodIntake < foodTarget) mutation.mutate({ food_intake: foodIntake + 1 });
   };
-  const handleWaterDecrement = async () => {
-    if (waterIntake > 0) {
-      const v = waterIntake - 1;
-      setWaterIntake(v);
-      await saveToStorage(v, foodIntake);
-    }
+  const handleFoodDecrement = () => {
+    if (foodIntake > 0) mutation.mutate({ food_intake: foodIntake - 1 });
   };
-  const handleFoodIncrement = async () => {
-    if (foodIntake < foodTarget) {
-      const v = foodIntake + 1;
-      setFoodIntake(v);
-      await saveToStorage(waterIntake, v);
-    }
+  const handleWaterIncrement = () => {
+    if (waterIntake < waterTarget) mutation.mutate({ water_intake: waterIntake + 1 });
   };
-  const handleFoodDecrement = async () => {
-    if (foodIntake > 0) {
-      const v = foodIntake - 1;
-      setFoodIntake(v);
-      await saveToStorage(waterIntake, v);
-    }
+  const handleWaterDecrement = () => {
+    if (waterIntake > 0) mutation.mutate({ water_intake: waterIntake - 1 });
   };
 
   const handleUpdateTargets = useCallback(
-    async (newWaterTarget: number, newFoodTarget: number) => {
-      setWaterTarget(newWaterTarget);
-      setFoodTarget(newFoodTarget);
-      await saveToStorage(waterIntake, foodIntake, newWaterTarget, newFoodTarget);
+    (newWaterTarget: number, newFoodTarget: number) => {
+      mutation.mutate({ food_target: newFoodTarget, water_target: newWaterTarget });
     },
-    [waterIntake, foodIntake, saveToStorage]
+    [mutation]
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={{ paddingHorizontal: 20 }}>
         <ActivityIndicator size="small" color={theme.primary} />
