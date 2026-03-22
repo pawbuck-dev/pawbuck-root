@@ -19,6 +19,9 @@ The consumer app is a React Native application built with Expo Router, designed 
 - Context API for global state
 - React Query for server state management
 
+## Scheduling & booking
+- For **appointments / scheduling**, call **PawBuck.API** only — never EazyVet, Vetstoria, or other vendors from the app. See `.cursor/rules/scheduling-booking-architecture.mdc`.
+
 ## Conventions
 - Components in `components/` directory
 - Screens in `app/` directory (Expo Router)

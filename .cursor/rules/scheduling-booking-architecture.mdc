@@ -1,0 +1,39 @@
+---
+description: Scheduling & booking — PawBuck.API integration hub, vendor adapters, Supabase truth, thin Edge
+alwaysApply: true
+---
+
+# Scheduling & booking architecture (non-negotiables)
+
+**Canonical repo:** [pawbuck-dev/pawbuck-root](https://github.com/pawbuck-dev/pawbuck-root). Monorepo layout: `apps/consumer-app`, `apps/provider-app`, `backend/` (PawBuck.API, PawBuck.Admin.API, PawBuck.Shared), `admin-dashboard`, `supabase/`, `packages/milo-core`. A separate `pawbuck-react-native` repo may exist; **this monorepo is canonical** for the consumer app going forward.
+
+## Integration hub (.NET)
+
+- **PawBuck.API** is the **only** integration hub for scheduling vendors (e.g. EazyVet, Vetstoria): vendor HTTP, OAuth/API keys, idempotency, error mapping.
+- Expose **one internal contract** to the rest of the system: availability, book, cancel/reschedule, optional sync — implemented via **per-vendor adapters** behind a shared interface.
+- **Normalize DTOs** at the boundary; persist **`external_*` ids** and integration metadata as designed.
+- **All vendor-specific code** lives in `backend/` unless the change is an explicitly scoped **Edge webhook stub** (verify → persist event or forward to .NET).
+
+## Mobile & web clients
+
+- **Consumer and provider apps** call **only PawBuck HTTP APIs** for booking/scheduling.
+- **No** direct calls to EazyVet, Vetstoria, or other vendors from client code.
+- **No** vendor secrets, API keys, or OAuth flows in React Native / Expo / admin-dashboard for scheduling.
+
+## Supabase
+
+- **Postgres** is the **source of truth** for PawBuck domain data: appointments, per-clinic integration config, external ids, idempotency keys, webhook inbox — as the schema design specifies.
+- **Edge Functions**, if used for scheduling, stay **thin**: webhook ingress (verify signature → persist raw event or **forward to PawBuck.API**). Do **not** implement full booking logic or vendor adapters in Deno (avoid duplicating .NET integration logic).
+
+## Hosting (v1)
+
+- Supabase project: **us-east-1**. Deploy **PawBuck.API** in the **same region** or on a path with **low latency** to that DB. Primary markets: **US + Canada**. Canada-only data residency is a **future** option (separate region/DB), not required for v1.
+
+## When changing appointment or scheduling code
+
+1. Follow the **adapter pattern**; keep vendor SDKs/HTTP **inside** `backend/` adapter implementations.
+2. Use **normalized** request/response types for app ↔ API; map to vendor shapes only in adapters.
+3. Persist **external_** identifiers and linkage fields per schema.
+4. Prefer **new scheduling-specific projects/folders under `backend/`** (e.g. `PawBuck.Scheduling` or feature folders in API) over scattering vendor code in apps or Edge.
+
+CI/lint hard checks can be added later; this rule guides AI and human edits.
