@@ -321,61 +321,70 @@ export default function MessagesScreen() {
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Header */}
-      <View className="px-6 pt-14 pb-4">
-        <View className="flex-row items-center justify-between">
-          {/* Back Button - Pawbuck Logo */}
-          <Pressable
-            onPress={() => {
-              if (selectedThread) {
-                setSelectedThread(null);
-              } else if (selectedPendingApproval) {
-                setSelectedPendingApproval(null);
-              } else if (selectedFailedEmail) {
-                setSelectedFailedEmail(null);
-              } else {
-                router.back();
-              }
-            }}
-            className="items-center justify-center active:opacity-70"
-          >
-            <Image
-              source={require("@/assets/images/icon.png")}
-              style={{ width: 40, height: 40 }}
-              resizeMode="contain"
-            />
-          </Pressable>
-
-          {/* Title */}
-          <View className="items-center">
-            <Text
-              className="text-xl font-bold"
-              style={{ color: theme.foreground }}
-            >
-              Messages
-            </Text>
-            {totalUnread > 0 && !selectedThread && !selectedPendingApproval && !selectedFailedEmail && (
-              <Text
-                className="text-sm mt-0.5"
-                style={{ color: theme.secondary }}
-              >
-                {totalUnread} unread
-              </Text>
-            )}
-          </View>
-
-          {/* Add Button - Hidden when viewing thread, pending approval, failed email, or Trash */}
-          {selectedThread ||
-          selectedPendingApproval ||
-          selectedFailedEmail ||
-          showTrash ? (
-            <View className="w-10 h-10" />
-          ) : (
+      <View style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Left: Back or Title */}
+          {selectedThread || selectedPendingApproval || selectedFailedEmail ? (
             <Pressable
-              onPress={() => setShowNewMessageModal(true)}
-              className="w-10 h-10 items-center justify-center active:opacity-70"
+              onPress={() => {
+                if (selectedThread) setSelectedThread(null);
+                else if (selectedPendingApproval) setSelectedPendingApproval(null);
+                else if (selectedFailedEmail) setSelectedFailedEmail(null);
+              }}
+              style={{ flexDirection: "row", alignItems: "center" }}
             >
-              <Ionicons name="add-circle" size={28} color={theme.primary} />
+              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
+              <Text style={{ fontSize: 22, fontWeight: "700", color: theme.foreground, marginLeft: 4 }}>
+                Messages
+              </Text>
             </Pressable>
+          ) : (
+            <View>
+              <Text style={{ fontSize: 24, fontWeight: "700", color: theme.foreground }}>
+                Messages
+              </Text>
+              {totalUnread > 0 && (
+                <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
+                  {totalUnread} unread
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Right: Action buttons */}
+          {!(selectedThread || selectedPendingApproval || selectedFailedEmail) && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Pressable
+                onPress={() => setShowNewMessageModal(true)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  borderWidth: 1,
+                  borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                }}
+              >
+                <Ionicons name="add" size={22} color={theme.foreground} />
+              </Pressable>
+              <Pressable
+                onPress={() => setSearchQuery(searchQuery ? "" : " ")}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  borderWidth: 1,
+                  borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                }}
+              >
+                <Ionicons name="search-outline" size={20} color={theme.foreground} />
+              </Pressable>
+            </View>
           )}
         </View>
       </View>
@@ -386,6 +395,9 @@ export default function MessagesScreen() {
           failedEmail={selectedFailedEmail}
           onBack={handleFailedEmailBack}
           hideHeader
+          onDeleted={() => {
+            refetchFailedEmails();
+          }}
         />
       ) : /* Pending Email Detail View */
       selectedPendingApproval ? (
@@ -413,7 +425,8 @@ export default function MessagesScreen() {
         />
       ) : (
         <>
-          {/* Inbox / Trash toggle */}
+          {/* Inbox / Trash toggle - only when there are messages */}
+          {hasMessages && (
           <View className="flex-row px-4 pb-3 gap-2">
             <Pressable
               onPress={() => setShowTrash(false)}
@@ -460,9 +473,10 @@ export default function MessagesScreen() {
               </Text>
             </Pressable>
           </View>
+          )}
 
-          {/* Search Bar - only when Inbox */}
-          {!showTrash && (
+          {/* Search Bar - only when Inbox and has messages */}
+          {!showTrash && hasMessages && (
           <View className="px-4 pb-4">
             <View
               className="flex-row items-center px-4 py-3 rounded-2xl"
@@ -490,8 +504,8 @@ export default function MessagesScreen() {
           </View>
           )}
 
-          {/* Pet Selector (when user has more than one pet) */}
-          {pets.length > 1 && (
+          {/* Pet Selector (when user has more than one pet and has messages) */}
+          {pets.length > 1 && hasMessages && (
             <View className="mb-4 px-2">
               <PetSelector
                 pets={pets}
@@ -705,28 +719,32 @@ export default function MessagesScreen() {
                 {/* Empty State */}
                 {!hasMessages && (
                   <View className="flex-1 items-center justify-center py-20 px-4">
-                    <View
-                      className="w-20 h-20 rounded-full items-center justify-center mb-4"
-                      style={{ backgroundColor: `${theme.primary}15` }}
-                    >
-                      <Ionicons
-                        name="mail-outline"
-                        size={40}
-                        color={theme.primary}
-                      />
-                    </View>
+                    <Image
+                      source={require("@/assets/icons/no-message.png")}
+                      style={{ width: 140, height: 140, marginBottom: 20 }}
+                      resizeMode="contain"
+                    />
                     <Text
-                      className="text-xl font-bold text-center mb-2"
-                      style={{ color: theme.foreground }}
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "700",
+                        color: theme.foreground,
+                        textAlign: "center",
+                        marginBottom: 8,
+                      }}
                     >
                       No Messages
                     </Text>
                     <Text
-                      className="text-base text-center"
-                      style={{ color: theme.secondary }}
+                      style={{
+                        fontSize: 15,
+                        color: theme.secondary,
+                        textAlign: "center",
+                        lineHeight: 22,
+                        paddingHorizontal: 20,
+                      }}
                     >
-                      Your messages from vets and care providers will appear
-                      here
+                      All messages from your pet's care{"\n"}providers will appear here.
                     </Text>
                   </View>
                 )}

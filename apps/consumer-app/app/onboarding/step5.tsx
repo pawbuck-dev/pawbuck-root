@@ -1,136 +1,234 @@
-import Header from "@/components/Header";
+import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const TOTAL_STEPS = 9;
+const CURRENT_STEP = 4;
 
 export default function OnboardingStep5() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { updatePetData } = useOnboarding();
-  const [petName, setPetName] = useState("");
+  const insets = useSafeAreaInsets();
+  const isDark = mode === "dark";
 
-  const handleNext = () => {
+  const [petName, setPetName] = useState("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
+  const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)";
+  const inputBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+  const cardBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
+
+  const handlePickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const handleContinue = () => {
     if (petName.trim()) {
-      updatePetData({ name: petName.trim() });
+      updatePetData({ name: petName.trim(), ...(photoUri ? { photo_url: photoUri } : {}) });
       router.push("/onboarding/step5b");
     }
   };
 
-  const progressPercent = (4 / 9) * 100;
-
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <Header />
-      <View className="px-6 pt-14 pb-4">
-        {/* Progress Indicator */}
-        <View className="items-center mb-2">
-          <Text
-            className="text-start font-medium"
-            style={{ color: theme.foreground }}
-          >
-            Question 4 of 9
-          </Text>
-        </View>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
-        {/* Progress Bar */}
-        <View
-          className="w-full h-2 rounded-full overflow-hidden"
-          style={{ backgroundColor: theme.secondary }}
+      {/* Header: back arrow + progress bar */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.backBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }]}
         >
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${progressPercent}%`,
-              backgroundColor: theme.primary,
-            }}
-          />
+          <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+        </Pressable>
+
+        <View style={styles.progressBarWrap}>
+          <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }]}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: accentColor }]} />
+          </View>
         </View>
       </View>
 
-      {/* Main Content */}
-      <View className="flex-1 px-6 pt-8">
-        {/* Back Button */}
-        <Pressable
-          onPress={() => router.back()}
-          className="flex-row items-center mb-8 active:opacity-70"
-        >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={theme.foreground}
-            style={{ opacity: 0.7 }}
-          />
-          <Text
-            className="text-start ml-1"
-            style={{ color: theme.foreground, opacity: 0.7 }}
-          >
-            Back
-          </Text>
-        </Pressable>
-
-        {/* Question Heading */}
-        <Text
-          className="text-4xl font-bold text-center mb-12"
-          style={{ color: theme.foreground }}
-        >
-          What's your pet's name?
+      {/* Heading + subtitle above ScrollView */}
+      <View style={styles.headingWrap}>
+        <Text style={[styles.heading, { color: theme.foreground }]}>
+          What's Your Pet's Name?
         </Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Personalize your pet's care experience
+        </Text>
+      </View>
 
-        {/* Form */}
-        <View className="w-full max-w-lg mx-auto">
-          {/* Name Label */}
-          <Text
-            className="text-start font-medium mb-3"
-            style={{ color: theme.foreground }}
-          >
-            Name
-          </Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingTop: 0, paddingBottom: 0, flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={{
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+            flex: 1,
+            backgroundColor: cardBg,
+          }}
+        >
+          {/* Photo picker */}
+          <Pressable onPress={handlePickPhoto} style={styles.photoSection}>
+            <View style={[styles.photoCircle, { backgroundColor: inputBg, borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }]}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoImage} />
+              ) : (
+                <Ionicons name="camera-outline" size={32} color={mutedText} />
+              )}
+            </View>
+            <Text style={[styles.addPhotoText, { color: mutedText }]}>Add Photo</Text>
+          </Pressable>
 
-          {/* Name Text Input */}
+          {/* Pet Name label */}
+          <Text style={[styles.label, { color: theme.foreground }]}>Pet Name</Text>
+
+          {/* Pet Name input */}
           <TextInput
-            className="w-full rounded-xl py-4 px-5 mb-8 text-start"
-            style={{
-              backgroundColor: theme.background,
-              borderWidth: 2,
-              borderColor: theme.primary,
-              color: theme.foreground,
-            }}
+            style={[styles.input, { backgroundColor: inputBg, color: theme.foreground, borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]}
             placeholder="e.g., Max, Luna"
-            placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+            placeholderTextColor={mutedText}
             value={petName}
             onChangeText={setPetName}
             autoCorrect={false}
             autoCapitalize="words"
-            returnKeyType="next"
-            onSubmitEditing={handleNext}
+            returnKeyType="done"
+            onSubmitEditing={handleContinue}
           />
 
-          {/* Next Button */}
-          <Pressable
-            onPress={handleNext}
-            disabled={!petName.trim()}
-            className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
-            style={{
-              backgroundColor: petName.trim() ? theme.primary : theme.secondary,
-              opacity: petName.trim() ? 1 : 0.5,
-            }}
-          >
-            <Text
-              className="text-lg font-semibold"
-              style={{
-                color: petName.trim()
-                  ? theme.primaryForeground
-                  : theme.secondaryForeground,
-              }}
-            >
-              Next
-            </Text>
-          </Pressable>
+          {/* CTA inside card */}
+          <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+            <CTA
+              label="Continue"
+              size="LG"
+              style="Solid"
+              state={petName.trim() ? "Default" : "Disable"}
+              onPress={handleContinue}
+              disabled={!petName.trim()}
+              containerStyle={styles.continueBtn}
+            />
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarWrap: {
+    flex: 1,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  headingWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  photoSection: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+  photoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  photoImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  addPhotoText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  input: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    borderWidth: 1,
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingTop: 16,
+  },
+  continueBtn: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+});

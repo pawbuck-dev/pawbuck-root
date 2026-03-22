@@ -1,3 +1,4 @@
+import { HomeIndicator } from "@/components/layout/HomeIndicator";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
 import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
@@ -19,11 +20,28 @@ export default function HomeLayout() {
         className="flex-1"
         style={{
           backgroundColor: theme.background,
-          paddingBottom: Platform.OS === "android" ? bottom : 0,
+          paddingBottom: bottom,
         }}
       >
         <Slot />
       </View>
+      {/* Figma Home Indicator (29:192): pill at bottom of safe area on iOS */}
+      {bottom > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: bottom,
+            justifyContent: "flex-end",
+            alignItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <HomeIndicator />
+        </View>
+      )}
       <MiloChatModal />
     </ChatProvider>
   );

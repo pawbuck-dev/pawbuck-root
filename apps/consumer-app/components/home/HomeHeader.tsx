@@ -1,45 +1,129 @@
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { Image, TouchableOpacity, View } from "react-native";
+import React, { useMemo } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import PrivateImage from "../PrivateImage";
 
-export default function HomeHeader() {
-  const { theme, mode, toggleTheme } = useTheme();
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+type HomeHeaderProps = {
+  notificationCount?: number;
+};
+
+export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const { selectedPet } = useSelectedPet();
+  const router = useRouter();
+  const greeting = useMemo(() => getGreeting(), []);
+  const petName = selectedPet?.name ?? "Pet";
+
+  const btnStyle = {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+    borderWidth: 1,
+    borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+  };
 
   return (
-    <View className="px-4 pt-14 pb-4">
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-      <View className="flex-row justify-between items-center">
-        {/* Logo */}
-        <Image
-          source={require("@/assets/images/icon.png")}
-          style={{ width: 44, height: 44 }}
-          resizeMode="contain"
-        />
-
-        {/* Right Side - Theme Toggle */}
-        <View className="flex-row items-center gap-3">
-          {/* Theme Toggle */}
-          <TouchableOpacity
-            onPress={toggleTheme}
-            className="w-11 h-11 rounded-full items-center justify-center"
+    <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 8 }}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Left: Pet avatar + greeting */}
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          <View
             style={{
-              backgroundColor: theme.card,
-              borderWidth: 1,
-              borderColor: theme.border,
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              overflow: "hidden",
+              backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
             }}
-            activeOpacity={0.7}
           >
-            <Ionicons
-              name={mode === "dark" ? "moon" : "sunny"}
-              size={20}
-              color={theme.primary}
-            />
+            {selectedPet?.photo_url ? (
+              <PrivateImage
+                bucketName="pets"
+                filePath={selectedPet.photo_url}
+                style={{ width: 52, height: 52 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="paw" size={24} color={isDark ? "#FFFFFF" : theme.secondary} />
+            )}
+          </View>
+          <View>
+            <Text style={{ fontSize: 14, color: isDark ? "rgba(255,255,255,0.6)" : "#5A5F6A", marginBottom: 2 }}>
+              {greeting}
+            </Text>
+            <Text style={{ fontSize: 22, fontWeight: "700", color: theme.foreground }}>
+              {petName}'s Care
+            </Text>
+          </View>
+        </View>
+
+        {/* Right: Action buttons */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => router.push("/onboarding/step1")}
+            activeOpacity={0.7}
+            style={btnStyle}
+          >
+            <Ionicons name="add" size={22} color={theme.foreground} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(home)/settings" as any)}
+            activeOpacity={0.7}
+            style={btnStyle}
+          >
+            <Ionicons name="calendar-outline" size={20} color={theme.foreground} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={btnStyle}
+          >
+            <Ionicons name="notifications-outline" size={20} color={theme.foreground} />
+            {notificationCount > 0 && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -2,
+                  right: -2,
+                  minWidth: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: "#EF4444",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 4,
+                  borderWidth: 2,
+                  borderColor: isDark ? "#1A2A2A" : theme.background,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
+                  {notificationCount > 99 ? "99" : notificationCount.toString().padStart(2, "0")}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 }
-

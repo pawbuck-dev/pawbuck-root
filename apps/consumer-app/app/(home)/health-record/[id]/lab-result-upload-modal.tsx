@@ -19,8 +19,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
 import { ImagePickerAsset } from "expo-image-picker";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -39,6 +39,12 @@ type ProcessingStatus =
   | "error";
 
 export default function LabResultUploadModal() {
+  const params = useLocalSearchParams<{ upload?: string }>();
+  const uploadParam = Array.isArray(params.upload)
+    ? params.upload[0]
+    : params.upload;
+  const uploadIntentHandled = useRef(false);
+
   const { theme } = useTheme();
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -53,6 +59,9 @@ export default function LabResultUploadModal() {
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
+    if (!pet || !user) {
+      return;
+    }
     try {
       // Step 1: Uploading
       setStatus("uploading");
@@ -61,7 +70,7 @@ export default function LabResultUploadModal() {
       const extension = file.mimeType?.split("/")[1];
       const data = await uploadFile(
         file,
-        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/lab-results/${Date.now()}.${extension}`
+        `${user.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/lab-results/${Date.now()}.${extension}`
       );
 
       // Step 2: Extracting lab results
@@ -201,6 +210,9 @@ export default function LabResultUploadModal() {
   };
 
   const saveLabResultRecord = async (data: LabResultData) => {
+    if (!pet || !user) {
+      return;
+    }
     try {
       setIsSaving(true);
       setStatus("inserting");
@@ -251,6 +263,29 @@ export default function LabResultUploadModal() {
   };
 
   const isProcessing = status !== "idle" && status !== "review";
+
+  useEffect(() => {
+    if (
+      !pet ||
+      !uploadParam ||
+      uploadIntentHandled.current ||
+      showReviewModal ||
+      status !== "idle" ||
+      isProcessing
+    ) {
+      return;
+    }
+    if (!["camera", "library", "pdf"].includes(uploadParam)) {
+      return;
+    }
+    uploadIntentHandled.current = true;
+    void (async () => {
+      if (uploadParam === "camera") await handleTakePhoto();
+      else if (uploadParam === "library") await handleUploadFromLibrary();
+      else if (uploadParam === "pdf") await handlePickPdfFile();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot upload intent
+  }, [pet, uploadParam, showReviewModal, status, isProcessing]);
 
   const getStatusIcon = () => {
     switch (status) {

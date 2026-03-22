@@ -46,7 +46,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   onSend,
   initialRecipientEmail,
 }) => {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const router = useRouter();
   const { pets } = usePets();
   const { top, bottom } = useSafeAreaInsets();
@@ -272,6 +272,10 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       availableSafeSenders.length > 0 ||
       (supportContact && supportContact.id !== toContact?.id);
 
+    const isDk = mode === "dark";
+    const inBg = isDk ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+    const inBdr = isDk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+
     return (
       <View style={{ position: "relative" }}>
         <TouchableOpacity
@@ -279,27 +283,33 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             setShowPetDropdown(false);
             onToggleDropdown();
           }}
-          className="flex-row items-center justify-between rounded-xl py-4 px-4"
-          style={{
-            backgroundColor: theme.card,
-            borderWidth: 1,
-            borderColor: theme.primary,
-          }}
           activeOpacity={0.7}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: inBg,
+            borderWidth: 1,
+            borderColor: inBdr,
+            borderRadius: 16,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+          }}
         >
           <Text
-            className="flex-1 text-base"
             style={{
+              flex: 1,
+              fontSize: 15,
               color: selectedContact ? theme.foreground : theme.secondary,
             }}
           >
             {selectedContact
               ? `${selectedContact.name} <${selectedContact.email}>`
-              : "Select a whitelisted contact"}
+              : "Select a whitelisted contact..."}
           </Text>
           <Ionicons
             name={showDropdown ? "chevron-up" : "chevron-down"}
-            size={20}
+            size={18}
             color={theme.secondary}
           />
         </TouchableOpacity>
@@ -313,14 +323,14 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               right: 0,
               marginTop: 4,
               borderRadius: 12,
-              backgroundColor: theme.card,
+              backgroundColor: inBg,
               borderWidth: 1,
-              borderColor: theme.border,
+              borderColor: inBdr,
               maxHeight: 200,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
               elevation: 5,
               zIndex: 50,
             }}
@@ -485,87 +495,70 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     );
   };
 
+  const isDark = mode === "dark";
+  const inputBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+  const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const canSend = !!toContact && !!subject.trim() && !!message.trim() && !sending;
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
+          flex: 1,
           backgroundColor: theme.background,
           paddingTop: Platform.OS === "android" ? top : 0,
-          paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Header */}
-        <View
-          className="px-6 pt-4 pb-4 border-b"
-          style={{
-            backgroundColor: theme.card,
-            borderBottomColor: theme.border,
-          }}
-        >
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={handleClose} disabled={sending}>
-              <Ionicons name="close" size={24} color={theme.foreground} />
+        <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={handleClose}
+              disabled={sending}
+              activeOpacity={0.7}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+              }}
+            >
+              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
             </TouchableOpacity>
             <Text
-              className="text-lg font-semibold"
-              style={{ color: theme.foreground }}
+              style={{
+                flex: 1,
+                fontSize: 20,
+                fontWeight: "700",
+                color: theme.foreground,
+                textAlign: "center",
+                marginRight: 40,
+              }}
             >
               New Message
             </Text>
-            <View style={{ width: 24 }} />
           </View>
         </View>
 
         <ScrollView
-          className="flex-1 px-6 pt-6"
+          style={{ flex: 1, paddingHorizontal: 20 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Info Banner */}
-          <View
-            className="flex-row items-start p-4 rounded-xl mb-6"
-            style={{
-              backgroundColor: "#22C55E15",
-              borderWidth: 1,
-              borderColor: "#22C55E40",
-            }}
-          >
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color="#22C55E"
-              style={{ marginRight: 12, marginTop: 2 }}
-            />
-            <View className="flex-1">
-              <Text
-                className="text-sm"
-                style={{ color: theme.foreground, lineHeight: 20 }}
-              >
-                You can send messages to Care Team members and Safe Senders.{" "}
-                <Text
-                  onPress={handleManageContacts}
-                  style={{ color: "#22C55E", fontWeight: "600" }}
-                >
-                  Manage in Profile → My Care Team
-                </Text>
-              </Text>
-            </View>
-          </View>
-
           {/* Pet Selector */}
           {pets.length > 1 && (
-            <View className="mb-6" style={{ zIndex: showPetDropdown ? 60 : 1 }}>
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
+            <View style={{ marginBottom: 20, zIndex: showPetDropdown ? 60 : 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
                 Pet
               </Text>
               <View style={{ position: "relative" }}>
@@ -574,20 +567,25 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                     setShowPetDropdown(!showPetDropdown);
                     setShowToDropdown(false);
                   }}
-                  className="flex-row items-center rounded-xl py-4 px-4"
-                  style={{
-                    backgroundColor: theme.card,
-                    borderWidth: 1,
-                    borderColor: theme.primary,
-                  }}
                   activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: inputBg,
+                    borderWidth: 1,
+                    borderColor: inputBorder,
+                    borderRadius: 16,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                  }}
                 >
-                  <Text className="flex-1" style={{ color: theme.foreground }}>
+                  <Text style={{ fontSize: 15, color: theme.foreground }}>
                     {selectedPet?.name || "Select a pet"}
                   </Text>
                   <Ionicons
                     name={showPetDropdown ? "chevron-up" : "chevron-down"}
-                    size={20}
+                    size={18}
                     color={theme.secondary}
                   />
                 </TouchableOpacity>
@@ -600,49 +598,42 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       left: 0,
                       right: 0,
                       marginTop: 4,
-                      backgroundColor: theme.card,
+                      backgroundColor: inputBg,
                       borderWidth: 1,
-                      borderColor: theme.border,
+                      borderColor: inputBorder,
                       borderRadius: 12,
                       maxHeight: 200,
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.25,
-                      shadowRadius: 3.84,
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
                       elevation: 5,
                       zIndex: 60,
                     }}
                   >
-                    <ScrollView
-                      nestedScrollEnabled
-                      showsVerticalScrollIndicator={false}
-                    >
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
                       {pets.map((pet) => (
                         <TouchableOpacity
                           key={pet.id}
                           onPress={() => {
                             setSelectedPetId(pet.id);
                             setShowPetDropdown(false);
-                            // Reset contact selection when pet changes
                             setToContact(null);
                           }}
-                          className="py-3 px-4 border-b"
-                          style={{
-                            borderBottomColor: theme.border + "40",
-                            backgroundColor:
-                              pet.id === selectedPetId
-                                ? theme.primary + "20"
-                                : "transparent",
-                          }}
                           activeOpacity={0.7}
+                          style={{
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderBottomWidth: 1,
+                            borderBottomColor: inputBorder,
+                            backgroundColor: pet.id === selectedPetId ? `${theme.primary}15` : "transparent",
+                          }}
                         >
                           <Text
-                            className="font-medium"
                             style={{
-                              color:
-                                pet.id === selectedPetId
-                                  ? theme.primary
-                                  : theme.foreground,
+                              fontSize: 15,
+                              fontWeight: pet.id === selectedPetId ? "600" : "400",
+                              color: pet.id === selectedPetId ? theme.primary : theme.foreground,
                             }}
                           >
                             {pet.name}
@@ -657,40 +648,34 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
           )}
 
           {/* To Field */}
-          <View className="mb-4" style={{ zIndex: showToDropdown ? 50 : 3 }}>
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              To *
+          <View style={{ marginBottom: 20, zIndex: showToDropdown ? 50 : 3 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
+              To
             </Text>
             {renderContactDropdown(
               contacts,
               toContact,
               setToContact,
               showToDropdown,
-              () => {
-                setShowToDropdown(!showToDropdown);
-              }
+              () => setShowToDropdown(!showToDropdown)
             )}
           </View>
 
           {/* Subject Field */}
-          <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Subject *
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
+              Subject
             </Text>
             <TextInput
-              className="w-full rounded-xl py-4 px-4"
               style={{
-                backgroundColor: theme.card,
+                backgroundColor: inputBg,
                 color: theme.foreground,
                 borderWidth: 1,
-                borderColor: theme.primary,
-                textAlignVertical: "center",
+                borderColor: inputBorder,
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                fontSize: 15,
               }}
               value={subject}
               onChangeText={setSubject}
@@ -701,21 +686,22 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
           </View>
 
           {/* Message Field */}
-          <View className="mb-6">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Message *
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
+              Message
             </Text>
             <TextInput
-              className="w-full rounded-xl py-4 px-4"
               style={{
-                backgroundColor: theme.card,
+                backgroundColor: inputBg,
                 color: theme.foreground,
                 borderWidth: 1,
-                borderColor: theme.primary,
-                minHeight: 120,
+                borderColor: inputBorder,
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                fontSize: 15,
+                minHeight: 140,
+                textAlignVertical: "top",
               }}
               value={message}
               onChangeText={setMessage}
@@ -723,61 +709,97 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               placeholderTextColor={theme.secondary}
               multiline
               numberOfLines={6}
-              textAlignVertical="top"
               editable={!sending}
             />
+          </View>
+
+          {/* Upload File */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
+              Upload File
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: inputBg,
+                borderWidth: 1,
+                borderColor: inputBorder,
+                borderRadius: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <Ionicons name="attach" size={18} color={theme.secondary} style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 15, fontWeight: "500", color: theme.foreground, marginRight: 8 }}>
+                Choose File
+              </Text>
+              <Text style={{ fontSize: 14, color: theme.secondary }}>
+                No file chosen
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
 
         {/* Footer Buttons */}
         <View
-          className="px-6 py-4 border-t"
           style={{
-            backgroundColor: theme.card,
-            borderTopColor: theme.border,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: Platform.OS === "ios" ? bottom + 8 : 16,
           }}
         >
-          <View className="flex-row gap-3">
+          <View style={{ flexDirection: "row", gap: 12 }}>
             <TouchableOpacity
               onPress={handleClose}
               disabled={sending}
-              className="flex-1 rounded-xl py-4 items-center justify-center"
+              activeOpacity={0.7}
               style={{
+                flex: 1,
+                paddingVertical: 16,
+                borderRadius: 28,
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: "transparent",
                 borderWidth: 1,
-                borderColor: theme.border,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
               }}
-              activeOpacity={0.7}
             >
-              <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
-              >
+              <Text style={{ fontSize: 16, fontWeight: "600", color: theme.foreground }}>
                 Cancel
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSend}
-              disabled={
-                sending || !toContact || !subject.trim() || !message.trim()
-              }
-              className="flex-1 rounded-xl py-4 items-center justify-center flex-row"
-              style={{
-                backgroundColor:
-                  sending || !toContact || !subject.trim() || !message.trim()
-                    ? theme.border
-                    : theme.primary,
-              }}
+              disabled={!canSend}
               activeOpacity={0.7}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                paddingVertical: 16,
+                borderRadius: 28,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                backgroundColor: canSend ? theme.primary : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+              }}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={canSend ? "#fff" : theme.secondary} />
               ) : (
                 <>
-                  <Ionicons name="paper-plane" size={20} color="#fff" />
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={18}
+                    color={canSend ? "#FFFFFF" : theme.secondary}
+                  />
                   <Text
-                    className="text-base font-semibold ml-2"
-                    style={{ color: "#fff" }}
+                    style={{
+                      fontSize: 16,
+                      fontWeight: "600",
+                      color: canSend ? "#FFFFFF" : theme.secondary,
+                    }}
                   >
                     Send
                   </Text>

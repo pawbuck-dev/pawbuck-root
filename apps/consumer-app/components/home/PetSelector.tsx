@@ -1,7 +1,6 @@
 import { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import PrivateImage from "../PrivateImage";
@@ -10,7 +9,6 @@ type PetSelectorProps = {
   pets: Pet[];
   selectedPetId: string | null;
   onSelectPet: (petId: string) => void;
-  /** Map of pet IDs to notification counts */
   notificationCounts?: Record<string, number>;
 };
 
@@ -20,145 +18,98 @@ export default function PetSelector({
   onSelectPet,
   notificationCounts = {},
 }: PetSelectorProps) {
-  const { theme } = useTheme();
-  const router = useRouter();
-
-  const handleAddPet = () => {
-    router.push("/onboarding/step1");
-  };
-
-  // Get badge color based on index
-  const getBadgeColor = (index: number) => {
-    const colors = ["#EAB308", "#3B82F6", "#EF4444", "#22C55E", "#A855F7"];
-    return colors[index % colors.length];
-  };
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
 
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 8, gap: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
     >
-      {pets.map((pet, index) => {
+      {pets.map((pet) => {
         const isSelected = pet.id === selectedPetId;
-        const notificationCount = notificationCounts[pet.id] || 0;
+        const count = notificationCounts[pet.id] || 0;
 
         return (
           <TouchableOpacity
             key={pet.id}
             onPress={() => onSelectPet(pet.id)}
             activeOpacity={0.7}
-            className="items-center"
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 6,
+              paddingLeft: 6,
+              paddingRight: 14,
+              borderRadius: 100,
+              backgroundColor: isSelected
+                ? theme.primary
+                : isDark
+                ? "rgba(255,255,255,0.08)"
+                : "#FFFFFF",
+              borderWidth: isSelected ? 0 : 1,
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+            }}
           >
-            {/* Fixed size wrapper for consistent alignment */}
-            <View className="w-[76px] h-[84px] items-center justify-center">
-              {/* Avatar Container */}
-              <View
-                className="relative"
-                style={{
-                  padding: 4,
-                  borderRadius: 50,
-                  borderWidth: isSelected ? 3 : 2,
-                  borderColor: isSelected ? theme.primary : "transparent",
-                  // Glow effect for selected pet
-                  ...(isSelected && {
-                    shadowColor: theme.primary,
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 10,
-                    elevation: 8,
-                  }),
-                }}
-              >
-                {/* Pet Avatar */}
-                <View
-                  className="w-16 h-16 rounded-full overflow-hidden items-center justify-center"
-                  style={{
-                    backgroundColor: theme.card,
-                  }}
-                >
-                  {pet.photo_url ? (
-                    <PrivateImage
-                      bucketName="pets"
-                      filePath={pet.photo_url}
-                      className="w-16 h-16"
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Ionicons name="paw" size={28} color={theme.secondary} />
-                  )}
-                </View>
-
-                {/* Notification Badge */}
-                {notificationCount > 0 && (
-                  <View
-                    className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full items-center justify-center px-1"
-                    style={{ backgroundColor: getBadgeColor(index) }}
-                  >
-                    <Text className="text-xs font-bold text-white">
-                      {notificationCount > 9 ? "9+" : notificationCount}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Selected Indicator Dot - on the ring */}
-                {isSelected && (
-                  <View
-                    style={{
-                      position: "absolute",
-                      bottom: -7,
-                      left: "50%",
-                      marginLeft: -3,
-                      width: 10,
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: theme.primary,
-                    }}
-                  />
-                )}
-              </View>
-            </View>
-
-            {/* Pet Name */}
-            <Text
-              className="text-base font-medium"
+            <View
               style={{
-                color: isSelected ? theme.primary : theme.foreground,
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                overflow: "hidden",
+                backgroundColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 8,
+              }}
+            >
+              {pet.photo_url ? (
+                <PrivateImage
+                  bucketName="pets"
+                  filePath={pet.photo_url}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons
+                  name="paw"
+                  size={16}
+                  color={isSelected ? "rgba(255,255,255,0.7)" : theme.secondary}
+                />
+              )}
+            </View>
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: "600",
+                color: isSelected ? "#FFFFFF" : theme.foreground,
               }}
             >
               {pet.name}
             </Text>
+
+            {count > 0 && (
+              <View
+                style={{
+                  marginLeft: 6,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: isSelected ? "rgba(255,255,255,0.3)" : "#EF4444",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 4,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#fff" }}>
+                  {count > 9 ? "9+" : count}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         );
       })}
-
-      {/* Add Pet Button */}
-      <TouchableOpacity
-        onPress={handleAddPet}
-        activeOpacity={0.7}
-        className="items-center"
-      >
-        {/* Fixed size wrapper for consistent alignment */}
-        <View className="w-[76px] h-[84px] items-center justify-center">
-          <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            style={{
-              borderWidth: 2,
-              borderStyle: "dashed",
-              borderColor: theme.primary,
-            }}
-          >
-            <Ionicons name="add" size={28} color={theme.primary} />
-          </View>
-        </View>
-        <Text
-          className="text-base font-medium"
-          style={{ color: theme.secondary }}
-        >
-          Add
-        </Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
-

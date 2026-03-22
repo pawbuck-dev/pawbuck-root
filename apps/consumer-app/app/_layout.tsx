@@ -8,17 +8,17 @@ import { SelectedPetProvider } from "@/context/selectedPetContext";
 import { ThemeProvider } from "@/context/themeContext";
 import { UserPreferencesProvider } from "@/context/userPreferencesContext";
 import {
-  Outfit_100Thin,
-  Outfit_200ExtraLight,
-  Outfit_300Light,
-  Outfit_400Regular,
-  Outfit_500Medium,
-  Outfit_600SemiBold,
-  Outfit_700Bold,
-  Outfit_800ExtraBold,
-  Outfit_900Black,
+  Poppins_100Thin,
+  Poppins_200ExtraLight,
+  Poppins_300Light,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_800ExtraBold,
+  Poppins_900Black,
   useFonts,
-} from "@expo-google-fonts/outfit";
+} from "@expo-google-fonts/poppins";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { NotificationBehavior } from "expo-notifications";
@@ -26,6 +26,7 @@ import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -69,15 +70,15 @@ function useNotificationObserver() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Outfit_100Thin,
-    Outfit_200ExtraLight,
-    Outfit_300Light,
-    Outfit_400Regular,
-    Outfit_500Medium,
-    Outfit_600SemiBold,
-    Outfit_700Bold,
-    Outfit_800ExtraBold,
-    Outfit_900Black,
+    Poppins_100Thin,
+    Poppins_200ExtraLight,
+    Poppins_300Light,
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+    Poppins_900Black,
   });
 
   const [queryClient] = useState(
@@ -117,15 +118,17 @@ export default function RootLayout() {
                 <SelectedPetProvider>
                   <UserPreferencesProvider>
                     <NotificationsProvider>
-                      <GestureHandlerRootView>
-                        <Stack
-                          screenOptions={{
-                            headerShown: false,
-                            animation: "none",
-                          }}
-                        />
-                      </GestureHandlerRootView>
-                      <EmailApprovalModal />
+                      <SafeAreaProvider>
+                        <GestureHandlerRootView>
+                          <Stack
+                            screenOptions={{
+                              headerShown: false,
+                              animation: "none",
+                            }}
+                          />
+                        </GestureHandlerRootView>
+                        <EmailApprovalModal />
+                      </SafeAreaProvider>
                     </NotificationsProvider>
                   </UserPreferencesProvider>
                 </SelectedPetProvider>

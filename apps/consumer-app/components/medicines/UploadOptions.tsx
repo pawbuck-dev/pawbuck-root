@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DocumentPickerAsset } from "expo-document-picker";
 import { ImagePickerAsset } from "expo-image-picker";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { CameraButton } from "../upload/CameraButton";
 import { FilesButton } from "../upload/FilesButton";
@@ -23,6 +23,8 @@ interface UploadOptionsProps {
   setStatus: (status: ProcessingStatus) => void;
   setStatusMessage: (statusMessage: string) => void;
   setViewMode: (viewMode: ViewMode) => void;
+  /** Deep link from health-record sheet: camera | library | pdf */
+  uploadIntent?: string;
 }
 
 const UploadOptions = ({
@@ -31,14 +33,19 @@ const UploadOptions = ({
   setStatus,
   setStatusMessage,
   setViewMode,
+  uploadIntent,
 }: UploadOptionsProps) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const uploadIntentHandled = useRef(false);
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
+    if (!pet || !user) {
+      return;
+    }
     try {
       // Step 1: Uploading
       setStatus("uploading");
@@ -47,7 +54,7 @@ const UploadOptions = ({
       const extension = file.mimeType?.split("/")[1];
       const data = await uploadFile(
         file,
-        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/medications/${Date.now()}.${extension}`
+        `${user.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/medications/${Date.now()}.${extension}`
       );
 
       // Store the document path for later use
@@ -89,6 +96,22 @@ const UploadOptions = ({
 
     await handleUploadFile(file);
   };
+
+  useEffect(() => {
+    if (!pet || !uploadIntent || uploadIntentHandled.current || isProcessing) {
+      return;
+    }
+    if (!["camera", "library", "pdf"].includes(uploadIntent)) {
+      return;
+    }
+    uploadIntentHandled.current = true;
+    void (async () => {
+      if (uploadIntent === "camera") await handleTakePhoto();
+      else if (uploadIntent === "library") await handleUploadFromLibrary();
+      else if (uploadIntent === "pdf") await handlePickPdfFile();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot picker intent
+  }, [pet, uploadIntent, isProcessing]);
 
   return (
     <View style={{ backgroundColor: theme.background }} className="flex-1">

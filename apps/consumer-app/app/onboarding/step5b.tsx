@@ -1,39 +1,51 @@
-import Header from "@/components/Header";
+import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const EMAIL_DOMAIN = "@pawbuck.app";
+const TOTAL_STEPS = 9;
+const CURRENT_STEP = 5;
 
 export default function OnboardingStep5b() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { updatePetData, petData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isDark = mode === "dark";
+
   const [emailId, setEmailId] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  // Debounced availability check
+  const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
+  const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)";
+  const inputBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+  const cardBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
+  const petName = petData?.name || "Your Pet";
+
   useEffect(() => {
     const trimmedEmailId = emailId.trim().toLowerCase();
-
-    // Reset states
     setIsAvailable(null);
     setCheckError(null);
 
-    // Validate format first
     const { isValid, error } = validateEmailIdFormat(trimmedEmailId);
     if (!isValid) {
       setValidationError(error || null);
@@ -41,7 +53,6 @@ export default function OnboardingStep5b() {
     }
     setValidationError(null);
 
-    // Check availability after a delay
     const timeoutId = setTimeout(async () => {
       setIsChecking(true);
       try {
@@ -60,7 +71,9 @@ export default function OnboardingStep5b() {
     return () => clearTimeout(timeoutId);
   }, [emailId]);
 
-  const handleNext = useCallback(() => {
+  const canProceed = emailId.trim() && isAvailable && !validationError && !isChecking;
+
+  const handleContinue = useCallback(() => {
     const trimmedEmailId = emailId.trim().toLowerCase();
     if (trimmedEmailId && isAvailable && !validationError) {
       updatePetData({ email_id: trimmedEmailId });
@@ -68,21 +81,13 @@ export default function OnboardingStep5b() {
     }
   }, [emailId, isAvailable, validationError, updatePetData, router]);
 
-  const canProceed =
-    emailId.trim() && isAvailable && !validationError && !isChecking;
-  const progressPercent = (4.5 / 9) * 100; // Updated progress
+  const hasError = !!(validationError || checkError);
 
-  const getStatusIcon = () => {
-    if (isChecking) {
-      return <ActivityIndicator size="small" color={theme.primary} />;
-    }
-    if (validationError || checkError) {
-      return <Ionicons name="close-circle" size={24} color="#EF4444" />;
-    }
-    if (isAvailable) {
-      return <Ionicons name="checkmark-circle" size={24} color="#22C55E" />;
-    }
-    return null;
+  const getBorderColor = () => {
+    if (hasError) return "#EF4444";
+    if (isAvailable) return "#22C55E";
+    if (emailId.trim()) return accentColor;
+    return isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
   };
 
   const getStatusMessage = () => {
@@ -95,183 +100,192 @@ export default function OnboardingStep5b() {
   const statusMessage = getStatusMessage();
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <Header />
-      <View className="px-6 pt-14 pb-4">
-        {/* Progress Indicator */}
-        <View className="items-center mb-2">
-          <Text
-            className="text-start font-medium"
-            style={{ color: theme.foreground }}
-          >
-            Question 5 of 9
-          </Text>
-        </View>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
-        {/* Progress Bar */}
-        <View
-          className="w-full h-2 rounded-full overflow-hidden"
-          style={{ backgroundColor: theme.secondary }}
+      {/* Header: back arrow + progress bar */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.backBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }]}
         >
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${progressPercent}%`,
-              backgroundColor: theme.primary,
-            }}
-          />
+          <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+        </Pressable>
+
+        <View style={styles.progressBarWrap}>
+          <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }]}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: accentColor }]} />
+          </View>
         </View>
       </View>
 
-      {/* Main Content */}
-      <View className="flex-1 px-6 pt-8">
-        {/* Back Button */}
-        <Pressable
-          onPress={() => router.back()}
-          className="flex-row items-center mb-8 active:opacity-70"
-        >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={theme.foreground}
-            style={{ opacity: 0.7 }}
-          />
-          <Text
-            className="text-start ml-1"
-            style={{ color: theme.foreground, opacity: 0.7 }}
-          >
-            Back
-          </Text>
-        </Pressable>
-
-        {/* Question Heading */}
-        <Text
-          className="text-4xl font-bold text-center mb-4"
-          style={{ color: theme.foreground }}
-        >
-          Choose an email for {petData?.name || "your pet"}
+      {/* Heading + subtitle above ScrollView */}
+      <View style={styles.headingWrap}>
+        <Text style={[styles.heading, { color: theme.foreground }]}>
+          Choose Email For {petName}
         </Text>
-
-        {/* Subtitle */}
-        <Text
-          className="text-start text-center mb-8"
-          style={{ color: theme.foreground, opacity: 0.6 }}
-        >
-          Your vet can send health records directly to this email address
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Vets and other care providers can send updates directly to this email address
         </Text>
+      </View>
 
-        {/* Form */}
-        <View className="w-full max-w-lg mx-auto">
-          {/* Email ID Label */}
-          <Text
-            className="text-start font-medium mb-3"
-            style={{ color: theme.foreground }}
-          >
-            Email ID
-          </Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingTop: 0, paddingBottom: 0, flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={{
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 40,
+            flex: 1,
+            backgroundColor: cardBg,
+          }}
+        >
+          {/* Email ID label */}
+          <Text style={[styles.label, { color: theme.foreground }]}>Email ID</Text>
 
-          {/* Email ID Input with Domain */}
-          <View
-            className="w-full rounded-xl mb-2 flex-row items-center"
-            style={{
-              backgroundColor: theme.background,
-              borderWidth: 2,
-              borderColor:
-                validationError || checkError
-                  ? "#EF4444"
-                  : isAvailable
-                    ? "#22C55E"
-                    : theme.primary,
-            }}
-          >
+          {/* Email input row */}
+          <View style={[styles.emailRow, { backgroundColor: inputBg, borderColor: getBorderColor() }]}>
             <TextInput
-              className="flex-1 py-4 px-5 text-start"
-              style={{
-                color: theme.foreground,
-              }}
+              style={[styles.emailInput, { color: theme.foreground }]}
               placeholder="e.g., buddy, max123"
-              placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+              placeholderTextColor={mutedText}
               value={emailId}
               onChangeText={(text) => setEmailId(text.toLowerCase())}
               autoCorrect={false}
               autoCapitalize="none"
               keyboardType="email-address"
-              returnKeyType="next"
-              onSubmitEditing={handleNext}
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
             />
-            <Text
-              className="pr-4"
-              style={{ color: theme.foreground, opacity: 0.6 }}
-            >
-              {EMAIL_DOMAIN}
-            </Text>
-            <View className="pr-4">{getStatusIcon()}</View>
+            <View style={styles.domainRow}>
+              {isChecking && <ActivityIndicator size="small" color={accentColor} />}
+              <Text style={[styles.domainText, { color: theme.foreground, opacity: 0.5 }]}>
+                {EMAIL_DOMAIN}
+              </Text>
+            </View>
           </View>
 
-          {/* Status Message */}
+          {/* Status message */}
           {statusMessage && (
             <Text
-              className="text-sm mb-6"
-              style={{
-                color:
-                  validationError || checkError
-                    ? "#EF4444"
-                    : isAvailable
-                      ? "#22C55E"
-                      : theme.foreground,
-              }}
+              style={[
+                styles.statusText,
+                { color: hasError ? "#EF4444" : "#22C55E" },
+              ]}
             >
               {statusMessage}
             </Text>
           )}
 
-          {!statusMessage && <View className="mb-6" />}
-
-          {/* Full Email Preview */}
-          {emailId.trim() && !validationError && isAvailable && (
-            <View
-              className="p-4 rounded-xl mb-8"
-              style={{ backgroundColor: theme.card }}
-            >
-              <Text
-                className="text-sm mb-1"
-                style={{ color: theme.foreground, opacity: 0.6 }}
-              >
-                Your pet's email address will be:
-              </Text>
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.primary }}
-              >
-                {emailId.trim().toLowerCase()}
-                {EMAIL_DOMAIN}
-              </Text>
-            </View>
-          )}
-
-          {/* Next Button */}
-          <Pressable
-            onPress={handleNext}
-            disabled={!canProceed}
-            className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
-            style={{
-              backgroundColor: canProceed ? theme.primary : theme.secondary,
-              opacity: canProceed ? 1 : 0.5,
-            }}
-          >
-            <Text
-              className="text-lg font-semibold"
-              style={{
-                color: canProceed
-                  ? theme.primaryForeground
-                  : theme.secondaryForeground,
-              }}
-            >
-              Next
-            </Text>
-          </Pressable>
+          {/* CTA inside card */}
+          <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+            <CTA
+              label="Continue"
+              size="LG"
+              style="Solid"
+              state={canProceed ? "Default" : "Disable"}
+              onPress={handleContinue}
+              disabled={!canProceed}
+              containerStyle={styles.continueBtn}
+            />
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarWrap: {
+    flex: 1,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  headingWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  emailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  emailInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 15,
+  },
+  domainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  domainText: {
+    fontSize: 15,
+  },
+  statusText: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingTop: 16,
+  },
+  continueBtn: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+});

@@ -1,129 +1,485 @@
+import {
+  FIGMA_HEALTH_EXAMS_ICON_BG,
+  FIGMA_HEALTH_LABS_ICON_BG,
+  FIGMA_HEALTH_MEDS_ICON_BG,
+  FIGMA_HEALTH_TEAL,
+} from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
+import { fetchMedicines } from "@/services/medicines";
+import { fetchClinicalExams } from "@/services/clinicalExams";
+import { fetchLabResults } from "@/services/labResults";
+import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import moment from "moment";
+import React, { useMemo } from "react";
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
 
 type HealthRecordsSectionProps = {
   petId: string;
+  /** Used for the empty-state headline (screenshot / Figma) */
+  petName: string;
 };
 
-type RecordItem = {
-  id: string;
+function formatHubDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return moment(iso).format("MMM D, YYYY");
+}
+
+type BadgeVariant = "success" | "info" | "infoBlue" | "warning" | "neutral";
+
+function StatusBadge({
+  label,
+  variant,
+  isDark,
+}: {
   label: string;
-  icon: React.ReactNode;
-  route: string;
-};
-
-export default function HealthRecordsSection({ petId }: HealthRecordsSectionProps) {
-  const { theme, mode } = useTheme();
-  const router = useRouter();
-  const isDarkMode = mode === "dark";
-
-  // Icon colors matching the screenshot:
-  // Exams: Teal (#3BD0D2), Lab Results: Purple (#A855F7)
-  const iconColors = {
-    vaccines: isDarkMode ? "#3BD0D2" : "#2BA3A3", // Teal for vaccines
-    meds: "#hsl(25, 90%, 55%)", // Teal for meds
-    exams: "#hsl(200, 85%, 55%)", // Teal for exams (stethoscope) - matches screenshot
-    lab: "#A855F7", // Purple for lab results (flask) - matches screenshot
+  variant: BadgeVariant;
+  isDark: boolean;
+}) {
+  const colors: Record<BadgeVariant, { bg: string; text: string }> = {
+    success: {
+      bg: isDark ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.12)",
+      text: isDark ? "#4ADE80" : "#15803D",
+    },
+    info: {
+      bg: isDark ? "rgba(59,208,210,0.2)" : "rgba(59,208,210,0.15)",
+      text: isDark ? "#3BD0D2" : "#0E7490",
+    },
+    infoBlue: {
+      bg: isDark ? "rgba(59,130,246,0.22)" : "rgba(59,130,246,0.12)",
+      text: isDark ? "#93C5FD" : "#1D4ED8",
+    },
+    warning: {
+      bg: isDark ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.2)",
+      text: isDark ? "#FBBF24" : "#B45309",
+    },
+    neutral: {
+      bg: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+      text: isDark ? "rgba(255,255,255,0.7)" : "#5A5F6A",
+    },
   };
-
-  const records: RecordItem[] = [
-    {
-      id: "vaccines",
-      label: "Vaccines",
-      icon: <MaterialCommunityIcons name="needle" size={20} color={iconColors.vaccines} />,
-      route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
-    },
-    {
-      id: "meds",
-      label: "Meds",
-      icon: <MaterialCommunityIcons name="pill" size={20} color={iconColors.meds} />,
-      route: `/(home)/health-record/${petId}/(tabs)/medications`,
-    },
-    {
-      id: "exams",
-      label: "Exams",
-      icon: <MaterialCommunityIcons name="stethoscope" size={20} color={iconColors.exams} />, // Teal stethoscope icon
-      route: `/(home)/health-record/${petId}/(tabs)/exams`,
-    },
-    {
-      id: "lab",
-      label: "Lab Results",
-      icon: <Ionicons name="flask" size={20} color={iconColors.lab} />, // Purple flask icon
-      route: `/(home)/health-record/${petId}/(tabs)/lab-results`,
-    },
-  ];
-
+  const c = colors[variant];
   return (
-    <View className="px-4">
-      {/* Section Header */}
-      <View className="mb-4">
-        <Text
-          className="text-xl font-bold mb-2"
-          style={{ color: theme.foreground }}
-        >
-          Health Records
-        </Text>
-        <LinearGradient
-          colors={[theme.primary, "transparent"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            width: 80,
-            height: 3,
-            borderRadius: 2,
-          }}
-        />
-      </View>
-
-      {/* Record Buttons Grid */}
-      <View className="flex-row justify-between px-6">
-        {records.map((record) => (
-          <TouchableOpacity
-            key={record.id}
-            className="items-center"
-            onPress={() => router.push(record.route as any)}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={isDarkMode 
-                ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
-                : ["#FFFFFF", "#F8FAFA"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 16,
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 8,
-                borderWidth: isDarkMode ? 1 : 0,
-                borderColor: theme.border,
-                // Shadow for iOS - matches Tailwind shadow-lg
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.1,
-                shadowRadius: 15,
-                // Shadow for Android
-                elevation: 10,
-              }}
-            >
-              {record.icon}
-            </LinearGradient>
-            <Text
-              className="text-sm font-medium"
-              style={{ color: theme.foreground }}
-            >
-              {record.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 100,
+        backgroundColor: c.bg,
+        alignSelf: "flex-start",
+      }}
+    >
+      {variant === "success" && (
+        <Ionicons name="checkmark-circle" size={14} color={c.text} />
+      )}
+      <Text style={{ fontSize: 12, fontWeight: "600", color: c.text }}>{label}</Text>
     </View>
   );
 }
 
+export default function HealthRecordsSection({ petId, petName }: HealthRecordsSectionProps) {
+  const { theme, mode } = useTheme();
+  const router = useRouter();
+  const isDark = mode === "dark";
+  const isAndroid = Platform.OS === "android";
+  const cardBorderStyle = isAndroid
+    ? {}
+    : { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" };
+  const cardBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+
+  const { data: vaccinations = [], isLoading: loadingVac } = useQuery({
+    queryKey: ["vaccinations", petId],
+    queryFn: () => getVaccinationsByPetId(petId),
+    enabled: !!petId,
+  });
+
+  const { data: medicines = [], isLoading: loadingMed } = useQuery({
+    queryKey: ["medicines", petId],
+    queryFn: () => fetchMedicines(petId),
+    enabled: !!petId,
+  });
+
+  const { data: exams = [], isLoading: loadingEx } = useQuery({
+    queryKey: ["clinicalExams", petId],
+    queryFn: () => fetchClinicalExams(petId),
+    enabled: !!petId,
+  });
+
+  const { data: labs = [], isLoading: loadingLab } = useQuery({
+    queryKey: ["labResults", petId],
+    queryFn: () => fetchLabResults(petId),
+    enabled: !!petId,
+  });
+
+  const loading = loadingVac || loadingMed || loadingEx || loadingLab;
+
+  const vaccineSummary = useMemo(() => {
+    if (vaccinations.length === 0) {
+      return {
+        badge: { label: "No records", variant: "neutral" as BadgeVariant },
+        primary: "Add vaccine records",
+        secondary: null as string | null,
+        nextLine: null as string | null,
+      };
+    }
+    const now = new Date();
+    let overdue = 0;
+    let nearestDue: Date | null = null;
+    for (const v of vaccinations) {
+      if (v.next_due_date) {
+        const d = new Date(v.next_due_date);
+        if (d < now) overdue++;
+        else if (!nearestDue || d < nearestDue) nearestDue = d;
+      }
+    }
+    const compliant = overdue === 0;
+    return {
+      badge: {
+        label: compliant ? "Compliant" : `${overdue} Overdue`,
+        variant: (compliant ? "success" : "warning") as BadgeVariant,
+      },
+      primary: compliant ? "All Vaccines Up To Date" : "Review vaccination schedule",
+      secondary: nearestDue ? formatHubDate(nearestDue.toISOString()) : null,
+      nextLine: nearestDue ? "Next Due" : null,
+    };
+  }, [vaccinations]);
+
+  const medSummary = useMemo(() => {
+    const now = new Date();
+    const active = medicines.filter((m) => {
+      if (!m.end_date) return true;
+      const end = new Date(m.end_date);
+      end.setHours(23, 59, 59, 999);
+      return end >= now;
+    });
+    if (medicines.length === 0) {
+      return {
+        badge: { label: "No records", variant: "neutral" as BadgeVariant },
+        primary: "No medications yet",
+        tags: [] as string[],
+        sub: null as string | null,
+      };
+    }
+    const first = active[0] ?? medicines[0];
+    const dosage = [first.dosage, first.frequency].filter(Boolean).join(" · ");
+    const line = [first.name, dosage].filter(Boolean).join(" · ");
+    const otherNames = active
+      .map((m) => m.name)
+      .filter((n, i, a) => n && a.indexOf(n) === i)
+      .filter((n) => n !== first.name)
+      .slice(0, 2);
+    return {
+      badge: {
+        label: active.length > 0 ? `${active.length} Ongoing` : "Completed",
+        variant: active.length > 0 ? ("infoBlue" as BadgeVariant) : ("success" as BadgeVariant),
+      },
+      primary: line || "Medications",
+      tags: otherNames,
+      sub: null,
+    };
+  }, [medicines]);
+
+  const examSummary = useMemo(() => {
+    if (exams.length === 0) {
+      return {
+        badge: { label: "No records", variant: "neutral" as BadgeVariant },
+        primary: "No exams recorded",
+        dateLabel: null as string | null,
+        date: null as string | null,
+        clinic: null as string | null,
+      };
+    }
+    const last = exams[0];
+    const d = last.exam_date || last.created_at;
+    return {
+      badge: { label: "Up to Date", variant: "success" as BadgeVariant },
+      primary: last.exam_type || "Recent exam",
+      dateLabel: "Last Exam",
+      date: formatHubDate(d),
+      clinic: last.clinic_name || null,
+    };
+  }, [exams]);
+
+  const labSummary = useMemo(() => {
+    if (labs.length === 0) {
+      return {
+        badge: { label: "No records", variant: "neutral" as BadgeVariant },
+        primary: "No lab results yet",
+        dateLabel: null as string | null,
+        date: null as string | null,
+      };
+    }
+    const last = labs[0];
+    const d = last.test_date || last.created_at;
+    return {
+      badge: { label: "All Normal", variant: "success" as BadgeVariant },
+      primary: last.test_type || "Recent lab",
+      dateLabel: "Last Blood Panel",
+      date: formatHubDate(d),
+    };
+  }, [labs]);
+
+  const hubEmpty =
+    !loading &&
+    vaccinations.length === 0 &&
+    medicines.length === 0 &&
+    exams.length === 0 &&
+    labs.length === 0;
+
+  const hubCards = [
+    {
+      id: "vaccines",
+      title: "Vaccinations",
+      route: `/(home)/health-record/${petId}/(tabs)/vaccinations` as const,
+      /** Figma 1340:33860 — solid brand teal disc, not tinted plate */
+      iconBg: FIGMA_HEALTH_TEAL,
+      icon: <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />,
+      badge: vaccineSummary.badge,
+      body: vaccineSummary,
+      type: "vaccine" as const,
+    },
+    {
+      id: "meds",
+      title: "Medications",
+      route: `/(home)/health-record/${petId}/(tabs)/medications` as const,
+      iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
+      icon: <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />,
+      badge: medSummary.badge,
+      body: medSummary,
+      type: "med" as const,
+    },
+    {
+      id: "exams",
+      title: "Exams",
+      route: `/(home)/health-record/${petId}/(tabs)/exams` as const,
+      iconBg: FIGMA_HEALTH_EXAMS_ICON_BG,
+      icon: <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />,
+      badge: examSummary.badge,
+      body: examSummary,
+      type: "exam" as const,
+    },
+    {
+      id: "labs",
+      title: "Lab Results",
+      route: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
+      iconBg: FIGMA_HEALTH_LABS_ICON_BG,
+      icon: <Ionicons name="flask" size={22} color="#FFFFFF" />,
+      badge: labSummary.badge,
+      body: labSummary,
+      type: "lab" as const,
+    },
+  ];
+
+  return (
+    <View style={{ paddingHorizontal: 20 }}>
+      <Text
+        style={{
+          fontSize: 24,
+          fontWeight: "700",
+          color: isDark ? "#FFFFFF" : "#0D0F0F",
+          lineHeight: 29,
+          marginBottom: hubEmpty ? 18 : 16,
+        }}
+      >
+        Health Records
+      </Text>
+
+      {hubEmpty && (
+        <View style={{ marginBottom: 22, paddingHorizontal: 4 }}>
+          <Text
+            style={{
+              textAlign: "center",
+              fontSize: 22,
+              fontWeight: "700",
+              color: theme.foreground,
+              lineHeight: 30,
+            }}
+          >
+            Keep all of{" "}
+            <Text style={{ color: theme.primary }}>{petName}</Text>
+            {"'s health history in one secure place."}
+          </Text>
+          <Text
+            style={{
+              textAlign: "center",
+              marginTop: 12,
+              fontSize: 15,
+              lineHeight: 22,
+              color: theme.secondary,
+              paddingHorizontal: 6,
+            }}
+          >
+            You&apos;ll never miss a booster shot again! Organize vaccinations, lab results, and vet visits
+            effortlessly.
+          </Text>
+        </View>
+      )}
+
+      {loading ? (
+        <View style={{ paddingVertical: 24, alignItems: "center" }}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      ) : (
+        <View style={{ gap: 12 }}>
+          {hubCards.map((card) => (
+            <TouchableOpacity
+              key={card.id}
+              activeOpacity={0.85}
+              onPress={() => router.push(card.route as any)}
+              style={{
+                backgroundColor: cardBg,
+                borderRadius: 20,
+                padding: 16,
+                ...cardBorderStyle,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: card.iconBg,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                  }}
+                >
+                  {card.icon}
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>{card.title}</Text>
+                    <StatusBadge label={card.badge.label} variant={card.badge.variant} isDark={isDark} />
+                  </View>
+
+                  {card.type === "vaccine" && (
+                    <>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }} numberOfLines={2}>
+                        {(card.body as typeof vaccineSummary).primary}
+                      </Text>
+                      {(card.body as typeof vaccineSummary).secondary && (card.body as typeof vaccineSummary).nextLine && (
+                        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10, gap: 16 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Ionicons name="time-outline" size={16} color={theme.secondary} />
+                            <View>
+                              <Text style={{ fontSize: 11, color: theme.secondary }}>{(card.body as typeof vaccineSummary).nextLine}</Text>
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                                {(card.body as typeof vaccineSummary).secondary}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  )}
+
+                  {card.type === "med" && (
+                    <>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }} numberOfLines={2}>
+                        {(card.body as typeof medSummary).primary}
+                      </Text>
+                      {(card.body as typeof medSummary).tags.length > 0 && (
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                          {(card.body as typeof medSummary).tags.map((t) => (
+                            <View
+                              key={t}
+                              style={{
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 100,
+                                borderWidth: 1,
+                                borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.1)",
+                                backgroundColor: "transparent",
+                              }}
+                            >
+                              <Text style={{ fontSize: 12, color: theme.secondary }}>{t}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+
+                  {card.type === "exam" && (
+                    <View style={{ marginTop: 4, gap: 10 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }} numberOfLines={2}>
+                        {(card.body as typeof examSummary).primary}
+                      </Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
+                        {(card.body as typeof examSummary).date ? (
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+                            <Ionicons name="calendar-outline" size={16} color={theme.secondary} style={{ marginTop: 2 }} />
+                            <View>
+                              <Text style={{ fontSize: 11, color: theme.secondary }}>
+                                {(card.body as typeof examSummary).dateLabel}
+                              </Text>
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                                {(card.body as typeof examSummary).date}
+                              </Text>
+                            </View>
+                          </View>
+                        ) : null}
+                        {(card.body as typeof examSummary).clinic ? (
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, flex: 1, minWidth: 120 }}>
+                            <Ionicons name="business-outline" size={16} color={theme.secondary} style={{ marginTop: 2 }} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 11, color: theme.secondary }}>Clinic</Text>
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }} numberOfLines={2}>
+                                {(card.body as typeof examSummary).clinic}
+                              </Text>
+                            </View>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
+
+                  {card.type === "lab" && (
+                    <>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }} numberOfLines={2}>
+                        {(card.body as typeof labSummary).primary}
+                      </Text>
+                      {(card.body as typeof labSummary).date && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 }}>
+                          <Ionicons name="calendar-outline" size={16} color={theme.secondary} />
+                          <View>
+                            <Text style={{ fontSize: 11, color: theme.secondary }}>
+                              {(card.body as typeof labSummary).dateLabel}
+                            </Text>
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                              {(card.body as typeof labSummary).date}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginLeft: 8,
+                  }}
+                >
+                  <MaterialCommunityIcons name="arrow-top-right" size={20} color={theme.secondary} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}

@@ -49,6 +49,34 @@ export default function HealthRecordLayout() {
                     headerShown: false,
                   }}
                 />
+                <Stack.Screen
+                  name="vaccination-detail"
+                  options={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                />
+                <Stack.Screen
+                  name="medicine-detail"
+                  options={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                />
+                <Stack.Screen
+                  name="exam-detail"
+                  options={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                />
+                <Stack.Screen
+                  name="lab-detail"
+                  options={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                />
               </Stack>
             </ClinicalExamsProvider>
           </LabResultsProvider>

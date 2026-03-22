@@ -1,218 +1,350 @@
-import BreedPicker from "@/components/BreedPicker";
-import Header from "@/components/Header";
+import { CTA } from "@/components/ui";
+import { CAT_BREEDS, DOG_BREEDS } from "@/constants/onboarding";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const TOTAL_STEPS = 9;
+const CURRENT_STEP = 3;
 
 export default function OnboardingStep4() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { updatePetData, petData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isDark = mode === "dark";
+
   const [breed, setBreed] = useState("");
-  const [showBreedPicker, setShowBreedPicker] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const petType = (petData?.animal_type || "dog") as "dog" | "cat" | "other";
-  const petLabel = petType === "cat" ? "cat" : "dog";
+  const petLabel = petType === "cat" ? "Cat" : "Dog";
+  const breeds = petType === "cat" ? CAT_BREEDS : DOG_BREEDS;
 
-  const handleNext = () => {
+  const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
+  const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)";
+  const inputBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+  const cardBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
+
+  const handleBreedSelect = (selectedBreed: string) => {
+    setBreed(selectedBreed);
+  };
+
+  const handleContinue = () => {
     if (breed.trim()) {
       updatePetData({ breed: breed.trim() });
       router.push("/onboarding/step5");
     }
   };
 
-  const handleBreedSelect = (selectedBreed: string) => {
-    setBreed(selectedBreed);
-  };
-
-  const progressPercent = (3 / 9) * 100;
-
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      {/* Header with Icons */}
-      <Header />
-      <View className="px-6 pt-14 pb-4">
-        {/* Progress Indicator */}
-        <View className="items-center mb-2">
-          <Text
-            className="text-start font-medium"
-            style={{ color: theme.foreground }}
-          >
-            Question 3 of 9
-          </Text>
-        </View>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
-        {/* Progress Bar */}
-        <View
-          className="w-full h-2 rounded-full overflow-hidden"
-          style={{ backgroundColor: theme.secondary }}
-        >
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${progressPercent}%`,
-              backgroundColor: theme.primary,
-            }}
-          />
-        </View>
-      </View>
-
-      {/* Main Content */}
-      <View className="flex-1 px-6 pt-8">
-        {/* Back Button */}
+      {/* Header: back arrow + progress bar */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable
           onPress={() => router.back()}
-          className="flex-row items-center mb-8 active:opacity-70"
+          style={[
+            styles.backBtn,
+            { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" },
+          ]}
         >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={theme.foreground}
-            style={{ opacity: 0.7 }}
-          />
-          <Text
-            className="text-start ml-1"
-            style={{ color: theme.foreground, opacity: 0.7 }}
-          >
-            Back
-          </Text>
+          <Ionicons name="arrow-back" size={20} color={theme.foreground} />
         </Pressable>
 
-        {/* Question Heading */}
-        <Text
-          className="text-4xl font-bold text-center mb-12"
-          style={{ color: theme.foreground }}
-        >
-          What breed is your {petLabel}?
-        </Text>
-
-        {/* Form */}
-        <View className="w-full max-w-lg mx-auto">
-          {!showCustomInput ? (
-            <>
-              {/* Breed Label */}
-              <Text
-                className="text-start font-medium mb-3"
-                style={{ color: theme.foreground }}
-              >
-                Select breed
-              </Text>
-
-              {/* Breed Dropdown/Picker */}
-              <Pressable
-                onPress={() => setShowBreedPicker(true)}
-                className="w-full bg-transparent rounded-xl py-4 px-5 mb-4"
-                style={{ borderWidth: 1, borderColor: theme.border }}
-              >
-                <View className="flex-row justify-between items-center">
-                  <Text
-                    className="text-start"
-                    style={{
-                      color: breed ? theme.foreground : theme.foreground,
-                      opacity: breed ? 1 : 0.5,
-                    }}
-                  >
-                    {breed || "Choose a breed..."}
-                  </Text>
-                  <Ionicons
-                    name="chevron-down"
-                    size={20}
-                    color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
-                  />
-                </View>
-              </Pressable>
-
-              {/* Can't find breed link */}
-              <Pressable
-                onPress={() => setShowCustomInput(true)}
-                className="mb-8 active:opacity-70"
-              >
-                <Text
-                  className="text-start text-center"
-                  style={{ color: theme.primary }}
-                >
-                  Can't find your breed? Enter custom breed
-                </Text>
-              </Pressable>
-
-              {/* Breed Picker Modal */}
-              <BreedPicker
-                visible={showBreedPicker}
-                selectedBreed={breed}
-                petType={petType}
-                onSelect={handleBreedSelect}
-                onClose={() => setShowBreedPicker(false)}
-              />
-            </>
-          ) : (
-            <>
-              {/* Custom Breed Input */}
-              <Text
-                className="text-start font-medium mb-3"
-                style={{ color: theme.foreground }}
-              >
-                Enter breed name
-              </Text>
-
-              <TextInput
-                className="w-full rounded-xl py-4 px-5 mb-4 text-start"
-                style={{
-                  backgroundColor: theme.background,
-                  borderWidth: 2,
-                  borderColor: theme.primary,
-                  color: theme.foreground,
-                }}
-                placeholder={`e.g., Mixed Breed, Labradoodle`}
-                placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
-                value={breed}
-                onChangeText={setBreed}
-                autoCorrect={false}
-                autoCapitalize="words"
-                autoFocus={true}
-              />
-
-              {/* Back to dropdown link */}
-              <Pressable
-                onPress={() => setShowCustomInput(false)}
-                className="mb-8 active:opacity-70"
-              >
-                <Text
-                  className="text-start text-center"
-                  style={{ color: theme.primary }}
-                >
-                  Choose from common breeds
-                </Text>
-              </Pressable>
-            </>
-          )}
-
-          {/* Next Button */}
-          <Pressable
-            onPress={handleNext}
-            disabled={!breed.trim()}
-            className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
-            style={{
-              backgroundColor: breed.trim() ? theme.primary : theme.secondary,
-              opacity: breed.trim() ? 1 : 0.5,
-            }}
+        <View style={styles.progressBarWrap}>
+          <View
+            style={[
+              styles.progressTrack,
+              { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" },
+            ]}
           >
-            <Text
-              className="text-lg font-semibold"
-              style={{
-                color: breed.trim()
-                  ? theme.primaryForeground
-                  : theme.secondaryForeground,
-              }}
-            >
-              Next
-            </Text>
-          </Pressable>
+            <View
+              style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: accentColor }]}
+            />
+          </View>
         </View>
       </View>
+
+      {/* Heading + Subtitle (fixed, not scrollable) */}
+      <View style={styles.headingWrap}>
+        <Text style={[styles.heading, { color: theme.foreground }]}>
+          What Breed Is Your {petLabel}?
+        </Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Helps personalize care
+        </Text>
+      </View>
+
+      {/* Scrollable content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {!showCustomInput ? (
+          <View style={[styles.card, { backgroundColor: cardBg }]}>
+            {/* Select Breed label */}
+            <Text style={[styles.label, { color: theme.foreground }]}>Select Breed</Text>
+
+            {/* Dropdown trigger */}
+            <Pressable
+              onPress={() => setDropdownOpen((prev) => !prev)}
+              style={[
+                styles.dropdownTrigger,
+                {
+                  backgroundColor: inputBg,
+                  borderColor: dropdownOpen ? accentColor : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                  borderWidth: dropdownOpen ? 1.5 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.dropdownText, { color: breed ? theme.foreground : mutedText }]}
+              >
+                {breed || "Choose a breed..."}
+              </Text>
+              <Ionicons
+                name={dropdownOpen ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={mutedText}
+              />
+            </Pressable>
+
+            {/* Inline breed list */}
+            {dropdownOpen && (
+              <View style={[styles.breedList, { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }]}>
+                {breeds.map((item) => {
+                  const isSelected = breed === item;
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => handleBreedSelect(item)}
+                      style={[
+                        styles.breedRow,
+                        isSelected && { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.breedRowText,
+                          { color: theme.foreground },
+                          isSelected && { fontWeight: "600" },
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={22} color={accentColor} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Can't find breed link */}
+            <Pressable onPress={() => setShowCustomInput(true)} style={styles.customBreedLink}>
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={theme.foreground}
+                style={{ opacity: 0.6 }}
+              />
+              <Text style={[styles.customBreedText, { color: theme.foreground, opacity: 0.6 }]}>
+                Can't find your breed? Enter custom breed
+              </Text>
+            </Pressable>
+
+            {/* Continue button inside card */}
+            <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+              <CTA
+                label="Continue"
+                size="LG"
+                style="Solid"
+                state={breed.trim() ? "Default" : "Disable"}
+                onPress={handleContinue}
+                disabled={!breed.trim()}
+                containerStyle={styles.continueBtn}
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.card, { backgroundColor: cardBg }]}>
+            {/* Custom breed input */}
+            <Text style={[styles.label, { color: theme.foreground }]}>Enter breed name</Text>
+
+            <TextInput
+              style={[
+                styles.dropdownTrigger,
+                {
+                  backgroundColor: inputBg,
+                  borderColor: accentColor,
+                  borderWidth: 1.5,
+                  color: theme.foreground,
+                },
+              ]}
+              placeholder="e.g., Mixed Breed, Labradoodle"
+              placeholderTextColor={mutedText}
+              value={breed}
+              onChangeText={setBreed}
+              autoCorrect={false}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            {/* Back to dropdown link */}
+            <Pressable onPress={() => setShowCustomInput(false)} style={styles.customBreedLink}>
+              <Ionicons name="list-outline" size={18} color={accentColor} />
+              <Text style={[styles.customBreedText, { color: accentColor }]}>
+                Choose from common breeds
+              </Text>
+            </Pressable>
+
+            {/* Continue button inside card */}
+            <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+              <CTA
+                label="Continue"
+                size="LG"
+                style="Solid"
+                state={breed.trim() ? "Default" : "Disable"}
+                onPress={handleContinue}
+                disabled={!breed.trim()}
+                containerStyle={styles.continueBtn}
+              />
+            </View>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarWrap: {
+    flex: 1,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  headingWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: 0,
+    flexGrow: 1,
+  },
+  card: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    flex: 1,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  dropdownTrigger: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dropdownText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  breedList: {
+    marginTop: 8,
+  },
+  breedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  breedRowText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  customBreedLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+    marginTop: 16,
+  },
+  customBreedText: {
+    fontSize: 14,
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingTop: 16,
+  },
+  continueBtn: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+});

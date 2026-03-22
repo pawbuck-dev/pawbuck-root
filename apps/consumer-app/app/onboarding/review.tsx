@@ -22,7 +22,7 @@ import {
     TextInput,
     View,
 } from "react-native";
-import DatePicker from "react-native-date-picker";
+import DateTimePicker from "@/components/common/DateTimePicker";
 
 const EMAIL_DOMAIN = "@pawbuck.app";
 
@@ -677,20 +677,16 @@ export default function OnboardingReview() {
           />
 
           {/* Date Picker */}
-          {/* Date Picker */}
-          <DatePicker
-            modal
-            open={showDatePicker}
-            theme={mode}
-            mode="date"
-            maximumDate={new Date()}
-            minimumDate={new Date(1990, 0, 1)}
+          <DateTimePicker
+            visible={showDatePicker}
             date={tempBirthDate || new Date()}
-            onConfirm={(date) => {
+            mode="date"
+            onSave={(date) => {
               setShowDatePicker(false);
               setTempBirthDate(date);
+              updatePetData({ date_of_birth: date.toISOString() });
             }}
-            onCancel={() => {
+            onClose={() => {
               setShowDatePicker(false);
             }}
           />

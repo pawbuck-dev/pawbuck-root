@@ -11,8 +11,6 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 type DailyIntakeConfigModalProps = {
   visible: boolean;
   onClose: () => void;
@@ -21,8 +19,6 @@ type DailyIntakeConfigModalProps = {
   currentFoodTarget: number;
   onSave: (waterTarget: number, foodTarget: number) => void;
 };
-
-const STORAGE_KEY_PREFIX = "daily_intake_";
 
 export default function DailyIntakeConfigModal({
   visible,

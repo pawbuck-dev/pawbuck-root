@@ -1,6 +1,10 @@
 import { LabResultCard } from "@/components/lab-results/LabResultCard";
 import { useLabResults } from "@/context/labResultsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
+import {
+  FIGMA_HEALTH_LABS_ICON_BG,
+  healthRecordTabCanvas,
+} from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -9,30 +13,41 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 
 export default function LabResultsScreen() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const listCanvas = healthRecordTabCanvas(theme, isDark);
   const { pet } = useSelectedPet();
   const { labResults, isLoading, error } = useLabResults();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
+    if (!pet) return;
     setRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
     setRefreshing(false);
-  }, [queryClient, pet.id]);
+  }, [queryClient, pet]);
 
   useFocusEffect(
     React.useCallback(() => {
-      // Refetch lab results when screen comes into focus
+      if (!pet) return;
       queryClient.invalidateQueries({ queryKey: ["labResults", pet.id] });
-    }, [queryClient, pet.id])
+    }, [queryClient, pet])
   );
+
+  if (!pet) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: listCanvas }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas }}
       >
         <ActivityIndicator size="large" color={theme.primary} />
         <Text className="mt-4 text-base" style={{ color: theme.secondary }}>
@@ -46,7 +61,7 @@ export default function LabResultsScreen() {
     return (
       <View
         className="flex-1 items-center justify-center px-6"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas }}
       >
         <Ionicons name="alert-circle" size={48} color="#ef4444" />
         <Text
@@ -69,32 +84,32 @@ export default function LabResultsScreen() {
     return (
       <View
         className="flex-1 items-center justify-center px-6"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas, paddingBottom: 120 }}
       >
         <View
-          className="w-24 h-24 rounded-full items-center justify-center mb-6"
-          style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+          className="w-28 h-28 rounded-full items-center justify-center mb-6"
+          style={{ backgroundColor: FIGMA_HEALTH_LABS_ICON_BG }}
         >
-          <Ionicons name="flask" size={40} color={theme.primary} />
+          <Ionicons name="flask" size={40} color="#FFFFFF" />
         </View>
         <Text
-          className="text-xl font-semibold mb-2 text-center"
+          className="text-xl font-bold mb-2 text-center"
           style={{ color: theme.foreground }}
         >
-          No lab results yet
+          No Labs Results Yet
         </Text>
         <Text
-          className="text-sm text-center"
+          className="text-sm text-center leading-5"
           style={{ color: theme.secondary }}
         >
-          Lab test results will appear here
+          Lab test results for your pet will appear here. Tap + to upload a lab report.
         </Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: listCanvas }}>
       <ScrollView
         className="flex-1 px-6 pt-4"
         showsVerticalScrollIndicator={false}
@@ -107,11 +122,14 @@ export default function LabResultsScreen() {
           />
         }
       >
+        <Text className="text-base font-bold mb-3" style={{ color: theme.foreground }}>
+          Recent Activity
+        </Text>
         {labResults.map((labResult) => (
           <LabResultCard key={labResult.id} labResult={labResult} />
         ))}
 
-        <View className="h-20" />
+        <View className="h-28" />
       </ScrollView>
     </View>
   );

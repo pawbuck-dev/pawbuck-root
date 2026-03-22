@@ -1,19 +1,26 @@
-import Header from "@/components/Header";
+import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const TOTAL_STEPS = 9;
+const CURRENT_STEP = 8;
 
 type WeightUnit = "pounds" | "kilograms";
 
@@ -21,13 +28,23 @@ export default function OnboardingStep8() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { updatePetData, petData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isDark = mode === "dark";
+
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState<WeightUnit>("pounds");
 
   const petName = petData?.name || "your pet";
+  const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
+  const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)";
+  const inputBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+  const cardBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
 
-  const handleNext = () => {
-    if (weight.trim() && !isNaN(parseFloat(weight))) {
+  const isValid = weight.trim() !== "" && !isNaN(parseFloat(weight));
+
+  const handleContinue = () => {
+    if (isValid) {
       updatePetData({
         weight_value: parseFloat(weight),
         weight_unit: unit,
@@ -36,123 +53,102 @@ export default function OnboardingStep8() {
     }
   };
 
-  const progressPercent = (8 / 9) * 100;
-
   return (
     <KeyboardAvoidingView
-      className="flex-1"
-      style={{ backgroundColor: theme.background }}
+      style={[styles.root, { backgroundColor: theme.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className="flex-1">
-          <Header />
-          <View className="px-6 pt-14 pb-4">
-            {/* Progress Indicator */}
-            <View className="items-center mb-2">
-              <Text
-                className="text-start font-medium"
-                style={{ color: theme.foreground }}
-              >
-                Question 8 of 9
-              </Text>
-            </View>
+        <View style={styles.root}>
+          <StatusBar style={isDark ? "light" : "dark"} />
 
-            {/* Progress Bar */}
-            <View
-              className="w-full h-2 rounded-full overflow-hidden"
-              style={{ backgroundColor: theme.secondary }}
+          {/* Header: back arrow + progress bar */}
+          <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+            <Pressable
+              onPress={() => router.back()}
+              style={[styles.backBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }]}
             >
-              <View
-                className="h-full rounded-full"
-                style={{
-                  width: `${progressPercent}%`,
-                  backgroundColor: theme.primary,
-                }}
-              />
+              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+            </Pressable>
+
+            <View style={styles.progressBarWrap}>
+              <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }]}>
+                <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: accentColor }]} />
+              </View>
             </View>
           </View>
 
-          {/* Main Content */}
-          <View className="flex-1 px-6 pt-8">
-            {/* Back Button */}
-            <Pressable
-              onPress={() => router.back()}
-              className="flex-row items-center mb-8 active:opacity-70"
-            >
-              <Ionicons
-                name="chevron-back"
-                size={20}
-                color={theme.foreground}
-                style={{ opacity: 0.7 }}
-              />
-              <Text
-                className="text-start ml-1"
-                style={{ color: theme.foreground, opacity: 0.7 }}
-              >
-                Back
-              </Text>
-            </Pressable>
-
-            {/* Question Heading */}
-            <Text
-              className="text-4xl font-bold text-center mb-12"
-              style={{ color: theme.foreground }}
-            >
-              How much does {petName} weigh?
+          {/* Heading + Subtitle (fixed above ScrollView) */}
+          <View style={styles.headingWrap}>
+            <Text style={[styles.heading, { color: theme.foreground }]}>
+              {petName}'s Current Weight?
             </Text>
+            <Text style={[styles.subtitle, { color: mutedText }]}>
+              Helps track health changes
+            </Text>
+          </View>
 
-            {/* Form */}
-            <View className="w-full max-w-lg mx-auto">
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: cardBg,
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                  paddingHorizontal: 24,
+                  paddingTop: 24,
+                  paddingBottom: 40,
+                  flex: 1,
+                },
+              ]}
+            >
               {/* Unit Toggle */}
-              <View className="flex-row items-center justify-center mb-8">
+              <View style={styles.unitToggleWrap}>
                 <View
-                  className="flex-row rounded-full overflow-hidden"
-                  style={{
-                    backgroundColor: theme.card,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                  }}
+                  style={[
+                    styles.unitToggle,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                    },
+                  ]}
                 >
-                  {/* Pounds Button */}
                   <Pressable
                     onPress={() => setUnit("pounds")}
-                    className="px-8 py-3 active:opacity-80"
-                    style={{
-                      backgroundColor:
-                        unit === "pounds" ? theme.primary : "transparent",
-                    }}
+                    style={[
+                      styles.unitBtn,
+                      unit === "pounds" && { backgroundColor: accentColor },
+                    ]}
                   >
                     <Text
-                      className="text-start font-semibold"
-                      style={{
-                        color:
-                          unit === "pounds"
-                            ? theme.primaryForeground
-                            : theme.foreground,
-                      }}
+                      style={[
+                        styles.unitBtnText,
+                        { color: unit === "pounds" ? "#FFFFFF" : theme.foreground },
+                      ]}
                     >
                       Pounds
                     </Text>
                   </Pressable>
 
-                  {/* Kilograms Button */}
                   <Pressable
                     onPress={() => setUnit("kilograms")}
-                    className="px-8 py-3 active:opacity-80"
-                    style={{
-                      backgroundColor:
-                        unit === "kilograms" ? theme.primary : "transparent",
-                    }}
+                    style={[
+                      styles.unitBtn,
+                      unit === "kilograms" && { backgroundColor: accentColor },
+                    ]}
                   >
                     <Text
-                      className="text-start font-semibold"
-                      style={{
-                        color:
-                          unit === "kilograms"
-                            ? theme.primaryForeground
-                            : theme.foreground,
-                      }}
+                      style={[
+                        styles.unitBtnText,
+                        { color: unit === "kilograms" ? "#FFFFFF" : theme.foreground },
+                      ]}
                     >
                       Kilograms
                     </Text>
@@ -161,60 +157,142 @@ export default function OnboardingStep8() {
               </View>
 
               {/* Weight Label */}
-              <Text
-                className="text-start font-medium mb-3"
-                style={{ color: theme.foreground }}
-              >
+              <Text style={[styles.label, { color: theme.foreground }]}>
                 Weight in {unit}
               </Text>
 
               {/* Weight Input */}
               <TextInput
-                className="w-full rounded-xl py-4 px-5 mb-8 text-start"
-                style={{
-                  backgroundColor: theme.background,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  color: theme.foreground,
-                }}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: inputBg,
+                    borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                    color: theme.foreground,
+                  },
+                ]}
                 placeholder="e.g., 45"
-                placeholderTextColor={mode === "dark" ? "#6B7280" : "#9CA3AF"}
+                placeholderTextColor={mutedText}
                 value={weight}
                 onChangeText={setWeight}
                 keyboardType="decimal-pad"
                 returnKeyType="done"
-                onSubmitEditing={handleNext}
+                onSubmitEditing={handleContinue}
               />
 
-              {/* Next Button */}
-              <Pressable
-                onPress={handleNext}
-                disabled={!weight.trim() || isNaN(parseFloat(weight))}
-                className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
-                style={{
-                  backgroundColor:
-                    weight.trim() && !isNaN(parseFloat(weight))
-                      ? theme.primary
-                      : theme.secondary,
-                  opacity: weight.trim() && !isNaN(parseFloat(weight)) ? 1 : 0.5,
-                }}
-              >
-                <Text
-                  className="text-lg font-semibold"
-                  style={{
-                    color:
-                      weight.trim() && !isNaN(parseFloat(weight))
-                        ? theme.primaryForeground
-                        : theme.secondaryForeground,
-                  }}
-                >
-                  Next
-                </Text>
-              </Pressable>
+              {/* CTA */}
+              <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+                <CTA
+                  label="Continue"
+                  size="LG"
+                  style="Solid"
+                  state={isValid ? "Default" : "Disable"}
+                  onPress={handleContinue}
+                  disabled={!isValid}
+                  containerStyle={styles.continueBtn}
+                />
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarWrap: {
+    flex: 1,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: 0,
+    flexGrow: 1,
+  },
+  headingWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  card: {
+    flex: 1,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  unitToggleWrap: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  unitToggle: {
+    flexDirection: "row",
+    borderRadius: 100,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  unitBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 100,
+  },
+  unitBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  input: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    borderWidth: 1,
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingTop: 16,
+  },
+  continueBtn: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+});

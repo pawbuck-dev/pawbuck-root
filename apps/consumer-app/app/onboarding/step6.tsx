@@ -1,183 +1,226 @@
-import Header from "@/components/Header";
+import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Gender = "male" | "female";
 
+const TOTAL_STEPS = 9;
+const CURRENT_STEP = 6;
+
 export default function OnboardingStep6() {
   const router = useRouter();
-  const { theme } = useTheme();
-  const { updatePetData, petData } = useOnboarding();
+  const { theme, mode } = useTheme();
+  const { updatePetData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isDark = mode === "dark";
+
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null);
 
-  const petName = petData?.name || "your pet";
+  const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
+  const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
+  const mutedText = isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)";
+  const cardBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)";
+  const optionCardBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
 
-  const handleSelectGender = (gender: Gender) => {
-    setSelectedGender(gender);
-    // Auto-advance after selection
-    setTimeout(() => {
-      updatePetData({ sex: gender });
+  const handleContinue = () => {
+    if (selectedGender) {
+      updatePetData({ sex: selectedGender });
       router.push("/onboarding/step7");
-    }, 300);
+    }
   };
 
-  const progressPercent = (6 / 9) * 100;
-
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <Header />
-      <View className="px-6 pt-14 pb-4">
-        {/* Progress Indicator */}
-        <View className="items-center mb-2">
-          <Text
-            className="text-start font-medium"
-            style={{ color: theme.foreground }}
-          >
-            Question 6 of 9
-          </Text>
-        </View>
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
-        {/* Progress Bar */}
-        <View
-          className="w-full h-2 rounded-full overflow-hidden"
-          style={{ backgroundColor: theme.secondary }}
-        >
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${progressPercent}%`,
-              backgroundColor: theme.primary,
-            }}
-          />
-        </View>
-      </View>
-
-      {/* Main Content */}
-      <View className="flex-1 px-6 pt-8">
-        {/* Back Button */}
+      {/* Header: back arrow + progress bar */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable
           onPress={() => router.back()}
-          className="flex-row items-center mb-8 active:opacity-70"
+          style={[styles.backBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }]}
         >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={theme.foreground}
-            style={{ opacity: 0.7 }}
-          />
-          <Text
-            className="text-start ml-1"
-            style={{ color: theme.foreground, opacity: 0.7 }}
-          >
-            Back
-          </Text>
+          <Ionicons name="arrow-back" size={20} color={theme.foreground} />
         </Pressable>
 
-        <View className="flex-1 items-center justify-center">
-          <View className="w-full max-w-lg">
-            {/* Question Heading */}
-            <Text
-              className="text-4xl font-bold text-center mb-4"
-              style={{ color: theme.foreground }}
-            >
-              Male or female?
-            </Text>
-
-            {/* Subtitle with pet name */}
-            <Text
-              className="text-start text-center mb-12"
-              style={{ color: theme.foreground, opacity: 0.6 }}
-            >
-              Tell us about {petName}
-            </Text>
-
-            {/* Gender Selection Cards */}
-            <View className="flex-row gap-4 justify-center">
-              {/* Male Card */}
-              <Pressable
-                onPress={() => handleSelectGender("male")}
-                className="flex-1 rounded-3xl py-8 items-center active:opacity-80"
-                style={{
-                  backgroundColor:
-                    selectedGender === "male" ? theme.primary : theme.card,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  maxWidth: 180,
-                }}
-              >
-                {/* Male Symbol */}
-                <Text
-                  className="text-6xl mb-4"
-                  style={{
-                    color:
-                      selectedGender === "male"
-                        ? theme.primaryForeground
-                        : theme.foreground,
-                  }}
-                >
-                  ♂
-                </Text>
-
-                {/* Label */}
-                <Text
-                  className="text-2xl font-semibold"
-                  style={{
-                    color:
-                      selectedGender === "male"
-                        ? theme.primaryForeground
-                        : theme.foreground,
-                  }}
-                >
-                  Male
-                </Text>
-              </Pressable>
-
-              {/* female Card */}
-              <Pressable
-                onPress={() => handleSelectGender("female")}
-                className="flex-1 rounded-3xl py-8 items-center active:opacity-80"
-                style={{
-                  backgroundColor:
-                    selectedGender === "female" ? theme.primary : theme.card,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  maxWidth: 180,
-                }}
-              >
-                {/* female Symbol */}
-                <Text
-                  className="text-6xl mb-4"
-                  style={{
-                    color:
-                      selectedGender === "female"
-                        ? theme.primaryForeground
-                        : theme.foreground,
-                  }}
-                >
-                  ♀
-                </Text>
-
-                {/* Label */}
-                <Text
-                  className="text-2xl font-semibold"
-                  style={{
-                    color:
-                      selectedGender === "female"
-                        ? theme.primaryForeground
-                        : theme.foreground,
-                  }}
-                >
-                  female
-                </Text>
-              </Pressable>
-            </View>
+        <View style={styles.progressBarWrap}>
+          <View style={[styles.progressTrack, { backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }]}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: accentColor }]} />
           </View>
         </View>
       </View>
+
+      {/* Heading above ScrollView */}
+      <View style={styles.headingWrap}>
+        <Text style={[styles.heading, { color: theme.foreground }]}>
+          Your Pet's Gender?
+        </Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>
+          Tell us about your pet
+        </Text>
+      </View>
+
+      {/* ScrollView with card container */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          {/* Gender cards */}
+          <View style={styles.cardsRow}>
+            {/* Male */}
+            <Pressable
+              onPress={() => setSelectedGender("male")}
+              style={[
+                styles.genderCard,
+                {
+                  backgroundColor: optionCardBg,
+                  borderWidth: 2,
+                  borderColor: selectedGender === "male" ? accentColor : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"),
+                },
+              ]}
+            >
+              <Image
+                source={require("@/assets/icons/male.png")}
+                style={styles.genderImage}
+                resizeMode="contain"
+              />
+              <Text style={[styles.cardLabel, { color: theme.foreground }]}>Male</Text>
+            </Pressable>
+
+            {/* Female */}
+            <Pressable
+              onPress={() => setSelectedGender("female")}
+              style={[
+                styles.genderCard,
+                {
+                  backgroundColor: optionCardBg,
+                  borderWidth: 2,
+                  borderColor: selectedGender === "female" ? accentColor : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"),
+                },
+              ]}
+            >
+              <Image
+                source={require("@/assets/icons/female.png")}
+                style={styles.genderImage}
+                resizeMode="contain"
+              />
+              <Text style={[styles.cardLabel, { color: theme.foreground }]}>Female</Text>
+            </Pressable>
+          </View>
+
+          {/* CTA inside card */}
+          <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+            <CTA
+              label="Continue"
+              size="LG"
+              style="Solid"
+              state={selectedGender ? "Default" : "Disable"}
+              onPress={handleContinue}
+              disabled={!selectedGender}
+              containerStyle={styles.continueBtn}
+            />
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarWrap: {
+    flex: 1,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  headingWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  heading: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: 0,
+    flexGrow: 1,
+  },
+  card: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  genderCard: {
+    flex: 1,
+    borderRadius: 20,
+    paddingVertical: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  genderImage: {
+    width: 64,
+    height: 64,
+    marginBottom: 12,
+  },
+  cardLabel: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingTop: 16,
+  },
+  continueBtn: {
+    width: "100%",
+    alignSelf: "stretch",
+  },
+});

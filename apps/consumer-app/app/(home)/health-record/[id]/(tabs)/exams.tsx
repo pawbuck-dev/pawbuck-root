@@ -2,9 +2,13 @@ import { ClinicalExamCard } from "@/components/clinical-exams/ClinicalExamCard";
 import { ExamSectionHeader, ExamCategory } from "@/components/clinical-exams/ExamSectionHeader";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
+import {
+  FIGMA_HEALTH_EXAMS_ICON_BG,
+  healthRecordTabCanvas,
+} from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useMemo, useState } from "react";
@@ -36,7 +40,9 @@ const examMatchesCategory = (examType: string | null, category: ExamCategory): b
 };
 
 export default function ExamsScreen() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const listCanvas = healthRecordTabCanvas(theme, isDark);
   const { pet } = useSelectedPet();
   const { clinicalExams, isLoading } = useClinicalExams();
   const queryClient = useQueryClient();
@@ -44,9 +50,9 @@ export default function ExamsScreen() {
 
   // Track expanded state for each section
   const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>({
-    "Routine Checkup": false,
-    Invoice: false,
-    Travel: false,
+    "Routine Checkup": true,
+    Invoice: true,
+    Travel: true,
   });
 
   const toggleSection = (category: ExamCategory) => {
@@ -78,23 +84,32 @@ export default function ExamsScreen() {
   }, [clinicalExams]);
 
   const onRefresh = useCallback(async () => {
+    if (!pet) return;
     setRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
     setRefreshing(false);
-  }, [queryClient, pet.id]);
+  }, [queryClient, pet]);
 
   useFocusEffect(
     React.useCallback(() => {
-      // Refetch clinical exams when screen comes into focus
+      if (!pet) return;
       queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
-    }, [queryClient, pet.id])
+    }, [queryClient, pet])
   );
+
+  if (!pet) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: listCanvas }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas }}
       >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
@@ -105,25 +120,25 @@ export default function ExamsScreen() {
     return (
       <View
         className="flex-1 items-center justify-center px-6"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas, paddingBottom: 120 }}
       >
         <View
-          className="w-24 h-24 rounded-full items-center justify-center mb-6"
-          style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+          className="w-28 h-28 rounded-full items-center justify-center mb-6"
+          style={{ backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG }}
         >
-          <Ionicons name="clipboard" size={40} color={theme.primary} />
+          <MaterialCommunityIcons name="stethoscope" size={40} color="#FFFFFF" />
         </View>
         <Text
-          className="text-xl font-semibold mb-2 text-center"
+          className="text-xl font-bold mb-2 text-center"
           style={{ color: theme.foreground }}
         >
-          No exams recorded yet
+          No Exams Record Yet
         </Text>
         <Text
-          className="text-sm text-center"
+          className="text-sm text-center leading-5"
           style={{ color: theme.secondary }}
         >
-          Keep track of your pet's veterinary examinations
+          Keep track of your pet&apos;s veterinary examinations. Tap + to upload exam documents.
         </Text>
       </View>
     );
@@ -132,7 +147,7 @@ export default function ExamsScreen() {
   const sections = EXAM_CATEGORIES.filter((category) => groupedExams[category].length > 0);
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: listCanvas }}>
       <ScrollView
         className="flex-1 px-4 pt-4"
         showsVerticalScrollIndicator={false}
@@ -145,13 +160,18 @@ export default function ExamsScreen() {
           />
         }
       >
+        {sections.length > 0 && (
+          <Text className="text-base font-bold mb-3 px-1" style={{ color: theme.foreground }}>
+            Recent Activity
+          </Text>
+        )}
         {sections.length === 0 ? (
           <View className="items-center justify-center py-12">
             <View
               className="w-16 h-16 rounded-full items-center justify-center mb-4"
-              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              style={{ backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG }}
             >
-              <Ionicons name="clipboard-outline" size={28} color={theme.primary} />
+              <MaterialCommunityIcons name="stethoscope" size={28} color="#FFFFFF" />
             </View>
             <Text
               className="text-base font-medium text-center"
@@ -189,7 +209,7 @@ export default function ExamsScreen() {
           ))
         )}
 
-        <View className="h-20" />
+        <View className="h-28" />
       </ScrollView>
     </View>
   );

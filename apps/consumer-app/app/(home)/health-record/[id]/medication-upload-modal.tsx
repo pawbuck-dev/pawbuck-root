@@ -9,14 +9,20 @@ import { Tables, TablesInsert } from "@/database.types";
 import { MedicineFormData } from "@/models/medication";
 import { isDuplicateMedication } from "@/utils/duplicateDetection";
 import { supabase } from "@/utils/supabase";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 export type ViewMode = "upload" | "manual" | "review";
 
 export default function MedicationUploadModal() {
   const { addMedicinesMutation, medicines: existingMedicines } = useMedicines();
+  const params = useLocalSearchParams<{ mode?: string; upload?: string }>();
+  const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const uploadParam = Array.isArray(params.upload)
+    ? params.upload[0]
+    : params.upload;
+  const openedManualRef = useRef(false);
 
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -145,6 +151,13 @@ export default function MedicationUploadModal() {
 
   const isProcessing = status !== "idle";
 
+  useEffect(() => {
+    if (modeParam === "manual" && !openedManualRef.current) {
+      openedManualRef.current = true;
+      setViewMode("manual");
+    }
+  }, [modeParam]);
+
   // Upload Mode UI
   return (
     <>
@@ -156,6 +169,7 @@ export default function MedicationUploadModal() {
           setStatus={setStatus}
           setStatusMessage={setStatusMessage}
           setViewMode={setViewMode}
+          uploadIntent={uploadParam}
         />
       )}
       {viewMode === "manual" && (
