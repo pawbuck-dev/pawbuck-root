@@ -8,3 +8,11 @@ export {
   type VaccinationOcrResponse,
   type DocumentType,
 } from "./pet-records.schema";
+
+export {
+  MedicalRecordSchema,
+  medicalRecordDocumentTypeSchema,
+  medicalRecordItemSchema,
+  type MedicalRecord,
+  type MedicalRecordItem,
+} from "./schema";
