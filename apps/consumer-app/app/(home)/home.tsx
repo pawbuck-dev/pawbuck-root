@@ -1,4 +1,5 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
+import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
   CareTeamMemberModal,
@@ -25,6 +26,7 @@ import {
 } from "@/services/careTeamMembers";
 import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
+import { fetchPawthonDashboardStats } from "@/services/walkSessions";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CareTeamMemberType,
@@ -111,6 +113,12 @@ export default function Home() {
   const { data: careTeamMembers = [] } = useQuery({
     queryKey: ["care_team_members", selectedPetId],
     queryFn: () => getCareTeamMembersForPet(selectedPetId!),
+    enabled: !!selectedPetId,
+  });
+
+  const { data: pawthonStats } = useQuery({
+    queryKey: ["pawthon", selectedPetId],
+    queryFn: () => fetchPawthonDashboardStats(selectedPetId!),
     enabled: !!selectedPetId,
   });
 
@@ -205,6 +213,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
       refreshPendingApprovals(),
     ]);
     setRefreshing(false);
@@ -267,6 +276,7 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
       }
       refreshPendingApprovals();
     }, [selectedPetId, queryClient, refreshPendingApprovals])
@@ -400,6 +410,18 @@ export default function Home() {
                 style="hero"
                 onCopyEmail={handleCopyEmail}
                 emailCopied={emailCopied}
+              />
+            </View>
+          )}
+
+          {/* Weekly Challenge — Figma dashboard hero (node 1896-122224) */}
+          {selectedPet && (
+            <View style={{ marginBottom: 20 }}>
+              <WeeklyChallengeCard
+                petName={selectedPet.name}
+                weekKm={pawthonStats?.weekKm ?? 0}
+                streakDays={pawthonStats?.streak ?? 0}
+                onPress={() => router.push("/pawthon-walk")}
               />
             </View>
           )}

@@ -8,11 +8,14 @@ import { Image } from "expo-image";
 import React, { useState } from "react";
 import { Alert, Pressable, Text } from "react-native";
 
-// Configure Google Sign-In
+const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() || undefined;
+const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() || undefined;
+
+// `offlineAccess: true` requires a Web application OAuth client ID — otherwise the native SDK throws at startup.
 GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  offlineAccess: true,
+  webClientId,
+  iosClientId,
+  offlineAccess: Boolean(webClientId),
 });
 
 type GoogleButtonProps = {

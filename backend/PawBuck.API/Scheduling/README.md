@@ -8,6 +8,7 @@ Plug-and-play vendor integrations for appointments. **Veterinary** is the first 
 |------|---------|
 | `Contracts/` | Normalized DTOs (`NormalizedSlot`, `NormalizedAppointment`, commands, `BookingServiceType`, `BookingProviderKind`) |
 | `Abstractions/` | `ISchedulingVendorAdapter`, `SchedulingAdapterContext`, `IClinicSchedulingConfigProvider` |
+| `Vendors/PawBuckDemo/` | **Demo** adapter: Vancouver-hours slots + token-backed book (no external vendor) |
 | `Vendors/Vetstoria/` | Vetstoria adapter (HTTP/OAuth TODO) |
 | `Vendors/EazyVet/` | EazyVet adapter (HTTP/OAuth TODO) |
 | `SchedulingAdapterRegistry.cs` | Resolve adapter by `BookingProviderKind` |
@@ -24,12 +25,18 @@ Plug-and-play vendor integrations for appointments. **Veterinary** is the first 
 
 `appsettings.json` → `Scheduling`:
 
-- **`Clinics`**: maps `ClinicId` → `Provider` (`Vetstoria` / `EazyVet`) and `ExternalClinicId`.
+- **`Clinics`**: maps `ClinicId` → `Provider` (`PawBuckDemo` / `Vetstoria` / `EazyVet`) and `ExternalClinicId`.
 - **`Vetstoria`**, **`EazyVet`**: `Enabled`, `BaseUrl` (secrets via env/user-secrets later).
+
+## Consumer app
+
+- Set `EXPO_PUBLIC_PAWBUCK_API_URL` to the API base URL (no trailing slash), e.g. `http://127.0.0.1:5xxx` from `dotnet run`.
+- Mock clinics in the app include `schedulingClinicId` matching `Scheduling:Clinics` GUIDs.
+- After a successful `POST /api/bookings`, the app inserts into Supabase `vet_bookings` (apply migration `20260221120000_vet_bookings.sql`).
 
 ## Next steps
 
-1. Persist appointments + `external_*` ids in Supabase; replace config provider with DB-backed lookup.
+1. Replace demo clinics with Supabase-backed `ClinicSchedulingConfig`; keep persisting `vet_bookings` from the app or move to API.
 2. Implement vendor HTTP clients inside each adapter; map to normalized contracts only there.
 3. Add idempotency store keyed by `IdempotencyKey` before vendor `Book`.
 

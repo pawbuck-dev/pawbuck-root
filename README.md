@@ -59,6 +59,8 @@ npm run consumer:android
 npm run consumer:ios
 ```
 
+**Pawthon (walk tracking)** uses `expo-location` with foreground permissions. Apply the migration `supabase/migrations/20260222120000_walk_sessions.sql` to your project (`supabase db push` or equivalent). After changing native plugins in `apps/consumer-app/app.json`, regenerate native projects from the **repo root**: `npm run consumer:prebuild:clean` then `npm run consumer:ios` (or run `pnpm prebuild:clean` and `pnpm ios` from `apps/consumer-app`).
+
 #### Backend APIs
 ```bash
 npm run backend:build

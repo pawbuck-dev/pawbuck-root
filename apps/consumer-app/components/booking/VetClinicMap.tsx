@@ -12,6 +12,14 @@ type VetClinicMapProps = {
   selectedVetId: string | null;
   /** Marker / map selection only — does not open booking */
   onHighlightVet: (vet: MockNearbyVet) => void;
+  /** When the parent shows a bottom sheet with actions (e.g. Figma clinic card), hide the map overlay bar */
+  hideBottomDirectionsBar?: boolean;
+  /** Search radius circle around the user pin (meters). Default 25 km. */
+  searchRadiusMeters?: number;
+  /**
+   * Map fills parent height; no outer margin — use when the parent sets a fixed height (book flow map + list below).
+   */
+  embedded?: boolean;
 };
 
 const MAP_MIN_HEIGHT = 280;
@@ -42,7 +50,14 @@ function zoomFromLatSpan(latSpan: number): number {
  * Avoids `react-native-maps` + New Architecture crashes while keeping Reanimated 4 (requires New Arch).
  * Driving directions still open in the Google Maps app from both platforms.
  */
-export function VetClinicMap({ vets, selectedVetId, onHighlightVet }: VetClinicMapProps) {
+export function VetClinicMap({
+  vets,
+  selectedVetId,
+  onHighlightVet,
+  hideBottomDirectionsBar = false,
+  searchRadiusMeters = 25_000,
+  embedded = false,
+}: VetClinicMapProps) {
   const { mode } = useTheme();
   const isDark = mode === "dark";
 
@@ -59,12 +74,12 @@ export function VetClinicMap({ vets, selectedVetId, onHighlightVet }: VetClinicM
     () => ({
       id: "demo-radius",
       center: { latitude: SPOOFED_LOCATION.latitude, longitude: SPOOFED_LOCATION.longitude },
-      radius: 120,
+      radius: Math.max(500, Math.min(searchRadiusMeters, 80_000)),
       lineColor: "rgba(59, 208, 210, 0.85)",
       lineWidth: 2,
       color: "rgba(59, 208, 210, 0.12)",
     }),
-    []
+    [searchRadiusMeters]
   );
 
   const appleMarkers = useMemo((): AppleMaps.Marker[] => {
@@ -134,37 +149,44 @@ export function VetClinicMap({ vets, selectedVetId, onHighlightVet }: VetClinicM
     return <MapViewPlaceholder clinicCount={vets.length} />;
   }
 
-  const directionsBar = (
-    <View className="absolute bottom-3 left-3 right-3 flex-row items-center gap-2" pointerEvents="box-none">
-      <Pressable
-        onPress={onDirections}
-        disabled={!selected}
-        className="flex-1 flex-row items-center justify-center py-3 px-4 rounded-xl active:opacity-90"
-        style={{
-          backgroundColor: selected ? "#3BD0D2" : isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
-          opacity: selected ? 1 : 0.55,
-        }}
-      >
-        <Ionicons name="navigate" size={20} color={selected ? "#FFFFFF" : isDark ? "#888" : "#666"} />
-        <Text
-          className="ml-2 text-sm font-semibold"
+  const directionsBar =
+    hideBottomDirectionsBar ? null : (
+      <View className="absolute bottom-3 left-3 right-3 flex-row items-center gap-2" pointerEvents="box-none">
+        <Pressable
+          onPress={onDirections}
+          disabled={!selected}
+          className="flex-1 flex-row items-center justify-center py-3 px-4 rounded-xl active:opacity-90"
           style={{
-            fontFamily: "Poppins_600SemiBold",
-            color: selected ? "#FFFFFF" : isDark ? "#888" : "#666",
+            backgroundColor: selected ? "#3BD0D2" : isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+            opacity: selected ? 1 : 0.55,
           }}
-          numberOfLines={1}
         >
-          {selected ? "Directions in Google Maps" : "Select a clinic on the map"}
-        </Text>
-      </Pressable>
-    </View>
-  );
+          <Ionicons name="navigate" size={20} color={selected ? "#FFFFFF" : isDark ? "#888" : "#666"} />
+          <Text
+            className="ml-2 text-sm font-semibold"
+            style={{
+              fontFamily: "Poppins_600SemiBold",
+              color: selected ? "#FFFFFF" : isDark ? "#888" : "#666",
+            }}
+            numberOfLines={1}
+          >
+            {selected ? "Directions in Google Maps" : "Select a clinic on the map"}
+          </Text>
+        </Pressable>
+      </View>
+    );
+
+  const shellClass = embedded
+    ? "flex-1 rounded-2xl overflow-hidden"
+    : "flex-1 rounded-2xl overflow-hidden mx-5 mb-4";
+  const outerStyle = embedded ? { flex: 1 as const } : { minHeight: MAP_MIN_HEIGHT };
+  const mapInnerStyle = embedded ? { flex: 1 as const } : { flex: 1 as const, minHeight: MAP_MIN_HEIGHT };
 
   if (Platform.OS === "ios") {
     return (
-      <View className="flex-1 rounded-2xl overflow-hidden mx-5 mb-4" style={{ minHeight: MAP_MIN_HEIGHT }}>
+      <View className={shellClass} style={outerStyle}>
         <AppleMaps.View
-          style={{ flex: 1, minHeight: MAP_MIN_HEIGHT }}
+          style={mapInnerStyle}
           cameraPosition={cameraPosition}
           markers={appleMarkers}
           circles={[demoCircle]}
@@ -176,9 +198,9 @@ export function VetClinicMap({ vets, selectedVetId, onHighlightVet }: VetClinicM
   }
 
   return (
-    <View className="flex-1 rounded-2xl overflow-hidden mx-5 mb-4" style={{ minHeight: MAP_MIN_HEIGHT }}>
+    <View className={shellClass} style={outerStyle}>
       <GoogleMaps.View
-        style={{ flex: 1, minHeight: MAP_MIN_HEIGHT }}
+        style={mapInnerStyle}
         cameraPosition={cameraPosition}
         markers={googleMarkers}
         circles={[demoCircle]}

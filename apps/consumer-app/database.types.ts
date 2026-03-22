@@ -1012,6 +1012,109 @@ export type Database = {
         }
         Relationships: []
       }
+      walk_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          pet_id: string
+          started_at: string
+          ended_at: string
+          distance_meters: number
+          duration_seconds: number
+          points: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          pet_id: string
+          started_at: string
+          ended_at: string
+          distance_meters?: number
+          duration_seconds?: number
+          points?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          pet_id?: string
+          started_at?: string
+          ended_at?: string
+          distance_meters?: number
+          duration_seconds?: number
+          points?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "walk_sessions_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vet_bookings: {
+        Row: {
+          id: string
+          user_id: string
+          pet_id: string | null
+          clinic_id: string
+          clinic_name: string | null
+          service_id: string
+          service_label: string | null
+          start_utc: string
+          end_utc: string
+          external_appointment_id: string | null
+          pawbuck_appointment_id: string | null
+          status: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          pet_id?: string | null
+          clinic_id: string
+          clinic_name?: string | null
+          service_id: string
+          service_label?: string | null
+          start_utc: string
+          end_utc: string
+          external_appointment_id?: string | null
+          pawbuck_appointment_id?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          pet_id?: string | null
+          clinic_id?: string
+          clinic_name?: string | null
+          service_id?: string
+          service_label?: string | null
+          start_utc?: string
+          end_utc?: string
+          external_appointment_id?: string | null
+          pawbuck_appointment_id?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_bookings_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

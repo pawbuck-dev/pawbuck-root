@@ -2,6 +2,7 @@ using Microsoft.Extensions.Http.Resilience;
 using PawBuck.API.Scheduling;
 using PawBuck.API.Scheduling.Abstractions;
 using PawBuck.API.Scheduling.Vendors.EazyVet;
+using PawBuck.API.Scheduling.Vendors.PawBuckDemo;
 using PawBuck.API.Scheduling.Vendors.Vetstoria;
 using PawBuck.API.Services;
 
@@ -39,10 +40,12 @@ builder.Services.Configure<VetstoriaOptions>(builder.Configuration.GetSection(Ve
 builder.Services.Configure<EazyVetOptions>(builder.Configuration.GetSection(EazyVetOptions.SectionName));
 builder.Services.AddSingleton<VetstoriaSchedulingAdapter>();
 builder.Services.AddSingleton<EazyVetSchedulingAdapter>();
+builder.Services.AddSingleton<PawBuckDemoSchedulingAdapter>();
 builder.Services.AddSingleton(sp => new SchedulingAdapterRegistry(new ISchedulingVendorAdapter[]
 {
     sp.GetRequiredService<VetstoriaSchedulingAdapter>(),
-    sp.GetRequiredService<EazyVetSchedulingAdapter>()
+    sp.GetRequiredService<EazyVetSchedulingAdapter>(),
+    sp.GetRequiredService<PawBuckDemoSchedulingAdapter>(),
 }));
 builder.Services.AddSingleton<IClinicSchedulingConfigProvider, ConfigurationClinicSchedulingConfigProvider>();
 builder.Services.AddScoped<SchedulingBookingService>();

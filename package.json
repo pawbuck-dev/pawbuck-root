@@ -11,6 +11,8 @@
     "consumer:start": "cd apps/consumer-app && npm start",
     "consumer:android": "cd apps/consumer-app && npm run android",
     "consumer:ios": "cd apps/consumer-app && npm run ios",
+    "consumer:prebuild": "cd apps/consumer-app && npm run prebuild",
+    "consumer:prebuild:clean": "cd apps/consumer-app && npm run prebuild:clean",
     "consumer:build": "cd apps/consumer-app && npm run build",
     "consumer:test": "cd apps/consumer-app && npm test",
     "provider:test": "cd apps/provider-app && npm test",

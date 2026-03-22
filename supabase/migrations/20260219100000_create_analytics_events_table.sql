@@ -17,6 +17,10 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(c
 -- Enable RLS
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
+-- Idempotent: remote may already have these policies from a manual / legacy apply
+DROP POLICY IF EXISTS "Users can insert their own analytics events" ON analytics_events;
+DROP POLICY IF EXISTS "Users can read their own analytics events" ON analytics_events;
+
 -- Policy: Users can insert their own events (or null user_id for anonymous events)
 CREATE POLICY "Users can insert their own analytics events"
   ON analytics_events

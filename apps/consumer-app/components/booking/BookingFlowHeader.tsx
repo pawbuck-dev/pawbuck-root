@@ -8,6 +8,8 @@ type BookingFlowHeaderProps = {
   onBack: () => void;
   currentStep: number;
   totalSteps: number;
+  /** When false, hides list/map toggle (e.g. Select Service step). Default true. */
+  showViewModeToggle?: boolean;
   viewMode: BookingViewMode;
   onViewModeChange: (mode: BookingViewMode) => void;
   isDark: boolean;
@@ -21,6 +23,7 @@ export function BookingFlowHeader({
   onBack,
   currentStep,
   totalSteps,
+  showViewModeToggle = true,
   viewMode,
   onViewModeChange,
   isDark,
@@ -90,45 +93,49 @@ export function BookingFlowHeader({
         </View>
       </View>
 
-      {/* List / Map toggle */}
-      <View
-        className="flex-row rounded-full p-1"
-        style={{
-          backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 6,
-          elevation: 3,
-        }}
-      >
-        <Pressable
-          onPress={() => onViewModeChange("list")}
-          className="w-10 h-10 rounded-full items-center justify-center"
+      {/* List / Map toggle — same width as back when hidden for layout balance */}
+      {showViewModeToggle ? (
+        <View
+          className="flex-row rounded-full p-1"
           style={{
-            backgroundColor: viewMode === "list" ? fillColor : "transparent",
+            backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#FFFFFF",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 6,
+            elevation: 3,
           }}
         >
-          <Ionicons
-            name="list"
-            size={20}
-            color={viewMode === "list" ? "#FFFFFF" : foreground}
-          />
-        </Pressable>
-        <Pressable
-          onPress={() => onViewModeChange("map")}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{
-            backgroundColor: viewMode === "map" ? fillColor : "transparent",
-          }}
-        >
-          <Ionicons
-            name="map-outline"
-            size={20}
-            color={viewMode === "map" ? "#FFFFFF" : foreground}
-          />
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={() => onViewModeChange("list")}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{
+              backgroundColor: viewMode === "list" ? fillColor : "transparent",
+            }}
+          >
+            <Ionicons
+              name="list"
+              size={20}
+              color={viewMode === "list" ? "#FFFFFF" : foreground}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => onViewModeChange("map")}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{
+              backgroundColor: viewMode === "map" ? fillColor : "transparent",
+            }}
+          >
+            <Ionicons
+              name="map-outline"
+              size={20}
+              color={viewMode === "map" ? "#FFFFFF" : foreground}
+            />
+          </Pressable>
+        </View>
+      ) : (
+        <View className="w-11 h-11" />
+      )}
     </View>
   );
 }

@@ -13,7 +13,12 @@
       "bundleIdentifier": "com.pawbuck.app",
       "buildNumber": "32",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocationWhenInUseUsageDescription": "Pawbuck uses your location during a Pawthon walk to measure distance for your pet’s activity and weekly challenges.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pawbuck uses your location during walks to track distance. You can choose “While Using the App” for foreground tracking."
       },
       "usesAppleSignIn": true,
       "appleTeamId": "DLT7WMG69P"
@@ -30,7 +35,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "useNextNotificationsApi": true,
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -70,6 +79,13 @@
         {
           "photosPermission": "Pawbuck accesses your photo library to let you upload pet profile pictures, vaccination records, lab results, clinical exam documents, and medicine prescriptions. For example, you can select a photo of your pet's vaccine certificate to add it to their health record.",
           "cameraPermission": "Pawbuck uses your camera to let you capture pet profile pictures, vaccination records, lab results, clinical exam documents, and medicine prescriptions. For example, you can take a photo of your pet's prescription label to track their medications."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Pawbuck tracks your location only while a Pawthon walk is active to measure walking distance for your pet.",
+          "isAndroidForegroundServiceEnabled": false
         }
       ]
     ],
