@@ -1,0 +1,55 @@
+import { SPOOFED_LOCATION } from "@/constants/mockVancouverVets";
+import { useTheme } from "@/context/themeContext";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { Text, View } from "react-native";
+
+type MapViewPlaceholderProps = {
+  clinicCount: number;
+};
+
+/**
+ * Stand-in until `react-native-maps` is added (see Expo: https://docs.expo.dev/versions/latest/sdk/map-view/).
+ * Replace this component with MapView + Marker when integrating.
+ */
+export function MapViewPlaceholder({ clinicCount }: MapViewPlaceholderProps) {
+  const { mode } = useTheme();
+  const isDark = mode === "dark";
+
+  return (
+    <View className="flex-1 rounded-2xl overflow-hidden mx-5 mb-4" style={{ minHeight: 280 }}>
+      <LinearGradient
+        colors={isDark ? ["#1a3d3e", "#0d2526", "#0a1f20"] : ["#C5EBEF", "#E8F6F6", "#F2F7F7"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}
+      >
+        <View
+          className="w-16 h-16 rounded-full items-center justify-center mb-4"
+          style={{ backgroundColor: "rgba(59, 208, 210, 0.25)" }}
+        >
+          <Ionicons name="map" size={36} color="#3BD0D2" />
+        </View>
+        <Text
+          className="text-lg font-semibold text-center mb-1"
+          style={{ fontFamily: "Poppins_600SemiBold", color: isDark ? "#FFFFFF" : "#0D0F0F" }}
+        >
+          Map view
+        </Text>
+        <Text
+          className="text-sm text-center mb-2 px-4"
+          style={{ fontFamily: "Poppins_400Regular", color: isDark ? "rgba(255,255,255,0.7)" : "#5A5F6A" }}
+        >
+          {SPOOFED_LOCATION.label} · {clinicCount} clinics nearby (demo)
+        </Text>
+        <Text
+          className="text-xs text-center px-6"
+          style={{ fontFamily: "Poppins_400Regular", color: isDark ? "rgba(255,255,255,0.45)" : "#8B9399" }}
+        >
+          Add react-native-maps (Expo: npx expo install react-native-maps) to show an interactive map with markers.
+        </Text>
+      </LinearGradient>
+    </View>
+  );
+}

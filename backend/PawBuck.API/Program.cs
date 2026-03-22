@@ -1,4 +1,8 @@
 using Microsoft.Extensions.Http.Resilience;
+using PawBuck.API.Scheduling;
+using PawBuck.API.Scheduling.Abstractions;
+using PawBuck.API.Scheduling.Vendors.EazyVet;
+using PawBuck.API.Scheduling.Vendors.Vetstoria;
 using PawBuck.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +32,20 @@ builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection(Sup
 builder.Services.AddScoped<IEmbeddingService, GeminiEmbeddingService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();
+
+// Scheduling / booking (plug-in Vetstoria, EazyVet; extend for grooming/boarding via BookingServiceType)
+builder.Services.Configure<SchedulingRoutingOptions>(builder.Configuration.GetSection(SchedulingRoutingOptions.SectionName));
+builder.Services.Configure<VetstoriaOptions>(builder.Configuration.GetSection(VetstoriaOptions.SectionName));
+builder.Services.Configure<EazyVetOptions>(builder.Configuration.GetSection(EazyVetOptions.SectionName));
+builder.Services.AddSingleton<VetstoriaSchedulingAdapter>();
+builder.Services.AddSingleton<EazyVetSchedulingAdapter>();
+builder.Services.AddSingleton(sp => new SchedulingAdapterRegistry(new ISchedulingVendorAdapter[]
+{
+    sp.GetRequiredService<VetstoriaSchedulingAdapter>(),
+    sp.GetRequiredService<EazyVetSchedulingAdapter>()
+}));
+builder.Services.AddSingleton<IClinicSchedulingConfigProvider, ConfigurationClinicSchedulingConfigProvider>();
+builder.Services.AddScoped<SchedulingBookingService>();
 
 // Add services to the container.
 builder.Services.AddControllers();

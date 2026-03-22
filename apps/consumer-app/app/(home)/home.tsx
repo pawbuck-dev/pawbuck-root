@@ -407,7 +407,10 @@ export default function Home() {
           {/* Book A Vet Visit */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
-              <BookVetVisitSection petName={selectedPet.name} />
+              <BookVetVisitSection
+                petName={selectedPet.name}
+                onSchedule={() => router.push("/book-vet-visit")}
+              />
             </View>
           )}
 
