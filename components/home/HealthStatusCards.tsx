@@ -1,3 +1,7 @@
+import {
+  FIGMA_HEALTH_MEDS_ICON_BG,
+  FIGMA_HEALTH_TEAL,
+} from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -35,9 +39,9 @@ export default function HealthStatusCards({
       >
         <View
           className="w-12 h-12 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: `${theme.primary}20` }}
+          style={{ backgroundColor: FIGMA_HEALTH_TEAL }}
         >
-          <Ionicons name="shield-checkmark" size={22} color={theme.primary} />
+          <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />
         </View>
         <View className="flex-1">
           <Text
@@ -71,9 +75,9 @@ export default function HealthStatusCards({
       >
         <View
           className="w-12 h-12 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: "rgba(156, 163, 175, 0.2)" }}
+          style={{ backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG }}
         >
-          <MaterialCommunityIcons name="pill" size={22} color={theme.secondary} />
+          <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />
         </View>
         <View className="flex-1">
           <Text

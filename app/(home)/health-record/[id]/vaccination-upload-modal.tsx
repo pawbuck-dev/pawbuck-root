@@ -17,8 +17,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentPickerAsset } from "expo-document-picker";
 import { ImagePickerAsset } from "expo-image-picker";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -40,6 +40,12 @@ type ProcessingStatus =
   | "error";
 
 export default function VaccinationUploadModal() {
+  const params = useLocalSearchParams<{ upload?: string }>();
+  const uploadParam = Array.isArray(params.upload)
+    ? params.upload[0]
+    : params.upload;
+  const uploadIntentHandled = useRef(false);
+
   const { theme } = useTheme();
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -58,6 +64,9 @@ export default function VaccinationUploadModal() {
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
+    if (!pet || !user) {
+      return;
+    }
     try {
       // Step 1: Uploading
       setStatus("uploading");
@@ -66,7 +75,7 @@ export default function VaccinationUploadModal() {
       const extension = file.mimeType?.split("/")[1];
       const data = await uploadFile(
         file,
-        `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.${extension}`
+        `${user.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.${extension}`
       );
 
       // Step 2: Extracting
@@ -141,6 +150,9 @@ export default function VaccinationUploadModal() {
     vaccinations: VaccinationInsert[],
     duplicatesToSkip: VaccinationInsert[]
   ) => {
+    if (!pet) {
+      return;
+    }
     try {
       // Filter out duplicates if any
       const vaccinationsToSave = duplicatesToSkip.length > 0
@@ -297,6 +309,28 @@ export default function VaccinationUploadModal() {
   };
 
   const isProcessing = status !== "idle";
+
+  useEffect(() => {
+    if (
+      !pet ||
+      !uploadParam ||
+      uploadIntentHandled.current ||
+      isReviewMode ||
+      isProcessing
+    ) {
+      return;
+    }
+    if (!["camera", "library", "pdf"].includes(uploadParam)) {
+      return;
+    }
+    uploadIntentHandled.current = true;
+    void (async () => {
+      if (uploadParam === "camera") await handleTakePhoto();
+      else if (uploadParam === "library") await handleUploadFromLibrary();
+      else if (uploadParam === "pdf") await handlePickPdfFile();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot intent; handlers close over latest state
+  }, [pet, uploadParam, isReviewMode, isProcessing]);
 
   const getStatusIcon = () => {
     switch (status) {

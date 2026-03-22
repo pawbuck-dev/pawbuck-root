@@ -1,52 +1,82 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
-import { useMedicines } from "@/context/medicinesContext";
+import {
+  OverflowAction,
+  RecordOverflowSheet,
+} from "@/components/health/RecordOverflowSheet";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useMedicines } from "@/context/medicinesContext";
+import {
+  FIGMA_HEALTH_MEDS_ICON_BG,
+  HEALTH_LAYOUT,
+  HEALTH_TYPE,
+  healthListCardChrome,
+} from "@/constants/figmaHealthLayout";
 import { MedicineData } from "@/models/medication";
-import { formatDateWithRelative } from "@/utils/dates";
+import { formatDateMedium } from "@/utils/dates";
 import { getNextMedicationDose } from "@/utils/medication";
+import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
+import {
+  getMedicineListStatus,
+  medicineStatusBadgeStyle,
+  MedicineListStatus,
+} from "@/utils/medicineUi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MedicineEditModal } from "./MedicineEditModal";
 
 interface MedicineCardProps {
   medicine: MedicineData;
+  /** Section this row appears under (for navigation + badge consistency) */
+  listStatus: MedicineListStatus;
 }
 
-export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
-  const { theme } = useTheme();
+export const MedicineCard: React.FC<MedicineCardProps> = ({
+  medicine,
+  listStatus,
+}) => {
+  const { pet } = useSelectedPet();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
   const { deleteMedicineMutation } = useMedicines();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const hasDocument = !!medicine.document_url;
+  const derived = getMedicineListStatus(medicine);
+  const badge = medicineStatusBadgeStyle(derived, isDark);
 
-  // Calculate next dose
   const nextDose = useMemo(() => {
+    if (derived === "completed") return null;
     return getNextMedicationDose(medicine);
-  }, [medicine]);
+  }, [medicine, derived]);
+
+  const chrome = healthListCardChrome(theme, isDark);
+  const { cardBg, overflowBtnBg, divider } = chrome;
+
+  const openDetail = () => {
+    if (!pet) return;
+    router.push(
+      `/(home)/health-record/${pet.id}/medicine-detail?medicineId=${medicine.id}&listStatus=${listStatus}` as any
+    );
+  };
 
   const handleDelete = () => {
     Alert.alert(
       "Delete Medicine",
       "Are you sure you want to delete this medicine record?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: () => {
             deleteMedicineMutation.mutate(medicine.id || "", {
-              onSuccess: () => {
-                Alert.alert("Success", "Medicine deleted successfully");
-              },
-              onError: (error) => {
-                Alert.alert("Error", "Failed to delete medicine");
-                console.error("Delete error:", error);
-              },
+              onSuccess: () => Alert.alert("Success", "Medicine deleted successfully"),
+              onError: () => Alert.alert("Error", "Failed to delete medicine"),
             });
           },
         },
@@ -54,233 +84,236 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     );
   };
 
-  const handleEdit = () => {
-    setShowEditModal(true);
-  };
+  const handleShare = () => {
+    const title = medicine.name;
+    const body = [
+      `Dosage: ${medicine.dosage}`,
+      `Frequency: ${medicine.frequency}`,
+      medicine.purpose ? `Purpose: ${medicine.purpose}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  const handleViewDocument = () => {
-    setShowDocumentModal(true);
-  };
-
-  const handleLongPress = () => {
-    const options: {
-      text: string;
-      onPress?: () => void;
-      style?: "cancel" | "destructive";
-    }[] = [];
-
-    if (hasDocument) {
-      options.push({
-        text: "View Document",
-        onPress: handleViewDocument,
-      });
+    if (medicine.document_url) {
+      void shareStorageDocument(
+        medicine.document_url,
+        `${medicine.name.replace(/\s+/g, "_")}_prescription`
+      );
+    } else {
+      void shareTextSummary(title, body);
     }
-
-    options.push(
-      {
-        text: "Edit",
-        onPress: handleEdit,
-      },
-      {
-        text: "Delete",
-        onPress: handleDelete,
-        style: "destructive",
-      },
-      {
-        text: "Cancel",
-        style: "cancel",
-      }
-    );
-
-    Alert.alert(medicine.name, "What would you like to do?", options, {
-      cancelable: true,
-    });
   };
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString();
-  };
+  const menuActions: OverflowAction[] = [
+    { label: "Edit", onPress: () => setShowEditModal(true) },
+    { label: "Share", onPress: handleShare },
+    ...(hasDocument
+      ? ([
+          { label: "View Document", onPress: () => setShowDocumentModal(true) },
+        ] as OverflowAction[])
+      : []),
+    { label: "Delete", onPress: handleDelete, destructive: true },
+  ];
 
-  const getStatusBadge = () => {
-    const now = new Date();
-
-    // Check if medication has ended (Completed)
+  const formatStartEnd = () => {
+    if (!medicine.start_date) return null;
+    const start = formatDateMedium(medicine.start_date);
     if (medicine.end_date) {
-      const endDate = new Date(medicine.end_date);
-      endDate.setHours(23, 59, 59, 999);
-      if (endDate < now) {
-        return {
-          label: "Completed",
-          color: theme.secondary,
-          bgColor: "rgba(156, 163, 175, 0.2)",
-        };
-      }
+      return `${start} – ${formatDateMedium(medicine.end_date)}`;
     }
-
-    // Default: Active
-    return {
-      label: "Active",
-      color: theme.primary,
-      bgColor: "rgba(95, 196, 192, 0.2)",
-    };
+    return start;
   };
-
-  const status = getStatusBadge();
 
   return (
     <>
       <TouchableOpacity
-        className="mb-4 p-4 rounded-2xl"
-        style={{ backgroundColor: theme.card }}
-        onLongPress={handleLongPress}
-        activeOpacity={0.7}
+        activeOpacity={0.88}
+        onPress={openDetail}
+        style={[
+          styles.card,
+          {
+            backgroundColor: cardBg,
+            borderWidth: chrome.borderWidth,
+            borderColor: chrome.borderColor,
+          },
+        ]}
       >
-        {/* Medication Header */}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center flex-1">
-            <View
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+        <View style={styles.topRow}>
+          <View style={[styles.iconCircle, { backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG }]}>
+            <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />
+          </View>
+          <View style={styles.titleBlock}>
+            <Text
+              style={[styles.medName, HEALTH_TYPE.cardTitle, { color: theme.foreground }]}
+              numberOfLines={2}
             >
-              <MaterialCommunityIcons
-                name="pill"
-                size={20}
-                color={theme.primary}
-              />
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
-                numberOfLines={1}
+              {medicine.name}
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginTop: HEALTH_LAYOUT.titleToBadgeGap,
+              }}
+            >
+              <View style={[styles.badge, { backgroundColor: badge.bg, marginRight: 6 }]}>
+                <Text style={[styles.badgeText, HEALTH_TYPE.badge, { color: badge.text }]}>
+                  {badge.label}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: isDark ? "rgba(37, 99, 235, 0.2)" : "rgba(37, 99, 235, 0.1)",
+                  },
+                ]}
               >
-                {medicine.name}
-              </Text>
-              <View className="flex-row items-center gap-2 mt-1">
-                <View
-                  className="px-2 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: status.bgColor,
-                  }}
+                <Text
+                  style={[
+                    styles.badgeText,
+                    HEALTH_TYPE.badge,
+                    { color: isDark ? "#93C5FD" : "#2563EB" },
+                  ]}
                 >
-                  <Text
-                    className="text-xs font-semibold"
-                    style={{
-                      color: status.color,
-                    }}
-                  >
-                    {status.label}
-                  </Text>
-                </View>
-                <View
-                  className="px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
-                >
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    {medicine.type}
-                  </Text>
-                </View>
+                  {medicine.type}
+                </Text>
               </View>
             </View>
           </View>
-          {hasDocument && (
-            <TouchableOpacity
-              className="w-9 h-9 rounded-full items-center justify-center ml-2"
-              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
-              onPress={handleViewDocument}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons
-                name="document-attach"
-                size={18}
-                color={theme.primary}
-              />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => setMenuOpen(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={[styles.overflowBtn, { backgroundColor: overflowBtnBg }]}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={theme.foreground} />
+          </TouchableOpacity>
         </View>
 
-        {/* Medication Details */}
-        <View className="ml-13">
-          {medicine.purpose && (
-            <Text
-              className="text-sm mb-2 italic"
-              style={{ color: theme.secondary }}
-            >
-              {medicine.purpose}
-            </Text>
-          )}
+        {medicine.purpose ? (
+          <Text
+            style={{
+              ...HEALTH_TYPE.purposeItalic,
+              color: theme.secondary,
+              marginTop: 10,
+            }}
+            numberOfLines={2}
+          >
+            {medicine.purpose}
+          </Text>
+        ) : null}
 
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="water-outline" size={14} color={theme.secondary} />
-            <Text className="text-sm ml-2" style={{ color: theme.foreground }}>
+        <View style={styles.columns}>
+          <View style={[styles.column, { marginRight: 10 }]}>
+            <View style={styles.columnIconWrap}>
+              <Ionicons name="medical-outline" size={16} color={theme.secondary} />
+            </View>
+            <Text style={[styles.colLabel, HEALTH_TYPE.fieldLabel, { color: theme.secondary }]}>
+              Dosage
+            </Text>
+            <Text
+              style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}
+              numberOfLines={2}
+            >
               {medicine.dosage}
             </Text>
           </View>
-
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="time-outline" size={14} color={theme.secondary} />
-            <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
+          <View style={styles.column}>
+            <View style={styles.columnIconWrap}>
+              <Ionicons name="time-outline" size={16} color={theme.secondary} />
+            </View>
+            <Text style={[styles.colLabel, HEALTH_TYPE.fieldLabel, { color: theme.secondary }]}>
+              Frequency
+            </Text>
+            <Text
+              style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}
+              numberOfLines={2}
+            >
               {medicine.frequency}
             </Text>
           </View>
+        </View>
 
-          {nextDose && (
-            <View className="flex-row items-center mb-2">
-              <Ionicons name="alarm-outline" size={14} color={theme.primary} />
-              <Text className="text-sm ml-2" style={{ color: theme.primary }}>
-                Next dose: {formatDateWithRelative(nextDose, true, true)}
+        {nextDose ? (
+          <View style={{ marginTop: 14 }}>
+            <View style={styles.columnIconWrap}>
+              <Ionicons name="alarm-outline" size={16} color={theme.primary} />
+            </View>
+            <Text style={[styles.colLabel, HEALTH_TYPE.fieldLabel, { color: theme.secondary }]}>
+              Next dose
+            </Text>
+            <Text style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.primary }]}>
+              {formatDateMedium(nextDose.toISOString())}
+            </Text>
+          </View>
+        ) : null}
+
+        {formatStartEnd() ? (
+          <View
+            style={[
+              styles.footerRow,
+              { borderTopColor: divider },
+            ]}
+          >
+            <View style={[styles.columnIconWrap, { marginRight: 8 }]}>
+              <Ionicons name="calendar-outline" size={16} color={theme.secondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.colLabel, HEALTH_TYPE.fieldLabel, { color: theme.secondary }]}>
+                Started
+              </Text>
+              <Text
+                style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}
+                numberOfLines={2}
+              >
+                {formatStartEnd()}
               </Text>
             </View>
-          )}
+          </View>
+        ) : null}
 
-          {medicine.start_date && (
-            <View className="flex-row items-center mb-2">
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color={theme.secondary}
-              />
-              <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
-                Started: {formatDate(medicine.start_date)}
-                {medicine.end_date && ` - ${formatDate(medicine.end_date)}`}
-              </Text>
+        {medicine.prescribed_by ? (
+          <View
+            style={[
+              styles.footerRow,
+              {
+                borderTopColor: divider,
+                marginTop: formatStartEnd() ? 0 : HEALTH_LAYOUT.clinicFooterMarginTop,
+              },
+            ]}
+          >
+            <View style={[styles.columnIconWrap, { marginRight: 8 }]}>
+              <Ionicons name="person-outline" size={16} color={theme.secondary} />
             </View>
-          )}
-
-          {medicine.prescribed_by && (
-            <View className="flex-row items-center">
-              <Ionicons
-                name="person-outline"
-                size={14}
-                color={theme.secondary}
-              />
-              <Text className="text-sm ml-2" style={{ color: theme.secondary }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.colLabel, HEALTH_TYPE.fieldLabel, { color: theme.secondary }]}>
+                Prescribed by
+              </Text>
+              <Text
+                style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}
+                numberOfLines={2}
+              >
                 {medicine.prescribed_by}
               </Text>
             </View>
-          )}
-        </View>
-
-        {/* Long press hint */}
-        <Text
-          className="text-xs text-center mt-3"
-          style={{ color: theme.secondary, opacity: 0.6 }}
-        >
-          Long press to edit or delete
-        </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
+
+      <RecordOverflowSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        actions={menuActions}
+      />
 
       <MedicineEditModal
         visible={showEditModal}
         medicine={medicine}
         onClose={() => setShowEditModal(false)}
-        onSave={() => {
-          setShowEditModal(false);
-        }}
+        onSave={() => setShowEditModal(false)}
       />
 
-      {/* Document Viewer Modal */}
       <DocumentViewerModal
         visible={showDocumentModal}
         onClose={() => setShowDocumentModal(false)}
@@ -290,3 +323,64 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medicine }) => {
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: HEALTH_LAYOUT.cardRadius,
+    padding: HEALTH_LAYOUT.cardPadding,
+    marginBottom: HEALTH_LAYOUT.cardGap,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  iconCircle: {
+    width: HEALTH_LAYOUT.iconPlate.size,
+    height: HEALTH_LAYOUT.iconPlate.size,
+    borderRadius: HEALTH_LAYOUT.iconPlate.radius,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: HEALTH_LAYOUT.iconToTitleGap,
+  },
+  titleBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: HEALTH_LAYOUT.titleBlockEndPadding,
+  },
+  medName: {},
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
+    alignSelf: "flex-start",
+  },
+  badgeText: {},
+  overflowBtn: {
+    width: HEALTH_LAYOUT.overflow.size,
+    height: HEALTH_LAYOUT.overflow.size,
+    borderRadius: HEALTH_LAYOUT.overflow.radius,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  columns: {
+    flexDirection: "row",
+    marginTop: HEALTH_LAYOUT.columnsMarginTop,
+  },
+  column: {
+    flex: 1,
+  },
+  columnIconWrap: {
+    marginBottom: 4,
+  },
+  colLabel: {
+    marginBottom: 2,
+  },
+  colValue: {},
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: HEALTH_LAYOUT.clinicFooterMarginTop,
+    paddingTop: HEALTH_LAYOUT.clinicFooterPaddingTop,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+});

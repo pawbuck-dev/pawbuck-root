@@ -1,3 +1,7 @@
+import {
+  FIGMA_HEALTH_MEDS_ICON_BG,
+  FIGMA_HEALTH_TEAL,
+} from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
 import { MedicineData } from "@/models/medication";
@@ -74,9 +78,10 @@ export default function CatchUpSection({
             daysLeft <= 7
               ? `Due in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}. Schedule with your vet.`
               : `Due in ${daysLeft} days. Tap to view details.`,
-          iconName: "needle",
-          iconColor: "#F59E0B",
-          iconBg: isDark ? "rgba(245,158,11,0.15)" : "#FEF3C7",
+          iconName: "heart-pulse",
+          iconColor: "#FFFFFF",
+          iconBg: FIGMA_HEALTH_TEAL,
+          iconPlateRadius: 20,
           route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
         });
       });
@@ -90,8 +95,9 @@ export default function CatchUpSection({
           title: `${med.name} Due`,
           subtitle: "Tap to view and schedule with your vet.",
           iconName: "pill",
-          iconColor: "#60A5FA",
-          iconBg: isDark ? "rgba(96,165,250,0.15)" : "#DBEAFE",
+          iconColor: "#FFFFFF",
+          iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
+          iconPlateRadius: 20,
           route: `/(home)/health-record/${petId}/(tabs)/medications`,
         });
       }
@@ -133,7 +139,7 @@ export default function CatchUpSection({
           style={{
             width: 40,
             height: 40,
-            borderRadius: 12,
+            borderRadius: item.iconPlateRadius ?? 12,
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: item.iconBg,

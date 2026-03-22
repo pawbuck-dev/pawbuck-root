@@ -10,6 +10,18 @@ export const formatDate = (date: string | Date | null | undefined): string => {
   return moment(date).format("MM/DD/YYYY");
 };
 
+/** e.g. Feb 20, 2026 — vaccines list / cards */
+export const formatDateMedium = (date: string | Date | null | undefined): string => {
+  if (!date) return "—";
+  return moment(date).format("MMM D, YYYY");
+};
+
+/** e.g. February 20, 2026 — detail timeline */
+export const formatDateLong = (date: string | Date | null | undefined): string => {
+  if (!date) return "—";
+  return moment(date).format("MMMM D, YYYY");
+};
+
 /**
  * Formats a date to HH:mm format (12-hour format)
  */

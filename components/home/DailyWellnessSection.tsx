@@ -1,3 +1,4 @@
+import { FIGMA_HEALTH_TEAL } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
 import { calculateVaccinationProgress, getVaccinationAlertPeriod } from "@/utils/vaccinationAlertPeriods";
@@ -161,10 +162,10 @@ export default function DailyWellnessSection({
         {/* Card Header */}
         <View className="flex-row items-center mb-5">
           <View
-            className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-            style={{ backgroundColor: isDarkMode ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7" }}
+            className="w-12 h-12 rounded-full items-center justify-center mr-3"
+            style={{ backgroundColor: FIGMA_HEALTH_TEAL }}
           >
-            <MaterialCommunityIcons name="needle" size={24} color="#F59E0B" />
+            <MaterialCommunityIcons name="heart-pulse" size={24} color="#FFFFFF" />
           </View>
           <View>
             <Text

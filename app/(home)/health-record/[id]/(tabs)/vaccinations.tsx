@@ -1,6 +1,8 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
-import { VaccinationSectionHeader } from "@/components/vaccinations/VaccinationSectionHeader";
-import { VaccinationStatusHeader } from "@/components/vaccinations/VaccinationStatusHeader";
+import {
+  FIGMA_HEALTH_TEAL,
+  healthRecordTabCanvas,
+} from "@/constants/figmaHealthLayout";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
@@ -10,53 +12,64 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+
+const SECTION_TITLE: Record<VaccineCategory, string> = {
+  required: "Required Vaccines",
+  recommended: "Recommended Vaccines",
+  other: "Other Vaccines",
+};
 
 export default function VaccinationsScreen() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const listCanvas = healthRecordTabCanvas(theme, isDark);
   const { vaccinations, isLoading } = useVaccinations();
   const { pet } = useSelectedPet();
-  const { categorizedVaccinations, isLoadingRequirements, requiredVaccinesStatus } = useVaccineCategories();
+  const { categorizedVaccinations, isLoadingRequirements } = useVaccineCategories();
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Track expanded state for each section
-  const [expandedSections, setExpandedSections] = useState<Record<VaccineCategory, boolean>>({
-    required: false,
-    recommended: false,
-    other: false,
-  });
-
-  const toggleSection = (category: VaccineCategory) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [category]: !prev[category],
-    }));
-  };
-
   const onRefresh = useCallback(async () => {
+    if (!pet) return;
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] }),
-      queryClient.invalidateQueries({ queryKey: ["vaccineRequirements", pet.country, pet.animal_type] }),
+      queryClient.invalidateQueries({
+        queryKey: ["vaccineRequirements", pet.country, pet.animal_type],
+      }),
       queryClient.invalidateQueries({ queryKey: ["vaccineEquivalencies"] }),
     ]);
     setRefreshing(false);
-  }, [queryClient, pet.id, pet.country, pet.animal_type]);
+  }, [queryClient, pet]);
 
   useFocusEffect(
     React.useCallback(() => {
-      // Refetch vaccinations when screen comes into focus
+      if (!pet) return;
       queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] });
-    }, [queryClient, pet.id])
+    }, [queryClient, pet])
   );
+
+  if (!pet) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: listCanvas }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   if (isLoading || isLoadingRequirements) {
     return (
       <View
         className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: listCanvas }}
       >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
@@ -67,36 +80,36 @@ export default function VaccinationsScreen() {
     return (
       <ScrollView
         className="flex-1"
-        style={{ backgroundColor: theme.background }}
-        contentContainerStyle={{ flexGrow: 1 }}
+        style={{ backgroundColor: listCanvas }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Vaccination Status Header */}
-        <View className="px-4 pt-4 mb-4">
-          <VaccinationStatusHeader 
-            status={requiredVaccinesStatus} 
-            country={pet.country}
-          />
-        </View>
-
-        <View className="flex-1 items-center justify-center px-6">
+        <View
+          className="flex-1 items-center justify-center px-6"
+          style={{ minHeight: 420 }}
+        >
           <View
-            className="w-24 h-24 rounded-full items-center justify-center mb-6"
-            style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+            className="items-center justify-center mb-6"
+            style={{
+              width: 128,
+              height: 128,
+              borderRadius: 64,
+              backgroundColor: FIGMA_HEALTH_TEAL,
+            }}
           >
-            <MaterialCommunityIcons name="needle" size={24} color={theme.primary} />
+            <MaterialCommunityIcons name="heart-pulse" size={56} color="#FFFFFF" />
           </View>
           <Text
-            className="text-xl font-semibold mb-2 text-center"
+            className="text-xl font-bold mb-2 text-center"
             style={{ color: theme.foreground }}
           >
-            No vaccines recorded yet
+            No Vaccines Recorded Yet
           </Text>
           <Text
-            className="text-sm text-center"
-            style={{ color: theme.secondary }}
+            className="text-sm text-center leading-5"
+            style={{ maxWidth: 320, color: theme.secondary }}
           >
-            Upload your pet's vaccine certificate to get started
+            Ask your vet to email or upload your pet&apos;s vaccine certificate below.
           </Text>
         </View>
       </ScrollView>
@@ -105,7 +118,6 @@ export default function VaccinationsScreen() {
 
   const { required, recommended, other } = categorizedVaccinations;
 
-  // Define section order
   const sections: { category: VaccineCategory; items: typeof required }[] = [
     { category: "required", items: required },
     { category: "recommended", items: recommended },
@@ -113,9 +125,9 @@ export default function VaccinationsScreen() {
   ];
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: listCanvas }}>
       <ScrollView
-        className="flex-1 pt-4"
+        className="flex-1 pt-2"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -126,47 +138,35 @@ export default function VaccinationsScreen() {
           />
         }
       >
-        {/* Vaccination Status Header */}
-        <View className="px-4 mb-4">
-          <VaccinationStatusHeader 
-            status={requiredVaccinesStatus} 
-            country={pet.country}
-          />
-        </View>
-
-        {/* Vaccination Sections */}
         <View className="px-4">
           {sections.map(({ category, items }) => {
-            // Skip empty sections
             if (items.length === 0) return null;
-
             return (
-              <View key={category} className="mb-4">
-                {/* Section Header */}
-                <VaccinationSectionHeader
-                  category={category}
-                  count={items.length}
-                  isExpanded={expandedSections[category]}
-                  onToggle={() => toggleSection(category)}
-                />
-
-                {/* Section Content */}
-                {expandedSections[category] && (
-                  <View className="px-2">
-                    {items.map((item) => (
-                      <VaccinationCard
-                        key={item.vaccination.id}
-                        vaccination={item.vaccination}
-                      />
-                    ))}
-                  </View>
-                )}
+              <View key={category} style={{ marginBottom: 20 }}>
+                <Text
+                  style={{
+                    fontSize: 17,
+                    fontWeight: "700",
+                    color: theme.foreground,
+                    marginBottom: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  {SECTION_TITLE[category]}
+                </Text>
+                {items.map((item) => (
+                  <VaccinationCard
+                    key={item.vaccination.id}
+                    vaccination={item.vaccination}
+                    category={item.category}
+                  />
+                ))}
               </View>
             );
           })}
         </View>
 
-        <View className="h-20" />
+        <View className="h-28" />
       </ScrollView>
     </View>
   );

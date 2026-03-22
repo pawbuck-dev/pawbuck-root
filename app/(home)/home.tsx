@@ -433,7 +433,7 @@ export default function Home() {
           {/* Health Records Section */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
-              <HealthRecordsSection petId={selectedPet.id} />
+              <HealthRecordsSection petId={selectedPet.id} petName={selectedPet.name} />
             </View>
           )}
 

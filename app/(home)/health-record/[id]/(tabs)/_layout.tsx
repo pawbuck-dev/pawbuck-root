@@ -1,10 +1,14 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import PetSelector from "@/components/home/PetSelector";
+import HealthRecordsUploadSheet, {
+  UploadSheetOption,
+} from "@/components/health/HealthRecordsUploadSheet";
 import HealthRecordsTooltipModal from "@/components/onboarding/HealthRecordsTooltipModal";
-import { useSelectedPet } from "@/context/selectedPetContext";
 import { usePets } from "@/context/petsContext";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { hasSeenHealthRecordsTooltip } from "@/utils/onboardingStorage";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import {
   MaterialTopTabNavigationEventMap,
   MaterialTopTabNavigationOptions,
@@ -18,8 +22,9 @@ import {
   withLayoutContext,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { Navigator } = createMaterialTopTabNavigator();
 
@@ -32,228 +37,287 @@ export const MaterialTopTabs = withLayoutContext<
 
 type Tab = "vaccinations" | "medications" | "exams" | "lab-results";
 
+const TAB_TITLE: Record<Tab, string> = {
+  vaccinations: "Vaccines",
+  medications: "Meds",
+  exams: "Exams",
+  "lab-results": "Labs",
+};
+
 export default function HealthRecordsLayout() {
   const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pets } = usePets();
-  const { pet } = useSelectedPet();
   const segments = useSegments();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showUploadSheet, setShowUploadSheet] = useState(false);
 
-  // Find the pet by ID (convert string param to number)
-  const petFromPets = pets.find((p) => p.id.toString() === id);
-  const petName = petFromPets?.name || "Pet";
-
-  // Check if health records tooltip should be shown
   useEffect(() => {
     const checkTooltip = async () => {
       const hasSeen = await hasSeenHealthRecordsTooltip();
-      if (!hasSeen) {
-        setShowTooltip(true);
-      }
+      if (!hasSeen) setShowTooltip(true);
     };
     checkTooltip();
   }, []);
 
-  // Track active tab from route segments
   useEffect(() => {
     const currentTab = segments[segments.length - 1] as Tab;
     const validTabs: Tab[] = ["vaccinations", "medications", "exams", "lab-results"];
-    
     if (currentTab && validTabs.includes(currentTab)) {
       setActiveTab(currentTab);
     } else {
-      // Default to vaccinations if no valid tab is found
       setActiveTab("vaccinations");
     }
   }, [segments]);
 
-  // Handle add button press based on active tab
-  const handleAddPress = () => {
-    // Default to vaccinations if activeTab is not set or invalid
-    const tab = activeTab || "vaccinations";
-    
-    switch (tab) {
+  const sheetConfig = useMemo(() => {
+    const pid = id;
+    const opts: UploadSheetOption[] = [];
+    let title = "Upload";
+
+    switch (activeTab) {
       case "vaccinations":
-        router.push(`/health-record/${id}/vaccination-upload-modal`);
+        title = "Upload Vaccine Document";
+        opts.push(
+          {
+            id: "cam",
+            label: "Take Photo",
+            icon: "camera-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=camera` as any
+              ),
+          },
+          {
+            id: "lib",
+            label: "Choose From Photos",
+            icon: "images-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=library` as any
+              ),
+          },
+          {
+            id: "pdf",
+            label: "Choose PDF File",
+            icon: "document-text-outline",
+            usePdfBadge: true,
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=pdf` as any
+              ),
+          }
+        );
         break;
       case "medications":
-        router.push(`/health-record/${id}/medication-upload-modal`);
+        title = "Add Medication";
+        opts.push(
+          {
+            id: "cam",
+            label: "Take Photo",
+            icon: "camera-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/medication-upload-modal?upload=camera` as any
+              ),
+          },
+          {
+            id: "lib",
+            label: "Choose From Photos",
+            icon: "images-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/medication-upload-modal?upload=library` as any
+              ),
+          },
+          {
+            id: "pdf",
+            label: "Choose PDF File",
+            icon: "document-text-outline",
+            usePdfBadge: true,
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/medication-upload-modal?upload=pdf` as any
+              ),
+          },
+          {
+            id: "man",
+            label: "Add Manually",
+            icon: "create-outline",
+            onPress: () =>
+              router.push(`/(home)/health-record/${pid}/medication-upload-modal?mode=manual` as any),
+          }
+        );
         break;
       case "exams":
-        router.push(`/health-record/${id}/exam-upload-modal`);
+        title = "Upload Exam Documents";
+        opts.push(
+          {
+            id: "cam",
+            label: "Take Photo",
+            icon: "camera-outline",
+            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+          },
+          {
+            id: "lib",
+            label: "Choose From Photos",
+            icon: "images-outline",
+            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+          },
+          {
+            id: "pdf",
+            label: "Choose PDF File",
+            icon: "document-text-outline",
+            usePdfBadge: true,
+            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+          }
+        );
         break;
       case "lab-results":
-        router.push(`/health-record/${id}/lab-result-upload-modal`);
+        title = "Upload Lab Result";
+        opts.push(
+          {
+            id: "cam",
+            label: "Take Photo",
+            icon: "camera-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=camera` as any
+              ),
+          },
+          {
+            id: "lib",
+            label: "Choose From Photos",
+            icon: "images-outline",
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=library` as any
+              ),
+          },
+          {
+            id: "pdf",
+            label: "Choose PDF File",
+            icon: "document-text-outline",
+            usePdfBadge: true,
+            onPress: () =>
+              router.push(
+                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=pdf` as any
+              ),
+          }
+        );
         break;
       default:
-        // Fallback to vaccinations if unknown tab
-        router.push(`/health-record/${id}/vaccination-upload-modal`);
         break;
     }
+
+    return { title, options: opts };
+  }, [activeTab, id]);
+
+  const handleFabPress = () => {
+    setShowUploadSheet((s) => !s);
   };
 
+  const tabCanvas = healthRecordTabCanvas(theme, isDark);
+
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: tabCanvas }}>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
       {/* Header */}
-      <View className="px-6 pt-14 pb-4">
-        <View className="flex-row items-center justify-between">
-          {/* Back Button - Pawbuck Logo */}
-          <Pressable
+      <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <TouchableOpacity
             onPress={() => router.back()}
-            className="items-center justify-center active:opacity-70"
+            activeOpacity={0.7}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+            }}
           >
-            <Image
-              source={require("@/assets/images/icon.png")}
-              style={{ width: 40, height: 40 }}
-              resizeMode="contain"
-            />
-          </Pressable>
-
-          {/* Title */}
-          <Text
-            className="text-xl font-bold"
-            style={{ color: theme.foreground }}
-          >
-            {petName}'s Health Records
+            <Ionicons name="chevron-back" size={22} color={theme.foreground} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
+            {TAB_TITLE[activeTab]}
           </Text>
-
-          {/* Add Button */}
-          <Pressable
-            onPress={handleAddPress}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
-          >
-            <Ionicons name="add-circle" size={28} color={theme.primary} />
-          </Pressable>
+          <View style={{ width: 40 }} />
         </View>
       </View>
 
-      {/* Category Navigation Bar */}
-      <View className="px-4 pb-2">
-        <View 
-          className="rounded-2xl px-4 py-2 flex-row justify-between"
-          style={{
-            backgroundColor: theme.card,
-          }}
-        >
-          {[
-            { 
-              id: "vaccinations", 
-              label: "Vaccines", 
-              icon: "needle", 
-              iconType: "material" as const,
-              iconColor: "#3BD0D2", // Teal
-            },
-            { 
-              id: "medications", 
-              label: "Meds", 
-              icon: "pill", 
-              iconType: "material" as const,
-              iconColor: "#A855F7", // Purple
-            },
-            { 
-              id: "exams", 
-              label: "Exams", 
-              icon: "stethoscope", 
-              iconType: "material" as const,
-              iconColor: "#60A5FA", // Blue
-            },
-            { 
-              id: "lab-results", 
-              label: "Labs", 
-              icon: "flask", 
-              iconType: "ionicons" as const,
-              iconColor: "#FF9500", // Orange
-            },
-          ].map((category) => {
-            const isActive = activeTab === category.id;
-            
-            return (
-              <TouchableOpacity
-                key={category.id}
-                onPress={() => router.push(`/(home)/health-record/${id}/(tabs)/${category.id}` as any)}
-                className="items-center flex-1"
-                activeOpacity={0.7}
-              >
-                <View
-                  className="rounded-xl items-center justify-center"
-                  style={{
-                    backgroundColor: isActive 
-                      ? (mode === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)")
-                      : "transparent",
-                    borderWidth: isActive ? 1 : 0,
-                    borderColor: mode === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.1)",
-                    paddingVertical: 10,
-                    paddingHorizontal: 8,
-                    width: "100%",
-                  }}
-                >
-                  {category.iconType === "material" ? (
-                    <MaterialCommunityIcons name={category.icon as any} size={24} color={category.iconColor} />
-                  ) : (
-                    <Ionicons name={category.icon as any} size={24} color={category.iconColor} />
-                  )}
-                  <Text
-                    className="text-xs font-medium text-center mt-1.5"
-                    style={{ color: category.iconColor }}
-                  >
-                    {category.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+      {/* Pet selector (multi-pet) */}
+      {pets.length > 1 && (
+        <View style={{ marginBottom: 8 }}>
+          <PetSelector
+            pets={pets}
+            selectedPetId={id}
+            onSelectPet={(petId) => {
+              router.replace(`/(home)/health-record/${petId}/(tabs)/${activeTab}` as any);
+            }}
+            notificationCounts={{}}
+          />
         </View>
-      </View>
+      )}
 
-      {/* Material Top Tabs - Hidden Tab Bar, Content Only */}
-      <View className="flex-1">
+      <View className="flex-1" style={{ backgroundColor: tabCanvas }}>
         <MaterialTopTabs
           initialRouteName="vaccinations"
           tabBarPosition="top"
           screenOptions={{
             swipeEnabled: true,
-            tabBarStyle: {
-              height: 0,
-              opacity: 0,
-            },
-            tabBarIndicatorStyle: {
-              height: 0,
-            },
+            tabBarStyle: { height: 0, opacity: 0 },
+            tabBarIndicatorStyle: { height: 0 },
             tabBarShowLabel: false,
             tabBarShowIcon: false,
           }}
         >
-        <MaterialTopTabs.Screen
-          name="vaccinations"
-          options={{ title: "Vaccinations" }}
-        />
-        <MaterialTopTabs.Screen
-          name="medications"
-          options={{ title: "Medications" }}
-        />
-        <MaterialTopTabs.Screen
-          name="exams"
-          options={{ title: "Exams" }}
-        />
-        <MaterialTopTabs.Screen
-          name="lab-results"
-          options={{ title: "Lab Results" }}
-        />
-      </MaterialTopTabs>
+          <MaterialTopTabs.Screen name="vaccinations" options={{ title: "Vaccinations" }} />
+          <MaterialTopTabs.Screen name="medications" options={{ title: "Medications" }} />
+          <MaterialTopTabs.Screen name="exams" options={{ title: "Exams" }} />
+          <MaterialTopTabs.Screen name="lab-results" options={{ title: "Lab Results" }} />
+        </MaterialTopTabs>
       </View>
 
-      {/* Bottom Navigation Bar */}
-      <BottomNavBar activeTab="records" />
+      <BottomNavBar activeTab="records" selectedPetId={id} />
 
-      {/* Health Records Tooltip Modal */}
-      <HealthRecordsTooltipModal
-        visible={showTooltip}
-        onClose={() => setShowTooltip(false)}
+      <TouchableOpacity
+        onPress={handleFabPress}
+        activeOpacity={0.85}
+        style={{
+          position: "absolute",
+          right: 20,
+          bottom: 88 + insets.bottom,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: theme.primary,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          elevation: 6,
+        }}
+      >
+        <Ionicons name={showUploadSheet ? "close" : "add"} size={28} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <HealthRecordsUploadSheet
+        visible={showUploadSheet}
+        title={sheetConfig.title}
+        options={sheetConfig.options}
+        onClose={() => setShowUploadSheet(false)}
       />
+
+      <HealthRecordsTooltipModal visible={showTooltip} onClose={() => setShowTooltip(false)} />
     </View>
   );
 }

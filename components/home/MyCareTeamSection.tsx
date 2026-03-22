@@ -245,45 +245,107 @@ export default function MyCareTeamSection({
       {careTeamMembers.length > 0 ? (
         careTeamMembers.map((member) => renderContactCard(member))
       ) : (
-        <TouchableOpacity
-          onPress={() => {
-            if (readOnly) {
-              router.push("/(home)/settings" as any);
-            } else {
-              onAddMember("veterinarian");
-            }
-          }}
-          activeOpacity={0.7}
+        <View
           style={{
             backgroundColor: cardBg,
-            borderRadius: 20,
-            padding: 20,
-            borderWidth: 2,
-            borderStyle: "dashed",
-            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
-            alignItems: "center",
+            borderRadius: 24,
+            overflow: "hidden",
+            ...cardBorderStyle,
           }}
         >
-          <View
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: `${theme.primary}20`,
-              marginBottom: 10,
-            }}
-          >
-            <Ionicons name="people-outline" size={24} color={theme.primary} />
+          <View style={{ flexDirection: "row", minHeight: 200 }}>
+            {/* Left content */}
+            <View style={{ flex: 1, padding: 20, justifyContent: "space-between", zIndex: 2 }}>
+              {/* Header */}
+              <View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#EDEDEE",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <MaterialCommunityIcons name="account-group-outline" size={22} color={isDark ? "#FFFFFF" : "#1D2433"} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
+                      My Care Team
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.secondary }}>
+                      0 contacts can communicate
+                    </Text>
+                  </View>
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: isDark ? "rgba(255,255,255,0.6)" : "#5A5F6A",
+                    lineHeight: 20,
+                    marginTop: 16,
+                    marginBottom: 20,
+                  }}
+                >
+                  There are no care{"\n"}team members linked{"\n"}to this pet.
+                </Text>
+              </View>
+
+              {/* Add Team button */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (readOnly) {
+                    router.push("/(home)/settings" as any);
+                  } else {
+                    onAddMember("veterinarian");
+                  }
+                }}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  alignSelf: "flex-start",
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 100,
+                  borderWidth: 1,
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)",
+                  backgroundColor: "transparent",
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="add" size={18} color={theme.foreground} />
+                <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
+                  Add Team
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Right illustration */}
+            <View
+              style={{
+                width: 150,
+                justifyContent: "flex-end",
+                alignItems: "flex-end",
+                zIndex: 1,
+              }}
+            >
+              <Image
+                source={require("@/assets/images/care.png")}
+                style={{
+                  width: 165,
+                  height: 165,
+                  marginBottom: -4,
+                  marginRight: -8,
+                }}
+                contentFit="contain"
+              />
+            </View>
           </View>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 4 }}>
-            Add Your Care Team
-          </Text>
-          <Text style={{ fontSize: 13, color: theme.secondary, textAlign: "center" }}>
-            Add your vet, groomer, or walker
-          </Text>
-        </TouchableOpacity>
+        </View>
       )}
     </View>
   );

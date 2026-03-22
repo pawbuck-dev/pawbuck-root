@@ -1,8 +1,15 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import {
+  FIGMA_HEALTH_EXAMS_ICON_BG,
+  HEALTH_LAYOUT,
+  healthListCardChrome,
+} from "@/constants/figmaHealthLayout";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { ClinicalExamEditModal } from "./ClinicalExamEditModal";
@@ -12,7 +19,10 @@ interface ClinicalExamCardProps {
 }
 
 export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
-  const { theme } = useTheme();
+  const { pet } = useSelectedPet();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const chrome = healthListCardChrome(theme, isDark);
   const { updateClinicalExamMutation, deleteClinicalExamMutation } = useClinicalExams();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
@@ -152,18 +162,36 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
   return (
     <>
       <TouchableOpacity
-        className="mb-4 p-4 rounded-2xl"
-        style={{ backgroundColor: theme.card }}
+        className="mb-4 p-4"
+        style={{
+          borderRadius: HEALTH_LAYOUT.cardRadius,
+          backgroundColor: chrome.cardBg,
+          borderWidth: chrome.borderWidth,
+          borderColor: chrome.borderColor,
+        }}
+        onPress={() => {
+          if (!pet) return;
+          router.push(
+            `/(home)/health-record/${pet.id}/exam-detail?examId=${exam.id}` as any
+          );
+        }}
         onLongPress={handleLongPress}
         activeOpacity={0.7}
       >
         {/* Exam Header */}
         <View className="flex-row items-center mb-3">
           <View
-            className="w-10 h-10 rounded-full items-center justify-center mr-3"
-            style={{ backgroundColor: "rgba(95, 196, 192, 0.2)" }}
+            style={{
+              width: HEALTH_LAYOUT.iconPlate.size,
+              height: HEALTH_LAYOUT.iconPlate.size,
+              borderRadius: HEALTH_LAYOUT.iconPlate.radius,
+              backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: HEALTH_LAYOUT.iconToTitleGap,
+            }}
           >
-            <Ionicons name="clipboard" size={20} color={theme.primary} />
+            <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />
           </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-2">
@@ -231,12 +259,19 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
           </View>
           {hasDocument && (
             <TouchableOpacity
-              className="w-9 h-9 rounded-full items-center justify-center ml-2"
-              style={{ backgroundColor: "rgba(95, 196, 192, 0.15)" }}
+              style={{
+                width: HEALTH_LAYOUT.overflow.size,
+                height: HEALTH_LAYOUT.overflow.size,
+                borderRadius: HEALTH_LAYOUT.overflow.radius,
+                backgroundColor: chrome.overflowBtnBg,
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 8,
+              }}
               onPress={handleViewDocument}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="document-attach" size={18} color={theme.primary} />
+              <Ionicons name="document-attach" size={18} color={theme.foreground} />
             </TouchableOpacity>
           )}
         </View>
@@ -381,10 +416,10 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
 
         {/* Long press hint */}
         <Text
-          className="text-xs text-center mt-3 tracking-wider"
+          className="text-xs text-center mt-3"
           style={{ color: theme.secondary, opacity: 0.6 }}
         >
-          LONG PRESS TO EDIT
+          Tap for details · Long press for quick actions
         </Text>
       </TouchableOpacity>
 
