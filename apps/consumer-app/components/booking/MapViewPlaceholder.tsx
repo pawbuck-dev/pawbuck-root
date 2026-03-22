@@ -9,10 +9,7 @@ type MapViewPlaceholderProps = {
   clinicCount: number;
 };
 
-/**
- * Stand-in until `react-native-maps` is added (see Expo: https://docs.expo.dev/versions/latest/sdk/map-view/).
- * Replace this component with MapView + Marker when integrating.
- */
+/** Stand-in on **web** only. Native uses `expo-maps` in `VetClinicMap`. */
 export function MapViewPlaceholder({ clinicCount }: MapViewPlaceholderProps) {
   const { mode } = useTheme();
   const isDark = mode === "dark";
@@ -47,7 +44,7 @@ export function MapViewPlaceholder({ clinicCount }: MapViewPlaceholderProps) {
           className="text-xs text-center px-6"
           style={{ fontFamily: "Poppins_400Regular", color: isDark ? "rgba(255,255,255,0.45)" : "#8B9399" }}
         >
-          Add react-native-maps (Expo: npx expo install react-native-maps) to show an interactive map with markers.
+          Open this screen on iOS or Android for the interactive map (expo-maps).
         </Text>
       </LinearGradient>
     </View>

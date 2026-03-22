@@ -1,11 +1,11 @@
 /**
- * Extends static `app.json` to inject the react-native-maps config plugin with API keys from the environment.
- * Create keys: Google Cloud Console → enable Maps SDK for iOS & Android → restrict by bundle ID / package + SHA-1.
+ * Dynamic Expo config: loads `.env` / `.env.local`, wires **expo-maps** (Apple Maps on iOS, Google on Android).
  *
- * Local dev: put keys in `.env.local` (gitignored) or export env vars, then `npx expo prebuild`.
- * EAS: set GOOGLE_MAPS_IOS_API_KEY / GOOGLE_MAPS_ANDROID_API_KEY as secrets for the build profile.
+ * Android: set `GOOGLE_MAPS_ANDROID_API_KEY` (Maps SDK for Android). iOS uses Apple Maps — no Google iOS key needed for the map view.
  *
- * @see https://docs.expo.dev/versions/latest/sdk/map-view/
+ * Local: keys in `.env.local`, then `npx expo prebuild`. EAS: same env var names as secrets.
+ *
+ * @see https://docs.expo.dev/versions/latest/sdk/maps/
  */
 const fs = require("fs");
 const path = require("path");
@@ -37,13 +37,22 @@ loadEnvFile(".env.local");
 
 module.exports = ({ config }) => ({
   ...config,
+  android: {
+    ...config.android,
+    config: {
+      ...config.android?.config,
+      googleMaps: {
+        ...(config.android?.config?.googleMaps ?? {}),
+        apiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY ?? "",
+      },
+    },
+  },
   plugins: [
     ...(config.plugins ?? []),
     [
-      "react-native-maps",
+      "expo-maps",
       {
-        iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY ?? "",
-        androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY ?? "",
+        requestLocationPermission: false,
       },
     ],
   ],
