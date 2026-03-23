@@ -12,7 +12,7 @@ import {
   HEALTH_TYPE,
   healthListCardChrome,
 } from "@/constants/figmaHealthLayout";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import { formatDateMedium } from "@/utils/dates";
 import { getNextMedicationDose } from "@/utils/medication";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";

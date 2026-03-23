@@ -14,7 +14,7 @@ import {
 } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { useMedicines } from "@/context/medicinesContext";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import { formatDateLong, formatDateMedium } from "@/utils/dates";
 import { getNextMedicationDose } from "@/utils/medication";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";

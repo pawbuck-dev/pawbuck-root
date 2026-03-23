@@ -1,5 +1,5 @@
 import { useMedicines } from "@/context/medicinesContext";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import React from "react";
 import { Modal } from "react-native";
 import MedicineForm from "./MedicineForm";

@@ -1,6 +1,6 @@
 import { Pet } from "@/context/selectedPetContext";
-import { MedicineData } from "@/models/medication";
-import { Vaccination } from "@/models/vaccination";
+import { MedicineData } from "@/types/medication";
+import { Vaccination } from "@/types/vaccination";
 
 export interface NotificationContent {
   title: string;

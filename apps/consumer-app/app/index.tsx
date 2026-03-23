@@ -1,5 +1,5 @@
-import InitialWelcomeScreen from "@/components/InitialWelcomeScreen";
-import SplashScreen from "@/components/SplashScreen";
+import InitialWelcomeScreen from "@/components/onboarding/InitialWelcomeScreen";
+import SplashScreen from "@/components/layout/SplashScreen";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useRouter } from "expo-router";

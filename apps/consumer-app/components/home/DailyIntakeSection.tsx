@@ -1,4 +1,4 @@
-import { RiceBowlIcon, WaterGlassIcon } from "@/assets/icons";
+import { RiceBowlIcon, WaterGlassIcon } from "@/components/icons";
 import { useTheme } from "@/context/themeContext";
 import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
 import { Ionicons } from "@expo/vector-icons";

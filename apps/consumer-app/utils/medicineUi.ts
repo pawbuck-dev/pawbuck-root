@@ -1,4 +1,4 @@
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 
 export type MedicineListStatus = "active" | "completed";
 

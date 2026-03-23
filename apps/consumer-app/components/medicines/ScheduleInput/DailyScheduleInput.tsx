@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { DailyMedicationSchedule } from "@/models/medication";
+import { DailyMedicationSchedule } from "@/types/medication";
 import { formatTimeForDisplay, formatTimeToString } from "@/utils/schedules";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";

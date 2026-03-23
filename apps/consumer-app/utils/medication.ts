@@ -1,5 +1,5 @@
 import { ScheduleFrequency } from "@/constants/schedules";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import moment from "moment";
 import {
   getCurrentTimeInMinutes,

@@ -1,7 +1,7 @@
 import {
     VaccinationInsert,
     VaccinationOCRResponse,
-} from "@/models/vaccination";
+} from "@/types/vaccination";
 
 export const parseVaccinationOCRResponse = (
   petId: string,

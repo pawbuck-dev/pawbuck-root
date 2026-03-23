@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import { getTodaysMedicationDoses, markMedicationDoseComplete } from "@/services/medicationDoses";
 import { getNextMedicationDose } from "@/utils/medication";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";

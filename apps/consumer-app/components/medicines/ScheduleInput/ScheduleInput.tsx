@@ -4,7 +4,7 @@ import {
   MedicationSchedule,
   MonthlyMedicationSchedule,
   WeeklyMedicationSchedule,
-} from "@/models/medication";
+} from "@/types/medication";
 import React from "react";
 import DailyScheduleInput from "./DailyScheduleInput";
 import MonthlyScheduleInput from "./MonthlyScheduleInput";

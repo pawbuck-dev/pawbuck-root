@@ -1,4 +1,4 @@
-import WelcomeScreen from "@/components/WelcomeScreen";
+import WelcomeScreen from "@/components/onboarding/WelcomeScreen";
 import { StatusBar } from "expo-status-bar";
 
 export default function Welcome() {

@@ -6,7 +6,7 @@ import ReviewMedicines from "@/components/medicines/ReviewMedicines";
 import UploadOptions from "@/components/medicines/UploadOptions";
 import { useMedicines } from "@/context/medicinesContext";
 import { Tables, TablesInsert } from "@/database.types";
-import { MedicineFormData } from "@/models/medication";
+import { MedicineFormData } from "@/types/medication";
 import { isDuplicateMedication } from "@/utils/duplicateDetection";
 import { supabase } from "@/utils/supabase";
 import { router, useLocalSearchParams } from "expo-router";

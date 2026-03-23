@@ -5,7 +5,7 @@ import {
   MedicineFormData,
   MonthlyMedicationSchedule,
   WeeklyMedicationSchedule,
-} from "@/models/medication";
+} from "@/types/medication";
 
 /**
  * Validation result for medication schedules

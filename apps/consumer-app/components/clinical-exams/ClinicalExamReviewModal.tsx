@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { ClinicalExamData } from "@/models/clinicalExam";
+import { ClinicalExamData } from "@/types/clinicalExam";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import React, { useState } from "react";

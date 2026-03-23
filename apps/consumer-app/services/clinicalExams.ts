@@ -1,5 +1,5 @@
 import { TablesInsert, TablesUpdate } from "@/database.types";
-import { ClinicalExam } from "@/models/clinicalExam";
+import { ClinicalExam } from "@/types/clinicalExam";
 import { supabase } from "@/utils/supabase";
 
 /**

@@ -3,7 +3,7 @@ import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
-import { useSafeSenders, validateEmail } from "@/components/home/vet-info/useSafeSenders";
+import { useSafeSenders, validateEmail } from "@/hooks/useSafeSenders";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";

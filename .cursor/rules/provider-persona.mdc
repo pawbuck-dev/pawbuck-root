@@ -1,6 +1,15 @@
+---
+description: Provider Expo app — patterns, scheduling via PawBuck.API, marketplace RLS, testing
+globs: apps/provider-app/**
+alwaysApply: false
+---
+
 # Provider App Persona
 
 This document describes the patterns, conventions, and architecture for the PawBuck provider app.
+
+## Monorepo architecture
+- Follow **`.cursor/rules/architecture-boundaries.mdc`** and **`docs/ARCHITECTURE.md`** — provider app uses the **same** Supabase project; marketplace tables (`provider_profiles`, `service_offerings`, `service_areas`, `marketplace_service_bookings`) are separate from **`vet_bookings`**. Use **`@pawbuck/api-client`** for PawBuck.API HTTP.
 
 ## Overview
 The provider app is a React Native application built with Expo Router, designed for veterinarians, groomers, and other pet care providers.

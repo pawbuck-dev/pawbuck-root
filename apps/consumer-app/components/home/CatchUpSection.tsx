@@ -4,7 +4,7 @@ import {
 } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import { getVaccinationAlertPeriod } from "@/utils/vaccinationAlertPeriods";
 import { getNextMedicationDose } from "@/utils/medication";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";

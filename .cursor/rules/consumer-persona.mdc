@@ -1,6 +1,15 @@
+---
+description: Consumer Expo app — patterns, scheduling via PawBuck.API, testing
+globs: apps/consumer-app/**
+alwaysApply: false
+---
+
 # Consumer App Persona
 
 This document describes the patterns, conventions, and architecture for the PawBuck consumer app.
+
+## Monorepo architecture
+- Follow **`.cursor/rules/architecture-boundaries.mdc`** and **`docs/ARCHITECTURE.md`** for API vs Supabase ownership, marketplace vs clinic booking, and shared packages (`@pawbuck/api-client`, `@pawbuck/milo`).
 
 ## Overview
 The consumer app is a React Native application built with Expo Router, designed for pet owners to manage their pets' health records.
@@ -25,10 +34,14 @@ The consumer app is a React Native application built with Expo Router, designed 
 ## Testing
 - Follow `.cursor/rules/testing-requirements.mdc`: add tests for new behavior and run `pnpm --filter pawbuck test` (or `pnpm run test:all` when shared code changes). See `docs/TESTING.md`.
 
-## Conventions
-- Components in `components/` directory
-- Screens in `app/` directory (Expo Router)
-- Services in `services/` directory
-- Hooks in `hooks/` directory
-- Utils in `utils/` directory
-- Constants in `constants/` directory
+## Conventions (strict layout)
+- **Screens** — `app/` (Expo Router only)
+- **React components** — under `components/` by feature: `components/home/`, `components/common/` (shared pickers, `PrivateImage`, `NetworkImage`), `components/layout/` (e.g. `Header`, `SplashScreen`), `components/onboarding/` (welcome flows), `components/icons/` (SVG icon components — **not** static PNG/SVG assets)
+- **Static assets** — `assets/images/`, `assets/icons/` (images and non-component SVG/PNG used with `require()`)
+- **Hooks** — `hooks/` (e.g. `useSafeSenders.ts`) — do not place hooks under `components/`
+- **Types** — `types/` (domain types such as `vaccination`, `medication`, `clinicalExam`) — do not use `models/`
+- **Services** — `services/`
+- **Utils** — `utils/` (use normal folder names, e.g. `utils/vaccination/response.ts`, not `utils/vaccination.ts/`)
+- **Constants** — `constants/`
+- **Context** — `context/` (global providers)
+- **Theme** — `theme/`

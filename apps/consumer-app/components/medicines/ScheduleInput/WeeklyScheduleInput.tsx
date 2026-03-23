@@ -1,6 +1,6 @@
 import { DAYS_OF_WEEK } from "@/constants/schedules";
 import { useTheme } from "@/context/themeContext";
-import { WeeklyMedicationSchedule } from "@/models/medication";
+import { WeeklyMedicationSchedule } from "@/types/medication";
 import {
   formatTimeForDisplay,
   formatTimeToString,

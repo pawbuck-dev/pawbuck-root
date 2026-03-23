@@ -1,6 +1,6 @@
 import { ScheduleFrequency } from "@/constants/schedules";
 import { Pet } from "@/context/selectedPetContext";
-import { MedicineData } from "@/models/medication";
+import { MedicineData } from "@/types/medication";
 import * as Notifications from "expo-notifications";
 import {
   buildNotificationContent,

@@ -9,7 +9,7 @@ import {
   MedicineFormData,
   MonthlyMedicationSchedule,
   WeeklyMedicationSchedule,
-} from "@/models/medication";
+} from "@/types/medication";
 import { formatDate } from "@/utils/dates";
 import {
   MedicationScheduleData,

@@ -2,7 +2,7 @@ import { MEDICATION_TYPES } from "@/constants/medicines";
 import { ScheduleFrequency } from "@/constants/schedules";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { MedicationSchedule, MedicineFormData } from "@/models/medication";
+import { MedicationSchedule, MedicineFormData } from "@/types/medication";
 import { formatDate } from "@/utils/dates";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";

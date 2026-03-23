@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useMemo } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import PrivateImage from "../PrivateImage";
+import PrivateImage from "@/components/common/PrivateImage";
 
 function getGreeting(): string {
   const hour = new Date().getHours();

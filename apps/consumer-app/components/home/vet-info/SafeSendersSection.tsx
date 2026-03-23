@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeSenders, validateEmail } from "./useSafeSenders";
+import { useSafeSenders, validateEmail } from "@/hooks/useSafeSenders";
 
 interface SafeSendersSectionProps {
   petId: string;

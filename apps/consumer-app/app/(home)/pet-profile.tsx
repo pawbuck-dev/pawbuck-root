@@ -1,6 +1,6 @@
-import CountryPicker from "@/components/CountryPicker";
+import CountryPicker from "@/components/common/CountryPicker";
 import BottomNavBar from "@/components/home/BottomNavBar";
-import PrivateImage from "@/components/PrivateImage";
+import PrivateImage from "@/components/common/PrivateImage";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";

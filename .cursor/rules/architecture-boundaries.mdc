@@ -1,0 +1,49 @@
+---
+description: Monorepo architecture plan — API vs Supabase split, marketplace vs clinic booking, migrations root, shared packages, compliance pointers
+alwaysApply: true
+---
+
+# Architecture boundaries (repo plan)
+
+Follow this for any feature that touches **APIs, Supabase, mobile apps, or shared packages**. Deep scheduling rules: `.cursor/rules/scheduling-booking-architecture.mdc`. **DB changes:** `.cursor/rules/database-migrations.mdc`. **Tests:** `.cursor/rules/testing-requirements.mdc`.
+
+## Canonical docs (read when scope is cross-cutting)
+
+- [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) — diagram, concern owners, marketplace tables
+- [`docs/SUPABASE.md`](../../docs/SUPABASE.md) — single migration source, types command
+- [`docs/COMPLIANCE-BACKLOG.md`](../../docs/COMPLIANCE-BACKLOG.md) — PII, health, location, AI, account deletion / export
+
+## Component roles
+
+| Layer | Path / project | Responsibility |
+|-------|----------------|----------------|
+| Consumer app | `apps/consumer-app` | Pet owners; primary UX for health records, messages, walks, vet booking UI |
+| Provider app | `apps/provider-app` | Service providers; marketplace profile/offers/bookings (RLS); **same** Supabase project |
+| Scheduling & AI API | `backend/PawBuck.API` | **Only** hub for Vetstoria/EazyVet/demo; Milo/RAG/classification; clinic routing from `clinic_scheduling_config` + appsettings fallback |
+| Admin API | `backend/PawBuck.Admin.API` | Admin operations — not a substitute for mobile calling vendors |
+| Postgres migrations | `supabase/migrations/` (repo root) | **Authoritative** — do not add new schema under `apps/consumer-app/supabase/migrations/` |
+
+## Domain separation (do not conflate)
+
+- **Clinic / vet scheduling:** `vet_bookings` in Supabase + **PawBuck.API** `/api/bookings/*` + vendor adapters. Mobile uses **`@pawbuck/api-client`** (or thin wrappers) with `EXPO_PUBLIC_PAWBUCK_API_URL` — **never** call EazyVet/Vetstoria from the app.
+- **Marketplace (Rover-style):** `provider_profiles`, `service_offerings`, `service_areas`, `marketplace_service_bookings` — owner ↔ provider gigs. **Do not** mix these rows with clinic appointment semantics unless product + schema are explicitly designed and documented.
+
+## Shared packages
+
+- **`@pawbuck/api-client`** — HTTP to PawBuck.API (booking, future endpoints); pass base URL from env; **avoid duplicating** fetch DTOs in consumer vs provider.
+- **`@pawbuck/milo`** — Schemas / extraction only; keep third-party vendor SDKs in **`backend/`**.
+
+## Supabase & RLS
+
+- New tables: **enable RLS** and policies before relying on client access; match owner vs provider vs discovery rules to the domain above.
+- Optional `app_metadata.role` for provider UX **does not replace** RLS — policies remain the source of truth.
+
+## Compliance touchpoints
+
+When changing **account deletion**, **exports**, **Pawthon/location**, **health payloads**, **Milo/AI**, or **retention**: align with `docs/COMPLIANCE-BACKLOG.md` and avoid expanding collection without updating disclosures.
+
+## Checklist before merging cross-cutting work
+
+1. Boundary matches [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) (who owns the concern).
+2. Migrations only under root `supabase/migrations/` + mitigation if destructive (see database-migrations rule).
+3. Tests added/updated; `pnpm run test:all` (or scoped suites) green when feasible.

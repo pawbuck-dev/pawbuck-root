@@ -6,6 +6,8 @@ alwaysApply: false
 
 # Database migrations (Supabase / Postgres)
 
+**Monorepo context:** `.cursor/rules/architecture-boundaries.mdc` — migrations live at repo root; marketplace vs `vet_bookings` domains must stay coherent.
+
 ## Source of truth
 
 - **Authoritative migrations:** repo root [`supabase/migrations/`](../../supabase/migrations/) only. Do not add new schema files under `apps/consumer-app/supabase/migrations/` (legacy). See [`docs/SUPABASE.md`](../../docs/SUPABASE.md).

@@ -1,7 +1,7 @@
-import AnimalTypePicker from "@/components/AnimalTypePicker";
-import BreedPicker from "@/components/BreedPicker";
-import CountryPicker from "@/components/CountryPicker";
-import GenderPicker from "@/components/GenderPicker";
+import AnimalTypePicker from "@/components/common/AnimalTypePicker";
+import BreedPicker from "@/components/common/BreedPicker";
+import CountryPicker from "@/components/common/CountryPicker";
+import GenderPicker from "@/components/common/GenderPicker";
 import { COUNTRY_FLAGS } from "@/constants/onboarding";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";

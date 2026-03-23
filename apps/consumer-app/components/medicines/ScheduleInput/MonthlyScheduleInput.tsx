@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { MonthlyMedicationSchedule } from "@/models/medication";
+import { MonthlyMedicationSchedule } from "@/types/medication";
 import {
   formatTimeForDisplay,
   formatTimeToString,

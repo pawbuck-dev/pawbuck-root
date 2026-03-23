@@ -1,4 +1,4 @@
-import Header from "@/components/Header";
+import Header from "@/components/layout/Header";
 import { useTheme } from "@/context/themeContext";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";

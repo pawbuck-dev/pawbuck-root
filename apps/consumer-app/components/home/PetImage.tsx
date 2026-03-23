@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import PrivateImage from "../PrivateImage";
+import PrivateImage from "@/components/common/PrivateImage";
 
 type PetImageProps = {
   pet: Pet;

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/authContext";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { ClinicalExamData, ClinicalExamOCRResponse } from "@/models/clinicalExam";
+import { ClinicalExamData, ClinicalExamOCRResponse } from "@/types/clinicalExam";
 import { createClinicalExam } from "@/services/clinicalExams";
 import { isDuplicateClinicalExam } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";

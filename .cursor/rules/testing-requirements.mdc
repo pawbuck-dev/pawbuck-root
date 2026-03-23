@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Testing — layered policy (not blanket TDD)
 
+**Cross-cutting architecture** (what to test at API vs app): `.cursor/rules/architecture-boundaries.mdc`.
+
 Use **selective test-first (TDD)** where cycles are fast and regressions are costly. Use **test-after** for exploratory UI when appropriate. **Always** add tests for meaningful logic and **run existing suites** before finishing.
 
 ## When to prefer test-first (red → green → refactor)

@@ -3,7 +3,7 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import PrivateImage from "../PrivateImage";
+import PrivateImage from "@/components/common/PrivateImage";
 
 type PetSelectorProps = {
   pets: Pet[];

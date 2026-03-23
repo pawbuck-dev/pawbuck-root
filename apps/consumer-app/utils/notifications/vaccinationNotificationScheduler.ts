@@ -1,5 +1,5 @@
 import { Pet } from "@/context/selectedPetContext";
-import { Vaccination } from "@/models/vaccination";
+import { Vaccination } from "@/types/vaccination";
 import * as Notifications from "expo-notifications";
 import moment from "moment";
 import { buildVaccinationNotificationContent } from "./notificationContent";
