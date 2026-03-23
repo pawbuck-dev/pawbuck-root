@@ -29,7 +29,8 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          # Must match the pnpm major used to generate pnpm-lock.yaml (lockfile v9 + patches differ on pnpm 9 vs 10).
+          version: 10
 
       - uses: actions/setup-node@v4
         with:

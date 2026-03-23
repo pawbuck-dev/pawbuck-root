@@ -2,6 +2,7 @@
   "name": "pawbuck-monorepo",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.30.1",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -16,6 +17,7 @@
     "consumer:build": "cd apps/consumer-app && npm run build",
     "consumer:test": "pnpm --filter pawbuck test",
     "consumer:typecheck": "pnpm --filter pawbuck typecheck",
+    "ci:consumer-app": "pnpm install --frozen-lockfile && pnpm --filter pawbuck typecheck && pnpm --filter pawbuck run test:ci",
     "provider:test": "pnpm --filter pawbuck-provider-app test",
     "milo:test": "pnpm --filter @pawbuck/milo test",
     "api-client:test": "pnpm --filter @pawbuck/api-client test",
