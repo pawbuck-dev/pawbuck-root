@@ -2,7 +2,13 @@ import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export type VetInformation = Tables<"vet_information">;
-export type CareTeamMemberType = "veterinarian" | "dog_walker" | "groomer" | "pet_sitter" | "boarding";
+export type CareTeamMemberType =
+  | "veterinarian"
+  | "dog_walker"
+  | "groomer"
+  | "pet_sitter"
+  | "boarding"
+  | "unknown";
 
 /**
  * Fetch a single vet information record by ID

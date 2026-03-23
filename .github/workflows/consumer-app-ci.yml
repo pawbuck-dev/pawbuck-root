@@ -1,0 +1,46 @@
+# Consumer app: TypeScript + Jest (unit + RTL)
+name: Consumer app CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/consumer-app/**"
+      - "packages/pawbuck-api-client/**"
+      - "packages/milo-core/**"
+      - ".github/workflows/consumer-app-ci.yml"
+  pull_request:
+    paths:
+      - "apps/consumer-app/**"
+      - "packages/pawbuck-api-client/**"
+      - "packages/milo-core/**"
+      - ".github/workflows/consumer-app-ci.yml"
+
+concurrency:
+  group: consumer-app-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck consumer app
+        run: pnpm --filter pawbuck typecheck
+
+      - name: Test consumer app
+        run: pnpm --filter pawbuck run test:ci

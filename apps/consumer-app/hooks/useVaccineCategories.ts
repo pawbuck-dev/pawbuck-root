@@ -83,6 +83,8 @@ const getCanonicalKeyForVaccination = (
 export const useVaccineCategories = (): UseVaccineCategoriesResult => {
   const { pet } = useSelectedPet();
   const { vaccinations } = useVaccinations();
+  const country = pet?.country ?? null;
+  const animalType = pet?.animal_type ?? null;
 
   // Fetch vaccine requirements for the pet's country and animal type
   const {
@@ -90,8 +92,9 @@ export const useVaccineCategories = (): UseVaccineCategoriesResult => {
     isLoading: isLoadingRequirements,
     error: requirementsError,
   } = useQuery({
-    queryKey: ["vaccineRequirements", pet.country, pet.animal_type],
-    queryFn: () => getVaccineRequirements(pet.country, pet.animal_type),
+    queryKey: ["vaccineRequirements", country, animalType],
+    queryFn: () => getVaccineRequirements(country!, animalType!),
+    enabled: country != null && animalType != null,
     staleTime: 1000 * 60 * 60, // Cache for 1 hour (reference data doesn't change often)
   });
 

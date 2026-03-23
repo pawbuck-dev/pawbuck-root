@@ -6,6 +6,7 @@ import {
   PetEmailList,
   updateEmail,
 } from "@/services/petEmailList";
+import { validateEmail } from "@/utils/validateEmail";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
 
@@ -35,13 +36,7 @@ interface UseSafeSendersReturn {
   isDeleting: boolean;
 }
 
-/**
- * Validate email format
- */
-export const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
+export { validateEmail } from "@/utils/validateEmail";
 
 /**
  * Custom hook for managing safe senders (whitelisted emails)

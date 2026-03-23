@@ -1,7 +1,13 @@
 import { Tables } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
-export type CareTeamMemberType = "veterinarian" | "dog_walker" | "groomer" | "pet_sitter" | "boarding";
+export type CareTeamMemberType =
+  | "veterinarian"
+  | "dog_walker"
+  | "groomer"
+  | "pet_sitter"
+  | "boarding"
+  | "unknown";
 
 export type CareTeamMember = Tables<"vet_information"> & {
   type: CareTeamMemberType;

@@ -13,5 +13,11 @@
     "expo-env.d.ts",
     "nativewind-env.d.ts",
     "components/common/DateTimePicker"
+  ],
+  "exclude": [
+    "node_modules",
+    "mcp-server",
+    "supabase",
+    "scripts"
   ]
 }

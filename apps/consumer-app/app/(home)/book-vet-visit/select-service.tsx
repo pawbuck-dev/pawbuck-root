@@ -8,7 +8,7 @@ import { useTheme } from "@/context/themeContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -127,7 +127,11 @@ export default function BookVetSelectServiceScreen() {
                 className="w-14 h-14 rounded-full items-center justify-center mb-3"
                 style={{ backgroundColor: item.circleBg }}
               >
-                <MaterialCommunityIcons name={item.icon} size={28} color="#0D0F0F" />
+                <MaterialCommunityIcons
+                  name={item.icon as ComponentProps<typeof MaterialCommunityIcons>["name"]}
+                  size={28}
+                  color="#0D0F0F"
+                />
               </View>
               <Text
                 className="text-center text-sm font-semibold"

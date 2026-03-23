@@ -34,6 +34,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { pet } = useSelectedPet();
+  const petId = pet?.id ?? "";
   const queryClient = useQueryClient();
   const { refreshNotifications } = useNotifications();
 
@@ -43,9 +44,9 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     error,
     refetch,
   } = useQuery<MedicineData[], Error>({
-    queryKey: ["medicines", pet.id],
-    queryFn: () => fetchMedicines(pet.id),
-    enabled: !!pet.id,
+    queryKey: ["medicines", petId],
+    queryFn: () => fetchMedicines(petId),
+    enabled: !!petId,
   });
 
   const addMedicinesMutation = useMutation<
@@ -62,7 +63,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
       return insertedMedicines;
     },
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      queryClient.invalidateQueries({ queryKey: ["medicines", petId] });
       refreshNotifications();
     },
     onError: (error) => {
@@ -85,7 +86,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
       return updateMedicine(medicine);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      queryClient.invalidateQueries({ queryKey: ["medicines", petId] });
       refreshNotifications();
     },
 
@@ -98,7 +99,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
   const deleteMedicineMutation = useMutation<void, Error, string>({
     mutationFn: (id) => deleteMedicine(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["medicines", pet.id] });
+      queryClient.invalidateQueries({ queryKey: ["medicines", petId] });
       refreshNotifications();
     },
   });

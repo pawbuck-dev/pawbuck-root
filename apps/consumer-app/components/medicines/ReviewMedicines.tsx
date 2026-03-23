@@ -238,6 +238,10 @@ const ReviewMedicines = ({
   };
 
   const handleSave = () => {
+    if (!pet) {
+      Alert.alert("Error", "No pet selected");
+      return;
+    }
     // Validate schedules for each medication
     const validation = validateMedicationSchedules(
       extractedMedications,

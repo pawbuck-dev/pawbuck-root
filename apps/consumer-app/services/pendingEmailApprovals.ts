@@ -4,16 +4,14 @@ import { addEmail } from "./petEmailList";
 
 export type PendingEmailApproval = Tables<"pending_email_approvals">;
 
-export interface PendingApprovalWithPet extends PendingEmailApproval {
+export type PendingApprovalWithPet = PendingEmailApproval & {
   pets: {
     name: string;
     microchip_number?: string | null;
   } | null;
   validation_status?: "pending" | "correct" | "incorrect" | null;
   validation_errors?: Record<string, string> | null;
-  document_type?: string | null;
-  attachment_url?: string | null;
-}
+};
 
 /**
  * Fetch all pending email approvals for the current user

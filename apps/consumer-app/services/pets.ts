@@ -121,17 +121,7 @@ export const transferPetOwnership = async (
     );
   }
 
-  // Find new owner by email
-  const { data: newOwner, error: ownerError } = await supabase
-    .from("auth.users")
-    .select("id")
-    .eq("email", newOwnerEmail.toLowerCase())
-    .single();
-
-  // If not found in public view, try via admin function or RPC
-  // For now, we'll use a different approach - search via user management
-  // Note: This requires the new owner's user ID, so we might need to adjust this
-  // based on your auth setup. For now, we'll expect the caller to provide the user_id
+  // Resolving new owner by email requires auth admin or RPC (not exposed on PostgREST as auth.users).
   throw new Error(
     "transferPetOwnership: Please implement based on your auth system. This requires new owner's user ID."
   );
@@ -153,7 +143,7 @@ export const checkEmailIdAvailable = async (
 ): Promise<boolean> => {
   const { data, error } = await supabase.rpc("check_email_id_available", {
     p_email_id: emailId.toLowerCase(),
-    p_exclude_pet_id: excludePetId || null,
+    p_exclude_pet_id: excludePetId ?? undefined,
   });
 
   if (error) throw error;

@@ -46,6 +46,7 @@ export const ClinicalExamsProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const queryClient = useQueryClient();
   const { pet } = useSelectedPet();
+  const petId = pet?.id ?? "";
 
   // Fetch clinical exams using React Query
   const {
@@ -53,11 +54,13 @@ export const ClinicalExamsProvider: React.FC<{ children: ReactNode }> = ({
     isLoading,
     error: queryError,
   } = useQuery({
-    queryKey: ["clinicalExams", pet.id],
+    queryKey: ["clinicalExams", petId],
     queryFn: async () => {
-      const fetchedExams = await fetchClinicalExams(pet.id);
+      if (!petId) return [];
+      const fetchedExams = await fetchClinicalExams(petId);
       return fetchedExams || [];
     },
+    enabled: !!petId,
   });
 
   // Add clinical exam mutation
@@ -66,7 +69,7 @@ export const ClinicalExamsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (newExam: Tables<"clinical_exams">) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"clinical_exams">[]>(
-        ["clinicalExams", pet.id],
+        ["clinicalExams", petId],
         (old = []) => [newExam, ...old]
       );
     },
@@ -82,7 +85,7 @@ export const ClinicalExamsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (updatedExam: Tables<"clinical_exams">) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"clinical_exams">[]>(
-        ["clinicalExams", pet.id],
+        ["clinicalExams", petId],
         (old = []) =>
           old.map((e) => (e.id === updatedExam.id ? updatedExam : e))
       );
@@ -98,7 +101,7 @@ export const ClinicalExamsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (_, deletedId) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"clinical_exams">[]>(
-        ["clinicalExams", pet.id],
+        ["clinicalExams", petId],
         (old = []) => old.filter((e) => e.id !== deletedId)
       );
     },

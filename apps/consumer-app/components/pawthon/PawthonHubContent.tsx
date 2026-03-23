@@ -94,7 +94,11 @@ export function PawthonHubContent({
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
 
-  const creamBg = isDark ? ["#2A2622", "#1E1C1A", "#252220"] : ["#FFFDF8", "#FAF3E8", "#FFF9F0"];
+  const creamBg = (
+    isDark
+      ? (["#2A2622", "#1E1C1A", "#252220"] as const)
+      : (["#FFFDF8", "#FAF3E8", "#FFF9F0"] as const)
+  );
   const sunburstRay = isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.55)";
   const labelColor = isDark ? "rgba(255,255,255,0.55)" : "#1A1A1A";
   const titleColor = isDark ? "#FFFFFF" : "#0D0F0F";

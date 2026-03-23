@@ -37,6 +37,8 @@ type CatchUpCard = {
   iconName: string;
   iconColor: string;
   iconBg: string;
+  /** Rounded rect behind icon (default 12 in render) */
+  iconPlateRadius?: number;
   route: string;
 };
 

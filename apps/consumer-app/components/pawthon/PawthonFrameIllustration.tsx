@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import React from "react";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { ImageStyle, StyleProp, ViewStyle } from "react-native";
 import { View } from "react-native";
 
 /** viewBox width / height from Frame.svg */
@@ -51,7 +51,7 @@ export function PawthonFrameIllustration({
       >
         <Image
           source={source}
-          style={[{ width: "100%", aspectRatio: FRAME_ASPECT }, style]}
+          style={[{ width: "100%", aspectRatio: FRAME_ASPECT }, style as StyleProp<ImageStyle>]}
           contentFit="contain"
         />
       </View>
@@ -72,7 +72,7 @@ export function PawthonFrameIllustration({
     >
       <Image
         source={source}
-        style={[{ width, height }, style]}
+        style={[{ width, height }, style as StyleProp<ImageStyle>]}
         contentFit="contain"
       />
     </View>

@@ -25,7 +25,7 @@ interface UserPreferencesContextType {
   /** Update user preferences (upsert) */
   updatePreferences: (
     preferences: Partial<TablesUpdate<"user_preferences">>
-  ) => Promise<UserPreferences>;
+  ) => Promise<UserPreferences | null>;
   /** Loading state for preferences update */
   updatingPreferences: boolean;
 }
@@ -78,7 +78,7 @@ export const UserPreferencesProvider: React.FC<{ children: ReactNode }> = ({
   const updatePreferences = useCallback(
     async (
       preferencesData: Partial<TablesUpdate<"user_preferences">>
-    ): Promise<UserPreferences> =>
+    ): Promise<UserPreferences | null> =>
       updatePreferencesMutation.mutateAsync(preferencesData),
     [updatePreferencesMutation]
   );

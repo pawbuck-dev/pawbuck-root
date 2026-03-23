@@ -681,7 +681,7 @@ export default function OnboardingReview() {
             visible={showDatePicker}
             date={tempBirthDate || new Date()}
             mode="date"
-            onSave={(date) => {
+            onSave={(date: Date) => {
               setShowDatePicker(false);
               setTempBirthDate(date);
               updatePetData({ date_of_birth: date.toISOString() });

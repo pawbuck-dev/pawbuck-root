@@ -49,6 +49,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const queryClient = useQueryClient();
   const { pet } = useSelectedPet();
+  const petId = pet?.id ?? "";
 
   // Fetch vaccinations using React Query
   const {
@@ -56,11 +57,13 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     isLoading,
     error: queryError,
   } = useQuery({
-    queryKey: ["vaccinations", pet.id],
+    queryKey: ["vaccinations", petId],
     queryFn: async () => {
-      const fetchedVaccinations = await getVaccinationsByPetId(pet.id);
+      if (!petId) return [];
+      const fetchedVaccinations = await getVaccinationsByPetId(petId);
       return fetchedVaccinations || [];
     },
+    enabled: !!petId,
   });
 
   // Add vaccination mutation
@@ -69,7 +72,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (newVaccination: Tables<"vaccinations">) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"vaccinations">[]>(
-        ["vaccinations", pet.id],
+        ["vaccinations", petId],
         (old = []) => [newVaccination, ...old]
       );
     },
@@ -90,7 +93,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (updatedVaccination: Tables<"vaccinations">) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"vaccinations">[]>(
-        ["vaccinations", pet.id],
+        ["vaccinations", petId],
         (old = []) =>
           old.map((v) => (v.id === updatedVaccination.id ? updatedVaccination : v))
       );
@@ -106,7 +109,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
     onSuccess: (_, deletedId) => {
       // Optimistically update the cache
       queryClient.setQueryData<Tables<"vaccinations">[]>(
-        ["vaccinations", pet.id],
+        ["vaccinations", petId],
         (old = []) => old.filter((v) => v.id !== deletedId)
       );
     },

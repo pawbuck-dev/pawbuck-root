@@ -18,7 +18,7 @@ export interface VaccineEquivalency {
   canonical_name: string;
   variant_name: string;
   notes: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 export type VaccineCategory = "required" | "recommended" | "other";

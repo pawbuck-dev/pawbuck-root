@@ -49,6 +49,7 @@ const getTypeLabel = (type: CareTeamMemberType): string => {
     groomer: "Groomer",
     pet_sitter: "Sitter",
     boarding: "Boarder",
+    unknown: "Other",
   };
   return labels[type];
 };
@@ -69,6 +70,7 @@ const getTypeIcon = (type: CareTeamMemberType): keyof typeof MaterialCommunityIc
     groomer: "content-cut",
     pet_sitter: "heart",
     boarding: "home",
+    unknown: "help-circle-outline",
   };
   return icons[type];
 };
@@ -80,6 +82,7 @@ const getBusinessNameLabel = (type: CareTeamMemberType): string => {
     groomer: "Salon Name",
     pet_sitter: "Business Name",
     boarding: "Facility Name",
+    unknown: "Business Name",
   };
   return labels[type];
 };
@@ -91,6 +94,7 @@ const getPersonNameLabel = (type: CareTeamMemberType): string => {
     groomer: "Groomer Name",
     pet_sitter: "Sitter Name",
     boarding: "Contact Name",
+    unknown: "Contact Name",
   };
   return labels[type];
 };

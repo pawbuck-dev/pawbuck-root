@@ -61,6 +61,7 @@ const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof MaterialComm
     groomer: "content-cut",
     pet_sitter: "heart",
     boarding: "home",
+    unknown: "help-circle-outline",
   };
   return icons[type];
 };

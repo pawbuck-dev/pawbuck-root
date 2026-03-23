@@ -34,6 +34,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          id: string
+          event_type: string
+          user_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_type: string
+          user_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_type?: string
+          user_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       clinical_exams: {
         Row: {
           clinic_name: string | null
@@ -692,6 +716,7 @@ export type Database = {
           id: string
           microchip_number: string | null
           name: string
+          passport_number: string | null
           photo_url: string | null
           sex: string
           user_id: string
@@ -710,6 +735,7 @@ export type Database = {
           id?: string
           microchip_number?: string | null
           name: string
+          passport_number?: string | null
           photo_url?: string | null
           sex: string
           user_id?: string
@@ -728,6 +754,7 @@ export type Database = {
           id?: string
           microchip_number?: string | null
           name?: string
+          passport_number?: string | null
           photo_url?: string | null
           sex?: string
           user_id?: string
@@ -740,31 +767,43 @@ export type Database = {
         Row: {
           attachment_count: number | null
           completed_at: string | null
+          document_type: string | null
+          failure_reason: string | null
           id: string
           pet_id: string | null
           s3_key: string
+          sender_email: string | null
           started_at: string | null
           status: string
+          subject: string | null
           success: boolean | null
         }
         Insert: {
           attachment_count?: number | null
           completed_at?: string | null
+          document_type?: string | null
+          failure_reason?: string | null
           id?: string
           pet_id?: string | null
           s3_key: string
+          sender_email?: string | null
           started_at?: string | null
           status?: string
+          subject?: string | null
           success?: boolean | null
         }
         Update: {
           attachment_count?: number | null
           completed_at?: string | null
+          document_type?: string | null
+          failure_reason?: string | null
           id?: string
           pet_id?: string | null
           s3_key?: string
+          sender_email?: string | null
           started_at?: string | null
           status?: string
+          subject?: string | null
           success?: boolean | null
         }
         Relationships: [
@@ -1127,6 +1166,10 @@ export type Database = {
       create_user_preferences: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      pawthon_my_weekly_walker_rank: {
+        Args: Record<string, never>
+        Returns: Json
       }
     }
     Enums: {

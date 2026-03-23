@@ -21,6 +21,7 @@ const getTypeIcon = (type: CareTeamMemberType | null): string => {
     groomer: "content-cut",
     pet_sitter: "heart",
     boarding: "home",
+    unknown: "help-circle-outline",
   };
   return type ? icons[type] : "stethoscope";
 };
@@ -32,6 +33,7 @@ const getTypeLabel = (type: CareTeamMemberType | null): string => {
     groomer: "Groomer",
     pet_sitter: "Pet Sitter",
     boarding: "Boarding",
+    unknown: "Other",
   };
   return type ? labels[type] : "Veterinarian";
 };
@@ -43,6 +45,7 @@ const getTypeColor = (type: CareTeamMemberType | null): string => {
     groomer: "#A78BFA",
     pet_sitter: "#F472B6",
     boarding: "#D97706",
+    unknown: "#94A3B8",
   };
   return type ? colors[type] : "#60A5FA";
 };
@@ -53,6 +56,7 @@ const CARE_TEAM_IMAGES: Record<CareTeamMemberType, any> = {
   groomer: require("@/assets/images/gromer.png"),
   pet_sitter: require("@/assets/images/care.png"),
   boarding: require("@/assets/images/care.png"),
+  unknown: require("@/assets/images/care.png"),
 };
 
 export default function MyCareTeamSection({

@@ -18,8 +18,10 @@
     "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local",
     "eas": "eas",
     "test": "jest",
+    "test:ci": "jest --ci",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",

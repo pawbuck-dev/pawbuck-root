@@ -15,8 +15,8 @@ export type VetBookingServiceId =
 export type VetBookingServiceCatalogItem = {
   id: VetBookingServiceId;
   label: string;
-  /** MaterialCommunityIcons glyph name */
-  icon: "tooth-outline" | "stethoscope" | "syringe" | "water" | "flask-outline" | "content-cut" | "hand-heart" | "hospital-building";
+  /** MaterialCommunityIcons glyph name (runtime set; Expo types omit some valid names like "syringe") */
+  icon: string;
   /** Pastel circle behind icon */
   circleBg: string;
 };

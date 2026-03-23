@@ -95,6 +95,10 @@ export default function ExamUploadModal() {
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
+    if (!pet) {
+      Alert.alert("Error", "No pet selected");
+      return;
+    }
     try {
       // Step 1: Uploading
       setStatus("uploading");
@@ -232,6 +236,10 @@ export default function ExamUploadModal() {
   };
 
   const saveExamRecord = async (data: ClinicalExamData, examDate: string) => {
+    if (!pet) {
+      Alert.alert("Error", "No pet selected");
+      return;
+    }
     try {
       setIsSaving(true);
       setStatus("inserting");

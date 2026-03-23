@@ -55,11 +55,14 @@ export function Toggle({
     height: config.thumb,
     borderRadius: 1000,
     backgroundColor: "#FFFFFF",
-    transform: [{ translateX }],
+    transform: [{ translateX: translateX.value }],
   }));
 
   return (
     <Pressable
+      testID="pawbuck-toggle"
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value, disabled: !!disabled }}
       onPress={() => !disabled && onValueChange(!value)}
       disabled={disabled}
       style={({ pressed }) => [{ opacity: pressed && !disabled ? 0.8 : 1 }]}

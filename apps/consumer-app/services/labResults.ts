@@ -1,3 +1,4 @@
+import type { Json } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export interface LabTestResult {
@@ -40,7 +41,7 @@ export async function fetchLabResults(petId: string): Promise<LabResult[]> {
     throw error;
   }
 
-  return data as LabResult[];
+  return (data ?? []) as unknown as LabResult[];
 }
 
 /**
@@ -51,7 +52,10 @@ export async function createLabResult(
 ): Promise<LabResult> {
   const { data, error } = await supabase
     .from("lab_results")
-    .insert(labResult)
+    .insert({
+      ...labResult,
+      results: labResult.results as unknown as Json,
+    })
     .select()
     .single();
 
@@ -60,7 +64,7 @@ export async function createLabResult(
     throw error;
   }
 
-  return data as LabResult;
+  return data as unknown as LabResult;
 }
 
 /**
@@ -70,9 +74,13 @@ export async function updateLabResult(
   labResultId: string,
   updates: Partial<LabResult>
 ): Promise<LabResult> {
+  const payload: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() };
+  if (updates.results !== undefined) {
+    payload.results = updates.results as unknown as Json;
+  }
   const { data, error } = await supabase
     .from("lab_results")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(payload)
     .eq("id", labResultId)
     .select()
     .single();
@@ -82,7 +90,7 @@ export async function updateLabResult(
     throw error;
   }
 
-  return data as LabResult;
+  return data as unknown as LabResult;
 }
 
 /**
