@@ -7,7 +7,7 @@ namespace PawBuck.API.Scheduling;
 /// Orchestrates scheduling: resolve clinic integration → delegate to vendor adapter.
 /// Idempotency persistence belongs here or a dedicated service once Supabase is connected.
 /// </summary>
-public sealed class SchedulingBookingService
+public sealed class SchedulingBookingService : ISchedulingBookingService
 {
     private readonly IClinicSchedulingConfigProvider _clinicConfig;
     private readonly SchedulingAdapterRegistry _registry;

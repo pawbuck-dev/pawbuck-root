@@ -3,6 +3,13 @@ import { PAWTHON_STREAK_DAY_MIN_METERS } from "@/constants/pawthon";
 import { supabase } from "@/utils/supabase";
 import moment from "moment";
 
+import type { WalkSessionStreakSlice } from "@/services/walkMetrics";
+import {
+  computeWalkingStreakFromSessions,
+  formatWeeklyChallengeFigmaLine,
+  formatWeeklyWalkerRankLine,
+} from "@/services/walkMetrics";
+
 export type WalkPoint = { lat: number; lng: number; t: number };
 
 export type WalkSessionRow = {
@@ -78,41 +85,8 @@ export async function fetchWeekDistanceKmForPet(petId: string): Promise<number> 
   return meters / 1000;
 }
 
-export type WalkSessionStreakSlice = Pick<WalkSessionRow, "ended_at" | "distance_meters">;
-
-/**
- * Walking streak: consecutive local calendar days with at least `minMetersPerDay` total for this pet.
- * If today is not yet a qualifying day, counting starts from yesterday so an in-progress day does not break the streak.
- */
-export function computeWalkingStreakFromSessions(
-  sessions: WalkSessionStreakSlice[],
-  minMetersPerDay: number
-): number {
-  const byDay = new Map<string, number>();
-  for (const s of sessions) {
-    const day = moment(s.ended_at).format("YYYY-MM-DD");
-    byDay.set(day, (byDay.get(day) ?? 0) + Number(s.distance_meters ?? 0));
-  }
-
-  const qualifies = (key: string) => (byDay.get(key) ?? 0) >= minMetersPerDay;
-
-  let cursor = moment().startOf("day");
-  if (!qualifies(cursor.format("YYYY-MM-DD"))) {
-    cursor = cursor.clone().subtract(1, "day");
-  }
-
-  let streak = 0;
-  for (let i = 0; i < 400; i++) {
-    const key = cursor.format("YYYY-MM-DD");
-    if (qualifies(key)) {
-      streak += 1;
-      cursor = cursor.clone().subtract(1, "day");
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
+export type { WalkSessionStreakSlice };
+export { computeWalkingStreakFromSessions, formatWeeklyChallengeFigmaLine, formatWeeklyWalkerRankLine };
 
 export async function fetchSessionsForStreak(
   petId: string,
@@ -136,4 +110,55 @@ export async function fetchPawthonDashboardStats(petId: string): Promise<{ weekK
   ]);
   const streak = computeWalkingStreakFromSessions(sessions, PAWTHON_STREAK_DAY_MIN_METERS);
   return { weekKm, streak };
+}
+
+/** All-time walks + total distance for hub stats (client-side sum; fine for typical history sizes). */
+export async function fetchLifetimeWalkAggregatesForPet(
+  petId: string
+): Promise<{ walkCount: number; totalMeters: number }> {
+  const { data, error } = await supabase.from("walk_sessions").select("distance_meters").eq("pet_id", petId);
+
+  if (error || !data) return { walkCount: 0, totalMeters: 0 };
+  const walkCount = data.length;
+  const totalMeters = data.reduce((acc, row) => acc + Number(row.distance_meters ?? 0), 0);
+  return { walkCount, totalMeters };
+}
+
+/** Leaderboard row for dashboard / hub (#rank of total walkers this UTC ISO week). */
+export async function fetchMyWeeklyWalkerRank(): Promise<{ rank: number | null; total: number }> {
+  const { data, error } = await supabase.rpc("pawthon_my_weekly_walker_rank");
+
+  if (error) {
+    console.warn("[walkSessions] pawthon_my_weekly_walker_rank", error.message);
+    return { rank: null, total: 0 };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") {
+    return { rank: null, total: 0 };
+  }
+
+  const r = row as { rank: number | null; total: number | null };
+  return {
+    rank: r.rank != null ? Number(r.rank) : null,
+    total: Number(r.total ?? 0),
+  };
+}
+
+export async function fetchPawthonHubStats(petId: string): Promise<{
+  walkCount: number;
+  totalMiles: number;
+  weekKm: number;
+  streak: number;
+}> {
+  const [aggregates, dash] = await Promise.all([
+    fetchLifetimeWalkAggregatesForPet(petId),
+    fetchPawthonDashboardStats(petId),
+  ]);
+  return {
+    walkCount: aggregates.walkCount,
+    totalMiles: aggregates.totalMeters / 1609.344,
+    weekKm: dash.weekKm,
+    streak: dash.streak,
+  };
 }

@@ -9,7 +9,13 @@ public sealed class SchedulingRoutingOptions
 {
     public const string SectionName = "Scheduling";
 
-    /// <summary>Per-clinic routing entries.</summary>
+    /// <summary>
+    /// When true and Supabase Postgres connection string is configured, load clinic routing from
+    /// <c>public.clinic_scheduling_config</c> before falling back to <see cref="Clinics"/>.
+    /// </summary>
+    public bool UseSupabaseClinicConfig { get; set; } = true;
+
+    /// <summary>Per-clinic routing entries (fallback and local dev without DB seed).</summary>
     public List<ClinicSchedulingRouteEntry> Clinics { get; set; } = new();
 }
 

@@ -5,7 +5,7 @@ using PawBuck.API.Scheduling.Contracts;
 namespace PawBuck.API.Scheduling;
 
 /// <summary>
-/// Resolves clinic scheduling config from <see cref="SchedulingRoutingOptions"/> (replace with Supabase repository later).
+/// Resolves clinic scheduling config from <see cref="SchedulingRoutingOptions"/> (fallback when DB row missing or Supabase disabled).
 /// </summary>
 public sealed class ConfigurationClinicSchedulingConfigProvider : IClinicSchedulingConfigProvider
 {

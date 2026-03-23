@@ -1,0 +1,52 @@
+---
+description: Safe Supabase/Postgres migrations — single source of truth, avoid data loss, require mitigation plans when risky
+globs: "**/supabase/migrations/**/*.sql"
+alwaysApply: false
+---
+
+# Database migrations (Supabase / Postgres)
+
+## Source of truth
+
+- **Authoritative migrations:** repo root [`supabase/migrations/`](../../supabase/migrations/) only. Do not add new schema files under `apps/consumer-app/supabase/migrations/` (legacy). See [`docs/SUPABASE.md`](../../docs/SUPABASE.md).
+- **File naming:** `YYYYMMDDHHMMSS_descriptive_snake_case.sql` (ordered, unique).
+
+## Default: additive, reversible-friendly
+
+- Prefer **`CREATE TABLE IF NOT EXISTS`**, new **nullable** columns or columns with **defaults**, new indexes, new RLS policies.
+- For **NOT NULL** without default on existing rows: use a **multi-step** migration (add nullable → backfill → set NOT NULL) or document one-shot backfill SQL in the same file.
+- **New tables:** enable **RLS** and define policies before exposing to `authenticated` / `anon`; grant only what is needed.
+
+## Operations that can cause data loss or breakage
+
+Treat these as **high risk**; the migration (or PR description) **must** include an explicit **mitigation / rollout** subsection:
+
+| Risk | Examples |
+|------|----------|
+| Irreversible data removal | `DROP TABLE`, `TRUNCATE`, `DELETE` without narrow `WHERE`, `DROP COLUMN` |
+| Silent overwrite | `INSERT … ON CONFLICT DO UPDATE` on config tables (clinic routing, feature flags) |
+| Constraint failures in prod | Adding `NOT NULL` / `UNIQUE` / FK without backfill |
+| Cascade deletes | `ON DELETE CASCADE` on tables that hold user-facing history |
+| Type / cast changes | Narrowing `text` → `uuid`, changing enum values without mapping |
+
+## Mitigation plan (required when risky)
+
+When any high-risk pattern is used, document **in the migration file** (SQL comment block at top) or linked PR:
+
+1. **Scope** — What data / environments are affected (prod vs staging only)?
+2. **Backup** — Point-in-time backup, `pg_dump` slice, or Supabase backup before apply.
+3. **Staging** — Same migration applied to a copy or staging project first; smoke test app + RLS.
+4. **Backfill / ordering** — Steps for existing rows (defaults, batch updates, downtime window if any).
+5. **Rollback** — Whether rollback is a new forward migration, restore from backup, or feature-flag off reads of new schema.
+6. **Verification** — Row counts, spot checks, or queries to run post-deploy.
+
+**Low-risk scheduling / non–deal-breaker features** still follow additive defaults; do not skip RLS review on new tables.
+
+## Seeds and reference data
+
+- Idempotent seeds: prefer `INSERT … ON CONFLICT DO NOTHING` when overwriting is wrong; use `DO UPDATE` only when overwriting demo/known keys is intentional—**call that out in a comment** (see `clinic_scheduling_config` seed pattern).
+
+## After merge
+
+- Regenerate TS types if consumer types are used: `pnpm run supabase:types` (from repo docs).
+- Ensure `pnpm run test:all` / backend tests still pass if API depends on new columns.

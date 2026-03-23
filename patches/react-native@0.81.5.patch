@@ -1,0 +1,55 @@
+diff --git a/React/CoreModules/RCTWebSocketModule.mm b/React/CoreModules/RCTWebSocketModule.mm
+index 3fd7238911f5592aed1d4580303fb12444edacef..e58cf40cc39beea3a8773fb981c23f037458ed24 100644
+--- a/React/CoreModules/RCTWebSocketModule.mm
++++ b/React/CoreModules/RCTWebSocketModule.mm
+@@ -139,6 +139,11 @@ - (void)setContentHandler:(id<RCTWebSocketContentHandler>)handler forSocketID:(N
+ 
+ - (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)message
+ {
++  // Avoid RCTEventEmitter assert when Metro delivers while bridge/JS is reloading (RN #34105).
++  if (self.callableJSModules == nil) {
++    return;
++  }
++
+   NSString *type;
+ 
+   NSNumber *socketID = [webSocket reactTag];
+@@ -154,11 +159,18 @@ - (void)webSocket:(SRWebSocket *)webSocket didReceiveMessage:(id)message
+     }
+   }
+ 
++  if (message == nil || type == nil) {
++    return;
++  }
++
+   [self sendEventWithName:@"websocketMessage" body:@{@"data" : message, @"type" : type, @"id" : webSocket.reactTag}];
+ }
+ 
+ - (void)webSocketDidOpen:(SRWebSocket *)webSocket
+ {
++  if (self.callableJSModules == nil) {
++    return;
++  }
+   [self sendEventWithName:@"websocketOpen"
+                      body:@{@"id" : webSocket.reactTag, @"protocol" : webSocket.protocol ? webSocket.protocol : @""}];
+ }
+@@ -168,6 +180,9 @@ - (void)webSocket:(SRWebSocket *)webSocket didFailWithError:(NSError *)error
+   NSNumber *socketID = [webSocket reactTag];
+   _contentHandlers[socketID] = nil;
+   _sockets[socketID] = nil;
++  if (self.callableJSModules == nil) {
++    return;
++  }
+   NSDictionary *body =
+       @{@"message" : error.localizedDescription ?: @"Undefined, error is nil", @"id" : socketID ?: @(-1)};
+   [self sendEventWithName:@"websocketFailed" body:body];
+@@ -181,6 +196,9 @@ - (void)webSocket:(SRWebSocket *)webSocket
+   NSNumber *socketID = [webSocket reactTag];
+   _contentHandlers[socketID] = nil;
+   _sockets[socketID] = nil;
++  if (self.callableJSModules == nil) {
++    return;
++  }
+   [self sendEventWithName:@"websocketClosed"
+                      body:@{
+                        @"code" : @(code),

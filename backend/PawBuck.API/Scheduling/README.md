@@ -13,7 +13,9 @@ Plug-and-play vendor integrations for appointments. **Veterinary** is the first 
 | `Vendors/EazyVet/` | EazyVet adapter (HTTP/OAuth TODO) |
 | `SchedulingAdapterRegistry.cs` | Resolve adapter by `BookingProviderKind` |
 | `SchedulingBookingService.cs` | Orchestration (clinic config → adapter) |
-| `ConfigurationClinicSchedulingConfigProvider.cs` | Clinic routing from `appsettings` (swap for Supabase) |
+| `ConfigurationClinicSchedulingConfigProvider.cs` | Clinic routing from `appsettings` (fallback) |
+| `SupabaseClinicSchedulingConfigProvider.cs` | Reads `public.clinic_scheduling_config` via Postgres |
+| `CompositeClinicSchedulingConfigProvider.cs` | Supabase first when enabled + connection string; else appsettings |
 
 ## API (HTTP)
 
@@ -25,7 +27,8 @@ Plug-and-play vendor integrations for appointments. **Veterinary** is the first 
 
 `appsettings.json` → `Scheduling`:
 
-- **`Clinics`**: maps `ClinicId` → `Provider` (`PawBuckDemo` / `Vetstoria` / `EazyVet`) and `ExternalClinicId`.
+- **`UseSupabaseClinicConfig`**: when `true` and `Supabase:ConnectionString` is set, load rows from `public.clinic_scheduling_config` first; missing clinics fall back to **`Clinics`**.
+- **`Clinics`**: maps `ClinicId` → `Provider` (`PawBuckDemo` / `Vetstoria` / `EazyVet`) and `ExternalClinicId` (fallback / dev without DB seed).
 - **`Vetstoria`**, **`EazyVet`**: `Enabled`, `BaseUrl` (secrets via env/user-secrets later).
 
 ## Consumer app
@@ -36,7 +39,7 @@ Plug-and-play vendor integrations for appointments. **Veterinary** is the first 
 
 ## Next steps
 
-1. Replace demo clinics with Supabase-backed `ClinicSchedulingConfig`; keep persisting `vet_bookings` from the app or move to API.
+1. ~~Supabase-backed clinic routing~~ — implemented (`clinic_scheduling_config` migration + composite provider). Keep `Clinics` in appsettings for fallback.
 2. Implement vendor HTTP clients inside each adapter; map to normalized contracts only there.
 3. Add idempotency store keyed by `IdempotencyKey` before vendor `Book`.
 

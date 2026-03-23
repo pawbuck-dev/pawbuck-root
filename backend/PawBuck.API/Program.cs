@@ -47,8 +47,11 @@ builder.Services.AddSingleton(sp => new SchedulingAdapterRegistry(new ISchedulin
     sp.GetRequiredService<EazyVetSchedulingAdapter>(),
     sp.GetRequiredService<PawBuckDemoSchedulingAdapter>(),
 }));
-builder.Services.AddSingleton<IClinicSchedulingConfigProvider, ConfigurationClinicSchedulingConfigProvider>();
+builder.Services.AddSingleton<ConfigurationClinicSchedulingConfigProvider>();
+builder.Services.AddSingleton<SupabaseClinicSchedulingConfigProvider>();
+builder.Services.AddSingleton<IClinicSchedulingConfigProvider, CompositeClinicSchedulingConfigProvider>();
 builder.Services.AddScoped<SchedulingBookingService>();
+builder.Services.AddScoped<ISchedulingBookingService>(sp => sp.GetRequiredService<SchedulingBookingService>());
 
 // Add services to the container.
 builder.Services.AddControllers();

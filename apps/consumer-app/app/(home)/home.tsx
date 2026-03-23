@@ -1,4 +1,5 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
+import DailyGoalWalkCard from "@/components/home/DailyGoalWalkCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
@@ -13,6 +14,7 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
+import { useAuth } from "@/context/authContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -26,7 +28,10 @@ import {
 } from "@/services/careTeamMembers";
 import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
-import { fetchPawthonDashboardStats } from "@/services/walkSessions";
+import {
+  fetchMyWeeklyWalkerRank,
+  fetchPawthonDashboardStats,
+} from "@/services/walkSessions";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CareTeamMemberType,
@@ -69,6 +74,7 @@ export default function Home() {
   } = usePets();
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const [emailCopied, setEmailCopied] = useState(false);
@@ -120,6 +126,12 @@ export default function Home() {
     queryKey: ["pawthon", selectedPetId],
     queryFn: () => fetchPawthonDashboardStats(selectedPetId!),
     enabled: !!selectedPetId,
+  });
+
+  const { data: weeklyWalkerRank } = useQuery({
+    queryKey: ["pawthon", "weeklyWalkerRank"],
+    queryFn: fetchMyWeeklyWalkerRank,
+    enabled: !!user,
   });
 
   const createCareTeamMemberMutation = useMutation({
@@ -214,6 +226,8 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
       queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] }),
       refreshPendingApprovals(),
     ]);
     setRefreshing(false);
@@ -277,6 +291,8 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
       }
       refreshPendingApprovals();
     }, [selectedPetId, queryClient, refreshPendingApprovals])
@@ -414,6 +430,15 @@ export default function Home() {
             </View>
           )}
 
+          {/* Daily Goal — sky card + Start a Walk (Figma home, above Weekly Challenge) */}
+          {selectedPet && (
+            <DailyGoalWalkCard
+              petName={selectedPet.name}
+              onStartWalk={() => router.push("/pawthon-walk")}
+              onHistory={() => router.push("/pawthon")}
+            />
+          )}
+
           {/* Weekly Challenge — Figma dashboard hero (node 1896-122224) */}
           {selectedPet && (
             <View style={{ marginBottom: 20 }}>
@@ -421,7 +446,9 @@ export default function Home() {
                 petName={selectedPet.name}
                 weekKm={pawthonStats?.weekKm ?? 0}
                 streakDays={pawthonStats?.streak ?? 0}
-                onPress={() => router.push("/pawthon-walk")}
+                walkerRank={weeklyWalkerRank?.rank ?? null}
+                walkerTotal={weeklyWalkerRank?.total ?? 0}
+                onPress={() => router.push("/pawthon")}
               />
             </View>
           )}

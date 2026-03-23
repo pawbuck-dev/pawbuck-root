@@ -18,6 +18,15 @@ This is the monorepo for PawBuck, containing all applications, backend services,
 └── /.cursor/rules (Cursor AI rules)
 ```
 
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System boundaries, marketplace tables, shared packages |
+| [docs/SUPABASE.md](docs/SUPABASE.md) | Single source of truth for migrations (`supabase/` root) |
+| [docs/COMPLIANCE-BACKLOG.md](docs/COMPLIANCE-BACKLOG.md) | Data map, deletion/export, store checklist |
+| [docs/TESTING.md](docs/TESTING.md) | Commands and coverage notes |
+
 ## Getting Started
 
 ### Prerequisites
@@ -82,10 +91,11 @@ npm run test:all
 
 Run tests for specific projects:
 ```bash
-npm run consumer:test
-npm run provider:test
-npm run backend:test
-npm run admin:test
+pnpm run consumer:test
+pnpm run provider:test
+pnpm run api-client:test
+pnpm run backend:test
+pnpm run admin:test
 ```
 
 ## Workspace Scripts

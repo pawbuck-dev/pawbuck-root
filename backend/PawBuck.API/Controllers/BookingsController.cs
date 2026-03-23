@@ -12,10 +12,10 @@ namespace PawBuck.API.Controllers;
 [Route("api/[controller]")]
 public class BookingsController : ControllerBase
 {
-    private readonly SchedulingBookingService _scheduling;
+    private readonly ISchedulingBookingService _scheduling;
     private readonly ILogger<BookingsController> _logger;
 
-    public BookingsController(SchedulingBookingService scheduling, ILogger<BookingsController> logger)
+    public BookingsController(ISchedulingBookingService scheduling, ILogger<BookingsController> logger)
     {
         _scheduling = scheduling;
         _logger = logger;

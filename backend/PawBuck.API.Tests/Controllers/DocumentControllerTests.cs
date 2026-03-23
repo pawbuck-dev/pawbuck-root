@@ -49,7 +49,7 @@ public class DocumentControllerTests
             .Setup(p => p.GetPromptForType("Vaccine"))
             .Returns("Milo prompt...");
 
-        var result = await _controller.Classify(request);
+        var result = await _controller.Classify(request, CancellationToken.None);
 
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = okResult.Value.Should().BeOfType<ClassifyResponse>().Subject;
@@ -63,7 +63,7 @@ public class DocumentControllerTests
     {
         var request = new ClassifyRequest { ImageUrl = null };
 
-        var result = await _controller.Classify(request!);
+        var result = await _controller.Classify(request!, CancellationToken.None);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -73,7 +73,7 @@ public class DocumentControllerTests
     {
         var request = new ClassifyRequest { ImageUrl = "   " };
 
-        var result = await _controller.Classify(request);
+        var result = await _controller.Classify(request, CancellationToken.None);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }

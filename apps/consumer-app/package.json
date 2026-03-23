@@ -16,12 +16,16 @@
     "generate:types": "cd ../../supabase && supabase gen types typescript --local > ../../apps/consumer-app/database.types.ts",
     "generate:migration": "supabase db diff --local -f",
     "read-mails": "npx tsx scripts/read-mails.ts --env-file .env.local",
-    "eas": "eas"
+    "eas": "eas",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/poppins": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
+    "@pawbuck/api-client": "workspace:*",
     "@pawbuck/milo": "workspace:*",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "^8.5.0",
@@ -80,12 +84,16 @@
     "tailwindcss": "^3.4.18"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.2.0",
+    "@types/jest": "^29.5.14",
     "@types/imap": "^0.8.40",
     "@types/mailparser": "^3.4.5",
     "@types/react": "~19.1.0",
     "eas-cli": "^16.0.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "jest": "^29.7.0",
+    "jest-expo": "~54.0.16",
     "imap": "^0.8.19",
     "mailparser": "^3.7.1",
     "tsx": "^4.19.2",

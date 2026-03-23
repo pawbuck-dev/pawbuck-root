@@ -8,14 +8,8 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import React from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 type Props = {
   pets: Pet[];
@@ -34,19 +28,6 @@ export function PawthonPetSelect({
   mapPreview,
 }: Props) {
   const { theme } = useTheme();
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return pets;
-    return pets.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.breed.toLowerCase().includes(q) ||
-        p.animal_type.toLowerCase().includes(q)
-    );
-  }, [pets, query]);
-
   const subtitle = (p: Pet) => p.breed || p.animal_type;
 
   return (
@@ -55,7 +36,6 @@ export function PawthonPetSelect({
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <Text
           style={{
@@ -69,7 +49,7 @@ export function PawthonPetSelect({
           Select Your Pet
         </Text>
 
-        {filtered.map((pet) => {
+        {pets.map((pet) => {
           const selected = pet.id === selectedPetId;
           return (
             <Pressable
@@ -146,59 +126,10 @@ export function PawthonPetSelect({
 
         <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginVertical: 20,
-          }}
-        >
-          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-          <Text
-            style={{
-              marginHorizontal: 14,
-              fontFamily: "Poppins_500Medium",
-              fontSize: 14,
-              color: theme.secondary,
-            }}
-          >
-            Or
-          </Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            borderRadius: 14,
-            borderWidth: 1,
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-            paddingHorizontal: 14,
-            marginBottom: 20,
-          }}
-        >
-          <Ionicons name="search" size={20} color={theme.secondary} />
-          <TextInput
-            placeholder="Walk a different pet..."
-            placeholderTextColor={theme.secondary}
-            value={query}
-            onChangeText={setQuery}
-            style={{
-              flex: 1,
-              paddingVertical: 14,
-              paddingHorizontal: 10,
-              fontFamily: "Poppins_500Medium",
-              fontSize: 16,
-              color: theme.foreground,
-            }}
-          />
-        </View>
-
-        <View
-          style={{
             height: 200,
             borderRadius: 16,
             overflow: "hidden",
+            marginTop: 8,
             marginBottom: 8,
             borderWidth: 1,
             borderColor: theme.border,

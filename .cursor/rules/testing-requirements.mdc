@@ -1,0 +1,48 @@
+---
+description: Layered testing policy — selective test-first (TDD) where it pays off; tests + green suites before done
+alwaysApply: true
+---
+
+# Testing — layered policy (not blanket TDD)
+
+Use **selective test-first (TDD)** where cycles are fast and regressions are costly. Use **test-after** for exploratory UI when appropriate. **Always** add tests for meaningful logic and **run existing suites** before finishing.
+
+## When to prefer test-first (red → green → refactor)
+
+- **.NET API** — New endpoints, services, scheduling/booking behavior: write or extend xUnit tests alongside (or just before) implementation; mock `ISchedulingBookingService` and other abstractions in controllers (`backend/*Tests/`).
+- **Pure TypeScript** — Formatters, streaks, validation, metrics: keep logic in `services/` or small modules and test under `__tests__/` (e.g. `walkMetrics.ts`, `pawthonUi.ts`). TDD fits here well.
+- **Milo / shared packages** — Schema and extraction changes: follow existing Jest patterns in `packages/milo-core`; prefer test-first.
+- **Bug fixes** — Reproduce with a failing test, then fix (TDD in practice).
+
+## When test-after is acceptable
+
+- **Consumer / provider screens** — Heavy navigation, layout, and Supabase wiring: ship iteratively, then add **targeted** tests for **critical paths** (booking wizard, auth guards, walk/Pawthon behavior) using Jest + `@testing-library/react-native` and mocked `@/utils/supabase` (see `docs/TESTING.md`). Do not require strict TDD for every new screen.
+- **Complex UI rules** — Prefer **extracting** non-trivial rules into pure functions or hooks, then **test those first**; keep presentational components thin.
+
+## For every meaningful increment
+
+1. **Add tests** appropriate to the change:
+   - **Pure logic**: unit tests next to code or `__tests__/` (consumer: `services/walkMetrics.ts` + `__tests__/services/walkMetrics.test.ts`).
+   - **.NET API**: xUnit in `backend/*Tests/` with mocks for external/scheduling boundaries.
+   - **Expo / React Native**: `jest-expo` (consumer); provider may use ts-jest until `jest-expo` is adopted for UI.
+   - **Admin**: Jest + jsdom + ts-jest under `admin-dashboard/__tests__/`.
+   - **Milo**: existing Jest layout in `packages/milo-core`.
+
+2. **Do not** hand off work with only manual checks when the area already has automated patterns — extend those tests.
+
+## Before considering a task done
+
+- Run the **narrowest** suite that covers your edits, then widen if you touched shared code:
+  - Full monorepo: `pnpm run test:all` (repo root).
+  - Scoped: `pnpm --filter pawbuck test`, `pnpm --filter pawbuck-provider-app test`, `pnpm --filter pawbuck-admin-dashboard test`, `pnpm --filter @pawbuck/milo test`, `pnpm run backend:test`.
+- **Fix failing tests** you introduce or expose; do not silence failures without a documented reason (e.g. flaky E2E quarantined in CI).
+
+## Reference
+
+- `docs/TESTING.md` — commands, stacks, suggested next coverage (booking UI, adapter mocks, E2E).
+
+## Anti-patterns
+
+- Mandating **strict TDD for every RN component** at the expense of reasonable iteration on UI-only work.
+- Shipping booking/scheduling or Pawthon **business rules** without API tests or `walkMetrics`-style unit tests when patterns already exist.
+- Skipping `pnpm run test:all` after **cross-cutting** refactors (shared types, DI, root `package.json` / lockfile affecting multiple apps).

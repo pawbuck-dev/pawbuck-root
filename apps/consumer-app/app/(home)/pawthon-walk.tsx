@@ -23,6 +23,11 @@ import { useTheme } from "@/context/themeContext";
 import { fetchPawthonDashboardStats, insertWalkSession, type WalkPoint } from "@/services/walkSessions";
 import { supabase } from "@/utils/supabase";
 import { haversineDistanceMeters } from "@/utils/haversine";
+import {
+  buildSimulatedWalkPath,
+  pathLengthMeters,
+  PAWTHON_SIM_DEFAULT_START,
+} from "@/utils/simulateWalkPath";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -74,6 +79,7 @@ export default function PawthonWalkScreen() {
   const [previewCoord, setPreviewCoord] = useState<PawthonMapCoord | null>(null);
 
   const [isWalking, setIsWalking] = useState(false);
+  const isWalkingRef = useRef(false);
   const [pathCoords, setPathCoords] = useState<PawthonMapCoord[]>([]);
   const pathCoordsRef = useRef<PawthonMapCoord[]>([]);
   const [distanceM, setDistanceM] = useState(0);
@@ -89,6 +95,8 @@ export default function PawthonWalkScreen() {
   const distanceMRef = useRef(0);
   const subscriptionRef = useRef<{ remove: () => void } | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** __DEV__ simulated GPS playback */
+  const simPlaybackRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const walkPet = pets.find((p) => p.id === walkPetId) ?? null;
 
@@ -100,6 +108,10 @@ export default function PawthonWalkScreen() {
       setWalkPetId(pets[0].id);
     }
   }, [selectedPetId, pets, walkPetId]);
+
+  useEffect(() => {
+    isWalkingRef.current = isWalking;
+  }, [isWalking]);
 
   /** One-shot location for select-screen map preview */
   useEffect(() => {
@@ -135,6 +147,10 @@ export default function PawthonWalkScreen() {
   const stopTracking = useCallback(() => {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
+    if (simPlaybackRef.current) {
+      clearInterval(simPlaybackRef.current);
+      simPlaybackRef.current = null;
+    }
     clearWalkTimers();
   }, [clearWalkTimers]);
 
@@ -246,7 +262,7 @@ export default function PawthonWalkScreen() {
   }, [walkPetId, setSelectedPetId, onLocation, stopTracking]);
 
   const endWalk = useCallback(async () => {
-    if (!isWalking) return;
+    if (!isWalkingRef.current) return;
     stopTracking();
     setIsWalking(false);
 
@@ -308,6 +324,8 @@ export default function PawthonWalkScreen() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["pawthon", petId] });
+      await queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", petId] });
+      await queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
       const stats = await queryClient.fetchQuery({
         queryKey: ["pawthon", petId],
         queryFn: () => fetchPawthonDashboardStats(petId),
@@ -331,7 +349,69 @@ export default function PawthonWalkScreen() {
     } finally {
       setSaving(false);
     }
-  }, [isWalking, stopTracking, walkPetId, walkPet, verificationUri, queryClient]);
+  }, [stopTracking, walkPetId, walkPet, verificationUri, queryClient]);
+
+  /**
+   * Simulator / dev: play ~1 km of fake GPS without moving, then auto-save (same as Stop).
+   * Only available when __DEV__ is true.
+   */
+  const beginSimulatedWalkDev = useCallback(() => {
+    if (!__DEV__) return;
+    if (simPlaybackRef.current) return;
+    if (!walkPetId) {
+      Alert.alert("Select a pet", "Choose which pet you’re walking.");
+      return;
+    }
+
+    setSelectedPetId(walkPetId);
+    setVerificationUri(null);
+    stopTracking();
+    setPathCoords([]);
+    pathCoordsRef.current = [];
+    setDistanceM(0);
+    setDurationSec(0);
+    distanceMRef.current = 0;
+    pointsRef.current = [];
+    lastPosRef.current = null;
+    setPermissionDenied(false);
+
+    const start = previewCoord ?? PAWTHON_SIM_DEFAULT_START;
+    const segmentCount = 25;
+    const path = buildSimulatedWalkPath(start, 1000, segmentCount, 72);
+    if (__DEV__) {
+      console.log(
+        "[Pawthon sim] ~target 1000 m, haversine path length:",
+        Math.round(pathLengthMeters(path)),
+        "m"
+      );
+    }
+
+    startedAtRef.current = new Date();
+    setIsWalking(true);
+    setPhase("active");
+
+    tickRef.current = setInterval(() => {
+      if (startedAtRef.current) {
+        setDurationSec(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
+      }
+    }, 1000);
+
+    let i = 0;
+    simPlaybackRef.current = setInterval(() => {
+      if (i >= path.length) {
+        if (simPlaybackRef.current) {
+          clearInterval(simPlaybackRef.current);
+          simPlaybackRef.current = null;
+        }
+        setTimeout(() => {
+          void endWalk();
+        }, 400);
+        return;
+      }
+      onLocation(path[i]!);
+      i += 1;
+    }, 90);
+  }, [walkPetId, setSelectedPetId, stopTracking, previewCoord, onLocation, endWalk]);
 
   const openVerificationCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -974,6 +1054,44 @@ export default function PawthonWalkScreen() {
           onStartWalk={beginWalkFromSelect}
           mapPreview={mapPreview ?? undefined}
         />
+        {__DEV__ && (
+          <Pressable
+            onPress={beginSimulatedWalkDev}
+            style={{
+              marginTop: 12,
+              marginBottom: 8,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: theme.border,
+              backgroundColor: theme.card,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Poppins_600SemiBold",
+                fontSize: 14,
+                color: theme.secondary,
+                textAlign: "center",
+              }}
+            >
+              Dev: Simulate 1 km walk (~3s, auto-saves)
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Poppins_400Regular",
+                fontSize: 12,
+                color: theme.secondary,
+                textAlign: "center",
+                marginTop: 4,
+                opacity: 0.85,
+              }}
+            >
+              For iOS Simulator — no real GPS required
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

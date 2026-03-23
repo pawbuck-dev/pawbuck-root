@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "PawBuck Provider",
+    "slug": "pawbuck-provider",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "pawbuck-provider",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pawbuck.provider"
+    },
+    "android": {
+      "package": "com.pawbuck.provider"
+    },
+    "plugins": ["expo-router"]
+  }
+}

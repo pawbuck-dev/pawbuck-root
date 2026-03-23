@@ -5,6 +5,7 @@ import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { hasSeenPetPassportOnboarding, resetOnboardingFlags } from "@/utils/onboardingStorage";
 import { trackOnboardingEvent } from "@/utils/analytics";
+import { invokeDeleteAccount } from "@/services/accountDeletion";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -143,10 +144,10 @@ export default function Settings() {
   const performAccountDeletion = async () => {
     setIsDeleting(true);
     try {
-      const { error } = await supabase.functions.invoke("delete-account");
+      const { error } = await invokeDeleteAccount(supabase);
 
       if (error) {
-        throw new Error(error.message || "Failed to delete account");
+        throw error;
       }
 
       // Sign out and redirect to welcome screen
