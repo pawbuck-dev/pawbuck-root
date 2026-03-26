@@ -1,12 +1,6 @@
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { useMemo } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface FAQAccordionProps {
   question: string;
@@ -15,14 +9,21 @@ interface FAQAccordionProps {
   onToggle: () => void;
 }
 
-/** Card chrome aligned with Care Team / Dashboard tiles */
-const tileBorder = (isDark: boolean) =>
-  Platform.OS === "android"
-    ? {}
-    : {
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-      };
+const FAQ_PAD_HORIZONTAL = 20;
+const FAQ_PAD_VERTICAL = 20;
+const FAQ_ICON_SIZE = 24;
+/** Fine-tune vertical alignment with the first line of the question (line-height {FAQ_QUESTION_LINE_HEIGHT}). */
+const FAQ_ICON_TOP_NUDGE = 2;
+const FAQ_QUESTION_LINE_HEIGHT = 22;
+const FAQ_QUESTION_FONT_SIZE = 16;
+const CHEVRON_TEXT_GAP = 12;
+
+const FAQ_ANSWER_FONT_SIZE = 14;
+const FAQ_ANSWER_LINE_HEIGHT = 20;
+
+const HEADER_MIN_HEIGHT = 60;
+const CARD_RADIUS = 16;
+const CONTENT_PULL_UP = -4;
 
 export default function FAQAccordion({
   question,
@@ -30,119 +31,135 @@ export default function FAQAccordion({
   isExpanded,
   onToggle,
 }: FAQAccordionProps) {
-  const { theme, mode } = useTheme();
-  const isDark = mode === "dark";
-  const rotation = useSharedValue(isExpanded ? 180 : 0);
+  const { theme } = useTheme();
 
-  useEffect(() => {
-    rotation.value = withTiming(isExpanded ? 180 : 0, { duration: 200 });
-  }, [isExpanded, rotation]);
-
-  const animatedStyle = useAnimatedStyle(() => {
+  const borderStyle = useMemo(() => {
+    if (Platform.OS === "android") return {};
     return {
-      transform: [{ rotate: `${rotation.value}deg` }],
+      borderWidth: 1 as const,
+      borderColor: theme.border,
     };
-  });
+  }, [theme.border]);
 
-  const bodyMuted = isDark ? "rgba(255,255,255,0.6)" : "#5A5F6A";
+  const questionPaddingRight = FAQ_PAD_HORIZONTAL + FAQ_ICON_SIZE + CHEVRON_TEXT_GAP;
 
-  /**
-   * Leading padding a bit wider than trailing: avoids left-edge glyph clipping.
-   * We avoid `overflow: 'hidden'` on the card so rounded corners don’t clip anti-aliased text;
-   * the card fill + border still use borderRadius; the press target is transparent inside.
-   */
-  const padLead = 28;
-  const padTrail = 20;
+  /** Pinned to card top-right; aligns with first line: same vertical inset as question padding + nudge. */
+  const iconTop = FAQ_PAD_VERTICAL + FAQ_ICON_TOP_NUDGE;
+  const iconRight = FAQ_PAD_HORIZONTAL;
 
-  const questionLineHeight = 22;
-  const questionTextStyle = {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 16,
-    color: theme.foreground,
-    lineHeight: questionLineHeight,
-    ...(Platform.OS === "ios"
-      ? { paddingLeft: 1 }
-      : Platform.OS === "android"
-        ? { includeFontPadding: false }
-        : null),
-  };
+  const questionTextStyle = useMemo(
+    () => [
+      styles.question,
+      {
+        color: theme.foreground,
+        lineHeight: FAQ_QUESTION_LINE_HEIGHT,
+        fontSize: FAQ_QUESTION_FONT_SIZE,
+        fontFamily: "Poppins_600SemiBold",
+      },
+      Platform.OS === "android" ? { includeFontPadding: false } : null,
+    ],
+    [theme.foreground]
+  );
 
-  const headerPadV = 16;
-  /** Reserve trailing space so question text never runs under the absolutely positioned chevron. */
-  const chevronSlot = 32;
+  const answerTextStyle = useMemo(
+    () => [
+      styles.answerText,
+      {
+        color: theme.secondary,
+        fontSize: FAQ_ANSWER_FONT_SIZE,
+        lineHeight: FAQ_ANSWER_LINE_HEIGHT,
+        fontFamily: "Poppins_400Regular",
+      },
+      Platform.OS === "android" ? { includeFontPadding: false } : null,
+    ],
+    [theme.secondary]
+  );
+
+  const iconTextStyle = useMemo(
+    () => [styles.iconText, { color: theme.foreground }],
+    [theme.foreground]
+  );
 
   return (
     <View
       style={[
+        styles.card,
         {
-          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-          borderRadius: 24,
-          marginBottom: 14,
-          ...tileBorder(isDark),
+          position: "relative",
+          width: "100%",
+          alignSelf: "stretch",
+          backgroundColor: theme.card,
+          borderRadius: CARD_RADIUS,
+          ...borderStyle,
         },
       ]}
     >
       <Pressable
         onPress={onToggle}
-        style={({ pressed }) => ({
-          position: "relative",
-          alignSelf: "stretch",
-          width: "100%",
-          paddingTop: headerPadV,
-          paddingBottom: headerPadV,
-          paddingLeft: padLead + 4,
-          paddingRight: padTrail + chevronSlot,
-          // English FAQ: chevron stays on the visual right.
-          direction: "ltr",
-          opacity: pressed ? 0.88 : 1,
-        })}
+        style={({ pressed }) => [
+          styles.headerPressable,
+          {
+            paddingLeft: FAQ_PAD_HORIZONTAL,
+            paddingRight: questionPaddingRight,
+            paddingTop: FAQ_PAD_VERTICAL,
+            paddingBottom: FAQ_PAD_VERTICAL,
+            minHeight: HEADER_MIN_HEIGHT,
+            opacity: pressed ? 0.88 : 1,
+          },
+        ]}
       >
         <Text style={questionTextStyle}>{question}</Text>
-        <Animated.View
-          style={[
-            animatedStyle,
-            {
-              position: "absolute",
-              end: padTrail,
-              top: headerPadV,
-              width: 28,
-              height: questionLineHeight,
-              alignItems: "center",
-              justifyContent: "center",
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Ionicons name="chevron-down" size={20} color={isDark ? theme.secondary : "#1D2433"} />
-        </Animated.View>
       </Pressable>
 
+      <View
+        pointerEvents="none"
+        style={[
+          styles.plusIcon,
+          {
+            position: "absolute",
+            top: iconTop,
+            right: iconRight,
+            width: FAQ_ICON_SIZE,
+            height: FAQ_ICON_SIZE,
+          },
+        ]}
+      >
+        <Text style={iconTextStyle}>{isExpanded ? "−" : "+"}</Text>
+      </View>
+
       {isExpanded && (
-        <View
-          style={{
-            paddingLeft: padLead + 4,
-            paddingRight: padTrail,
-            paddingBottom: 16,
-          }}
-        >
-          <View
-            style={{
-              height: 1,
-              marginBottom: 12,
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            }}
-          />
-          <Text
-            style={[
-              { fontSize: 14, lineHeight: 20, color: bodyMuted, fontFamily: "Poppins_400Regular" },
-              Platform.OS === "ios" ? { paddingLeft: 1 } : null,
-              Platform.OS === "android" ? { includeFontPadding: false } : null,
-            ]}
-          >
-            {answer}
-          </Text>
+        <View style={styles.answerBlock}>
+          <Text style={answerTextStyle}>{answer}</Text>
         </View>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  /** No flex row — block layout; icon is positioned relative to the card. */
+  headerPressable: {
+    width: "100%",
+  },
+  question: {
+    fontWeight: "600",
+  },
+  plusIcon: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconText: {
+    fontSize: 22,
+    fontWeight: "300",
+  },
+  answerBlock: {
+    paddingHorizontal: FAQ_PAD_HORIZONTAL,
+    paddingBottom: FAQ_PAD_VERTICAL,
+    marginTop: CONTENT_PULL_UP,
+  },
+  answerText: {},
+});
