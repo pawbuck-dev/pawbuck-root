@@ -3,6 +3,7 @@ import {
   FIGMA_HEALTH_LABS_ICON_BG,
   FIGMA_HEALTH_MEDS_ICON_BG,
   FIGMA_HEALTH_TEAL,
+  HEALTH_ELEVATION,
 } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { fetchMedicines } from "@/services/medicines";
@@ -20,6 +21,12 @@ type HealthRecordsSectionProps = {
   petId: string;
   /** Used for the empty-state headline (screenshot / Figma) */
   petName: string;
+  /** `hub` = full Health Records landing (Figma 2033:133716); `dashboard` = home preview */
+  variant?: "dashboard" | "hub";
+  /** Set false when the parent screen renders the “Health Records” title */
+  showTitle?: boolean;
+  /** e.g. navigate to full hub from home dashboard */
+  onTitlePress?: () => void;
 };
 
 function formatHubDate(iso: string | null | undefined): string {
@@ -82,10 +89,17 @@ function StatusBadge({
   );
 }
 
-export default function HealthRecordsSection({ petId, petName }: HealthRecordsSectionProps) {
+export default function HealthRecordsSection({
+  petId,
+  petName,
+  variant = "dashboard",
+  showTitle = true,
+  onTitlePress,
+}: HealthRecordsSectionProps) {
   const { theme, mode } = useTheme();
   const router = useRouter();
   const isDark = mode === "dark";
+  const isHub = variant === "hub";
   const isAndroid = Platform.OS === "android";
   const cardBorderStyle = isAndroid
     ? {}
@@ -236,10 +250,14 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
       id: "vaccines",
       title: "Vaccinations",
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations` as const,
+      addRoute: `/(home)/health-record/${petId}/vaccination-upload-modal?upload=library` as const,
       /** Figma 1340:33860 — solid brand teal disc, not tinted plate */
       iconBg: FIGMA_HEALTH_TEAL,
       icon: <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />,
       badge: vaccineSummary.badge,
+      hubEmptyBadge: { label: "Not Set", variant: "info" as BadgeVariant },
+      hubEmptyLine: "No Vaccines Recorded Yet",
+      hubAddLabel: "+ Add Vaccine Record",
       body: vaccineSummary,
       type: "vaccine" as const,
     },
@@ -247,9 +265,13 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
       id: "meds",
       title: "Medications",
       route: `/(home)/health-record/${petId}/(tabs)/medications` as const,
+      addRoute: `/(home)/health-record/${petId}/medication-upload-modal?upload=library` as const,
       iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
       icon: <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />,
       badge: medSummary.badge,
+      hubEmptyBadge: { label: "None Active", variant: "infoBlue" as BadgeVariant },
+      hubEmptyLine: "No Medications Recorded Yet",
+      hubAddLabel: "+ Add Medication Record",
       body: medSummary,
       type: "med" as const,
     },
@@ -257,9 +279,13 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
       id: "exams",
       title: "Exams",
       route: `/(home)/health-record/${petId}/(tabs)/exams` as const,
+      addRoute: `/(home)/health-record/${petId}/exam-upload-modal` as const,
       iconBg: FIGMA_HEALTH_EXAMS_ICON_BG,
       icon: <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />,
       badge: examSummary.badge,
+      hubEmptyBadge: { label: "No Records", variant: "warning" as BadgeVariant },
+      hubEmptyLine: "No Exams Recorded Yet",
+      hubAddLabel: "+ Add Exam Record",
       body: examSummary,
       type: "exam" as const,
     },
@@ -267,29 +293,49 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
       id: "labs",
       title: "Lab Results",
       route: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
+      addRoute: `/(home)/health-record/${petId}/lab-result-upload-modal?upload=library` as const,
       iconBg: FIGMA_HEALTH_LABS_ICON_BG,
       icon: <Ionicons name="flask" size={22} color="#FFFFFF" />,
       badge: labSummary.badge,
+      hubEmptyBadge: { label: "No Data", variant: "neutral" as BadgeVariant },
+      hubEmptyLine: "No Lab Results Recorded Yet",
+      hubAddLabel: "+ Add Lab Result",
       body: labSummary,
       type: "lab" as const,
     },
   ];
 
   return (
-    <View style={{ paddingHorizontal: 20 }}>
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: "700",
-          color: isDark ? "#FFFFFF" : "#0D0F0F",
-          lineHeight: 29,
-          marginBottom: hubEmpty ? 18 : 16,
-        }}
-      >
-        Health Records
-      </Text>
+    <View style={{ paddingHorizontal: isHub ? 0 : 20 }}>
+      {showTitle &&
+        (onTitlePress ? (
+          <TouchableOpacity onPress={onTitlePress} activeOpacity={0.7} style={{ marginBottom: hubEmpty && !isHub ? 18 : 16 }}>
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "700",
+                color: isDark ? "#FFFFFF" : "#0D0F0F",
+                lineHeight: 29,
+              }}
+            >
+              Health Records
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: "700",
+              color: isDark ? "#FFFFFF" : "#0D0F0F",
+              lineHeight: 29,
+              marginBottom: hubEmpty && !isHub ? 18 : 16,
+            }}
+          >
+            Health Records
+          </Text>
+        ))}
 
-      {hubEmpty && (
+      {hubEmpty && !isHub && (
         <View style={{ marginBottom: 22, paddingHorizontal: 4 }}>
           <Text
             style={{
@@ -326,17 +372,105 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
         </View>
       ) : (
         <View style={{ gap: 12 }}>
-          {hubCards.map((card) => (
+          {hubCards.map((card) => {
+            const hubCardEmpty =
+              isHub &&
+              ((card.type === "vaccine" && vaccinations.length === 0) ||
+                (card.type === "med" && medicines.length === 0) ||
+                (card.type === "exam" && exams.length === 0) ||
+                (card.type === "lab" && labs.length === 0));
+
+            const cardShellStyle = {
+              backgroundColor: cardBg,
+              borderRadius: 20,
+              padding: 16,
+              ...cardBorderStyle,
+              ...(isHub && !isDark ? HEALTH_ELEVATION.cardLight : {}),
+            };
+
+            const headerRow = (
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: card.iconBg,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                  }}
+                >
+                  {card.icon}
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>{card.title}</Text>
+                    <StatusBadge
+                      label={hubCardEmpty ? card.hubEmptyBadge.label : card.badge.label}
+                      variant={hubCardEmpty ? card.hubEmptyBadge.variant : card.badge.variant}
+                      isDark={isDark}
+                    />
+                  </View>
+                </View>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginLeft: 8,
+                  }}
+                >
+                  <MaterialCommunityIcons name="arrow-top-right" size={20} color={theme.secondary} />
+                </View>
+              </View>
+            );
+
+            return hubCardEmpty ? (
+              <View key={card.id} style={cardShellStyle}>
+                <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(card.route as any)}>
+                  {headerRow}
+                </TouchableOpacity>
+                <View style={{ marginTop: 8 }}>
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      fontSize: 14,
+                      color: theme.secondary,
+                      marginBottom: 14,
+                    }}
+                  >
+                    {card.hubEmptyLine}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => router.push(card.addRoute as any)}
+                    activeOpacity={0.85}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      paddingVertical: 12,
+                      borderRadius: 14,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F3F4F6",
+                    }}
+                  >
+                    <Ionicons name="add" size={20} color={theme.foreground} />
+                    <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
+                      {card.hubAddLabel.replace(/^\+ /, "")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
             <TouchableOpacity
               key={card.id}
               activeOpacity={0.85}
               onPress={() => router.push(card.route as any)}
-              style={{
-                backgroundColor: cardBg,
-                borderRadius: 20,
-                padding: 16,
-                ...cardBorderStyle,
-              }}
+              style={cardShellStyle}
             >
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                 <View
@@ -477,7 +611,8 @@ export default function HealthRecordsSection({ petId, petName }: HealthRecordsSe
                 </View>
               </View>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       )}
     </View>

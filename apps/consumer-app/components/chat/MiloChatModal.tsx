@@ -3,6 +3,7 @@ import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -10,6 +11,8 @@ import {
   Keyboard,
   Modal,
   Platform,
+  Pressable,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,6 +20,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
+
+/** Figma Milo chat — suggested prompt chips (icon + label). */
+const SUGGESTED_PROMPTS: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string }[] = [
+  { icon: "paw", label: "Is my dog's diet healthy?" },
+  { icon: "flash", label: "Tips for new puppy owners" },
+  { icon: "paw-outline", label: "My cat has a fever" },
+  { icon: "medkit-outline", label: "When is the next vaccine?" },
+];
 
 // Typing dots animation component
 const TypingDots: React.FC<{ color: string }> = ({ color }) => {
@@ -85,6 +96,97 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
 
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
+/** Figma 1386:45325 / Milo.svg */
+const MILO_SCREEN_BG = "#F2F7F7";
+const MILO_COMPOSER_BORDER = "#E4E7E7";
+const MILO_PLACEHOLDER = "#A2A9A9";
+const MILO_ICON_WELL = "#F4F5F5";
+/** Figma body / chips — explicit so Text never inherits low-contrast colors inside nested flex. */
+const MILO_TEXT_PRIMARY_LIGHT = "#0D0F0F";
+
+/** Light-mode backdrop: soft teal blooms + cool mint wash (matches exported SVG). */
+const MiloFigmaLightBackdrop: React.FC = () => (
+  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <LinearGradient
+      style={StyleSheet.absoluteFill}
+      colors={["#CBFCF5", "#E8F5F4", MILO_SCREEN_BG]}
+      locations={[0, 0.28, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+    />
+    <View
+      style={{
+        position: "absolute",
+        top: -200,
+        alignSelf: "center",
+        width: 440,
+        height: 440,
+        borderRadius: 220,
+        backgroundColor: "#5CECE2",
+        opacity: 0.2,
+      }}
+    />
+    <View
+      style={{
+        position: "absolute",
+        top: -240,
+        alignSelf: "center",
+        width: 400,
+        height: 400,
+        borderRadius: 200,
+        backgroundColor: "#12BAB7",
+        opacity: 0.14,
+      }}
+    />
+    <View
+      style={{
+        position: "absolute",
+        top: -120,
+        alignSelf: "center",
+        width: 320,
+        height: 320,
+        borderRadius: 160,
+        backgroundColor: "#1ECBFF",
+        opacity: 0.08,
+      }}
+    />
+  </View>
+);
+
+/** Generating state: black outer circle, white ring, black center dot (record/target icon) */
+const GeneratingIcon: React.FC = () => (
+  <View
+    style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "#1A1A1A",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <View
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: "#1A1A1A",
+        }}
+      />
+    </View>
+  </View>
+);
+
 export const MiloChatModal: React.FC = () => {
   const { theme, mode } = useTheme();
   const { pets } = usePets();
@@ -101,6 +203,7 @@ export const MiloChatModal: React.FC = () => {
 
   const [inputText, setInputText] = useState("");
   const [showPetPicker, setShowPetPicker] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
@@ -147,230 +250,215 @@ export const MiloChatModal: React.FC = () => {
     setShowPetPicker(false);
   };
 
-  const renderEmptyState = () => (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
+  const handleSuggestedPrompt = (label: string) => {
+    setInputText(label);
+    // Optionally auto-send; for now prefill so user can edit
+    sendMessage(label);
+  };
+
+  const renderEmptyState = () => {
+    const cardBg = mode === "dark" ? theme.card : "#FFFFFF";
+    const chipBg = mode === "dark" ? theme.background : "#F8FAFA";
+    const chipBorder = mode === "dark" ? "rgba(255,255,255,0.12)" : "#E5E7EB";
+    const bodyText = mode === "dark" ? theme.foreground : MILO_TEXT_PRIMARY_LIGHT;
+
+    return (
       <View
         style={{
-          width: 120,
-          height: 120,
-          borderRadius: 60,
-          backgroundColor: theme.card,
-          alignItems: "center",
+          flex: 1,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
           justifyContent: "center",
-          marginBottom: 16,
-          overflow: "hidden",
         }}
       >
-        <Image
-          source={MILO_AVATAR}
-          style={{ width: 100, height: 100, borderRadius: 50 }}
-          contentFit="cover"
-        />
-      </View>
-      <Text
-        style={{
-          fontSize: 20,
-          fontWeight: "600",
-          color: theme.foreground,
-          marginBottom: 8,
-        }}
-      >
-        Hi! I'm Milo 🐕
-      </Text>
-      <Text
-        style={{
-          fontSize: 14,
-          color: theme.secondary,
-          textAlign: "center",
-          marginBottom: 24,
-        }}
-      >
-        {selectedPet
-          ? `I'm ready to help with ${selectedPet.name}! Ask me anything about pet care.`
-          : "Select a pet to get started"}
-      </Text>
-
-      {!selectedPet && pets.length > 0 && (
-        <TouchableOpacity
-          onPress={() => setShowPetPicker(true)}
+        <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 20,
-            paddingVertical: 12,
+            backgroundColor: cardBg,
             borderRadius: 24,
-            borderWidth: 1,
-            borderColor: theme.secondary + "40",
-            backgroundColor: theme.card,
+            paddingHorizontal: 20,
+            paddingTop: 36,
+            paddingBottom: 28,
+            alignItems: "center",
+            alignSelf: "stretch",
+            ...(mode === "light" && {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 3,
+            }),
           }}
         >
-          <Text style={{ color: theme.foreground, marginRight: 8 }}>
-            Select pet
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              backgroundColor: theme.primary,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+              overflow: "hidden",
+            }}
+          >
+            <Image
+              source={MILO_AVATAR}
+              style={{ width: 90, height: 90, borderRadius: 45 }}
+              contentFit="cover"
+            />
+          </View>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "700",
+              color: bodyText,
+              textAlign: "center",
+              marginBottom: 20,
+              paddingHorizontal: 4,
+              lineHeight: 26,
+            }}
+          >
+            Hi! I'm Milo, how can I help you today?
           </Text>
-          <Ionicons name="chevron-down" size={16} color={theme.secondary} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+          {/* Two fixed rows of flex:1 chips — avoids RN bug where % width + Text flex:1 in Pressable collapses label width */}
+          <View style={{ width: "100%", marginBottom: 20 }}>
+            {[0, 2].map((start) => (
+              <View
+                key={start}
+                style={{
+                  flexDirection: "row",
+                  width: "100%",
+                  marginBottom: start === 0 ? 12 : 0,
+                  gap: 12,
+                }}
+              >
+                {SUGGESTED_PROMPTS.slice(start, start + 2).map(({ icon, label }) => (
+                  <Pressable
+                    key={label}
+                    onPress={() => handleSuggestedPrompt(label)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      minWidth: 0,
+                      minHeight: 52,
+                      paddingHorizontal: 12,
+                      paddingVertical: 12,
+                      borderRadius: 14,
+                      backgroundColor: chipBg,
+                      borderWidth: 1,
+                      borderColor: chipBorder,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", width: "100%" }}>
+                      <Ionicons name={icon} size={18} color={theme.primary} style={{ marginRight: 8, marginTop: 1 }} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "500",
+                            color: bodyText,
+                            lineHeight: 18,
+                          }}
+                          numberOfLines={3}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
+          </View>
+          <Pressable
+            onPress={() => pets.length > 0 && setShowPetPicker(true)}
+            style={{ paddingVertical: 4 }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.secondary,
+              }}
+            >
+              {selectedPet ? `Chatting as ${selectedPet.name}` : "Select pet for personalized help"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
+  /** Figma node 1386:45325 — Milo.svg base #F2F7F7 + teal header glow (light only). */
+  const miloBg = mode === "dark" ? theme.background : MILO_SCREEN_BG;
 
   return (
     <Modal
       visible={isChatOpen}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={closeChat}
     >
       <View
         style={{
           flex: 1,
-          backgroundColor: theme.background,
+          backgroundColor: miloBg,
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
+          overflow: "hidden",
         }}
       >
-        {/* Header */}
+        {mode === "light" ? <MiloFigmaLightBackdrop /> : null}
+        {/* Header: back | New Chat | menu — Figma layout */}
         <View
           style={{
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
             paddingHorizontal: 16,
-            paddingTop: 16,
-            paddingBottom: 12,
-            backgroundColor: theme.card,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.background,
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: theme.background,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 12,
-                overflow: "hidden",
-              }}
-            >
-              <Image
-                source={MILO_AVATAR}
-                style={{ width: 36, height: 36, borderRadius: 18 }}
-                contentFit="cover"
-              />
-            </View>
-            <View>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.foreground,
-                }}
-              >
-                Milo
-              </Text>
-              <Text style={{ fontSize: 12, color: theme.secondary }}>
-                Your AI buddy
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TouchableOpacity
-              onPress={clearMessages}
-              style={{
-                width: 36,
-                height: 36,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="refresh" size={20} color={theme.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={closeChat}
-              style={{
-                width: 36,
-                height: 36,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="close" size={24} color={theme.foreground} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Pet Selector Bar */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            backgroundColor: theme.card,
-            borderBottomWidth: 1,
-            borderBottomColor: theme.background,
+            paddingTop: Platform.OS === "ios" ? top + 8 : 16,
+            paddingBottom: 14,
           }}
         >
           <TouchableOpacity
-            onPress={() => setShowPetPicker(true)}
+            onPress={closeChat}
+            hitSlop={12}
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 16,
-              paddingVertical: 10,
+              width: 40,
+              height: 40,
               borderRadius: 20,
-              borderWidth: 1,
-              borderColor: theme.secondary + "40",
-              backgroundColor: theme.background,
-              flex: 1,
+              backgroundColor: mode === "dark" ? theme.card : "rgba(0,0,0,0.06)",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Text style={{ color: theme.foreground, flex: 1 }}>
-              {selectedPet ? selectedPet.name : "Select pet"}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={theme.secondary} />
+            <Ionicons name="arrow-back" size={22} color={theme.foreground} />
+          </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 17,
+              fontWeight: "700",
+              color: theme.foreground,
+            }}
+          >
+            New Chat
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowMenu(true)}
+            hitSlop={12}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: mode === "dark" ? theme.card : "rgba(0,0,0,0.06)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="menu" size={22} color={theme.foreground} />
           </TouchableOpacity>
         </View>
 
-        {/* Medical Disclaimer */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-start",
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            backgroundColor: "#4A3F1F",
-            borderRadius: 8,
-            marginHorizontal: 16,
-            marginTop: 12,
-          }}
-        >
-          <Text style={{ fontSize: 16, marginRight: 8 }}>⚠️</Text>
-          <Text
-            style={{
-              flex: 1,
-              fontSize: 13,
-              color: "#D4A84B",
-              lineHeight: 18,
-            }}
-          >
-            <Text style={{ fontWeight: "600" }}>Medical Disclaimer: </Text>
-            All medical queries should be directed to a licensed veterinarian.
-          </Text>
-        </View>
-
-        {/* Messages Container - Wrapped in flex container for proper keyboard handling */}
+        {/* Messages Container */}
         <View style={{ flex: 1 }}>
           {messages.length === 0 ? (
             renderEmptyState()
@@ -427,60 +515,163 @@ export const MiloChatModal: React.FC = () => {
           )}
         </View>
 
-        {/* Input - Positioned above keyboard */}
+        {/* Input — Figma 1386:45325: white composer card, #E4E7E7 stroke, #F4F5F5 wells, sparkles + send */}
         <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
             paddingHorizontal: 16,
-            paddingVertical: 12,
-            paddingBottom: Platform.OS === "ios" ? 34 : 12,
-            backgroundColor: theme.card,
-            borderTopWidth: 1,
-            borderTopColor: theme.background,
-            transform:
-              Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
+            paddingTop: 8,
+            paddingBottom: Platform.OS === "ios" ? Math.max(bottom, 12) : 12,
+            transform: Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
-          <TextInput
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Ask Milo anything..."
-            placeholderTextColor={theme.secondary}
+          <View
             style={{
-              flex: 1,
-              backgroundColor: theme.background,
-              borderRadius: 24,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              fontSize: 15,
-              color: theme.foreground,
-              marginRight: 8,
-            }}
-            multiline
-            maxLength={500}
-            editable={!isLoading}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            onPress={handleSend}
-            disabled={!inputText.trim() || isLoading}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor:
-                inputText.trim() && !isLoading
-                  ? theme.primary
-                  : theme.secondary + "40",
-              alignItems: "center",
-              justifyContent: "center",
+              backgroundColor: mode === "dark" ? theme.card : "#FFFFFF",
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : MILO_COMPOSER_BORDER,
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              ...(mode === "light" && {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.06,
+                shadowRadius: 16,
+                elevation: 4,
+              }),
             }}
           >
-            <Ionicons name="send" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+            {isLoading ? (
+              <View style={{ flexDirection: "row", alignItems: "center", minHeight: 48 }}>
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    color: mode === "dark" ? theme.secondary : MILO_PLACEHOLDER,
+                  }}
+                >
+                  Generating...
+                </Text>
+                <GeneratingIcon />
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity
+                  onPress={() => setShowPetPicker(true)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: mode === "dark" ? theme.background : MILO_ICON_WELL,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 10,
+                  }}
+                >
+                  <Ionicons name="add" size={22} color="#0D0F0F" />
+                </TouchableOpacity>
+                <TextInput
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Ask Milo anything..."
+                  placeholderTextColor={mode === "dark" ? theme.secondary : MILO_PLACEHOLDER}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    color: theme.foreground,
+                    paddingVertical: 10,
+                    paddingHorizontal: 2,
+                    minHeight: 44,
+                  }}
+                  multiline
+                  maxLength={500}
+                  editable={true}
+                  onSubmitEditing={handleSend}
+                  returnKeyType="send"
+                />
+                <TouchableOpacity
+                  accessibilityLabel="Suggestions"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: mode === "dark" ? theme.background : MILO_ICON_WELL,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 8,
+                  }}
+                >
+                  <Ionicons name="sparkles-outline" size={22} color="#0D0F0F" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={!inputText.trim()}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: inputText.trim() ? "#0D0F0F" : "rgba(13,15,15,0.15)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="send" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
+
+        {/* Menu Modal — New chat, Select pet */}
+        <Modal
+          visible={showMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-start", paddingTop: 60, paddingHorizontal: 24 }}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+              <View
+                style={{
+                  backgroundColor: theme.card,
+                  borderRadius: 16,
+                  paddingVertical: 8,
+                  overflow: "hidden",
+                }}
+              >
+              <TouchableOpacity
+                onPress={() => {
+                  clearMessages();
+                  setShowMenu(false);
+                }}
+                style={{ flexDirection: "row", alignItems: "center", padding: 16 }}
+              >
+                <Ionicons name="refresh" size={22} color={theme.foreground} style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, fontWeight: "500", color: theme.foreground }}>New chat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowPetPicker(true);
+                }}
+                style={{ flexDirection: "row", alignItems: "center", padding: 16 }}
+              >
+                <Ionicons name="paw" size={22} color={theme.foreground} style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, fontWeight: "500", color: theme.foreground }}>Select pet</Text>
+              </TouchableOpacity>
+              <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: theme.secondary + "30" }}>
+                <Text style={{ fontSize: 12, color: theme.secondary, lineHeight: 18 }}>
+                  <Text style={{ fontWeight: "600" }}>Medical:</Text> All medical queries should be directed to a licensed veterinarian.
+                </Text>
+              </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Pet Picker Modal */}
         <Modal

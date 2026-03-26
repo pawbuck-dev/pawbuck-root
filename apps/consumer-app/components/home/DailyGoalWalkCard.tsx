@@ -1,61 +1,68 @@
-import { PAWTHON_TEAL, PAWTHON_TEAL_DARK } from "@/constants/pawthonUi";
+import { CTA } from "@/components/ui/CTA";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 
 const walkerArt = require("@/assets/images/walker.png");
 
-/** Figma: Title_Poppins/18/SemiBold — Text-primary #0D0F0F */
-const TEXT_PRIMARY = "#0D0F0F";
+/**
+ * Figma: Title_Poppins/18/SemiBold
+ * — font: Poppins 600, 18px, line-height 120% (21.6px), text-transform capitalize
+ * — color: var(--Text-primary) → theme.foreground (#FFF dark / app light token on light)
+ */
 const TITLE_18_SEMIBOLD = {
   fontFamily: "Poppins_600SemiBold" as const,
   fontSize: 18,
-  lineHeight: 21.6, // 120% of 18px
-  color: TEXT_PRIMARY,
+  lineHeight: 21.6, // 120% of 18px — Title_Poppins/18/SemiBold (font-weight 600 via family)
   textTransform: "capitalize" as const,
 };
 
 export type DailyGoalWalkCardProps = {
-  /** Pet name for headline, e.g. "Max" → "Your Max's Counting On You Today" */
+  /** Pet name for headline: line 1 "Your Max's Counting", line 2 "On You Today" + paws */
   petName: string;
   onStartWalk: () => void;
-  /** Walk stats / hub — use Pawthon hub until a dedicated history screen exists */
-  onHistory: () => void;
 };
 
 /**
- * Figma-style “Daily Goal” hero above Weekly Challenge: sky gradient, badge, History,
+ * Figma-style “Daily Goal” hero above Weekly Challenge: sky gradient, badge,
  * headline + paws, Start a Walk CTA, walker illustration (`assets/images/walker.png`).
  */
-export default function DailyGoalWalkCard({ petName, onStartWalk, onHistory }: DailyGoalWalkCardProps) {
-  const { mode } = useTheme();
+export default function DailyGoalWalkCard({ petName, onStartWalk }: DailyGoalWalkCardProps) {
+  const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const isAndroid = Platform.OS === "android";
+
+  /** Match BookVetVisitSection card chrome (no border on Android). */
+  const cardBorderStyle = isAndroid
+    ? {}
+    : {
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      };
 
   const skyLight = ["#F5FAFF", "#E3F2FD", "#D6EBFA"] as const;
   const skyDark = ["#1A2832", "#243B47", "#1E3240"] as const;
   const rayColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.65)";
   const badgeBorder = isDark ? "rgba(38, 193, 193, 0.55)" : "rgba(11, 150, 150, 0.35)";
   const badgeLabel = isDark ? "#7DD3D3" : "#0B9696";
-  /** Dark: primary text on sky card (inverse of light Text-primary) */
-  const titlePrimaryColor = isDark ? "#FFFFFF" : TEXT_PRIMARY;
-  const historyColor = isDark ? "#7EB8FF" : "#1565C0";
+  /** Design token Text-primary */
+  const textPrimary = theme.foreground;
 
   const possessive = petName.trim() ? `${petName.trim()}'s` : "Pup's";
 
   return (
-    <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+    <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
       <LinearGradient
         colors={isDark ? [...skyDark] : [...skyLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          borderRadius: 24,
+          borderRadius: 20,
           overflow: "hidden",
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(13, 15, 15, 0.06)",
+          ...cardBorderStyle,
         }}
       >
         {/* Soft light rays from top-right (sky) */}
@@ -86,116 +93,119 @@ export default function DailyGoalWalkCard({ petName, onStartWalk, onHistory }: D
           }}
         />
 
-        <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 14,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: badgeBorder,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
-              }}
-            >
-              <Ionicons name="flame" size={16} color="#FF8A42" style={{ marginRight: 6 }} />
-              <Text
-                style={{
-                  fontFamily: "Poppins_600SemiBold",
-                  fontSize: 13,
-                  color: badgeLabel,
-                }}
-              >
-                Daily Goal
-              </Text>
-            </View>
-            <Pressable onPress={onHistory} hitSlop={10} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-              <Text
-                style={{
-                  fontFamily: "Poppins_600SemiBold",
-                  fontSize: 14,
-                  color: historyColor,
-                }}
-              >
-                History
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
-            <View style={{ flex: 1, minWidth: 0, paddingRight: 8, zIndex: 2 }}>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
-                <Text
-                  style={[
-                    TITLE_18_SEMIBOLD,
-                    { color: titlePrimaryColor },
-                  ]}
-                >
-                  Your {possessive} Counting On You Today{" "}
-                </Text>
-                <Ionicons name="paw" size={18} color={titlePrimaryColor} style={{ marginRight: 2 }} />
-                <Ionicons name="paw" size={18} color={titlePrimaryColor} />
-              </View>
-
-              <Pressable onPress={onStartWalk} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
-                <LinearGradient
-                  colors={[PAWTHON_TEAL, PAWTHON_TEAL_DARK]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+        {/* Layout mirrors BookVetVisitSection: row minHeight 180, left flex + pad 20 + space-between, right w 150 + art bleed */}
+        <View style={{ flexDirection: "row", minHeight: 180 }}>
+          <View style={{ flex: 1, padding: 20, justifyContent: "space-between", zIndex: 2, minWidth: 0 }}>
+            <View>
+              <View style={{ marginBottom: 16 }}>
+                <View
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
                     alignSelf: "flex-start",
-                    paddingVertical: 12,
-                    paddingHorizontal: 18,
-                    borderRadius: 28,
+                    paddingVertical: 4,
+                    paddingHorizontal: 12,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: badgeBorder,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
                   }}
                 >
-                  <View
+                  <Ionicons name="flame" size={16} color="#FF8A42" style={{ marginRight: 6 }} />
+                  <Text
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      borderWidth: 2,
-                      borderColor: "rgba(255,255,255,0.9)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginRight: 10,
+                      fontFamily: "Poppins_600SemiBold",
+                      fontSize: 13,
+                      color: badgeLabel,
                     }}
                   >
-                    <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginLeft: 2 }} />
-                  </View>
-                  <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 16, color: "#FFFFFF" }}>
-                    Start a Walk
+                    Daily Goal
                   </Text>
-                </LinearGradient>
-              </Pressable>
+                </View>
+              </View>
+
+              {/* Exactly two headline lines: (1) Your {pet}'s Counting (2) On You Today + paws */}
+              <View style={{ marginBottom: 20 }}>
+                <Text
+                  style={[TITLE_18_SEMIBOLD, { color: textPrimary }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Your {possessive} Counting
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "nowrap",
+                    alignItems: "center",
+                    marginTop: 2,
+                    minWidth: 0,
+                  }}
+                >
+                  <Text
+                    style={[TITLE_18_SEMIBOLD, { color: textPrimary, flexShrink: 1 }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    On You Today
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexShrink: 0,
+                      alignItems: "center",
+                      marginLeft: 4,
+                    }}
+                  >
+                    <Ionicons name="paw" size={18} color={textPrimary} style={{ marginRight: 2 }} />
+                    <Ionicons name="paw" size={18} color={textPrimary} />
+                  </View>
+                </View>
+              </View>
             </View>
 
-            <View
+            <CTA
+              label="Start a Walk"
+              onPress={onStartWalk}
+              size="SM"
+              containerStyle={{ alignSelf: "flex-start" }}
+              leftIcon={
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.9)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="play" size={8} color="#FFFFFF" style={{ marginLeft: 0.5 }} />
+                </View>
+              }
+            />
+          </View>
+
+          <View
+            style={{
+              width: 150,
+              justifyContent: "flex-end",
+              alignItems: "flex-end",
+              zIndex: 1,
+            }}
+          >
+            <Image
+              source={walkerArt}
               style={{
-                width: 132,
-                height: 148,
-                justifyContent: "flex-end",
-                alignItems: "center",
+                width: 160,
+                height: 160,
+                marginBottom: -4,
+                marginRight: -8,
               }}
-            >
-              <Image
-                source={walkerArt}
-                style={{ width: 132, height: 148 }}
-                contentFit="contain"
-                accessibilityLabel={`Illustration of walking ${petName}`}
-              />
-            </View>
+              contentFit="contain"
+              accessibilityLabel={`Illustration of walking ${petName}`}
+            />
           </View>
         </View>
       </LinearGradient>

@@ -19,6 +19,12 @@ export const FIGMA_HEALTH_LABS_ICON_BG = "#16A34A";
 /** Detail screens (vaccines, meds) — light mode canvas */
 export const FIGMA_MINT_SCREEN_LIGHT = "#F2F9F8";
 
+/** Vaccines list screen (Figma 2082:213157) — canvas behind white cards */
+export const FIGMA_VACCINES_LIST_CANVAS_LIGHT = "#F5F7F7";
+
+/** Vaccination detail (Figma 1386:44644) — screen canvas */
+export const FIGMA_VACCINATION_DETAIL_BG_LIGHT = "#F4F7F6";
+
 /** List tab: white elevated cards on #F2F7F7 (theme.background) */
 const LIST_CARD_LIGHT = "#FFFFFF";
 const LIST_CARD_BORDER_LIGHT = "rgba(0,0,0,0.06)";

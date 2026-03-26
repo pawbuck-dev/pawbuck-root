@@ -14,13 +14,9 @@ export default function HealthRecordLayout() {
         <MedicinesProvider>
           <LabResultsProvider>
             <ClinicalExamsProvider>
-              <Stack>
-                <Stack.Screen
-                  name="(tabs)"
-                  options={{
-                    headerShown: false,
-                  }}
-                />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(tabs)" />
                 <Stack.Screen
                   name="vaccination-upload-modal"
                   options={{

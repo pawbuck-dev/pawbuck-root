@@ -1,12 +1,13 @@
 import { PawthonTrophyIllustration } from "@/components/pawthon/PawthonTrophyIllustration";
 import { useTheme } from "@/context/themeContext";
-import {
-  formatWeeklyChallengeFigmaLine,
-  formatWeeklyWalkerRankLine,
-} from "@/services/walkSessions";
+import { formatWeeklyChallengeFigmaLine } from "@/services/walkSessions";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+
+/** Background-only export (text paths removed) — Metro resolves reliably with relative require. */
+const weeklyChallengeDarkBg = require("../../assets/images/weeklychallengedark-bg.svg");
 
 export type WeeklyChallengeCardProps = {
   petName?: string;
@@ -18,7 +19,7 @@ export type WeeklyChallengeCardProps = {
   onPress?: () => void;
 };
 
-/** Figma light (screenshot + Frame.svg tokens); dark keeps Pawthon product copy. */
+/** Figma weekly challenge card (light cream + dark SVG); same copy stack in both modes. */
 const LIGHT = {
   /** Card fill — match simulator/Figma cream */
   gradient: ["#FDF8F1", "#FBF4EA"] as const,
@@ -26,188 +27,174 @@ const LIGHT = {
   title: "#0D0F0F",
   /** Muted body from Frame.svg footnote */
   sub: "#727979",
-  border: "rgba(13, 15, 15, 0.06)",
 };
 
 /**
- * Dashboard Pawthon / weekly challenge card.
- * - Light: Figma PawBuck redesign (WEEKLY CHALLENGE, trophy.png, pet-parents line).
- * - Dark: PAWTHON + walk with pet + week stats.
+ * Dashboard weekly challenge — Figma layout: kicker → “Are You The Best?” → pet-parent rank 👀.
+ * Dark uses `weeklychallengedark-bg.svg`; light uses cream gradient until a light SVG exists.
  */
 export default function WeeklyChallengeCard({
-  petName,
-  weekKm = 0,
-  streakDays = 0,
+  petName: _petName,
+  weekKm: _weekKm = 0,
+  streakDays: _streakDays = 0,
   walkerRank,
   walkerTotal = 0,
   onPress,
 }: WeeklyChallengeCardProps) {
   const { mode } = useTheme();
   const isDark = mode === "dark";
+  const isAndroid = Platform.OS === "android";
 
-  const creamBg = isDark ? (["#2A2622", "#1E1C1A", "#252220"] as const) : LIGHT.gradient;
-  const sunburstRay = isDark ? "rgba(255,255,255,0.04)" : "rgba(209, 157, 0, 0.12)";
+  /** Same card chrome as BookVetVisitSection / DailyGoalWalkCard */
+  const cardBorderStyle = isAndroid
+    ? {}
+    : {
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      };
+
+  const creamBg = LIGHT.gradient;
+  const sunburstRay = "rgba(209, 157, 0, 0.12)";
   const labelColor = isDark ? "rgba(255,255,255,0.55)" : LIGHT.label;
   const titleColor = isDark ? "#FFFFFF" : LIGHT.title;
   const subColor = isDark ? "rgba(255,255,255,0.65)" : LIGHT.sub;
 
-  const rankLine = isDark
-    ? formatWeeklyWalkerRankLine(walkerRank, walkerTotal)
-    : formatWeeklyChallengeFigmaLine(walkerRank, walkerTotal);
+  const rankLine = formatWeeklyChallengeFigmaLine(walkerRank, walkerTotal);
 
-  const content = (
-    <LinearGradient
-      colors={[...creamBg]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+  const kickerLetterSpacing = isDark ? 1.2 : 1.4;
+
+  const cardInner = (
+    <View
       style={{
-        borderRadius: 24,
+        borderRadius: 20,
         overflow: "hidden",
-        borderWidth: isDark ? 1 : 1,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : LIGHT.border,
+        ...cardBorderStyle,
+        position: "relative",
       }}
     >
-      {/* Decorative glow — dark: two blobs; light: soft gold hint (Figma sunburst behind trophy) */}
-      <View
-        style={{
-          position: "absolute",
-          right: isDark ? -40 : -36,
-          top: isDark ? "15%" : "8%",
-          width: isDark ? 220 : 200,
-          height: isDark ? 220 : 200,
-          borderRadius: 110,
-          backgroundColor: sunburstRay,
-          opacity: isDark ? 0.9 : 0.85,
-        }}
-      />
+      {/* Dark: Figma card SVG (background + gold accents). Light: cream gradient until light SVG is added. */}
       {isDark ? (
-        <View
-          style={{
-            position: "absolute",
-            right: 20,
-            bottom: -30,
-            width: 140,
-            height: 140,
-            borderRadius: 70,
-            backgroundColor: "rgba(255,255,255,0.04)",
-            opacity: 0.5,
-          }}
+        <Image
+          source={weeklyChallengeDarkBg}
+          style={StyleSheet.absoluteFillObject}
+          contentFit="cover"
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
         />
       ) : (
-        <View
-          style={{
-            position: "absolute",
-            right: -24,
-            bottom: -40,
-            width: 160,
-            height: 160,
-            borderRadius: 80,
-            backgroundColor: "rgba(255, 253, 248, 0.9)",
-            opacity: 0.7,
-          }}
-        />
+        <>
+          <LinearGradient
+            colors={[...creamBg]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              right: -36,
+              top: "8%",
+              width: 200,
+              height: 200,
+              borderRadius: 100,
+              backgroundColor: sunburstRay,
+              opacity: 0.85,
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              right: -24,
+              bottom: -40,
+              width: 160,
+              height: 160,
+              borderRadius: 80,
+              backgroundColor: "rgba(255, 253, 248, 0.9)",
+              opacity: 0.7,
+            }}
+          />
+        </>
       )}
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingVertical: isDark ? 18 : 20,
-          paddingLeft: isDark ? 20 : 20,
-          paddingRight: isDark ? 8 : 10,
-          minHeight: isDark ? 152 : 160,
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            minWidth: 0,
-            paddingRight: isDark ? 8 : 10,
-            zIndex: 2,
-            justifyContent: "center",
-          }}
-        >
+      {/* Content above background (zIndex ensures SVG/Image stays behind). */}
+      <View style={{ flexDirection: "row", minHeight: 180, zIndex: 1 }}>
+        <View style={{ flex: 1, padding: 20, justifyContent: "center", zIndex: 2, minWidth: 0 }}>
           <Text
             style={{
               fontFamily: "Poppins_600SemiBold",
               fontSize: 11,
-              letterSpacing: isDark ? 1.2 : 1.4,
-              color: labelColor,
-              marginBottom: 6,
+              letterSpacing: kickerLetterSpacing,
               textTransform: "uppercase",
-            }}
-          >
-            {isDark ? "PAWTHON" : "WEEKLY CHALLENGE"}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Poppins_700Bold",
-              fontSize: isDark ? 22 : 24,
-              lineHeight: isDark ? 28 : 30,
-              color: titleColor,
+              color: labelColor,
               marginBottom: 8,
             }}
           >
-            {isDark
-              ? petName
-                ? `Walk with ${petName}`
-                : "Track your walks"
-              : "Are You The Best?"}
+            WEEKLY CHALLENGE
           </Text>
-          {isDark ? (
-            <Text
-              style={{
-                fontFamily: "Poppins_500Medium",
-                fontSize: 14,
-                lineHeight: 20,
-                color: subColor,
-                marginBottom: 4,
-              }}
-            >
-              This week: {weekKm.toFixed(1)} km · {streakDays}-day streak
-            </Text>
-          ) : null}
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "700",
+              lineHeight: 22,
+              color: titleColor,
+              marginBottom: 12,
+            }}
+            numberOfLines={2}
+          >
+            Are You The Best?
+          </Text>
           <Text
             style={{
               fontFamily: "Poppins_500Medium",
               fontSize: 14,
               lineHeight: 20,
               color: subColor,
-              marginBottom: 4,
             }}
           >
             {rankLine}
           </Text>
-          {onPress ? (
-            <Text
-              style={{
-                fontFamily: "Poppins_500Medium",
-                fontSize: 13,
-                lineHeight: 18,
-                color: subColor,
-                marginTop: 2,
-              }}
-            >
-              Tap to start a walk →
-            </Text>
-          ) : null}
         </View>
 
-        <PawthonTrophyIllustration size={isDark ? 140 : 158} />
+        <View
+          style={{
+            width: 150,
+            justifyContent: "flex-end",
+            alignItems: "flex-end",
+            zIndex: 1,
+          }}
+        >
+          <PawthonTrophyIllustration
+            size={160}
+            containerStyle={{
+              justifyContent: "flex-end",
+              alignItems: "flex-end",
+              marginBottom: -4,
+              marginRight: -8,
+            }}
+          />
+        </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 
-  const wrap = { marginHorizontal: 20 };
+  const outer = { paddingHorizontal: 20, alignSelf: "stretch" as const, width: "100%" as const };
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }, wrap]}>
-        {content}
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Weekly challenge, open leaderboard"
+        style={({ pressed }) => [outer, { opacity: pressed ? 0.92 : 1 }]}
+      >
+        {cardInner}
       </Pressable>
     );
   }
 
-  return <View style={wrap}>{content}</View>;
+  return <View style={outer}>{cardInner}</View>;
 }

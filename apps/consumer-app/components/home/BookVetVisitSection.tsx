@@ -1,8 +1,9 @@
+import { CTA } from "@/components/ui/CTA";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 
 type BookVetVisitSectionProps = {
   petName: string;
@@ -105,22 +106,13 @@ export default function BookVetVisitSection({ petName, onSchedule }: BookVetVisi
               </Text>
             </View>
 
-            {/* Schedule button */}
-            <TouchableOpacity
+            {/* Schedule button — Figma CTA SM */}
+            <CTA
+              label="Schedule Now"
               onPress={onSchedule}
-              activeOpacity={0.8}
-              style={{
-                backgroundColor: "#3BD0D2",
-                paddingHorizontal: 28,
-                paddingVertical: 14,
-                borderRadius: 28,
-                alignSelf: "flex-start",
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-                Schedule Now
-              </Text>
-            </TouchableOpacity>
+              size="SM"
+              containerStyle={{ alignSelf: "flex-start" }}
+            />
           </View>
 
           {/* Right illustration */}

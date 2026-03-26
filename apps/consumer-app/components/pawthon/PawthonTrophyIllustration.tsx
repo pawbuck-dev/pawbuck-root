@@ -3,7 +3,8 @@ import React from "react";
 import type { StyleProp, ImageStyle, ViewStyle } from "react-native";
 import { View } from "react-native";
 
-const trophySource = require("@/assets/images/trophy.png");
+// Metro resolves static assets reliably with a relative path (not `@/` in require).
+const trophySource = require("../../assets/images/trophy.png");
 
 export type PawthonTrophyIllustrationProps = {
   containerStyle?: StyleProp<ViewStyle>;

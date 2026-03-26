@@ -435,7 +435,6 @@ export default function Home() {
             <DailyGoalWalkCard
               petName={selectedPet.name}
               onStartWalk={() => router.push("/pawthon-walk")}
-              onHistory={() => router.push("/pawthon")}
             />
           )}
 
@@ -448,7 +447,7 @@ export default function Home() {
                 streakDays={pawthonStats?.streak ?? 0}
                 walkerRank={weeklyWalkerRank?.rank ?? null}
                 walkerTotal={weeklyWalkerRank?.total ?? 0}
-                onPress={() => router.push("/pawthon")}
+                onPress={() => router.push("/leaderboard")}
               />
             </View>
           )}
@@ -485,7 +484,13 @@ export default function Home() {
           {/* Health Records Section */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
-              <HealthRecordsSection petId={selectedPet.id} petName={selectedPet.name} />
+              <HealthRecordsSection
+                petId={selectedPet.id}
+                petName={selectedPet.name}
+                onTitlePress={() =>
+                  router.push(`/(home)/health-record/${selectedPet.id}` as any)
+                }
+              />
             </View>
           )}
 

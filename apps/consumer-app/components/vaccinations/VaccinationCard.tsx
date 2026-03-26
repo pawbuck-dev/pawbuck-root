@@ -8,7 +8,7 @@ import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { Tables, TablesUpdate } from "@/database.types";
 import {
-  FIGMA_HEALTH_TEAL,
+  HEALTH_ELEVATION,
   HEALTH_LAYOUT,
   HEALTH_TYPE,
   healthListCardChrome,
@@ -70,7 +70,10 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   const dueBadge = getVaccineDueBadge(vaccination.next_due_date, category);
 
   const chrome = healthListCardChrome(theme, isDark);
-  const { cardBg, overflowBtnBg, divider } = chrome;
+  const { cardBg, overflowBtnBg, divider, iconPlate, iconInk } = chrome;
+  /** Figma 2082:213157 — grey disc + syringe-style glyph; dark keeps elevated plate */
+  const listIconBg = isDark ? iconPlate : "#F3F4F6";
+  const listIconColor = isDark ? iconInk : "#6B7280";
 
   const openDetail = () => {
     if (!pet) return;
@@ -161,40 +164,45 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
           styles.card,
           {
             backgroundColor: cardBg,
-            borderWidth: chrome.borderWidth,
+            borderWidth: isDark ? chrome.borderWidth : 0,
             borderColor: chrome.borderColor,
+            ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
           },
         ]}
       >
-        {/* Top row: icon, title + badge, overflow */}
+        {/* Top row: icon, title + inline badge, overflow (Figma 2082:213157) */}
         <View style={styles.topRow}>
-          <View style={[styles.iconCircle, { backgroundColor: FIGMA_HEALTH_TEAL }]}>
-            <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />
+          <View style={[styles.iconCircle, { backgroundColor: listIconBg }]}>
+            <MaterialCommunityIcons name="needle" size={20} color={listIconColor} />
           </View>
           <View style={styles.titleBlock}>
-            <Text
-              style={[styles.vaccineName, HEALTH_TYPE.cardTitle, { color: theme.foreground }]}
-              numberOfLines={2}
-            >
-              {vaccination.name}
-            </Text>
-            {dueBadge && badgeColors && (
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: badgeColors.bg },
-                ]}
+            <View style={styles.titleBadgeRow}>
+              <Text
+                style={[styles.vaccineName, HEALTH_TYPE.cardTitle, { color: theme.foreground, marginBottom: 0 }]}
+                numberOfLines={2}
               >
-                <Text style={[styles.badgeText, HEALTH_TYPE.badge, { color: badgeColors.text }]}>
-                  {dueBadge.label}
-                </Text>
-              </View>
-            )}
+                {vaccination.name}
+              </Text>
+              {dueBadge && badgeColors ? (
+                <View style={[styles.badge, { backgroundColor: badgeColors.bg }]}>
+                  <Text style={[styles.badgeText, HEALTH_TYPE.badge, { color: badgeColors.text }]}>
+                    {dueBadge.label}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           <TouchableOpacity
             onPress={() => setMenuOpen(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={[styles.overflowBtn, { backgroundColor: overflowBtnBg }]}
+            style={[
+              styles.overflowBtn,
+              {
+                backgroundColor: overflowBtnBg,
+                borderWidth: isDark ? 0 : StyleSheet.hairlineWidth,
+                borderColor: isDark ? "transparent" : "rgba(0,0,0,0.08)",
+              },
+            ]}
           >
             <Ionicons name="ellipsis-vertical" size={18} color={theme.foreground} />
           </TouchableOpacity>
@@ -300,8 +308,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     paddingRight: HEALTH_LAYOUT.titleBlockEndPadding,
   },
+  titleBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
   vaccineName: {
-    marginBottom: HEALTH_LAYOUT.titleToBadgeGap,
+    flexShrink: 1,
   },
   badge: {
     alignSelf: "flex-start",

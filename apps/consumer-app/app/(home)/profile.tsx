@@ -1,44 +1,58 @@
+import BottomNavBar from "@/components/home/BottomNavBar";
+import ContactModal from "@/components/contact/ContactModal";
+import PrivateImage from "@/components/common/PrivateImage";
+import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
+import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
+import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
+import { ProfileListCard } from "@/components/profile/ProfileListCard";
+import { ProfilePetPickerModal } from "@/components/profile/ProfilePetPickerModal";
+import {
+  PROFILE_HELP_ROWS,
+  PROFILE_MY_PETS_LINK_ROWS,
+  PROFILE_SETTINGS_ROWS,
+  type ProfileHelpRowId,
+  type ProfileSettingsRowId,
+} from "@/components/profile/profileMenuConfig";
+import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
+import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
+import { usePets } from "@/context/petsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LinearGradient } from "expo-linear-gradient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
-  const { theme, mode } = useTheme();
-  const { top, bottom } = useSafeAreaInsets();
+  const { theme, mode, toggleTheme } = useTheme();
+  const { top } = useSafeAreaInsets();
   const isDarkMode = mode === "dark";
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const { pets } = usePets();
+  const { selectedPet, selectedPetId, setSelectedPetId } = useSelectedPet();
   const queryClient = useQueryClient();
+
+  const screenTokens = useMemo(() => getProfileScreenTokens(theme, isDarkMode), [theme, isDarkMode]);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPhone, setEditingPhone] = useState("");
   const [editingAddress, setEditingAddress] = useState("");
+  const [showPetPicker, setShowPetPicker] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  // Fetch user profile
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user_profile"],
     queryFn: getUserProfile,
     enabled: !!user,
   });
 
-  // Update profile mutation
   const updateMutation = useMutation({
     mutationFn: updateUserProfile,
     onSuccess: () => {
@@ -68,59 +82,72 @@ export default function Profile() {
     });
   };
 
-  const InformationRow = ({
-    icon,
-    label,
-    value,
-    locked = false,
-  }: {
-    icon: keyof typeof Ionicons.glyphMap;
-    label: string;
-    value: string;
-    locked?: boolean;
-  }) => (
-    <View
-      className="flex-row items-center justify-between py-4"
-      style={{
-        borderBottomWidth: 1,
-        borderBottomColor: isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-      }}
-    >
-      <View className="flex-row items-center flex-1">
-        <View
-          className="w-10 h-10 rounded-full items-center justify-center mr-4"
-          style={{ backgroundColor: `${theme.primary}20` }}
-        >
-          <Ionicons name={icon} size={20} color={theme.primary} />
-        </View>
-        <View className="flex-1">
-          <Text className="text-sm" style={{ color: theme.secondary }}>
-            {label}
-          </Text>
-          <Text className="text-base font-semibold mt-0.5" style={{ color: theme.foreground }}>
-            {value || "Not set"}
-          </Text>
-        </View>
-      </View>
-      {locked && (
-        <View
-          className="px-3 py-1 rounded-full"
-          style={{ backgroundColor: isDarkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)" }}
-        >
-          <Text className="text-xs" style={{ color: theme.secondary }}>
-            Locked
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+  const handleSignOut = () => {
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut();
+            router.replace("/");
+          } catch (e: unknown) {
+            console.error(e);
+            Alert.alert("Error", "Failed to log out");
+          }
+        },
+      },
+    ]);
+  };
+
+  const openNotificationsSettings = () => {
+    Linking.openSettings().catch(() => {
+      Alert.alert(
+        "Notifications",
+        "Open your device Settings app to manage notification permissions for PawBuck."
+      );
+    });
+  };
+
+  const openPrivacyInfo = () => {
+    Alert.alert(
+      "Privacy & security",
+      "Your pet health data is protected by industry-standard security. For questions about data use, see our FAQ or contact support."
+    );
+  };
+
+  const settingsRowHandlers: Record<ProfileSettingsRowId, () => void> = {
+    notifications: openNotificationsSettings,
+    privacy: openPrivacyInfo,
+    appearance: () => toggleTheme(),
+  };
+
+  const helpRowHandlers: Record<ProfileHelpRowId, () => void> = {
+    faq: () => router.push("/(home)/faq"),
+    contact: () => setShowContactModal(true),
+  };
+
+  const rawAvatar = useMemo(() => {
+    const a = user?.user_metadata?.avatar_url as string | undefined;
+    const p = user?.user_metadata?.picture as string | undefined;
+    if (isHttpAvatarUrl(a)) return a.trim();
+    if (isHttpAvatarUrl(p)) return p.trim();
+    return undefined;
+  }, [user?.user_metadata?.avatar_url, user?.user_metadata?.picture]);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [rawAvatar, user?.id]);
+
+  const showAvatarPhoto = !!rawAvatar && !avatarLoadFailed;
+  const currentPet = selectedPet ?? pets[0] ?? null;
+  const displayName =
+    profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
 
   if (isLoading) {
     return (
-      <View
-        className="flex-1 items-center justify-center"
-        style={{ backgroundColor: theme.background }}
-      >
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -130,243 +157,150 @@ export default function Profile() {
     return null;
   }
 
-  // Extract name from user metadata or email
-  const displayName = profile.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
-
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      {/* Header */}
-      <View className="pt-12 pb-4 px-6">
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-full items-center justify-center mr-4"
-            style={{ backgroundColor: theme.card }}
-          >
-            <Ionicons name="chevron-back" size={20} color={theme.foreground} />
-          </TouchableOpacity>
-          <Text
-            className="text-2xl font-bold flex-1"
-            style={{ color: theme.foreground }}
-          >
-            User Profile
-          </Text>
-        </View>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+
+      <View className="px-5 pb-3 flex-row items-center justify-between" style={{ paddingTop: top + 8 }}>
+        <Text className="text-3xl font-bold" style={{ color: theme.foreground }}>
+          Profile
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(home)/settings")}
+          className="w-11 h-11 rounded-full items-center justify-center"
+          style={{
+            backgroundColor: screenTokens.profileCardBg,
+            ...screenTokens.profileCardBorderStyle,
+          }}
+          accessibilityLabel="More settings"
+        >
+          <Ionicons name="settings-outline" size={22} color={theme.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
-        className="flex-1"
+        className="flex-1 px-5"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 110 }}
       >
-        {/* Profile Avatar Section */}
-        <View className="items-center py-6">
-          <View
-            className="w-32 h-32 rounded-3xl items-center justify-center mb-4"
-            style={{ backgroundColor: theme.card }}
-          >
-            <Ionicons name="person-outline" size={64} color={theme.primary} />
-          </View>
-          <Text
-            className="text-2xl font-bold"
-            style={{ color: theme.foreground }}
-          >
-            {displayName}
-          </Text>
-        </View>
+        <ProfileHeroCard
+          profile={profile}
+          displayName={displayName}
+          rawAvatar={rawAvatar}
+          showAvatarPhoto={showAvatarPhoto}
+          onAvatarError={() => setAvatarLoadFailed(true)}
+          onEditPress={handleEdit}
+        />
 
-        {/* Account Details Card */}
-        <View className="px-4">
-          <LinearGradient
-            colors={isDarkMode 
-              ? ["rgba(28, 33, 40, 0.8)", "rgba(28, 33, 40, 0.4)"]
-              : ["#FFFFFF", "#F8FAFA"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 24,
-              padding: 20,
-              borderWidth: isDarkMode ? 1 : 0,
-              borderColor: theme.border,
-              // Shadow for iOS - matches Tailwind shadow-lg
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.1,
-              shadowRadius: 15,
-              // Shadow for Android
-              elevation: 10,
-            }}
-          >
-            {/* Card Header with Edit Button */}
-            <View className="flex-row items-center justify-between mb-4">
-              <Text
-                className="text-lg font-bold"
-                style={{ color: theme.foreground }}
+        <ProfileSectionHeading>My Pets</ProfileSectionHeading>
+        {/* Current pet — own card (Figma / light ref: separate from action rows) */}
+        <ProfileListCard>
+          <ProfileFigmaRow
+            trailing="down"
+            trailingCircled
+            leading={
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  overflow: "hidden",
+                  backgroundColor: screenTokens.profileListIconWellBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                Account Details
-              </Text>
-              <TouchableOpacity
-                onPress={handleEdit}
-                className="w-10 h-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: `${theme.primary}20` }}
-              >
-                <Ionicons name="pencil-outline" size={18} color={theme.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Name */}
-            <InformationRow
-              icon="person-outline"
-              label="Name"
-              value={displayName}
-              locked={true}
-            />
-
-            {/* Email */}
-            <InformationRow
-              icon="mail-outline"
-              label="Email"
-              value={profile.email}
-            />
-
-            {/* Phone */}
-            <InformationRow
-              icon="call-outline"
-              label="Phone"
-              value={profile.phone || "Not set"}
-            />
-
-            {/* Address */}
-            <View className="flex-row items-start justify-between py-4">
-              <View className="flex-row items-start flex-1">
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
-                >
-                  <Ionicons name="location-outline" size={20} color={theme.primary} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm" style={{ color: theme.secondary }}>
-                    Address
-                  </Text>
-                  <Text className="text-base font-medium mt-0.5" style={{ color: theme.foreground }}>
-                    {profile.address || "Not set"}
-                  </Text>
-                </View>
+                {currentPet?.photo_url ? (
+                  <PrivateImage
+                    bucketName="pets"
+                    filePath={currentPet.photo_url}
+                    style={{ width: 52, height: 52 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="paw" size={22} color={screenTokens.profileListIconColor} />
+                )}
               </View>
-            </View>
-          </LinearGradient>
-        </View>
+            }
+            title={currentPet?.name ?? "No pet yet"}
+            subtitle="Current pet profile"
+            onPress={() => pets.length > 0 && setShowPetPicker(true)}
+          />
+        </ProfileListCard>
+        <ProfileListCard style={{ marginTop: 14 }}>
+          {PROFILE_MY_PETS_LINK_ROWS.map((row) => (
+            <ProfileFigmaRow
+              key={row.id}
+              icon={row.icon}
+              title={row.title}
+              subtitle={row.subtitle}
+              onPress={() => router.push(row.href)}
+            />
+          ))}
+        </ProfileListCard>
+
+        <ProfileSectionHeading>Settings</ProfileSectionHeading>
+        <ProfileListCard>
+          {PROFILE_SETTINGS_ROWS.map((row) => (
+            <ProfileFigmaRow
+              key={row.id}
+              icon={row.icon}
+              title={row.title}
+              subtitle={row.subtitle}
+              onPress={settingsRowHandlers[row.id]}
+            />
+          ))}
+        </ProfileListCard>
+
+        <ProfileSectionHeading>Help & Support</ProfileSectionHeading>
+        <ProfileListCard>
+          {PROFILE_HELP_ROWS.map((row) => (
+            <ProfileFigmaRow
+              key={row.id}
+              icon={row.icon}
+              title={row.title}
+              subtitle={row.subtitle}
+              onPress={helpRowHandlers[row.id]}
+            />
+          ))}
+        </ProfileListCard>
+
+        <ProfileListCard style={{ marginTop: 24 }}>
+          <ProfileFigmaRow
+            icon="logout-variant"
+            title="Log Out"
+            subtitle="Sign out of your account"
+            onPress={handleSignOut}
+          />
+        </ProfileListCard>
       </ScrollView>
 
-      {/* Edit Modal */}
-      <Modal
+      <BottomNavBar activeTab="profile" />
+
+      <ProfilePetPickerModal
+        visible={showPetPicker}
+        onClose={() => setShowPetPicker(false)}
+        pets={pets}
+        selectedPetId={selectedPetId}
+        onSelectPet={(id) => {
+          setSelectedPetId(id);
+          setShowPetPicker(false);
+        }}
+      />
+
+      <ContactModal visible={showContactModal} onClose={() => setShowContactModal(false)} />
+
+      <ProfileEditModal
         visible={showEditModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{
-            backgroundColor: theme.background,
-            paddingTop: Platform.OS === "android" ? top : 0,
-            paddingBottom: Platform.OS === "android" ? bottom : 0,
-          }}
-        >
-          {/* Header */}
-          <View
-            className="px-6 pt-4 pb-4 border-b"
-            style={{
-              backgroundColor: theme.card,
-              borderBottomColor: theme.border,
-            }}
-          >
-            <View className="flex-row items-center justify-between">
-              <TouchableOpacity
-                onPress={() => setShowEditModal(false)}
-                disabled={updateMutation.isPending}
-              >
-                <Text className="text-base" style={{ color: theme.primary }}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: theme.foreground }}
-              >
-                Edit Profile
-              </Text>
-              <TouchableOpacity
-                onPress={handleSave}
-                disabled={updateMutation.isPending}
-              >
-                <Text
-                  className="text-base font-semibold"
-                  style={{
-                    color: updateMutation.isPending ? theme.secondary : theme.primary,
-                  }}
-                >
-                  {updateMutation.isPending ? "Saving..." : "Save"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
-            {/* Phone */}
-            <View className="mb-4">
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                Phone Number
-              </Text>
-              <TextInput
-                className="rounded-xl py-4 px-4 text-base"
-                style={{
-                  backgroundColor: theme.card,
-                  color: theme.foreground,
-                  borderColor: theme.border,
-                  borderWidth: 1,
-                }}
-                value={editingPhone}
-                onChangeText={setEditingPhone}
-                placeholder="Enter phone number"
-                placeholderTextColor={theme.secondary}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            {/* Address */}
-            <View className="mb-6">
-              <Text
-                className="text-sm font-medium mb-2"
-                style={{ color: theme.secondary }}
-              >
-                Address
-              </Text>
-              <TextInput
-                className="rounded-xl py-4 px-4 text-base"
-                style={{
-                  backgroundColor: theme.card,
-                  color: theme.foreground,
-                  borderColor: theme.border,
-                  borderWidth: 1,
-                }}
-                value={editingAddress}
-                onChangeText={setEditingAddress}
-                placeholder="Enter address"
-                placeholderTextColor={theme.secondary}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+        onClose={() => setShowEditModal(false)}
+        topInset={top}
+        editingPhone={editingPhone}
+        setEditingPhone={setEditingPhone}
+        editingAddress={editingAddress}
+        setEditingAddress={setEditingAddress}
+        onSave={handleSave}
+        isSaving={updateMutation.isPending}
+      />
     </View>
   );
 }
-

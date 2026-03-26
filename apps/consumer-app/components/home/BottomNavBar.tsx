@@ -61,7 +61,7 @@ export default function BottomNavBar({
     { id: "home", iconFamily: "ionicons", icon: "home-outline", activeIcon: "home", route: "/(home)/home" },
     { id: "records", iconFamily: "material", icon: "heart-pulse", activeIcon: "heart-pulse", route: "/(home)/health-record/[id]" },
     { id: "messages", iconFamily: "ionicons", icon: "chatbubbles-outline", activeIcon: "chatbubbles", route: "/(home)/messages" },
-    { id: "profile", iconFamily: "ionicons", icon: "person-outline", activeIcon: "person", route: "/(home)/settings" },
+    { id: "profile", iconFamily: "ionicons", icon: "person-outline", activeIcon: "person", route: "/(home)/profile" },
   ];
 
   const handleNavPress = (id: string) => {

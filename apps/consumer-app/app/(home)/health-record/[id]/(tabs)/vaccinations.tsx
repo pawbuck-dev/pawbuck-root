@@ -1,6 +1,7 @@
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import {
   FIGMA_HEALTH_TEAL,
+  FIGMA_VACCINES_LIST_CANVAS_LIGHT,
   healthRecordTabCanvas,
 } from "@/constants/figmaHealthLayout";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -29,7 +30,8 @@ const SECTION_TITLE: Record<VaccineCategory, string> = {
 export default function VaccinationsScreen() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const listCanvas = healthRecordTabCanvas(theme, isDark);
+  /** Figma 2082:213157 — light list canvas #F5F7F7; dark keeps tab well */
+  const listCanvas = isDark ? healthRecordTabCanvas(theme, isDark) : FIGMA_VACCINES_LIST_CANVAS_LIGHT;
   const { vaccinations, isLoading } = useVaccinations();
   const { pet } = useSelectedPet();
   const { categorizedVaccinations, isLoadingRequirements } = useVaccineCategories();
@@ -127,7 +129,8 @@ export default function VaccinationsScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor: listCanvas }}>
       <ScrollView
-        className="flex-1 pt-2"
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -138,18 +141,19 @@ export default function VaccinationsScreen() {
           />
         }
       >
-        <View className="px-4">
-          {sections.map(({ category, items }) => {
+        <View style={{ paddingHorizontal: 16 }}>
+          {sections.map(({ category, items }, sectionIndex) => {
             if (items.length === 0) return null;
             return (
-              <View key={category} style={{ marginBottom: 20 }}>
+              <View key={category} style={{ marginBottom: 22 }}>
                 <Text
                   style={{
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: "700",
-                    color: theme.foreground,
-                    marginBottom: 12,
-                    marginTop: 4,
+                    color: isDark ? theme.foreground : "#0D0F0F",
+                    marginBottom: 14,
+                    marginTop: sectionIndex === 0 ? 0 : 6,
+                    letterSpacing: -0.2,
                   }}
                 >
                   {SECTION_TITLE[category]}
@@ -165,8 +169,6 @@ export default function VaccinationsScreen() {
             );
           })}
         </View>
-
-        <View className="h-28" />
       </ScrollView>
     </View>
   );

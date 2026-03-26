@@ -4,7 +4,7 @@ import {
   RecordOverflowSheet,
 } from "@/components/health/RecordOverflowSheet";
 import {
-  FIGMA_HEALTH_TEAL,
+  FIGMA_VACCINATION_DETAIL_BG_LIGHT,
   HEALTH_LAYOUT,
   HEALTH_TYPE,
   healthDetailCardChrome,
@@ -21,6 +21,7 @@ import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
 import { categorySubtitle, getVaccineDueBadge } from "@/utils/vaccinationUi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,7 +34,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BADGE_STYLES: Record<
+const BADGE_STYLES_LIGHT: Record<
   "overdue" | "dueGreen" | "dueOrange",
   { bg: string; text: string }
 > = {
@@ -41,6 +42,20 @@ const BADGE_STYLES: Record<
   dueGreen: { bg: "rgba(34, 197, 94, 0.12)", text: "#15803D" },
   dueOrange: { bg: "rgba(251, 146, 60, 0.16)", text: "#C2410C" },
 };
+
+const BADGE_STYLES_DARK: Record<
+  "overdue" | "dueGreen" | "dueOrange",
+  { bg: string; text: string }
+> = {
+  overdue: { bg: "rgba(239, 68, 68, 0.22)", text: "#FCA5A5" },
+  dueGreen: { bg: "rgba(22, 163, 74, 0.35)", text: "#86EFAC" },
+  dueOrange: { bg: "rgba(251, 146, 60, 0.28)", text: "#FDBA74" },
+};
+
+/** Figma 1386:44644 — clock on peach plate (not grey like other rows) */
+const NEXT_DUE_ICON_ACCENT_LIGHT = "#EA580C";
+const NEXT_DUE_PLATE_BG_LIGHT = "rgba(251, 146, 60, 0.2)";
+const NEXT_DUE_PLATE_BG_DARK = "rgba(251, 146, 60, 0.22)";
 
 function parseCategory(raw: string | string[] | undefined): VaccineCategory {
   const c = Array.isArray(raw) ? raw[0] : raw;
@@ -56,6 +71,12 @@ function documentFileLabel(path: string | null | undefined): string {
   } catch {
     return seg;
   }
+}
+
+function documentLooksLikeImage(path: string | null | undefined): boolean {
+  if (!path) return false;
+  const base = path.split("?")[0].split("#")[0].toLowerCase();
+  return /\.(jpg|jpeg|png|gif|webp|heic|bmp)$/i.test(base);
 }
 
 export default function VaccinationDetailScreen() {
@@ -87,9 +108,12 @@ export default function VaccinationDetailScreen() {
   const dueBadge = vaccination
     ? getVaccineDueBadge(vaccination.next_due_date, category)
     : null;
-  const badgeColors = dueBadge ? BADGE_STYLES[dueBadge.variant] : null;
+  const badgePalette = isDark ? BADGE_STYLES_DARK : BADGE_STYLES_LIGHT;
+  const badgeColors = dueBadge ? badgePalette[dueBadge.variant] : null;
 
-  const screenBg = healthDetailScreenBg(theme, isDark);
+  const screenBg = isDark
+    ? healthDetailScreenBg(theme, isDark)
+    : FIGMA_VACCINATION_DETAIL_BG_LIGHT;
   const dChrome = healthDetailCardChrome(theme, isDark);
   const hChrome = healthDetailHeaderChrome(theme, isDark);
 
@@ -197,6 +221,8 @@ export default function VaccinationDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: screenBg }}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+      {/* Figma 1386:44644 — back + overflow only; name lives in summary card */}
       <View
         style={{
           paddingTop: insets.top + HEALTH_LAYOUT.headerTopPad,
@@ -221,18 +247,7 @@ export default function VaccinationDetailScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={theme.foreground} />
         </TouchableOpacity>
-        <Text
-          style={{
-            flex: 1,
-            textAlign: "center",
-            ...HEALTH_TYPE.navTitle,
-            color: theme.foreground,
-            marginHorizontal: 8,
-          }}
-          numberOfLines={1}
-        >
-          {vaccination.name}
-        </Text>
+        <View style={{ flex: 1 }} />
         <TouchableOpacity
           onPress={() => setMenuOpen(true)}
           hitSlop={12}
@@ -245,7 +260,7 @@ export default function VaccinationDetailScreen() {
             },
           ]}
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color={theme.foreground} />
+          <Ionicons name="ellipsis-vertical" size={20} color={theme.foreground} />
         </TouchableOpacity>
       </View>
 
@@ -256,7 +271,7 @@ export default function VaccinationDetailScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Summary card */}
+        {/* Summary card — Figma 1386:44644: grey syringe disc, title + category, due pill */}
         <View
           style={[
             styles.card,
@@ -266,10 +281,21 @@ export default function VaccinationDetailScreen() {
           ]}
         >
           <View style={styles.summaryRow}>
-            <View style={[styles.iconCircle, { backgroundColor: FIGMA_HEALTH_TEAL }]}>
-              <MaterialCommunityIcons name="heart-pulse" size={26} color="#FFFFFF" />
+            <View
+              style={[
+                styles.iconCircle,
+                {
+                  backgroundColor: isDark ? dChrome.iconPlate : "#F3F4F6",
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="needle"
+                size={24}
+                color={isDark ? dChrome.iconInk : "#6B7280"}
+              />
             </View>
-            <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
               <Text
                 style={[HEALTH_TYPE.detailTitle, { color: theme.foreground }]}
                 numberOfLines={2}
@@ -279,7 +305,7 @@ export default function VaccinationDetailScreen() {
               <Text
                 style={[
                   HEALTH_TYPE.detailSubtitle,
-                  { color: theme.secondary, marginTop: 4 },
+                  { color: theme.secondary, marginTop: 6 },
                 ]}
               >
                 {categorySubtitle(category)}
@@ -289,7 +315,7 @@ export default function VaccinationDetailScreen() {
               <View
                 style={[
                   styles.statusPill,
-                  { backgroundColor: badgeColors.bg },
+                  { backgroundColor: badgeColors.bg, marginTop: 2 },
                 ]}
               >
                 <Text style={[HEALTH_TYPE.badge, { color: badgeColors.text }]}>
@@ -314,21 +340,12 @@ export default function VaccinationDetailScreen() {
         >
           <Text
             style={[
-              HEALTH_TYPE.cardSection,
-              { color: theme.secondary, marginBottom: HEALTH_LAYOUT.fieldStackGap },
+              styles.sectionHeading,
+              { color: theme.foreground, marginBottom: HEALTH_LAYOUT.fieldStackGap },
             ]}
           >
             Clinic Information
           </Text>
-          <DetailRow
-            icon="person-outline"
-            label="Veterinarian"
-            value="—"
-            theme={theme}
-            iconPlate={dChrome.iconPlate}
-            iconColor={dChrome.iconInk}
-          />
-          <View style={{ height: HEALTH_LAYOUT.fieldStackGap }} />
           <DetailRow
             icon="business-outline"
             label="Clinic"
@@ -353,8 +370,8 @@ export default function VaccinationDetailScreen() {
         >
           <Text
             style={[
-              HEALTH_TYPE.cardSection,
-              { color: theme.secondary, marginBottom: HEALTH_LAYOUT.fieldStackGap },
+              styles.sectionHeading,
+              { color: theme.foreground, marginBottom: HEALTH_LAYOUT.fieldStackGap },
             ]}
           >
             Timeline
@@ -378,55 +395,79 @@ export default function VaccinationDetailScreen() {
             }
             theme={theme}
             iconPlate={dChrome.iconPlate}
-            iconColor={dChrome.iconInk}
+            iconPlateOverride={
+              vaccination.next_due_date
+                ? isDark
+                  ? NEXT_DUE_PLATE_BG_DARK
+                  : NEXT_DUE_PLATE_BG_LIGHT
+                : undefined
+            }
+            iconColor={
+              vaccination.next_due_date
+                ? isDark
+                  ? "#FDBA74"
+                  : NEXT_DUE_ICON_ACCENT_LIGHT
+                : dChrome.iconInk
+            }
           />
         </View>
 
-        {/* Notes */}
-        {vaccination.notes ? (
+        {/* Notes — always show (Figma); empty state when no notes */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: dChrome.cardBg,
+              marginTop: HEALTH_LAYOUT.detailSectionGap,
+            },
+            dChrome.outline,
+            dChrome.shadow,
+          ]}
+        >
           <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: dChrome.cardBg,
-                marginTop: HEALTH_LAYOUT.detailSectionGap,
-              },
-              dChrome.outline,
-              dChrome.shadow,
-            ]}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: HEALTH_LAYOUT.notesTitleGap,
+            }}
           >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: HEALTH_LAYOUT.notesTitleGap,
-              }}
+            <Ionicons name="reader-outline" size={18} color={theme.secondary} />
+            <Text
+              style={[
+                HEALTH_TYPE.cardSection,
+                {
+                  color: theme.secondary,
+                  marginLeft: 8,
+                  fontWeight: "500",
+                },
+              ]}
             >
-              <Ionicons name="document-text-outline" size={18} color={theme.secondary} />
-              <Text
-                style={[
-                  HEALTH_TYPE.cardSection,
-                  { color: theme.foreground, marginLeft: 8 },
-                ]}
-              >
-                Notes
-              </Text>
-            </View>
-            <View
-              style={{
-                backgroundColor: dChrome.notesBubbleBg,
-                borderRadius: HEALTH_LAYOUT.notesRadius,
-                padding: HEALTH_LAYOUT.notesPadding,
-              }}
-            >
-              <Text style={[HEALTH_TYPE.notesBody, { color: theme.foreground }]}>
-                {vaccination.notes}
-              </Text>
-            </View>
+              Notes
+            </Text>
           </View>
-        ) : null}
+          <View
+            style={{
+              backgroundColor: dChrome.notesBubbleBg,
+              borderRadius: HEALTH_LAYOUT.notesRadius,
+              padding: HEALTH_LAYOUT.notesPadding,
+            }}
+          >
+            <Text
+              style={[
+                HEALTH_TYPE.notesBody,
+                {
+                  color: vaccination.notes ? theme.foreground : theme.secondary,
+                },
+              ]}
+            >
+              {vaccination.notes?.trim()
+                ? vaccination.notes
+                : "No notes added yet. Add details from the menu (⋯) → Edit."}
+            </Text>
+          </View>
+        </View>
 
-        {/* Document */}
+        {/* Document — always show; tap only when attached (Figma filename + hint) */}
         {hasDocument ? (
           <TouchableOpacity
             activeOpacity={0.85}
@@ -451,7 +492,15 @@ export default function VaccinationDetailScreen() {
                   },
                 ]}
               >
-                <Ionicons name="image-outline" size={28} color={dChrome.iconInk} />
+                <Ionicons
+                  name={
+                    documentLooksLikeImage(vaccination.document_url)
+                      ? "image-outline"
+                      : "document-text-outline"
+                  }
+                  size={28}
+                  color={dChrome.iconInk}
+                />
               </View>
               <Text
                 style={[
@@ -465,14 +514,56 @@ export default function VaccinationDetailScreen() {
               <Text
                 style={[
                   HEALTH_TYPE.documentHint,
-                  { color: theme.secondary, marginTop: 8 },
+                  { color: theme.secondary, marginTop: 8, textAlign: "center" },
                 ]}
               >
                 Tap to open document
               </Text>
             </View>
           </TouchableOpacity>
-        ) : null}
+        ) : (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: dChrome.cardBg,
+                marginTop: HEALTH_LAYOUT.detailSectionGap,
+              },
+              dChrome.outline,
+              dChrome.shadow,
+            ]}
+          >
+            <View style={{ alignItems: "center", paddingVertical: 8 }}>
+              <View
+                style={[
+                  styles.iconCircle,
+                  {
+                    backgroundColor: dChrome.iconPlate,
+                    marginBottom: HEALTH_LAYOUT.cardGap,
+                  },
+                ]}
+              >
+                <Ionicons name="cloud-upload-outline" size={28} color={theme.secondary} />
+              </View>
+              <Text
+                style={[
+                  HEALTH_TYPE.documentTitle,
+                  { color: theme.secondary, textAlign: "center" },
+                ]}
+              >
+                No document attached
+              </Text>
+              <Text
+                style={[
+                  HEALTH_TYPE.documentHint,
+                  { color: theme.secondary, marginTop: 8, textAlign: "center", opacity: 0.85 },
+                ]}
+              >
+                Add a photo or PDF when you edit this record
+              </Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <RecordOverflowSheet
@@ -506,6 +597,7 @@ function DetailRow({
   theme,
   iconPlate,
   iconColor,
+  iconPlateOverride,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -513,8 +605,11 @@ function DetailRow({
   theme: { foreground: string; secondary: string };
   iconPlate: string;
   iconColor: string;
+  /** Figma: e.g. peach plate behind Next Due clock */
+  iconPlateOverride?: string;
 }) {
   const ri = HEALTH_LAYOUT.detailRowIcon;
+  const plateBg = iconPlateOverride ?? iconPlate;
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
       <View
@@ -522,7 +617,7 @@ function DetailRow({
           width: ri.size,
           height: ri.size,
           borderRadius: ri.radius,
-          backgroundColor: iconPlate,
+          backgroundColor: plateBg,
           alignItems: "center",
           justifyContent: "center",
           marginRight: ri.marginRight,
@@ -575,5 +670,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 100,
     alignSelf: "flex-start",
+  },
+  sectionHeading: {
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
 });
