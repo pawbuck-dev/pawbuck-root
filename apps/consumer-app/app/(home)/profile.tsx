@@ -1,6 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import ContactModal from "@/components/contact/ContactModal";
 import PrivateImage from "@/components/common/PrivateImage";
+import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
@@ -44,7 +44,8 @@ export default function Profile() {
   const [editingPhone, setEditingPhone] = useState("");
   const [editingAddress, setEditingAddress] = useState("");
   const [showPetPicker, setShowPetPicker] = useState(false);
-  const [showContactModal, setShowContactModal] = useState(false);
+  const [showLogOutModal, setShowLogOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
@@ -82,23 +83,22 @@ export default function Profile() {
     });
   };
 
-  const handleSignOut = () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-            router.replace("/");
-          } catch (e: unknown) {
-            console.error(e);
-            Alert.alert("Error", "Failed to log out");
-          }
-        },
-      },
-    ]);
+  const handleSignOutPress = () => {
+    setShowLogOutModal(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      setShowLogOutModal(false);
+      router.replace("/");
+    } catch (e: unknown) {
+      console.error(e);
+      Alert.alert("Error", "Failed to log out");
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const openNotificationsSettings = () => {
@@ -125,7 +125,7 @@ export default function Profile() {
 
   const helpRowHandlers: Record<ProfileHelpRowId, () => void> = {
     faq: () => router.push("/(home)/faq"),
-    contact: () => setShowContactModal(true),
+    contact: () => router.push("/(home)/contact"),
   };
 
   const rawAvatar = useMemo(() => {
@@ -270,7 +270,7 @@ export default function Profile() {
             icon="logout-variant"
             title="Log Out"
             subtitle="Sign out of your account"
-            onPress={handleSignOut}
+            onPress={handleSignOutPress}
           />
         </ProfileListCard>
       </ScrollView>
@@ -288,8 +288,6 @@ export default function Profile() {
         }}
       />
 
-      <ContactModal visible={showContactModal} onClose={() => setShowContactModal(false)} />
-
       <ProfileEditModal
         visible={showEditModal}
         onClose={() => setShowEditModal(false)}
@@ -300,6 +298,15 @@ export default function Profile() {
         setEditingAddress={setEditingAddress}
         onSave={handleSave}
         isSaving={updateMutation.isPending}
+      />
+
+      <LogOutConfirmModal
+        visible={showLogOutModal}
+        onClose={() => {
+          if (!isSigningOut) setShowLogOutModal(false);
+        }}
+        onConfirm={handleConfirmSignOut}
+        isSigningOut={isSigningOut}
       />
     </View>
   );

@@ -1,7 +1,7 @@
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -63,18 +63,6 @@ const TYPE_OPTIONS: { value: CareTeamMemberType; label: string }[] = [
   { value: "boarding", label: "Boarder" },
 ];
 
-const getTypeIcon = (type: CareTeamMemberType): keyof typeof MaterialCommunityIcons.glyphMap => {
-  const icons: Record<CareTeamMemberType, keyof typeof MaterialCommunityIcons.glyphMap> = {
-    veterinarian: "stethoscope",
-    dog_walker: "paw",
-    groomer: "content-cut",
-    pet_sitter: "heart",
-    boarding: "home",
-    unknown: "help-circle-outline",
-  };
-  return icons[type];
-};
-
 const getBusinessNameLabel = (type: CareTeamMemberType): string => {
   const labels: Record<CareTeamMemberType, string> = {
     veterinarian: "Clinic Name",
@@ -110,8 +98,9 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   loading = false,
   initialEmail,
 }) => {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
   const { top, bottom } = useSafeAreaInsets();
+  const isLight = mode === "light";
   const isEditing = !!memberInfo;
   const [currentMemberType, setCurrentMemberType] = useState<CareTeamMemberType>(memberType);
 
@@ -206,9 +195,59 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
   };
 
   const typeLabel = getTypeLabel(currentMemberType);
-  const typeIcon = getTypeIcon(currentMemberType);
   const businessLabel = getBusinessNameLabel(currentMemberType);
   const personLabel = getPersonNameLabel(currentMemberType);
+
+  const light = {
+    pageBg: theme.background,
+    title: "#111111",
+    subtitle: "#757575",
+    label: "#111111",
+    inputFill: "#EEF0F2",
+    typeSurface: "#FFFFFF",
+    backFab: "#E8EAED",
+    footerMutedBtn: "#DDE1E5",
+    pickerSurface: "#FFFFFF",
+    pickerRowSelected: "#F0F2F4",
+    pickerDivider: "#ECECEC",
+  };
+
+  const labelStyle = isLight
+    ? {
+        fontFamily: "Poppins_600SemiBold" as const,
+        fontSize: 15,
+        color: light.label,
+        marginBottom: 8,
+      }
+    : {
+        fontSize: 14,
+        fontWeight: "500" as const,
+        color: theme.secondary,
+        marginBottom: 8,
+      };
+
+  const filledInputStyle = isLight
+    ? {
+        backgroundColor: light.inputFill,
+        color: light.title,
+        borderWidth: 0,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        textAlignVertical: "center" as const,
+      }
+    : {
+        backgroundColor: theme.card,
+        color: theme.foreground,
+        borderColor: theme.primary,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        textAlignVertical: "center" as const,
+    };
 
   return (
     <Modal
@@ -221,168 +260,170 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{
-          backgroundColor: theme.background,
+          backgroundColor: isLight ? light.pageBg : theme.background,
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
       >
         {/* Header */}
-        <View
-          className="px-6 pt-4 pb-4 border-b"
-          style={{
-            backgroundColor: theme.card,
-            borderBottomColor: theme.border,
-          }}
-        >
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
-              <Text className="text-base" style={{ color: theme.primary }}>
-                Cancel
-              </Text>
+        {isLight ? (
+          <View style={{ paddingHorizontal: 24, paddingTop: top + 8, paddingBottom: 20 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={saving || deleting}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: light.backFab,
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-back" size={22} color={light.title} />
             </TouchableOpacity>
             <Text
-              className="text-lg font-semibold"
-              style={{ color: theme.foreground }}
+              style={{
+                fontFamily: "Poppins_600SemiBold",
+                fontSize: 22,
+                lineHeight: 28,
+                color: light.title,
+              }}
             >
               {isEditing ? `Edit ${typeLabel}` : "Add Care Team Member"}
             </Text>
-            <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
-              <Ionicons name="close" size={24} color={theme.foreground} />
-            </TouchableOpacity>
+            {!isEditing && (
+              <Text
+                style={{
+                  fontFamily: "Poppins_400Regular",
+                  fontSize: 14,
+                  lineHeight: 20,
+                  color: light.subtitle,
+                  marginTop: 8,
+                }}
+              >
+                Add a new contact to your care team. They will be automatically whitelisted for messaging.
+              </Text>
+            )}
           </View>
-          {!isEditing && (
-            <Text className="text-sm mt-2 text-center" style={{ color: theme.secondary }}>
-              Add a new contact to your care team. They will be automatically whitelisted for messaging.
-            </Text>
-          )}
-        </View>
+        ) : (
+          <View
+            className="px-6 pt-4 pb-4 border-b"
+            style={{
+              backgroundColor: theme.card,
+              borderBottomColor: theme.border,
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
+                <Text className="text-base" style={{ color: theme.primary }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <Text className="text-lg font-semibold" style={{ color: theme.foreground }}>
+                {isEditing ? `Edit ${typeLabel}` : "Add Care Team Member"}
+              </Text>
+              <TouchableOpacity onPress={onClose} disabled={saving || deleting}>
+                <Ionicons name="close" size={24} color={theme.foreground} />
+              </TouchableOpacity>
+            </View>
+            {!isEditing && (
+              <Text className="text-sm mt-2 text-center" style={{ color: theme.secondary }}>
+                Add a new contact to your care team. They will be automatically whitelisted for messaging.
+              </Text>
+            )}
+          </View>
+        )}
 
         <ScrollView
-          className="flex-1 px-6 pt-6"
+          className="flex-1 px-6 pt-2"
+          style={{ backgroundColor: isLight ? light.pageBg : undefined }}
+          contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-
           {/* Type Dropdown */}
-          <View className="mb-6">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Type
-            </Text>
+          <View style={{ marginBottom: 22 }}>
+            <Text style={labelStyle}>Type</Text>
             <TouchableOpacity
-              className="rounded-xl py-4 px-4 flex-row items-center justify-between"
+              className="flex-row items-center justify-between"
               style={{
-                backgroundColor: theme.card,
+                backgroundColor: isLight ? light.typeSurface : theme.card,
                 borderColor: theme.primary,
                 borderWidth: 1,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
               }}
               disabled={isEditing}
               onPress={() => setShowTypePicker(true)}
             >
-              <Text className="text-base" style={{ color: theme.foreground }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: isLight ? light.title : theme.foreground,
+                  fontFamily: isLight ? "Poppins_400Regular" : undefined,
+                }}
+              >
                 {typeLabel}
               </Text>
-              <Ionicons name="chevron-down" size={20} color={theme.secondary} />
+              <Ionicons
+                name={showTypePicker ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={isLight ? light.title : theme.secondary}
+              />
             </TouchableOpacity>
           </View>
 
           {/* Name */}
-          <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Name *
-            </Text>
+          <View style={{ marginBottom: 18 }}>
+            <Text style={labelStyle}>{personLabel} *</Text>
             <TextInput
-              className="rounded-xl py-4 px-4"
-              style={{
-                backgroundColor: theme.card,
-                color: theme.foreground,
-                borderColor: theme.primary,
-                borderWidth: 1,
-                textAlignVertical: "center",
-              }}
+              style={filledInputStyle}
               value={personName}
               onChangeText={setPersonName}
               placeholder="Dr. Jane Smith"
-              placeholderTextColor={theme.secondary}
+              placeholderTextColor={isLight ? "#9CA3AF" : theme.secondary}
             />
           </View>
 
           {/* Email */}
-          <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Email *
-            </Text>
+          <View style={{ marginBottom: 18 }}>
+            <Text style={labelStyle}>Email *</Text>
             <TextInput
-              className="rounded-xl py-4 px-4"
-              style={{
-                backgroundColor: theme.card,
-                color: theme.foreground,
-                borderColor: theme.primary,
-                borderWidth: 1,
-                textAlignVertical: "center",
-              }}
+              style={filledInputStyle}
               value={email}
               onChangeText={setEmail}
               placeholder="jane@example.com"
-              placeholderTextColor={theme.secondary}
+              placeholderTextColor={isLight ? "#9CA3AF" : theme.secondary}
               keyboardType="email-address"
               autoCapitalize="none"
             />
           </View>
 
           {/* Phone */}
-          <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Phone
-            </Text>
+          <View style={{ marginBottom: 18 }}>
+            <Text style={labelStyle}>Phone</Text>
             <TextInput
-              className="rounded-xl py-4 px-4"
-              style={{
-                backgroundColor: theme.card,
-                color: theme.foreground,
-                borderColor: theme.primary,
-                borderWidth: 1,
-                textAlignVertical: "center",
-              }}
+              style={filledInputStyle}
               value={phone}
               onChangeText={setPhone}
-              placeholder="+1 (555) 123-4567"
-              placeholderTextColor={theme.secondary}
+              placeholder={isLight ? "(000) 123-4567" : "+1 (555) 123-4567"}
+              placeholderTextColor={isLight ? "#9CA3AF" : theme.secondary}
               keyboardType="phone-pad"
             />
           </View>
 
           {/* Business Name */}
-          <View className="mb-4">
-            <Text
-              className="text-sm font-medium mb-2"
-              style={{ color: theme.secondary }}
-            >
-              Business Name
-            </Text>
+          <View style={{ marginBottom: 18 }}>
+            <Text style={labelStyle}>{businessLabel}</Text>
             <TextInput
-              className="rounded-xl py-4 px-4"
-              style={{
-                backgroundColor: theme.card,
-                color: theme.foreground,
-                borderColor: theme.primary,
-                borderWidth: 1,
-                textAlignVertical: "center",
-              }}
+              style={filledInputStyle}
               value={businessName}
               onChangeText={setBusinessName}
-              placeholder="Happy Paws Clinic"
-              placeholderTextColor={theme.secondary}
+              placeholder={isLight ? "e.g., Happy Paws Clinic" : "Happy Paws Clinic"}
+              placeholderTextColor={isLight ? "#9CA3AF" : theme.secondary}
             />
           </View>
 
@@ -420,15 +461,27 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
             className="flex-1"
             activeOpacity={1}
             onPress={() => setShowTypePicker(false)}
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+            style={{ backgroundColor: isLight ? "rgba(0, 0, 0, 0.35)" : "rgba(0, 0, 0, 0.5)" }}
           >
             <View className="flex-1 justify-center px-4">
               <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
                 <View
-                  className="rounded-2xl overflow-hidden"
-                  style={{ backgroundColor: theme.card }}
+                  className="overflow-hidden"
+                  style={
+                    isLight
+                      ? {
+                          backgroundColor: light.pickerSurface,
+                          borderRadius: 16,
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 8 },
+                          shadowOpacity: 0.12,
+                          shadowRadius: 24,
+                          elevation: 8,
+                        }
+                      : { backgroundColor: theme.card, borderRadius: 16 }
+                  }
                 >
-                  {TYPE_OPTIONS.map((option) => {
+                  {TYPE_OPTIONS.map((option, index) => {
                     const isSelected = currentMemberType === option.value;
                     return (
                       <TouchableOpacity
@@ -437,24 +490,45 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
                           setCurrentMemberType(option.value);
                           setShowTypePicker(false);
                         }}
-                        className="flex-row items-center px-6 py-4"
-                        style={{
-                          backgroundColor: isSelected ? theme.primary : "transparent",
-                        }}
+                        className="flex-row items-center justify-between"
+                        style={
+                          isLight
+                            ? {
+                                paddingHorizontal: 18,
+                                paddingVertical: 16,
+                                backgroundColor: isSelected ? light.pickerRowSelected : "transparent",
+                                borderBottomWidth: index < TYPE_OPTIONS.length - 1 ? 1 : 0,
+                                borderBottomColor: light.pickerDivider,
+                              }
+                            : {
+                                paddingHorizontal: 24,
+                                paddingVertical: 16,
+                                backgroundColor: isSelected ? theme.primary : "transparent",
+                              }
+                        }
                         activeOpacity={0.7}
                       >
-                        {isSelected && (
-                          <Ionicons name="checkmark" size={20} color="#fff" style={{ marginRight: 12 }} />
-                        )}
                         <Text
-                          className="text-base flex-1"
                           style={{
-                            color: isSelected ? "#fff" : theme.foreground,
-                            marginLeft: isSelected ? 0 : 32, // Align text when no checkmark
+                            fontSize: 16,
+                            fontFamily: isLight ? "Poppins_500Medium" : undefined,
+                            color: isLight
+                              ? light.title
+                              : isSelected
+                                ? "#fff"
+                                : theme.foreground,
+                            flex: 1,
                           }}
                         >
                           {option.label}
                         </Text>
+                        {isSelected &&
+                          (isLight ? (
+                            <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                          ) : (
+                            <Ionicons name="checkmark" size={20} color="#fff" />
+                          ))}
+                        {!isSelected && !isLight && <View style={{ width: 20 }} />}
                       </TouchableOpacity>
                     );
                   })}
@@ -466,38 +540,66 @@ export const CareTeamMemberModal: React.FC<CareTeamMemberModalProps> = ({
 
         {/* Action Buttons */}
         <View
-          className="px-6 pb-6 pt-4 border-t flex-row gap-3"
+          className="px-6 flex-row"
           style={{
-            backgroundColor: theme.card,
+            gap: 12,
+            paddingTop: 12,
+            paddingBottom: Math.max(bottom, 16) + 8,
+            backgroundColor: isLight ? light.pageBg : theme.card,
+            borderTopWidth: isLight ? 0 : 1,
             borderTopColor: theme.border,
           }}
         >
           <TouchableOpacity
             onPress={onClose}
             disabled={saving || deleting}
-            className="flex-1 py-4 rounded-xl items-center"
+            className="flex-1 items-center justify-center"
             style={{
-              backgroundColor: "transparent",
+              paddingVertical: 14,
+              borderRadius: 100,
+              backgroundColor: isLight ? "#FFFFFF" : "transparent",
               borderWidth: 1,
-              borderColor: theme.border,
+              borderColor: isLight ? "#D8DCDE" : theme.border,
             }}
           >
-            <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontFamily: isLight ? "Poppins_600SemiBold" : undefined,
+                fontWeight: isLight ? undefined : "600",
+                color: isLight ? light.title : theme.foreground,
+              }}
+            >
               Cancel
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving || deleting}
-            className="flex-1 py-4 rounded-xl items-center"
+            className="flex-1 items-center justify-center"
             style={{
-              backgroundColor: saving || deleting ? theme.border : theme.primary,
+              paddingVertical: 14,
+              borderRadius: 100,
+              backgroundColor: isLight
+                ? saving || deleting
+                  ? "#C8CCD1"
+                  : light.footerMutedBtn
+                : saving || deleting
+                  ? theme.border
+                  : theme.primary,
             }}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={isLight ? light.title : "#fff"} />
             ) : (
-              <Text className="text-base font-semibold" style={{ color: "#fff" }}>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontFamily: isLight ? "Poppins_600SemiBold" : undefined,
+                  fontWeight: isLight ? undefined : "600",
+                  color: isLight ? light.title : "#fff",
+                }}
+              >
                 {isEditing ? "Save" : "Add Contact"}
               </Text>
             )}

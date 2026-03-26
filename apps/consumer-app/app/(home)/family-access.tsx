@@ -1,4 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import { CareTeamEmptyStateCard } from "@/components/home/CareTeamEmptyStateCard";
+import { CareTeamMemberContactCard } from "@/components/home/CareTeamMemberContactCard";
 import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
@@ -33,21 +35,21 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import * as Clipboard from "expo-clipboard";
-import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  // HIDDEN: Family Access - Uncomment Modal to re-enable
-  // Modal,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 // HIDDEN: Family Access imports - Uncomment to re-enable
 // import QRCode from "react-native-qrcode-svg";
 
@@ -76,8 +78,21 @@ const getTypeIcon = (type: CareTeamMemberType | null): keyof typeof MaterialComm
 //     .substring(0, 2);
 // };
 
+/** Light theme — Care Team screen (final Figma ref) */
+const CARE_TEAM_LIGHT = {
+  pageBg: "#F5F7F8",
+  cardBg: "#FFFFFF",
+  title: "#111111",
+  muted: "#757575",
+  iconWell: "#E0E0E0",
+  border: "#E4E7E7",
+  /** Ghost pills: white fill, thin black border */
+  ghostBorder: "#111111",
+} as const;
+
 export default function FamilyAccess() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   // HIDDEN: Family Access - Uncomment to re-enable
@@ -94,6 +109,7 @@ export default function FamilyAccess() {
   const [isAddingSafeSender, setIsAddingSafeSender] = useState(false);
   const [editingSafeSenderId, setEditingSafeSenderId] = useState<number | null>(null);
   const [editingSafeSenderEmail, setEditingSafeSenderEmail] = useState("");
+  const [careTeamAddedSuccessVisible, setCareTeamAddedSuccessVisible] = useState(false);
 
   // Fetch care team members
   const { data: careTeamMembers = [], isLoading: loadingCareTeam } = useQuery<VetInformation[]>({
@@ -181,31 +197,6 @@ export default function FamilyAccess() {
   //   );
   // };
 
-  // Handle care team member actions
-  const handleCall = async (phone?: string) => {
-    if (!phone) return;
-    const phoneUrl = `tel:${phone}`;
-    try {
-      const canOpen = await Linking.canOpenURL(phoneUrl);
-      if (canOpen) {
-        await Linking.openURL(phoneUrl);
-      } else {
-        Alert.alert("Phone", `Phone: ${phone}`);
-      }
-    } catch (error) {
-      Alert.alert("Phone", `Phone: ${phone}`);
-    }
-  };
-
-  const handleEmail = async (email?: string) => {
-    if (!email) return;
-    // Navigate to messages screen with pre-filled email
-    router.push({
-      pathname: "/(home)/messages",
-      params: { email },
-    });
-  };
-
   const handleEditCareTeamMember = (member: VetInformation) => {
     setSelectedMember(member);
     setSelectedMemberType(
@@ -246,12 +237,13 @@ export default function FamilyAccess() {
     }
 
     const { memberData } = data;
+    const isEdit = !!selectedMember;
 
     try {
       let linkedPetIds: string[] = [];
-      if (selectedMember) {
+      if (isEdit) {
         // Editing existing member - update the member data
-        await updateVetInformation(selectedMember.id, memberData);
+        await updateVetInformation(selectedMember!.id, memberData);
         Alert.alert("Success", "Care team member updated successfully");
       } else {
         // Creating new member - use deduplication logic
@@ -274,12 +266,11 @@ export default function FamilyAccess() {
 
         // Link the care team member to all user pets
         linkedPetIds = await linkCareTeamMemberToAllUserPets(careTeamMemberId);
-        Alert.alert("Success", "Care team member added successfully");
       }
 
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ["all_care_team_members"] });
-      if (!selectedMember) {
+      if (!isEdit) {
         linkedPetIds.forEach((petId) => {
           queryClient.invalidateQueries({ queryKey: ["care_team_members", petId] });
         });
@@ -292,6 +283,9 @@ export default function FamilyAccess() {
 
       setShowAddMemberModal(false);
       setSelectedMember(null);
+      if (!isEdit) {
+        setCareTeamAddedSuccessVisible(true);
+      }
     } catch (error) {
       console.error("Error saving care team member:", error);
       Alert.alert(
@@ -405,289 +399,470 @@ export default function FamilyAccess() {
   // Count unique care team members (contacts that can communicate)
   const uniqueCareTeamCount = new Set(careTeamMembers.map((m) => m.email)).size;
 
+  const ui = isDarkMode
+    ? {
+        pageBg: theme.background,
+        cardBg: theme.card,
+        cardRadius: 20,
+        cardPad: 18,
+        title: theme.foreground,
+        muted: theme.secondary,
+        iconWell: "#374151",
+        iconFg: theme.primary,
+        ghostBorder: theme.border,
+        ghostText: theme.foreground,
+        inputBorder: theme.border,
+        inputBg: theme.card,
+        backFab: theme.card,
+        cardShadow: {},
+      }
+    : {
+        pageBg: CARE_TEAM_LIGHT.pageBg,
+        cardBg: CARE_TEAM_LIGHT.cardBg,
+        cardRadius: 24,
+        cardPad: 20,
+        title: CARE_TEAM_LIGHT.title,
+        muted: CARE_TEAM_LIGHT.muted,
+        iconWell: CARE_TEAM_LIGHT.iconWell,
+        iconFg: CARE_TEAM_LIGHT.title,
+        ghostBorder: CARE_TEAM_LIGHT.ghostBorder,
+        ghostText: CARE_TEAM_LIGHT.title,
+        inputBorder: CARE_TEAM_LIGHT.border,
+        inputBg: "#FAFAFA",
+        backFab: "#FFFFFF",
+        cardShadow: {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 10,
+          elevation: 3,
+        },
+      };
+
+  const showSafeSenderInput =
+    !!firstPetId &&
+    (isAddingSafeSender || (!isDarkMode && safeSenderEmails.length === 0 && !loadingSafeSenders));
+
+  const onSafeSenderCancel = () => {
+    if (!isDarkMode && safeSenderEmails.length === 0) {
+      setNewSafeSenderEmail("");
+      return;
+    }
+    cancelAddingSafeSender();
+  };
+
+  const ghostButtonStyle = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    alignSelf: "flex-start" as const,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    backgroundColor:
+      !isDarkMode && ui.ghostText === CARE_TEAM_LIGHT.title ? "#FFFFFF" : "transparent",
+    borderWidth: 1,
+    borderColor: ui.ghostBorder,
+  };
+
+  /** Same shell as `CareTeamMemberContactCard` / `CareTeamEmptyStateCard` */
+  const careTeamTileBorder =
+    Platform.OS === "android"
+      ? {}
+      : {
+          borderWidth: 1,
+          borderColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+        };
+  const safeSendersCardStyle = {
+    backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 16,
+    overflow: "hidden" as const,
+    ...careTeamTileBorder,
+  };
+
   // HIDDEN: Family Access helper - Uncomment to re-enable
   // const isOwner = (member: HouseholdMember) => member.household_owner_id === user?.id;
 
   return (
-      <View className="flex-1" style={{ backgroundColor: theme.background }}>
-        {/* Header */}
-        <View className="px-6 pt-14 pb-4">
-          <View className="flex-row items-center mb-4">
-            <Pressable
-              onPress={() => router.back()}
-              className="mr-4 active:opacity-70"
-            >
-              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
-            </Pressable>
-            <Text className="text-3xl font-bold flex-1" style={{ color: theme.foreground }}>
-              Care Team
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView
-          className="flex-1 px-6"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
+    <View className="flex-1" style={{ backgroundColor: ui.pageBg }}>
+      {/* Header — centered title, circular back (light ref) */}
+      <View
+        style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: 16,
+          paddingHorizontal: 20,
+          position: "relative",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={[
+            {
+              position: "absolute",
+              left: 20,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: ui.backFab,
+              borderWidth: isDarkMode ? 0 : 1,
+              borderColor: isDarkMode ? "transparent" : "#E8E8E8",
+            },
+            !isDarkMode && {
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.08,
+              shadowRadius: 4,
+              elevation: 2,
+            },
+          ]}
         >
-          {/* My Care Team Section */}
-          <View className="mb-8">
-            {/* Section Header */}
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center flex-1">
-                <MaterialCommunityIcons name="account-group" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
-                <View className="flex-1">
-                  <Text className="text-xl font-bold" style={{ color: theme.foreground }}>
-                    My Care Team
-                  </Text>
-                  <Text className="text-sm" style={{ color: theme.secondary }}>
-                    {uniqueCareTeamCount} contacts can communicate
-                  </Text>
-                </View>
-              </View>
-              <Pressable
-                onPress={() => {
-                  setSelectedMember(null);
-                  setSelectedMemberType("veterinarian");
-                  setShowAddMemberModal(true);
+          <Ionicons name="chevron-back" size={22} color={ui.title} />
+        </Pressable>
+        <Text
+          style={{
+            fontFamily: "Poppins_600SemiBold",
+            fontSize: 18,
+            color: ui.title,
+          }}
+        >
+          Care Team
+        </Text>
+      </View>
+
+      <ScrollView
+        className="flex-1 px-5"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* My Care Team — empty: same tile as Dashboard; with members: compact summary */}
+        {careTeamMembers.length > 0 ? (
+          <View
+            style={[
+              {
+                backgroundColor: ui.cardBg,
+                borderRadius: ui.cardRadius,
+                padding: ui.cardPad,
+                marginBottom: 16,
+              },
+              ui.cardShadow,
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: ui.iconWell,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 12,
                 }}
-                className="px-4 py-2 rounded-lg active:opacity-70"
-                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
               >
-                <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
-                  + Add
+                <MaterialCommunityIcons name="account-group" size={22} color={ui.iconFg} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={{
+                    fontFamily: "Poppins_600SemiBold",
+                    fontSize: 18,
+                    color: ui.title,
+                  }}
+                >
+                  My Care Team
                 </Text>
-              </Pressable>
+                <Text
+                  style={{
+                    fontFamily: "Poppins_400Regular",
+                    fontSize: 13,
+                    color: ui.muted,
+                    marginTop: 4,
+                  }}
+                >
+                  {uniqueCareTeamCount} contacts can communicate
+                </Text>
+              </View>
             </View>
 
-            {/* Care Team Members List */}
-            {loadingCareTeam ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : careTeamMembers.length === 0 ? (
-              <Text className="text-base" style={{ color: theme.secondary }}>
-                No care team members yet.
-              </Text>
+            <Pressable
+              onPress={() => {
+                setSelectedMember(null);
+                setSelectedMemberType("veterinarian");
+                setShowAddMemberModal(true);
+              }}
+              style={ghostButtonStyle}
+            >
+              <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 15, color: ui.ghostText }}>+ Add Team</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <CareTeamEmptyStateCard
+            contactCount={uniqueCareTeamCount}
+            loading={loadingCareTeam}
+            onAddTeamPress={() => {
+              setSelectedMember(null);
+              setSelectedMemberType("veterinarian");
+              setShowAddMemberModal(true);
+            }}
+            containerStyle={{ marginBottom: 16 }}
+          />
+        )}
+
+        {/* Safe Senders */}
+        {firstPetId && (
+          <View style={safeSendersCardStyle}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "#EDEDEE",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="email-check-outline"
+                  size={22}
+                  color={isDarkMode ? "#FFFFFF" : "#1D2433"}
+                />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Safe Senders</Text>
+                <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
+                  {safeSenderEmails.length} contacts can communicate
+                </Text>
+              </View>
+            </View>
+
+            {loadingSafeSenders ? (
+              <ActivityIndicator size="small" color={theme.primary} style={{ marginVertical: 12 }} />
             ) : (
-              careTeamMembers.map((member) => (
-                <Pressable
-                  key={member.id}
-                  onPress={() => handleEditCareTeamMember(member)}
-                  className="rounded-2xl p-4 mb-3 flex-row items-center active:opacity-80"
-                  style={{ backgroundColor: theme.card }}
-                >
-                  {/* Icon */}
-                  <View
-                    className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                    style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+              <>
+                {safeSenderEmails.length === 0 && (
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 20,
+                      color: isDarkMode ? "rgba(255,255,255,0.6)" : "#5A5F6A",
+                      marginBottom: 16,
+                    }}
                   >
-                    <MaterialCommunityIcons
-                      name={getTypeIcon((member as any).type as CareTeamMemberType)}
-                      size={24}
-                      color={theme.primary}
-                    />
-                  </View>
+                    You haven't added any trusted senders yet. Add one to get started.
+                  </Text>
+                )}
 
-                  {/* Member Info */}
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
-                      {member.vet_name}
-                    </Text>
-                    <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
-                      {member.clinic_name}
-                    </Text>
-                    <Text className="text-sm" style={{ color: theme.secondary }}>
-                      {member.email}
-                    </Text>
+                {safeSenderEmails.length > 0 && (
+                  <View style={{ gap: 10, marginBottom: 12 }}>
+                    {safeSenderEmails.map((emailItem) => (
+                      <View
+                        key={emailItem.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          padding: 14,
+                          borderRadius: 16,
+                          backgroundColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <Ionicons name="mail-outline" size={20} color={theme.primary} style={{ marginRight: 12 }} />
+                        {editingSafeSenderId === emailItem.id ? (
+                          <>
+                            <TextInput
+                              style={{ flex: 1, fontSize: 16, color: theme.foreground }}
+                              value={editingSafeSenderEmail}
+                              onChangeText={setEditingSafeSenderEmail}
+                              keyboardType="email-address"
+                              autoCapitalize="none"
+                              autoCorrect={false}
+                              autoFocus
+                            />
+                            <TouchableOpacity onPress={handleUpdateSafeSender} disabled={isSafeSenderUpdating}>
+                              {isSafeSenderUpdating ? (
+                                <ActivityIndicator size="small" color={theme.primary} />
+                              ) : (
+                                <Ionicons name="checkmark" size={24} color={theme.primary} />
+                              )}
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={cancelEditingSafeSender} disabled={isSafeSenderUpdating}>
+                              <Ionicons name="close" size={24} color={theme.secondary} />
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={{ flex: 1, fontSize: 16, color: theme.foreground }}>{emailItem.email_id}</Text>
+                            <Pressable onPress={() => startEditingSafeSender(emailItem.id, emailItem.email_id)}>
+                              <Ionicons name="pencil-outline" size={20} color={theme.secondary} />
+                            </Pressable>
+                            <Pressable onPress={() => deleteWhitelistedEmail(emailItem.id)} style={{ marginLeft: 12 }}>
+                              <Ionicons name="trash-outline" size={20} color={theme.secondary} />
+                            </Pressable>
+                          </>
+                        )}
+                      </View>
+                    ))}
                   </View>
+                )}
 
-                  {/* Action Buttons */}
-                  <View className="flex-row items-center gap-3">
-                    {member.phone && (
-                      <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleCall(member.phone);
-                        }}
-                        className="active:opacity-70"
-                      >
-                        <Ionicons name="call-outline" size={20} color={theme.primary} />
-                      </Pressable>
-                    )}
-                    {member.email && (
-                      <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleEmail(member.email);
-                        }}
-                        className="active:opacity-70"
-                      >
-                        <Ionicons name="mail-outline" size={20} color={theme.primary} />
-                      </Pressable>
-                    )}
-                    <Pressable
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleRemoveCareTeamMember(member.id);
+                {showSafeSenderInput && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: isDarkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+                      borderRadius: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                      marginBottom: 16,
+                      marginTop: safeSenderEmails.length > 0 ? 4 : 0,
+                    }}
+                  >
+                    <TextInput
+                      style={{
+                        flex: 1,
+                        fontSize: 16,
+                        color: theme.foreground,
+                        paddingVertical: 4,
                       }}
-                      className="active:opacity-70"
+                      value={newSafeSenderEmail}
+                      onChangeText={setNewSafeSenderEmail}
+                      placeholder={isDarkMode ? "Enter email address" : "jane@example.com"}
+                      placeholderTextColor={theme.secondary}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoFocus={isAddingSafeSender}
+                    />
+                    <TouchableOpacity
+                      onPress={handleAddSafeSender}
+                      disabled={isSafeSenderAdding}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginLeft: 8,
+                      }}
                     >
-                      <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                    </Pressable>
+                      {isSafeSenderAdding ? (
+                        <ActivityIndicator size="small" color={theme.primary} />
+                      ) : (
+                        <Ionicons name="checkmark-circle" size={28} color={theme.primary} />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={onSafeSenderCancel}
+                      disabled={isSafeSenderAdding}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginLeft: 4,
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={28} color={theme.secondary} />
+                    </TouchableOpacity>
                   </View>
-                </Pressable>
-              ))
+                )}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (newSafeSenderEmail.trim()) {
+                      handleAddSafeSender();
+                    } else {
+                      setIsAddingSafeSender(true);
+                    }
+                  }}
+                  disabled={isSafeSenderPending}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderRadius: 100,
+                    borderWidth: 1,
+                    borderColor: isDarkMode ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)",
+                    backgroundColor: "transparent",
+                    gap: 8,
+                    marginTop: 4,
+                    opacity: isSafeSenderPending ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons name="add" size={18} color={theme.foreground} />
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>Add Senders</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
+        )}
 
-          {/* Safe Senders Section */}
-          {firstPetId && (
-            <View className="mb-8">
-              {/* Section Header */}
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center flex-1">
-                  <MaterialCommunityIcons name="email-check-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
-                  <View className="flex-1">
-                    <Text className="text-xl font-bold" style={{ color: theme.foreground }}>
-                      Safe Senders
-                    </Text>
-                    <Text className="text-sm" style={{ color: theme.secondary }}>
-                      {safeSenderEmails.length} contacts can communicate
-                    </Text>
-                  </View>
-                </View>
-                <Pressable
-                  onPress={() => setIsAddingSafeSender(true)}
-                  disabled={isSafeSenderPending || isAddingSafeSender}
-                  className="px-4 py-2 rounded-lg active:opacity-70"
-                  style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
-                >
-                  <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
-                    + Add
-                  </Text>
-                </Pressable>
-              </View>
-
-              {isAddingSafeSender && (
-                <View
-                  className="flex-row items-center rounded-2xl p-4 mb-3"
-                  style={{ backgroundColor: theme.card }}
-                >
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={theme.secondary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <TextInput
-                    className="flex-1"
-                    style={{ color: theme.foreground }}
-                    value={newSafeSenderEmail}
-                    onChangeText={setNewSafeSenderEmail}
-                    placeholder="Enter email address"
-                    placeholderTextColor={theme.secondary}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoFocus
-                  />
-                  <TouchableOpacity
-                    onPress={handleAddSafeSender}
-                    disabled={isSafeSenderAdding}
-                    style={{ marginLeft: 8 }}
-                  >
-                    {isSafeSenderAdding ? (
-                      <ActivityIndicator size="small" color={theme.primary} />
-                    ) : (
-                      <Ionicons name="checkmark" size={24} color={theme.primary} />
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={cancelAddingSafeSender}
-                    disabled={isSafeSenderAdding}
-                    style={{ marginLeft: 8 }}
-                  >
-                    <Ionicons name="close" size={24} color={theme.secondary} />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {loadingSafeSenders ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : safeSenderEmails.length === 0 ? (
-                <Text className="text-base" style={{ color: theme.secondary }}>
-                  No safe senders yet.
-                </Text>
-              ) : (
-                safeSenderEmails.map((emailItem) => (
-                  <View
-                    key={emailItem.id}
-                    className="rounded-2xl p-4 mb-3 flex-row items-center"
-                    style={{ backgroundColor: theme.card }}
-                  >
-                    <Ionicons
-                      name="mail-outline"
-                      size={20}
-                      color={theme.primary}
-                      style={{ marginRight: 12 }}
-                    />
-                    {editingSafeSenderId === emailItem.id ? (
-                      <>
-                        <TextInput
-                          className="flex-1"
-                          style={{ color: theme.foreground }}
-                          value={editingSafeSenderEmail}
-                          onChangeText={setEditingSafeSenderEmail}
-                          keyboardType="email-address"
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          autoFocus
-                        />
-                        <TouchableOpacity
-                          onPress={handleUpdateSafeSender}
-                          disabled={isSafeSenderUpdating}
-                          style={{ marginLeft: 8 }}
-                        >
-                          {isSafeSenderUpdating ? (
-                            <ActivityIndicator size="small" color={theme.primary} />
-                          ) : (
-                            <Ionicons name="checkmark" size={24} color={theme.primary} />
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={cancelEditingSafeSender}
-                          disabled={isSafeSenderUpdating}
-                          style={{ marginLeft: 8 }}
-                        >
-                          <Ionicons name="close" size={24} color={theme.secondary} />
-                        </TouchableOpacity>
-                      </>
-                    ) : (
-                      <>
-                        <Text className="flex-1" style={{ color: theme.foreground }}>
-                          {emailItem.email_id}
-                        </Text>
-                        <Pressable
-                          onPress={() => startEditingSafeSender(emailItem.id, emailItem.email_id)}
-                          disabled={isSafeSenderPending}
-                          className="active:opacity-70"
-                        >
-                          <Ionicons name="pencil-outline" size={20} color={theme.secondary} />
-                        </Pressable>
-                        <Pressable
-                          onPress={() => deleteWhitelistedEmail(emailItem.id)}
-                          disabled={isSafeSenderPending}
-                          className="active:opacity-70"
-                          style={{ marginLeft: 12 }}
-                        >
-                          <Ionicons name="trash-outline" size={20} color={theme.secondary} />
-                        </Pressable>
-                      </>
-                    )}
-                  </View>
-                ))
-              )}
-            </View>
-          )}
+        {/* My Care Team — same member tiles as Dashboard `MyCareTeamSection` */}
+        {!loadingCareTeam && careTeamMembers.length > 0 && (
+          <>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "500",
+                color: isDarkMode ? "#FFFFFF" : "#0D0F0F",
+                lineHeight: 21.6,
+                textTransform: "capitalize",
+                marginBottom: 14,
+                marginTop: 4,
+              }}
+            >
+              My Care Team
+            </Text>
+            {careTeamMembers.map((member) => (
+              <CareTeamMemberContactCard
+                key={member.id}
+                member={member}
+                onPressCard={() => handleEditCareTeamMember(member)}
+                headerAccessory={
+                  isDarkMode ? (
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert(
+                          member.vet_name || "Care team member",
+                          undefined,
+                          [
+                            {
+                              text: "Edit",
+                              onPress: () => handleEditCareTeamMember(member),
+                            },
+                            {
+                              text: "Remove",
+                              style: "destructive",
+                              onPress: () => handleRemoveCareTeamMember(member.id),
+                            },
+                            { text: "Cancel", style: "cancel" },
+                          ]
+                        );
+                      }}
+                      hitSlop={10}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons name="ellipsis-vertical" size={20} color={theme.secondary} />
+                    </Pressable>
+                  ) : undefined
+                }
+              />
+            ))}
+          </>
+        )}
 
           {/* HIDDEN: Family Access Section - Uncomment to re-enable */}
           {/* <View className="mb-8">
@@ -911,6 +1086,101 @@ export default function FamilyAccess() {
             petId={pets[0].id} // Required prop, but we'll link to all pets when adding
           />
         )}
+
+        {/* Care team added — success dialog (Figma) */}
+        <Modal
+          visible={careTeamAddedSuccessVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCareTeamAddedSuccessVisible(false)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 28,
+            }}
+          >
+            <View
+              style={{
+                width: "100%",
+                maxWidth: 340,
+                backgroundColor: isDarkMode ? theme.card : "#FFFFFF",
+                borderRadius: 20,
+                paddingHorizontal: 24,
+                paddingTop: 28,
+                paddingBottom: 20,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.12,
+                shadowRadius: 24,
+                elevation: 8,
+              }}
+            >
+              <View style={{ alignItems: "center", marginBottom: 20 }}>
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: isDarkMode ? "rgba(46, 125, 50, 0.25)" : "#E8F5E9",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="checkmark-circle" size={36} color={isDarkMode ? "#81C784" : "#2E7D32"} />
+                </View>
+              </View>
+              <Text
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 20,
+                  color: isDarkMode ? theme.foreground : "#111111",
+                  textAlign: "center",
+                  marginBottom: 10,
+                }}
+              >
+                Care Team Added
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Poppins_400Regular",
+                  fontSize: 15,
+                  lineHeight: 22,
+                  color: isDarkMode ? theme.secondary : "#757575",
+                  textAlign: "center",
+                  marginBottom: 24,
+                }}
+              >
+                Care team member added to your pet's profile successfully.
+              </Text>
+              <Pressable
+                onPress={() => setCareTeamAddedSuccessVisible(false)}
+                style={({ pressed }) => ({
+                  width: "100%",
+                  paddingVertical: 14,
+                  borderRadius: 100,
+                  backgroundColor: isDarkMode ? theme.border : "#DDE1E5",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: pressed ? 0.9 : 1,
+                })}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Poppins_600SemiBold",
+                    fontSize: 16,
+                    color: isDarkMode ? theme.foreground : "#111111",
+                  }}
+                >
+                  OK
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
 
         {/* Bottom Navigation */}
         <BottomNavBar activeTab="profile" />

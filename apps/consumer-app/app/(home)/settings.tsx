@@ -1,5 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
-import ContactModal from "@/components/contact/ContactModal";
+import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboardingModal";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
@@ -27,8 +27,9 @@ export default function Settings() {
   const { theme, mode, toggleTheme } = useTheme();
   const { signOut, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showContactModal, setShowContactModal] = useState(false);
   const [showPetPassportOnboarding, setShowPetPassportOnboarding] = useState(false);
+  const [showLogOutModal, setShowLogOutModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Check if pet passport onboarding should be shown
   useEffect(() => {
@@ -165,26 +166,23 @@ export default function Settings() {
     }
   };
 
-  const handleSignOut = async () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut();
-            router.replace("/");
-          } catch (error: any) {
-            console.error("Error signing out:", error);
-            Alert.alert("Error", error.message || "Failed to log out");
-          }
-        },
-      },
-    ]);
+  const handleSignOutPress = () => {
+    setShowLogOutModal(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      setShowLogOutModal(false);
+      router.replace("/");
+    } catch (error: unknown) {
+      console.error("Error signing out:", error);
+      const message = error instanceof Error ? error.message : "Failed to log out";
+      Alert.alert("Error", message);
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const SettingsOption = ({
@@ -335,7 +333,7 @@ export default function Settings() {
             subtitle="Get help and support"
             iconColor="#60A5FA"
             onPress={() => {
-              setShowContactModal(true);
+              router.push("/(home)/contact");
             }}
           />
 
@@ -394,7 +392,7 @@ export default function Settings() {
 
         {/* Log Out Button */}
         <Pressable
-          onPress={handleSignOut}
+          onPress={handleSignOutPress}
           className="flex-row items-center justify-center py-4 px-6 rounded-2xl active:opacity-80"
           style={{
             backgroundColor: "transparent",
@@ -454,10 +452,13 @@ export default function Settings() {
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="profile" />
 
-      {/* Contact Modal */}
-      <ContactModal
-        visible={showContactModal}
-        onClose={() => setShowContactModal(false)}
+      <LogOutConfirmModal
+        visible={showLogOutModal}
+        onClose={() => {
+          if (!isSigningOut) setShowLogOutModal(false);
+        }}
+        onConfirm={handleConfirmSignOut}
+        isSigningOut={isSigningOut}
       />
 
       {/* Pet Passport Onboarding Modal */}
