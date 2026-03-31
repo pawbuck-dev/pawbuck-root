@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
+import { getMiloChatTokens, getBackdropGradientProps } from "./miloUiTokens";
 
 /** Figma Milo chat — suggested prompt chips (icon + label). */
 const SUGGESTED_PROMPTS: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string }[] = [
@@ -96,62 +97,109 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
 
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
-/** Figma 1386:45325 / Milo.svg */
-const MILO_SCREEN_BG = "#F2F7F7";
-const MILO_COMPOSER_BORDER = "#E4E7E7";
-const MILO_PLACEHOLDER = "#A2A9A9";
-const MILO_ICON_WELL = "#F4F5F5";
-/** Figma body / chips — explicit so Text never inherits low-contrast colors inside nested flex. */
-const MILO_TEXT_PRIMARY_LIGHT = "#0D0F0F";
-
 /** Light-mode backdrop: soft teal blooms + cool mint wash (matches exported SVG). */
-const MiloFigmaLightBackdrop: React.FC = () => (
-  <View style={StyleSheet.absoluteFill} pointerEvents="none">
-    <LinearGradient
-      style={StyleSheet.absoluteFill}
-      colors={["#CBFCF5", "#E8F5F4", MILO_SCREEN_BG]}
-      locations={[0, 0.28, 1]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-    />
-    <View
-      style={{
-        position: "absolute",
-        top: -200,
-        alignSelf: "center",
-        width: 440,
-        height: 440,
-        borderRadius: 220,
-        backgroundColor: "#5CECE2",
-        opacity: 0.2,
-      }}
-    />
-    <View
-      style={{
-        position: "absolute",
-        top: -240,
-        alignSelf: "center",
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: "#12BAB7",
-        opacity: 0.14,
-      }}
-    />
-    <View
-      style={{
-        position: "absolute",
-        top: -120,
-        alignSelf: "center",
-        width: 320,
-        height: 320,
-        borderRadius: 160,
-        backgroundColor: "#1ECBFF",
-        opacity: 0.08,
-      }}
-    />
-  </View>
-);
+const MiloFigmaLightBackdrop: React.FC = () => {
+  const gradientProps = getBackdropGradientProps("light");
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        style={StyleSheet.absoluteFill}
+        colors={gradientProps.colors}
+        locations={gradientProps.locations}
+        start={gradientProps.start}
+        end={gradientProps.end}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -200,
+          alignSelf: "center",
+          width: 440,
+          height: 440,
+          borderRadius: 220,
+          backgroundColor: "#5CECE2",
+          opacity: 0.2,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -240,
+          alignSelf: "center",
+          width: 400,
+          height: 400,
+          borderRadius: 200,
+          backgroundColor: "#12BAB7",
+          opacity: 0.14,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -120,
+          alignSelf: "center",
+          width: 320,
+          height: 320,
+          borderRadius: 160,
+          backgroundColor: "#1ECBFF",
+          opacity: 0.08,
+        }}
+      />
+    </View>
+  );
+};
+
+/** Dark-mode backdrop: subtle cyan/teal blooms over dark base. */
+const MiloDarkBackdrop: React.FC = () => {
+  const gradientProps = getBackdropGradientProps("dark");
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        style={StyleSheet.absoluteFill}
+        colors={gradientProps.colors}
+        locations={gradientProps.locations}
+        start={gradientProps.start}
+        end={gradientProps.end}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -200,
+          alignSelf: "center",
+          width: 440,
+          height: 440,
+          borderRadius: 220,
+          backgroundColor: "#5FC4C0",
+          opacity: 0.1,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -240,
+          alignSelf: "center",
+          width: 400,
+          height: 400,
+          borderRadius: 200,
+          backgroundColor: "#2BA89E",
+          opacity: 0.08,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -120,
+          alignSelf: "center",
+          width: 320,
+          height: 320,
+          borderRadius: 160,
+          backgroundColor: "#3BD0D2",
+          opacity: 0.06,
+        }}
+      />
+    </View>
+  );
+};
 
 /** Generating state: black outer circle, white ring, black center dot (record/target icon) */
 const GeneratingIcon: React.FC = () => (
@@ -257,10 +305,11 @@ export const MiloChatModal: React.FC = () => {
   };
 
   const renderEmptyState = () => {
-    const cardBg = mode === "dark" ? theme.card : "#FFFFFF";
-    const chipBg = mode === "dark" ? theme.background : "#F8FAFA";
-    const chipBorder = mode === "dark" ? "rgba(255,255,255,0.12)" : "#E5E7EB";
-    const bodyText = mode === "dark" ? theme.foreground : MILO_TEXT_PRIMARY_LIGHT;
+    const tokens = getMiloChatTokens(theme, mode === "dark");
+    const cardBg = mode === "dark" ? theme.card : tokens.messageAiBg;
+    const chipBg = tokens.chipBg;
+    const chipBorder = tokens.chipBorder;
+    const bodyText = tokens.textPrimary;
 
     return (
       <View
@@ -388,8 +437,9 @@ export const MiloChatModal: React.FC = () => {
     );
   };
 
-  /** Figma node 1386:45325 — Milo.svg base #F2F7F7 + teal header glow (light only). */
-  const miloBg = mode === "dark" ? theme.background : MILO_SCREEN_BG;
+  /** Figma node 1386:45325 — Milo.svg base + teal glow backdrop. */
+  const tokens = getMiloChatTokens(theme, mode === "dark");
+  const miloBg = tokens.screenBg;
 
   return (
     <Modal
@@ -407,7 +457,7 @@ export const MiloChatModal: React.FC = () => {
           overflow: "hidden",
         }}
       >
-        {mode === "light" ? <MiloFigmaLightBackdrop /> : null}
+        {mode === "light" ? <MiloFigmaLightBackdrop /> : <MiloDarkBackdrop />}
         {/* Header: back | New Chat | menu — Figma layout */}
         <View
           style={{
@@ -526,10 +576,10 @@ export const MiloChatModal: React.FC = () => {
         >
           <View
             style={{
-              backgroundColor: mode === "dark" ? theme.card : "#FFFFFF",
+              backgroundColor: tokens.composerBg,
               borderRadius: 28,
               borderWidth: 1,
-              borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : MILO_COMPOSER_BORDER,
+              borderColor: tokens.composerBorder,
               paddingHorizontal: 14,
               paddingVertical: 14,
               ...(mode === "light" && {
@@ -547,7 +597,7 @@ export const MiloChatModal: React.FC = () => {
                   style={{
                     flex: 1,
                     fontSize: 15,
-                    color: mode === "dark" ? theme.secondary : MILO_PLACEHOLDER,
+                    color: tokens.placeholder,
                   }}
                 >
                   Generating...
@@ -562,19 +612,19 @@ export const MiloChatModal: React.FC = () => {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: mode === "dark" ? theme.background : MILO_ICON_WELL,
+                    backgroundColor: tokens.iconWell,
                     alignItems: "center",
                     justifyContent: "center",
                     marginRight: 10,
                   }}
                 >
-                  <Ionicons name="add" size={22} color="#0D0F0F" />
+                  <Ionicons name="add" size={22} color={tokens.textPrimary} />
                 </TouchableOpacity>
                 <TextInput
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder="Ask Milo anything..."
-                  placeholderTextColor={mode === "dark" ? theme.secondary : MILO_PLACEHOLDER}
+                  placeholderTextColor={tokens.placeholder}
                   style={{
                     flex: 1,
                     fontSize: 15,
@@ -595,7 +645,7 @@ export const MiloChatModal: React.FC = () => {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: mode === "dark" ? theme.background : MILO_ICON_WELL,
+                    backgroundColor: tokens.iconWell,
                     alignItems: "center",
                     justifyContent: "center",
                     marginRight: 8,
