@@ -309,7 +309,6 @@ export const MiloChatModal: React.FC = () => {
 
   const renderEmptyState = () => {
     const tokens = getMiloChatTokens(theme, mode === "dark");
-    const cardBg = mode === "dark" ? theme.card : tokens.messageAiBg;
     const chipBg = tokens.chipBg;
     const chipBorder = tokens.chipBorder;
     const bodyText = tokens.textPrimary;
@@ -325,7 +324,7 @@ export const MiloChatModal: React.FC = () => {
       >
         <View
           style={{
-            backgroundColor: cardBg,
+            backgroundColor: mode === "dark" ? "transparent" : tokens.messageAiBg,
             borderRadius: 24,
             paddingHorizontal: 20,
             paddingTop: 36,
