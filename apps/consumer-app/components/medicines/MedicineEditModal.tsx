@@ -23,7 +23,7 @@ export const MedicineEditModal: React.FC<MedicineEditModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
       <MedicineForm

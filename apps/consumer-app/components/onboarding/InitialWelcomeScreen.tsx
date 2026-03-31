@@ -16,29 +16,25 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const DARK_BG = "#1B2D2F";
-const LIGHT_BG = "#F2F8F8";
-
 export default function InitialWelcomeScreen() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const isDark = mode === "dark";
-  const bg = isDark ? DARK_BG : LIGHT_BG;
-  const accent = isDark ? "#5FC4C0" : "#2BA89E";
-  const textPrimary = isDark ? "#FFFFFF" : "#1D2433";
 
   return (
     <View style={styles.root}>
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bg }]} />
+      <View
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.background }]}
+      />
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Top-left: PawBuck + Pet Life. Simplified. */}
       <View style={[styles.header, { paddingTop: insets.top + 16, paddingLeft: 24, paddingRight: 24 }]}>
-        <Text style={[styles.brand, { color: textPrimary }]}>PawBuck</Text>
+        <Text style={[styles.brand, { color: theme.foreground }]}>PawBuck</Text>
         <View style={styles.taglineRow}>
-          <Text style={[styles.tagline, { color: textPrimary }]}>Pet Life.</Text>
-          <Text style={[styles.taglineAccent, { color: accent }]}> Simplified.</Text>
+          <Text style={[styles.tagline, { color: theme.foreground }]}>Pet Life.</Text>
+          <Text style={[styles.taglineAccent, { color: theme.primary }]}> Simplified.</Text>
         </View>
       </View>
 

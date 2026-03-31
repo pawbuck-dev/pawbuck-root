@@ -10,8 +10,7 @@ import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
 import { Ionicons } from "@expo/vector-icons";
-import { StackActions } from "@react-navigation/native";
-import { useNavigation, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
@@ -32,9 +31,14 @@ type Gender = "male" | "female";
 
 export default function OnboardingReview() {
   const router = useRouter();
-  const navigation = useNavigation();
   const { theme, toggleTheme, mode } = useTheme();
-  const { petData, updatePetData, completeOnboarding } = useOnboarding();
+  const {
+    petData,
+    updatePetData,
+    completeOnboarding,
+    postPetCreationRoute,
+    setPostPetCreationRoute,
+  } = useOnboarding();
   const { user } = useAuth();
   const { addPet } = usePets();
 
@@ -122,11 +126,11 @@ export default function OnboardingReview() {
 
   const handleConfirm = async () => {
     if (user) {
-      // Already authenticated → create pet directly, then go back
       try {
         await addPet(petData as TablesInsert<"pets">);
-        const parent = navigation.getParent();
-        parent?.dispatch(StackActions.pop());
+        const next = postPetCreationRoute ?? "/(home)/home";
+        setPostPetCreationRoute(null);
+        router.replace(next as never);
       } catch (error) {
         console.error("Error creating pet:", error);
       }

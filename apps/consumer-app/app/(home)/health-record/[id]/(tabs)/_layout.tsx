@@ -7,6 +7,7 @@ import HealthRecordsTooltipModal from "@/components/onboarding/HealthRecordsTool
 import { usePets } from "@/context/petsContext";
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
+import { petPossessiveLabel } from "@/utils/petCopy";
 import { hasSeenHealthRecordsTooltip } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -37,9 +38,10 @@ export const MaterialTopTabs = withLayoutContext<
 
 type Tab = "vaccinations" | "medications" | "exams" | "lab-results";
 
+/** Short labels combined with pet name in the header, e.g. "Max's Labs" */
 const TAB_TITLE: Record<Tab, string> = {
   vaccinations: "Vaccines",
-  medications: "Meds",
+  medications: "Medications",
   exams: "Exams",
   "lab-results": "Labs",
 };
@@ -49,11 +51,26 @@ export default function HealthRecordsLayout() {
   const isDark = mode === "dark";
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pets } = usePets();
+  const currentPet = useMemo(() => pets.find((p) => p.id === id), [pets, id]);
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
   const [showTooltip, setShowTooltip] = useState(false);
   const [showUploadSheet, setShowUploadSheet] = useState(false);
+
+  const tabHeaderTitle = useMemo(
+    () => petPossessiveLabel(currentPet?.name, TAB_TITLE[activeTab]),
+    [currentPet?.name, activeTab]
+  );
+  const tabScreenTitles = useMemo(
+    () => ({
+      vaccinations: petPossessiveLabel(currentPet?.name, TAB_TITLE.vaccinations),
+      medications: petPossessiveLabel(currentPet?.name, TAB_TITLE.medications),
+      exams: petPossessiveLabel(currentPet?.name, TAB_TITLE.exams),
+      "lab-results": petPossessiveLabel(currentPet?.name, TAB_TITLE["lab-results"]),
+    }),
+    [currentPet?.name]
+  );
 
   useEffect(() => {
     const checkTooltip = async () => {
@@ -245,8 +262,13 @@ export default function HealthRecordsLayout() {
           >
             <Ionicons name="chevron-back" size={22} color={theme.foreground} />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
-            {TAB_TITLE[activeTab]}
+          <Text
+            style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {tabHeaderTitle}
           </Text>
           <View style={{ width: 40 }} />
         </View>
@@ -278,10 +300,10 @@ export default function HealthRecordsLayout() {
             tabBarShowIcon: false,
           }}
         >
-          <MaterialTopTabs.Screen name="vaccinations" options={{ title: "Vaccinations" }} />
-          <MaterialTopTabs.Screen name="medications" options={{ title: "Medications" }} />
-          <MaterialTopTabs.Screen name="exams" options={{ title: "Exams" }} />
-          <MaterialTopTabs.Screen name="lab-results" options={{ title: "Lab Results" }} />
+          <MaterialTopTabs.Screen name="vaccinations" options={{ title: tabScreenTitles.vaccinations }} />
+          <MaterialTopTabs.Screen name="medications" options={{ title: tabScreenTitles.medications }} />
+          <MaterialTopTabs.Screen name="exams" options={{ title: tabScreenTitles.exams }} />
+          <MaterialTopTabs.Screen name="lab-results" options={{ title: tabScreenTitles["lab-results"] }} />
         </MaterialTopTabs>
       </View>
 

@@ -11,6 +11,7 @@ import { fetchClinicalExams } from "@/services/clinicalExams";
 import { fetchLabResults } from "@/services/labResults";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { petPossessiveLabel } from "@/utils/petCopy";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import moment from "moment";
@@ -132,6 +133,9 @@ export default function HealthRecordsSection({
 
   const loading = loadingVac || loadingMed || loadingEx || loadingLab;
 
+  /** Avoid "your pet's …" on hub when name fallback is used */
+  const petNameForTitles = petName === "your pet" ? undefined : petName;
+
   const vaccineSummary = useMemo(() => {
     if (vaccinations.length === 0) {
       return {
@@ -248,7 +252,7 @@ export default function HealthRecordsSection({
   const hubCards = [
     {
       id: "vaccines",
-      title: "Vaccinations",
+      title: petPossessiveLabel(petNameForTitles, "Vaccinations"),
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations` as const,
       addRoute: `/(home)/health-record/${petId}/vaccination-upload-modal?upload=library` as const,
       /** Figma 1340:33860 — solid brand teal disc, not tinted plate */
@@ -263,9 +267,10 @@ export default function HealthRecordsSection({
     },
     {
       id: "meds",
-      title: "Medications",
+      title: petPossessiveLabel(petNameForTitles, "Medications"),
       route: `/(home)/health-record/${petId}/(tabs)/medications` as const,
-      addRoute: `/(home)/health-record/${petId}/medication-upload-modal?upload=library` as const,
+      /** Empty hub: Meds tab (empty state + FAB); + opens Add Medication sheet */
+      addRoute: `/(home)/health-record/${petId}/(tabs)/medications` as const,
       iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
       icon: <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />,
       badge: medSummary.badge,
@@ -277,9 +282,10 @@ export default function HealthRecordsSection({
     },
     {
       id: "exams",
-      title: "Exams",
+      title: petPossessiveLabel(petNameForTitles, "Exams"),
       route: `/(home)/health-record/${petId}/(tabs)/exams` as const,
-      addRoute: `/(home)/health-record/${petId}/exam-upload-modal` as const,
+      /** Empty hub: Exams tab (empty state + FAB); + opens Upload Exam Documents sheet */
+      addRoute: `/(home)/health-record/${petId}/(tabs)/exams` as const,
       iconBg: FIGMA_HEALTH_EXAMS_ICON_BG,
       icon: <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />,
       badge: examSummary.badge,
@@ -291,9 +297,10 @@ export default function HealthRecordsSection({
     },
     {
       id: "labs",
-      title: "Lab Results",
+      title: petPossessiveLabel(petNameForTitles, "Lab Results"),
       route: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
-      addRoute: `/(home)/health-record/${petId}/lab-result-upload-modal?upload=library` as const,
+      /** Empty hub: go to Labs tab (empty state + FAB); user taps + for Upload Lab Result sheet */
+      addRoute: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
       iconBg: FIGMA_HEALTH_LABS_ICON_BG,
       icon: <Ionicons name="flask" size={22} color="#FFFFFF" />,
       badge: labSummary.badge,
@@ -318,7 +325,7 @@ export default function HealthRecordsSection({
                 lineHeight: 29,
               }}
             >
-              Health Records
+              {petPossessiveLabel(petName, "Health Records")}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -331,7 +338,7 @@ export default function HealthRecordsSection({
               marginBottom: hubEmpty && !isHub ? 18 : 16,
             }}
           >
-            Health Records
+            {petPossessiveLabel(petName, "Health Records")}
           </Text>
         ))}
 

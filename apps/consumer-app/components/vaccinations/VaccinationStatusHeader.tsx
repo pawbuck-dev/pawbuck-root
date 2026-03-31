@@ -1,5 +1,7 @@
+import { CompliantVaccineBanner } from "@/components/health/CompliantVaccineBanner";
 import { useTheme } from "@/context/themeContext";
 import { RequiredVaccinesStatus } from "@/hooks/useVaccineCategories";
+import { getRequiredVaccinesCompliantBody } from "@/utils/vaccinationUi";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { LayoutAnimation, Platform, Text, TouchableOpacity, UIManager, View } from "react-native";
@@ -112,42 +114,10 @@ export const VaccinationStatusHeader: React.FC<VaccinationStatusHeaderProps> = (
           {" required vaccines administered"}
         </Text>
 
-        {/* Compliance Message for Fully Vaccinated Pets */}
+        {/* Compliance Message for Fully Vaccinated Pets (Figma Complaint.svg frame + dynamic copy) */}
         {isFullyVaccinated && country && (
-          <View
-            className="mt-3 p-3 rounded-xl"
-            style={{
-              backgroundColor: "rgba(16, 185, 129, 0.1)",
-              borderWidth: 1,
-              borderColor: "rgba(16, 185, 129, 0.3)",
-            }}
-          >
-            <View className="flex-row items-start">
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color="#10B981"
-                style={{ marginTop: 1, marginRight: 8 }}
-              />
-              <View className="flex-1">
-                <Text
-                  className="text-sm font-medium"
-                  style={{ color: "#10B981" }}
-                >
-                  Compliant
-                </Text>
-                <Text
-                  className="text-xs mt-1"
-                  style={{ color: theme.secondary }}
-                >
-                  {country === "United States"
-                    ? "Your pet meets all vaccination requirements mandated by U.S. state and federal regulations. Keep up the great work protecting your furry friend!"
-                    : country === "Canada"
-                    ? "Your pet meets all vaccination requirements under Canadian provincial and federal guidelines. Great job keeping your companion protected!"
-                    : `Your pet is fully vaccinated according to ${country} regulations. Excellent care for your pet!`}
-                </Text>
-              </View>
-            </View>
+          <View className="mt-3">
+            <CompliantVaccineBanner body={getRequiredVaccinesCompliantBody(country)} />
           </View>
         )}
 

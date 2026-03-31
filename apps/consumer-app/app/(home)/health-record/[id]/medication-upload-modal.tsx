@@ -9,13 +9,16 @@ import { Tables, TablesInsert } from "@/database.types";
 import { MedicineFormData } from "@/types/medication";
 import { isDuplicateMedication } from "@/utils/duplicateDetection";
 import { supabase } from "@/utils/supabase";
+import { useTheme } from "@/context/themeContext";
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, View } from "react-native";
 
 export type ViewMode = "upload" | "manual" | "review";
 
 export default function MedicationUploadModal() {
+  const { theme, mode } = useTheme();
   const { addMedicinesMutation, medicines: existingMedicines } = useMedicines();
   const params = useLocalSearchParams<{ mode?: string; upload?: string }>();
   const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
@@ -160,7 +163,8 @@ export default function MedicationUploadModal() {
 
   // Upload Mode UI
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
       <ProcessingOverlay status={status} statusMessage={statusMessage} />
       {viewMode === "upload" && (
         <UploadOptions
@@ -189,6 +193,6 @@ export default function MedicationUploadModal() {
           handleSaveMedications={handleSaveMedications}
         />
       )}
-    </>
+    </View>
   );
 }

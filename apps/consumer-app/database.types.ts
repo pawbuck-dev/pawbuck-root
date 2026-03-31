@@ -669,6 +669,7 @@ export type Database = {
           is_active: boolean
           pet_id: string
           to_user_id: string | null
+          transfer_reason: string | null
           used_at: string | null
         }
         Insert: {
@@ -680,6 +681,7 @@ export type Database = {
           is_active?: boolean
           pet_id: string
           to_user_id?: string | null
+          transfer_reason?: string | null
           used_at?: string | null
         }
         Update: {
@@ -691,6 +693,7 @@ export type Database = {
           is_active?: boolean
           pet_id?: string
           to_user_id?: string | null
+          transfer_reason?: string | null
           used_at?: string | null
         }
         Relationships: [

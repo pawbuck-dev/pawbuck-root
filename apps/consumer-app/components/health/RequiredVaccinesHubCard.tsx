@@ -1,11 +1,15 @@
+import { CompliantVaccineBanner } from "@/components/health/CompliantVaccineBanner";
+import { ActionRequiredBanner } from "@/components/health/ActionRequiredBanner";
+import { HEALTH_ELEVATION } from "@/constants/figmaHealthLayout";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useVaccineCategories } from "@/hooks/useVaccineCategories";
+import { petPossessiveLabel } from "@/utils/petCopy";
+import { getRequiredVaccinesCompliantBody } from "@/utils/vaccinationUi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { LayoutAnimation, Platform, Pressable, Text, TouchableOpacity, UIManager, View } from "react-native";
-import { HEALTH_ELEVATION } from "@/constants/figmaHealthLayout";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -15,12 +19,16 @@ const RED_BG = "rgba(239, 68, 68, 0.12)";
 const RED_TEXT = "#DC2626";
 const RED_ICON_BG = "rgba(239, 68, 68, 0.18)";
 
+const GREEN_TEXT = "#1D9C3D";
+const GREEN_BG = "rgba(29, 156, 61, 0.15)";
+const GREEN_ICON_BG = "rgba(29, 156, 61, 0.18)";
+
 type Props = {
   petId: string;
 };
 
 /**
- * Figma health hub (2033:133716) — Required Vaccines alert with Action Needed + expandable missing list.
+ * Figma health hub (2033:133716) — Required Vaccines: compliant (Complaint.svg) or missing (ActionRequired) + expandable list when applicable.
  */
 export default function RequiredVaccinesHubCard({ petId }: Props) {
   const { theme, mode } = useTheme();
@@ -38,8 +46,66 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
     return null;
   }
 
+  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
+  const borderStyle = isDark
+    ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }
+    : {};
+
+  const cardShell = {
+    backgroundColor: cardBg,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    ...borderStyle,
+    ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
+  } as const;
+
+  const goVaccinations = () => router.push(`/(home)/health-record/${petId}/(tabs)/vaccinations` as any);
+
   if (!hasGaps) {
-    return null;
+    return (
+      <View style={cardShell}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: GREEN_ICON_BG,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
+            }}
+          >
+            <Ionicons name="shield-checkmark" size={24} color={GREEN_TEXT} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
+                {petPossessiveLabel(pet?.name, "Required Vaccines")}
+              </Text>
+              <View
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 100,
+                  backgroundColor: GREEN_BG,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: GREEN_TEXT }}>Compliant</Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 14, color: theme.secondary, marginTop: 4 }}>
+              {administered}/{total} vaccines completed
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 14 }}>
+          <CompliantVaccineBanner body={getRequiredVaccinesCompliantBody(pet?.country)} onCtaPress={goVaccinations} />
+        </View>
+      </View>
+    );
   }
 
   const toggleExpand = () => {
@@ -47,22 +113,8 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
     setExpanded((e) => !e);
   };
 
-  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
-  const borderStyle = isDark
-    ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }
-    : {};
-
   return (
-    <View
-      style={{
-        backgroundColor: cardBg,
-        borderRadius: 20,
-        padding: 16,
-        marginBottom: 12,
-        ...borderStyle,
-        ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
-      }}
-    >
+    <View style={cardShell}>
       <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
         <View
           style={{
@@ -79,7 +131,9 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Required Vaccines</Text>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
+              {petPossessiveLabel(pet?.name, "Required Vaccines")}
+            </Text>
             <View
               style={{
                 paddingHorizontal: 10,
@@ -97,38 +151,16 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
         </View>
       </View>
 
-      <View
-        style={{
-          marginTop: 14,
-          borderRadius: 14,
-          padding: 14,
-          backgroundColor: isDark ? "rgba(239, 68, 68, 0.12)" : "rgba(254, 226, 226, 0.85)",
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(239, 68, 68, 0.25)" : "rgba(252, 165, 165, 0.6)",
-        }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "700", color: theme.foreground, marginBottom: 8 }}>
-          Action Needed
-        </Text>
-        <Text style={{ fontSize: 13, lineHeight: 20, color: isDark ? "rgba(255,255,255,0.85)" : "#57534E" }}>
-          Your pet is missing vaccines required by{" "}
-          {pet?.country === "Canada" ? "Canadian" : pet?.country === "United Kingdom" ? "U.K." : "U.S."}{" "}
-          regulations. Schedule a vet visit to ensure your pet stays protected and compliant.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push("/book-vet-visit" as any)}
-          activeOpacity={0.85}
-          style={{
-            marginTop: 12,
-            alignSelf: "flex-start",
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            borderRadius: 12,
-            backgroundColor: RED_TEXT,
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: "#FFFFFF" }}>Schedule vet visit</Text>
-        </TouchableOpacity>
+      <View style={{ marginTop: 14 }}>
+        <ActionRequiredBanner
+          body={`Your pet is missing vaccines required by ${
+            pet?.country === "Canada"
+              ? "Canadian"
+              : pet?.country === "United Kingdom"
+                ? "U.K."
+                : "U.S."
+          } regulations. Ensure your pet stays protected and compliant.`}
+        />
       </View>
 
       <Pressable
@@ -170,10 +202,7 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
               ) : null}
             </View>
           ))}
-          <TouchableOpacity
-            onPress={() => router.push(`/(home)/health-record/${petId}/(tabs)/vaccinations` as any)}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity onPress={goVaccinations} activeOpacity={0.85}>
             <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary, marginTop: 4 }}>
               View in Vaccinations →
             </Text>

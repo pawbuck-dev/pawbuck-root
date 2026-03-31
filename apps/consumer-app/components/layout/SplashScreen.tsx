@@ -17,15 +17,16 @@ interface SplashScreenProps {
   onFinish: () => void;
 }
 
-const DARK_BG = "#182424";
-const OVERLAY_TINT = "rgba(11,150,150,0.06)";
+const OVERLAY_TINT_DARK = "rgba(11,150,150,0.06)";
+const OVERLAY_TINT_LIGHT = "rgba(43,168,158,0.08)";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const LOGO_SIZE = 199;
 
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
-  const { mode } = useTheme();
+  const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const overlayTint = isDark ? OVERLAY_TINT_DARK : OVERLAY_TINT_LIGHT;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -50,8 +51,8 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: DARK_BG }]}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Background glow decoration (Figma "bg" group 1592:38600) */}
       <Image
@@ -60,8 +61,11 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
         resizeMode="cover"
       />
 
-      {/* Teal overlay (Figma "overlay" 1592:38601, 6% #0B9696) */}
-      <View style={styles.overlay} pointerEvents="none" />
+      {/* Teal overlay — tuned per theme */}
+      <View
+        style={[styles.overlay, { backgroundColor: overlayTint }]}
+        pointerEvents="none"
+      />
 
       {/* Centered PawBuck logo (Figma "pawbuck-logo" 1592:38610, 199×199) */}
       <Animated.View
@@ -93,7 +97,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: OVERLAY_TINT,
   },
   logoContainer: {
     width: LOGO_SIZE,

@@ -19,6 +19,9 @@ interface OnboardingContextType {
   resetOnboarding: () => void;
   isOnboardingComplete: boolean;
   completeOnboarding: () => void;
+  /** When set, authenticated onboarding review navigates here after the pet is saved (e.g. profile). */
+  postPetCreationRoute: string | null;
+  setPostPetCreationRoute: (route: string | null) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(
@@ -30,6 +33,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [petData, setPetData] = useState<PetData>({});
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const [postPetCreationRoute, setPostPetCreationRoute] = useState<string | null>(null);
 
   const updatePetData = (data: Partial<PetData>) => {
     setPetData((prev) => ({ ...(prev || {}), ...data }));
@@ -42,6 +46,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({
   const resetOnboarding = useCallback(() => {
     setIsOnboardingComplete(false);
     setPetData({});
+    setPostPetCreationRoute(null);
   }, []);
 
   return (
@@ -52,6 +57,8 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({
         resetOnboarding,
         isOnboardingComplete,
         completeOnboarding,
+        postPetCreationRoute,
+        setPostPetCreationRoute,
       }}
     >
       {children}

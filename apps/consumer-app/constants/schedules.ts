@@ -5,6 +5,20 @@ export enum ScheduleFrequency {
   AS_NEEDED = "As Needed",
 }
 
+/** Picker order — matches Add Medicine / Figma frequency menu */
+export const FREQUENCY_PICKER_ORDER: ScheduleFrequency[] = [
+  ScheduleFrequency.DAILY,
+  ScheduleFrequency.WEEKLY,
+  ScheduleFrequency.AS_NEEDED,
+  ScheduleFrequency.MONTHLY,
+];
+
+/** Menu label (e.g. Figma shows “Twice Daily” for weekly schedules) */
+export function frequencyMenuLabel(f: ScheduleFrequency): string {
+  if (f === ScheduleFrequency.WEEKLY) return "Twice Daily";
+  return f;
+}
+
 export const DAYS_OF_WEEK = {
   0: "Sunday",
   1: "Monday",

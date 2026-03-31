@@ -4,6 +4,7 @@ import PetSelector from "@/components/home/PetSelector";
 import RequiredVaccinesHubCard from "@/components/health/RequiredVaccinesHubCard";
 import { FIGMA_MINT_SCREEN_LIGHT } from "@/constants/figmaHealthLayout";
 import { usePets } from "@/context/petsContext";
+import { petPossessiveLabel } from "@/utils/petCopy";
 import { useTheme } from "@/context/themeContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -48,7 +49,7 @@ export default function HealthRecordsHubScreen() {
               letterSpacing: -0.3,
             }}
           >
-            Health Records
+            {petPossessiveLabel(pet?.name, "Health Records")}
           </Text>
         </View>
 

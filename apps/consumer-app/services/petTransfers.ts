@@ -10,7 +10,16 @@ export interface PetTransfer {
   used_at: string | null;
   to_user_id: string | null;
   is_active: boolean;
+  transfer_reason?: string | null;
 }
+
+export type CreatePetTransferOptions = {
+  /** Default 30 days if neither ttl nor days set */
+  expiresInDays?: number;
+  /** Takes precedence over expiresInDays when set (e.g. 15 for Figma “expires in 15 minutes”) */
+  ttlMinutes?: number;
+  transferReason?: string | null;
+};
 
 /**
  * Generate a unique transfer code
@@ -30,8 +39,10 @@ function generateTransferCode(petName?: string): string {
  */
 export async function createPetTransfer(
   petId: string,
-  expiresInDays: number = 30
+  options?: number | CreatePetTransferOptions
 ): Promise<PetTransfer> {
+  const opts: CreatePetTransferOptions =
+    typeof options === "number" ? { expiresInDays: options } : options ?? {};
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -84,7 +95,12 @@ export async function createPetTransfer(
   }
 
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+  if (opts.ttlMinutes != null) {
+    expiresAt.setMinutes(expiresAt.getMinutes() + opts.ttlMinutes);
+  } else {
+    const days = opts.expiresInDays ?? 30;
+    expiresAt.setDate(expiresAt.getDate() + days);
+  }
 
   const { data, error } = await supabase
     .from("pet_transfers")
@@ -94,6 +110,9 @@ export async function createPetTransfer(
       from_user_id: user.id,
       expires_at: expiresAt.toISOString(),
       is_active: true,
+      ...(opts.transferReason != null && opts.transferReason !== ""
+        ? { transfer_reason: opts.transferReason }
+        : {}),
     })
     .select()
     .single();

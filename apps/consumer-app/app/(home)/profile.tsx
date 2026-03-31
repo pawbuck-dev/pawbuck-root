@@ -16,6 +16,7 @@ import {
 import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
+import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
@@ -36,6 +37,7 @@ export default function Profile() {
   const { user, signOut } = useAuth();
   const { pets } = usePets();
   const { selectedPet, selectedPetId, setSelectedPetId } = useSelectedPet();
+  const { resetOnboarding, setPostPetCreationRoute } = useOnboarding();
   const queryClient = useQueryClient();
 
   const screenTokens = useMemo(() => getProfileScreenTokens(theme, isDarkMode), [theme, isDarkMode]);
@@ -234,7 +236,15 @@ export default function Profile() {
               icon={row.icon}
               title={row.title}
               subtitle={row.subtitle}
-              onPress={() => router.push(row.href)}
+              onPress={() => {
+                if (row.id === "add") {
+                  resetOnboarding();
+                  setPostPetCreationRoute("/(home)/profile");
+                  router.push(row.href);
+                  return;
+                }
+                router.push(row.href);
+              }}
             />
           ))}
         </ProfileListCard>

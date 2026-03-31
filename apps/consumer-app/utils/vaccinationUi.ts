@@ -50,3 +50,22 @@ export function categorySubtitle(category: VaccineCategory): string {
       return "Other vaccine";
   }
 }
+
+/**
+ * Body copy when all required vaccines for the pet's region are met (health hub + vaccinations UI).
+ */
+export function getRequiredVaccinesCompliantBody(country: string | null | undefined): string {
+  if (country === "United States" || country === "USA") {
+    return "Your pet meets all vaccination requirements mandated by U.S. state and federal regulations. Keep up the great work protecting your furry friend!";
+  }
+  if (country === "Canada") {
+    return "Your pet meets all vaccination requirements under Canadian provincial and federal guidelines. Great job keeping your companion protected!";
+  }
+  if (country === "United Kingdom") {
+    return "Your pet is fully vaccinated according to U.K. regulations. Excellent care for your pet!";
+  }
+  if (country) {
+    return `Your pet is fully vaccinated according to ${country} regulations. Excellent care for your pet!`;
+  }
+  return "Your pet meets all vaccination requirements for your region. Excellent care for your pet!";
+}

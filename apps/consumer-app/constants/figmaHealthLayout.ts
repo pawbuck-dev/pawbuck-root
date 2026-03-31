@@ -3,6 +3,8 @@
  * Single source for Figma-aligned layout + surfaces. Dev-mode refs:
  * - Vaccines list/detail: 1386:44967, 1386:44644
  * - Medications list/detail: 1340:33846, 1340:33523
+ * - Add Medicine (manual form): 1386:44525 — MedicineForm + MedicineTypePicker + FrequencySelector
+ * - Med dropdown menu + rows: 1340:33428 (panel), 362:2122 (context row) — MedicineDropdownModal
  * - Med/vacc list card (dark): 1340:33857 — canvas behind cards uses darker well vs elevated card
  * - Vaccines hub / glyph (teal disc + white heart-pulse): 1340:33860
  * - List card overflow (⋯) dark: 1340:33864 — circular control; stronger white tint than card (not 6%)
@@ -77,6 +79,8 @@ export const HEALTH_LAYOUT = {
   detailSectionGap: 12,
   /** Space between field groups inside a card */
   fieldStackGap: 14,
+  /** Figma --xs-plus: label → text field / dropdown (column, flex-start, stretch) */
+  fieldLabelToControlGap: 6,
   iconPlate: { size: 44, radius: 22 },
   iconPlateDetail: { size: 56, radius: 28 },
   overflow: { size: 36, radius: 18 },

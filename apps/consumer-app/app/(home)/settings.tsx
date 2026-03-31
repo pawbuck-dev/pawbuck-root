@@ -368,8 +368,7 @@ export default function Settings() {
             }}
           />
 
-          {/* HIDDEN: Pet Transfer Features - Uncomment to re-enable */}
-          {/* <SettingsOption
+          <SettingsOption
             icon="swap-horizontal"
             title="Receive a Pet Transfer"
             subtitle="Accept a pet from another user"
@@ -377,9 +376,9 @@ export default function Settings() {
             onPress={() => {
               router.push("/transfer-pet");
             }}
-          /> */}
+          />
 
-          {/* <SettingsOption
+          <SettingsOption
             icon="account-plus-outline"
             title="Transfer Ownership"
             subtitle="Transfer a pet to a new owner"
@@ -387,7 +386,7 @@ export default function Settings() {
             onPress={() => {
               router.push("/(home)/transfer-pet");
             }}
-          /> */}
+          />
         </View>
 
         {/* Log Out Button */}

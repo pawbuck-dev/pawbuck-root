@@ -3,10 +3,12 @@ import { LabResultsProvider } from "@/context/labResultsContext";
 import { MedicinesProvider } from "@/context/medicinesContext";
 import { SelectedPetProvider } from "@/context/selectedPetContext";
 import { VaccinationsProvider } from "@/context/vaccinationsContext";
+import { useTheme } from "@/context/themeContext";
 import { Stack, useLocalSearchParams } from "expo-router";
 
 export default function HealthRecordLayout() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { theme } = useTheme();
 
   return (
     <SelectedPetProvider petId={id}>
@@ -14,7 +16,12 @@ export default function HealthRecordLayout() {
         <MedicinesProvider>
           <LabResultsProvider>
             <ClinicalExamsProvider>
-              <Stack screenOptions={{ headerShown: false }}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.background },
+                }}
+              >
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen
@@ -27,8 +34,9 @@ export default function HealthRecordLayout() {
                 <Stack.Screen
                   name="medication-upload-modal"
                   options={{
-                    presentation: "pageSheet",
                     headerShown: false,
+                    animation: "slide_from_right",
+                    contentStyle: { backgroundColor: theme.background },
                   }}
                 />
                 <Stack.Screen

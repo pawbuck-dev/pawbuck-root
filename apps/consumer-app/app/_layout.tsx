@@ -5,7 +5,7 @@ import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
 import { SelectedPetProvider } from "@/context/selectedPetContext";
-import { ThemeProvider } from "@/context/themeContext";
+import { ThemeProvider, useTheme } from "@/context/themeContext";
 import { UserPreferencesProvider } from "@/context/userPreferencesContext";
 import {
   Poppins_100Thin,
@@ -39,6 +39,19 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+function ThemedRootStack() {
+  const { theme } = useTheme();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "none",
+        contentStyle: { backgroundColor: theme.background },
+      }}
+    />
+  );
+}
 
 function useNotificationObserver() {
   useEffect(() => {
@@ -120,12 +133,7 @@ export default function RootLayout() {
                     <NotificationsProvider>
                       <SafeAreaProvider>
                         <GestureHandlerRootView>
-                          <Stack
-                            screenOptions={{
-                              headerShown: false,
-                              animation: "none",
-                            }}
-                          />
+                          <ThemedRootStack />
                         </GestureHandlerRootView>
                         <EmailApprovalModal />
                       </SafeAreaProvider>
