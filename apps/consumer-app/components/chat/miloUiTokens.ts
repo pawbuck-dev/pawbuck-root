@@ -38,8 +38,8 @@ export const MILO_LIGHT = {
 // ============================================================================
 
 export const MILO_DARK = {
-  // Screen background uses the app's dark background
-  screenBg: "#182424", // theme.background
+  // Screen background - vibrant teal gradient (from Figma UIKit)
+  screenBg: "#0A4543", // Dark teal base
   // Composer input
   composerBorder: "rgba(255,255,255,0.12)",
   composerBg: "rgba(255,255,255,0.06)",
@@ -57,11 +57,11 @@ export const MILO_DARK = {
   messageUserText: "#FFFFFF",
   messageAiBg: "rgba(255,255,255,0.08)",
   messageAiText: "#FFFFFF",
-  // Dark backdrop: subtle cyan/teal blooms over dark base
-  backdropGradient: ["#1A3A3C", "#182D2F", "#182424"],
-  backdropBloom1: "#5FC4C0",
-  backdropBloom2: "#2BA89E",
-  backdropBloom3: "#3BD0D2",
+  // Dark backdrop: vibrant teal gradient (Figma UIKit color #12BAB7 from red:0.071, green:0.729, blue:0.718)
+  backdropGradient: ["#2BA89E", "#12BAB7", "#0A4543"],
+  backdropBloom1: "#12BAB7",
+  backdropBloom2: "#0F5958",
+  backdropBloom3: "#1ECBFF",
 } as const;
 
 // ============================================================================

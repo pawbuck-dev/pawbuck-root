@@ -149,7 +149,7 @@ const MiloFigmaLightBackdrop: React.FC = () => {
   );
 };
 
-/** Dark-mode backdrop: subtle cyan/teal blooms over dark base. */
+/** Dark-mode backdrop: vibrant teal gradient with bloom effects (Figma UIKit color #12BAB7). */
 const MiloDarkBackdrop: React.FC = () => {
   const gradientProps = getBackdropGradientProps("dark");
   return (
@@ -161,6 +161,7 @@ const MiloDarkBackdrop: React.FC = () => {
         start={gradientProps.start}
         end={gradientProps.end}
       />
+      {/* Primary large teal bloom - top center */}
       <View
         style={{
           position: "absolute",
@@ -169,10 +170,11 @@ const MiloDarkBackdrop: React.FC = () => {
           width: 440,
           height: 440,
           borderRadius: 220,
-          backgroundColor: "#5FC4C0",
-          opacity: 0.1,
+          backgroundColor: "#12BAB7",
+          opacity: 0.25,
         }}
       />
+      {/* Secondary darker teal bloom */}
       <View
         style={{
           position: "absolute",
@@ -181,10 +183,11 @@ const MiloDarkBackdrop: React.FC = () => {
           width: 400,
           height: 400,
           borderRadius: 200,
-          backgroundColor: "#2BA89E",
-          opacity: 0.08,
+          backgroundColor: "#0F5958",
+          opacity: 0.18,
         }}
       />
+      {/* Tertiary accent cyan bloom */}
       <View
         style={{
           position: "absolute",
@@ -193,8 +196,8 @@ const MiloDarkBackdrop: React.FC = () => {
           width: 320,
           height: 320,
           borderRadius: 160,
-          backgroundColor: "#3BD0D2",
-          opacity: 0.06,
+          backgroundColor: "#2BA89E",
+          opacity: 0.12,
         }}
       />
     </View>
