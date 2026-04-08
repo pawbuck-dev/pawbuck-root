@@ -1,10 +1,11 @@
 import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { useMiloSpeechToText } from "@/hooks/useMiloSpeechToText";
+import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -12,6 +13,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,15 +22,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
-import { getMiloChatTokens, getBackdropGradientProps } from "./miloUiTokens";
-
-/** Figma Milo chat — suggested prompt chips (icon + label). */
-const SUGGESTED_PROMPTS: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string }[] = [
-  { icon: "paw", label: "Is my dog's diet healthy?" },
-  { icon: "flash", label: "Tips for new puppy owners" },
-  { icon: "paw-outline", label: "My cat has a fever" },
-  { icon: "medkit-outline", label: "When is the next vaccine?" },
-];
+import { getMiloChatTokens } from "./miloUiTokens";
 
 // Typing dots animation component
 const TypingDots: React.FC<{ color: string }> = ({ color }) => {
@@ -96,113 +90,29 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
 };
 
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
+const MILO_CHAT_BG_LIGHT = require("@/assets/icons/Milo-Light.png");
+const MILO_CHAT_BG_DARK = require("@/assets/icons/Milo-Dark.png");
 
-/** Light-mode backdrop: soft teal blooms + cool mint wash (matches exported SVG). */
-const MiloFigmaLightBackdrop: React.FC = () => {
-  const gradientProps = getBackdropGradientProps("light");
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <LinearGradient
-        style={StyleSheet.absoluteFill}
-        colors={gradientProps.colors}
-        locations={gradientProps.locations}
-        start={gradientProps.start}
-        end={gradientProps.end}
-      />
-      <View
-        style={{
-          position: "absolute",
-          top: -200,
-          alignSelf: "center",
-          width: 440,
-          height: 440,
-          borderRadius: 220,
-          backgroundColor: "#5CECE2",
-          opacity: 0.2,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          top: -240,
-          alignSelf: "center",
-          width: 400,
-          height: 400,
-          borderRadius: 200,
-          backgroundColor: "#12BAB7",
-          opacity: 0.14,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          top: -120,
-          alignSelf: "center",
-          width: 320,
-          height: 320,
-          borderRadius: 160,
-          backgroundColor: "#1ECBFF",
-          opacity: 0.08,
-        }}
-      />
-    </View>
-  );
-};
+/** Starter prompts — general wellness; medical questions belong with a vet (see menu disclaimer). */
+const MILO_SUGGESTED_QUESTIONS_GENERAL = [
+  "What should I bring to a routine vet visit?",
+  "How can I help my pet stay calm during loud noises?",
+  "What human foods are unsafe for pets?",
+  "How do I read a pet food label for basics like protein?",
+  "What are signs my pet might need more exercise?",
+  "How can I make travel less stressful for my pet?",
+] as const;
 
-/** Dark-mode backdrop: vibrant teal gradient with bloom effects (Figma UIKit color #12BAB7). */
-const MiloDarkBackdrop: React.FC = () => {
-  const gradientProps = getBackdropGradientProps("dark");
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <LinearGradient
-        style={StyleSheet.absoluteFill}
-        colors={gradientProps.colors}
-        locations={gradientProps.locations}
-        start={gradientProps.start}
-        end={gradientProps.end}
-      />
-      {/* Primary large teal bloom - top center */}
-      <View
-        style={{
-          position: "absolute",
-          top: -200,
-          alignSelf: "center",
-          width: 440,
-          height: 440,
-          borderRadius: 220,
-          backgroundColor: "#12BAB7",
-          opacity: 0.25,
-        }}
-      />
-      {/* Secondary darker teal bloom */}
-      <View
-        style={{
-          position: "absolute",
-          top: -240,
-          alignSelf: "center",
-          width: 400,
-          height: 400,
-          borderRadius: 200,
-          backgroundColor: "#0F5958",
-          opacity: 0.18,
-        }}
-      />
-      {/* Tertiary accent cyan bloom */}
-      <View
-        style={{
-          position: "absolute",
-          top: -120,
-          alignSelf: "center",
-          width: 320,
-          height: 320,
-          borderRadius: 160,
-          backgroundColor: "#2BA89E",
-          opacity: 0.12,
-        }}
-      />
-    </View>
-  );
-};
+/** Full-screen chat backdrop: `Milo-Light.png` / `Milo-Dark.png` in `assets/icons`. */
+const MiloChatBackdrop: React.FC<{ mode: "light" | "dark" }> = ({ mode }) => (
+  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Image
+      source={mode === "light" ? MILO_CHAT_BG_LIGHT : MILO_CHAT_BG_DARK}
+      style={StyleSheet.absoluteFill}
+      contentFit="fill"
+    />
+  </View>
+);
 
 /** Generating state: black outer circle, white ring, black center dot (record/target icon) */
 const GeneratingIcon: React.FC = () => (
@@ -253,6 +163,10 @@ export const MiloChatModal: React.FC = () => {
   } = useChat();
 
   const [inputText, setInputText] = useState("");
+  const { isListening, toggleSpeech, stopSpeech } = useMiloSpeechToText(
+    inputText,
+    setInputText
+  );
   const [showPetPicker, setShowPetPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -288,158 +202,51 @@ export const MiloChatModal: React.FC = () => {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (!isChatOpen) {
+      try {
+        ExpoSpeechRecognitionModule.abort();
+      } catch {
+        /* noop */
+      }
+    }
+  }, [isChatOpen]);
+
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
+    stopSpeech();
     const message = inputText.trim();
     setInputText("");
     await sendMessage(message);
   };
+
+  const suggestedQuestions = useMemo(() => {
+    const name = selectedPet?.name?.trim();
+    if (name) {
+      return [
+        `Give me everyday wellness tips for ${name}.`,
+        ...MILO_SUGGESTED_QUESTIONS_GENERAL,
+      ].slice(0, 6);
+    }
+    return [...MILO_SUGGESTED_QUESTIONS_GENERAL].slice(0, 6);
+  }, [selectedPet?.name]);
+
+  const handleSuggestedQuestion = useCallback(
+    async (question: string) => {
+      if (isLoading) return;
+      stopSpeech();
+      setInputText("");
+      await sendMessage(question);
+    },
+    [isLoading, sendMessage, stopSpeech]
+  );
 
   const handleSelectPet = (pet: Pet | null) => {
     setSelectedPet(pet);
     setShowPetPicker(false);
   };
 
-  const handleSuggestedPrompt = (label: string) => {
-    setInputText(label);
-    // Optionally auto-send; for now prefill so user can edit
-    sendMessage(label);
-  };
-
-  const renderEmptyState = () => {
-    const tokens = getMiloChatTokens(theme, mode === "dark");
-    const chipBg = tokens.chipBg;
-    const chipBorder = tokens.chipBorder;
-    const bodyText = tokens.textPrimary;
-
-    return (
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          justifyContent: "center",
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: mode === "dark" ? "transparent" : tokens.messageAiBg,
-            borderRadius: 24,
-            paddingHorizontal: 20,
-            paddingTop: 36,
-            paddingBottom: 28,
-            alignItems: "center",
-            alignSelf: "stretch",
-            ...(mode === "light" && {
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06,
-              shadowRadius: 8,
-              elevation: 3,
-            }),
-          }}
-        >
-          <View
-            style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
-              backgroundColor: theme.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 24,
-              overflow: "hidden",
-            }}
-          >
-            <Image
-              source={MILO_AVATAR}
-              style={{ width: 90, height: 90, borderRadius: 45 }}
-              contentFit="cover"
-            />
-          </View>
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "700",
-              color: bodyText,
-              textAlign: "center",
-              marginBottom: 20,
-              paddingHorizontal: 4,
-              lineHeight: 26,
-            }}
-          >
-            Hi! I'm Milo, how can I help you today?
-          </Text>
-          {/* Two fixed rows of flex:1 chips — avoids RN bug where % width + Text flex:1 in Pressable collapses label width */}
-          <View style={{ width: "100%", marginBottom: 20 }}>
-            {[0, 2].map((start) => (
-              <View
-                key={start}
-                style={{
-                  flexDirection: "row",
-                  width: "100%",
-                  marginBottom: start === 0 ? 12 : 0,
-                  gap: 12,
-                }}
-              >
-                {SUGGESTED_PROMPTS.slice(start, start + 2).map(({ icon, label }) => (
-                  <Pressable
-                    key={label}
-                    onPress={() => handleSuggestedPrompt(label)}
-                    style={({ pressed }) => ({
-                      flex: 1,
-                      minWidth: 0,
-                      minHeight: 52,
-                      paddingHorizontal: 12,
-                      paddingVertical: 12,
-                      borderRadius: 14,
-                      backgroundColor: chipBg,
-                      borderWidth: 1,
-                      borderColor: chipBorder,
-                      opacity: pressed ? 0.85 : 1,
-                    })}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "flex-start", width: "100%" }}>
-                      <Ionicons name={icon} size={18} color={theme.primary} style={{ marginRight: 8, marginTop: 1 }} />
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            fontWeight: "500",
-                            color: bodyText,
-                            lineHeight: 18,
-                          }}
-                          numberOfLines={3}
-                        >
-                          {label}
-                        </Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </View>
-          <Pressable
-            onPress={() => pets.length > 0 && setShowPetPicker(true)}
-            style={{ paddingVertical: 4 }}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                color: theme.secondary,
-              }}
-            >
-              {selectedPet ? `Chatting as ${selectedPet.name}` : "Select pet for personalized help"}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  };
-
-  /** Figma node 1386:45325 — Milo.svg base + teal glow backdrop. */
   const tokens = getMiloChatTokens(theme, mode === "dark");
   const miloBg = tokens.screenBg;
 
@@ -459,7 +266,7 @@ export const MiloChatModal: React.FC = () => {
           overflow: "hidden",
         }}
       >
-        {mode === "light" ? <MiloFigmaLightBackdrop /> : <MiloDarkBackdrop />}
+        <MiloChatBackdrop mode={mode} />
         {/* Header: back | New Chat | menu — Figma layout */}
         <View
           style={{
@@ -513,7 +320,7 @@ export const MiloChatModal: React.FC = () => {
         {/* Messages Container */}
         <View style={{ flex: 1 }}>
           {messages.length === 0 ? (
-            renderEmptyState()
+            <View style={{ flex: 1 }} />
           ) : (
             <FlatList
               ref={flatListRef}
@@ -567,11 +374,63 @@ export const MiloChatModal: React.FC = () => {
           )}
         </View>
 
+        {/* Suggested questions — empty thread only */}
+        {messages.length === 0 && !isLoading ? (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                color: tokens.textSecondary,
+                marginBottom: 10,
+              }}
+            >
+              Try asking
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ flexDirection: "row", flexWrap: "nowrap", gap: 8, paddingRight: 8 }}
+            >
+              {suggestedQuestions.map((q) => (
+                <Pressable
+                  key={q}
+                  onPress={() => {
+                    void handleSuggestedQuestion(q);
+                  }}
+                  style={({ pressed }) => ({
+                    maxWidth: 280,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: 18,
+                    backgroundColor: tokens.chipBg,
+                    borderWidth: 1,
+                    borderColor: tokens.chipBorder,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 20,
+                      color: tokens.textPrimary,
+                    }}
+                    numberOfLines={3}
+                  >
+                    {q}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {/* Input — Figma 1386:45325: white composer card, #E4E7E7 stroke, #F4F5F5 wells, sparkles + send */}
         <View
           style={{
             paddingHorizontal: 16,
-            paddingTop: 8,
+            paddingTop: messages.length === 0 && !isLoading ? 0 : 8,
             paddingBottom: Platform.OS === "ios" ? Math.max(bottom, 12) : 12,
             transform: Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
           }}
@@ -625,7 +484,7 @@ export const MiloChatModal: React.FC = () => {
                 <TextInput
                   value={inputText}
                   onChangeText={setInputText}
-                  placeholder="Ask Milo anything..."
+                  placeholder="Ask milo anything..."
                   placeholderTextColor={tokens.placeholder}
                   style={{
                     flex: 1,
@@ -642,18 +501,34 @@ export const MiloChatModal: React.FC = () => {
                   returnKeyType="send"
                 />
                 <TouchableOpacity
-                  accessibilityLabel="Suggestions"
+                  accessibilityLabel={
+                    isListening ? "Stop voice input" : "Voice input"
+                  }
+                  onPress={() => {
+                    if (!isLoading) toggleSpeech();
+                  }}
+                  disabled={isLoading}
                   style={{
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: tokens.iconWell,
+                    backgroundColor: isListening
+                      ? mode === "dark"
+                        ? "rgba(255,255,255,0.16)"
+                        : "rgba(43,168,158,0.2)"
+                      : tokens.iconWell,
                     alignItems: "center",
                     justifyContent: "center",
                     marginRight: 8,
                   }}
                 >
-                  <Ionicons name="sparkles-outline" size={22} color="#0D0F0F" />
+                  <Ionicons
+                    name={isListening ? "mic" : "mic-outline"}
+                    size={22}
+                    color={
+                      isListening ? theme.primary : tokens.textPrimary
+                    }
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSend}
@@ -662,12 +537,26 @@ export const MiloChatModal: React.FC = () => {
                     width: 44,
                     height: 44,
                     borderRadius: 22,
-                    backgroundColor: inputText.trim() ? "#0D0F0F" : "rgba(13,15,15,0.15)",
+                    backgroundColor: inputText.trim()
+                      ? "#FFFFFF"
+                      : mode === "dark"
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(13,15,15,0.15)",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Ionicons name="send" size={18} color="#FFFFFF" />
+                  <Ionicons
+                    name="send"
+                    size={18}
+                    color={
+                      inputText.trim()
+                        ? "#0D0F0F"
+                        : mode === "dark"
+                          ? "rgba(255,255,255,0.35)"
+                          : theme.secondary
+                    }
+                  />
                 </TouchableOpacity>
               </View>
             )}

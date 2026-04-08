@@ -1,10 +1,9 @@
 import { HomeIndicator } from "@/components/layout/HomeIndicator";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
-import { ChatProvider } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { useMessageThreadsRealtime } from "@/hooks/useMessageThreadsRealtime";
 import { Slot } from "expo-router";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeLayout() {
@@ -15,7 +14,7 @@ export default function HomeLayout() {
   useMessageThreadsRealtime();
 
   return (
-    <ChatProvider>
+    <>
       <View
         className="flex-1"
         style={{
@@ -43,6 +42,6 @@ export default function HomeLayout() {
         </View>
       )}
       <MiloChatModal />
-    </ChatProvider>
+    </>
   );
 }

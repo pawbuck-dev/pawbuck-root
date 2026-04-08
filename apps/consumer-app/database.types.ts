@@ -588,6 +588,44 @@ export type Database = {
           },
         ]
       }
+      pet_allergies: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          notes: string | null
+          pet_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          notes?: string | null
+          pet_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          pet_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_allergies_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_care_team_members: {
         Row: {
           care_team_member_id: string
@@ -624,6 +662,50 @@ export type Database = {
           },
         ]
       }
+      pet_conditions: {
+        Row: {
+          created_at: string
+          diagnosed_on: string | null
+          id: string
+          name: string
+          notes: string | null
+          pet_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          diagnosed_on?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          pet_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          diagnosed_on?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          pet_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_conditions_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_email_list: {
         Row: {
           created_at: string
@@ -652,6 +734,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pet_email_whitelist_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_journal_entries: {
+        Row: {
+          created_at: string
+          domain: string
+          entry_date: string
+          id: string
+          note: string | null
+          pet_id: string
+          subtype: string
+          updated_at: string
+          user_id: string
+          vet_flagged: boolean
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          entry_date?: string
+          id?: string
+          note?: string | null
+          pet_id: string
+          subtype: string
+          updated_at?: string
+          user_id: string
+          vet_flagged?: boolean
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          entry_date?: string
+          id?: string
+          note?: string | null
+          pet_id?: string
+          subtype?: string
+          updated_at?: string
+          user_id?: string
+          vet_flagged?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_journal_entries_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
@@ -1164,6 +1293,10 @@ export type Database = {
     Functions: {
       check_email_id_available: {
         Args: { p_email_id: string; p_exclude_pet_id?: string }
+        Returns: boolean
+      }
+      user_can_access_pet: {
+        Args: { p_pet_id: string }
         Returns: boolean
       }
       create_user_preferences: {

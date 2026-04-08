@@ -16,6 +16,13 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     href: "/(home)/transfer-pet",
   },
   {
+    id: "journal",
+    icon: "book-outline",
+    title: "Pet Journal",
+    subtitle: "Health, behavior & environment notes",
+    href: "/(home)/pet-journal",
+  },
+  {
     id: "access",
     icon: "account-cog-outline",
     title: "Manage Access",

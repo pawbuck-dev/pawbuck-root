@@ -87,6 +87,13 @@
           "locationWhenInUsePermission": "Pawbuck tracks your location only while a Pawthon walk is active to measure walking distance for your pet.",
           "isAndroidForegroundServiceEnabled": false
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Pawbuck uses the microphone so you can speak messages to Milo instead of typing.",
+          "speechRecognitionPermission": "Pawbuck converts your speech to text in Milo chat. Audio is processed on your device where supported."
+        }
       ]
     ],
     "experiments": {

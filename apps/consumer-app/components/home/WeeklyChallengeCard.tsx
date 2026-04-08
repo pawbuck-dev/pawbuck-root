@@ -181,7 +181,8 @@ export default function WeeklyChallengeCard({
     </View>
   );
 
-  const outer = { paddingHorizontal: 20, alignSelf: "stretch" as const, width: "100%" as const };
+  /** Width comes from parent `paddingHorizontal: 20` on Home (matches DailyGoalWalkCard / BookVet). */
+  const outer = { alignSelf: "stretch" as const, width: "100%" as const };
 
   if (onPress) {
     return (

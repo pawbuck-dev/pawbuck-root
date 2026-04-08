@@ -13,6 +13,7 @@ import HomeHeader from "@/components/home/HomeHeader";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
+import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useAuth } from "@/context/authContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
@@ -40,7 +41,7 @@ import {
   updateVetInformation,
   VetInformation,
 } from "@/services/vetInformation";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -48,6 +49,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -438,9 +440,9 @@ export default function Home() {
             />
           )}
 
-          {/* Weekly Challenge — Figma dashboard hero (node 1896-122224) */}
+          {/* Weekly Challenge — same horizontal inset as Daily Goal / Book Vet (padding on wrapper) */}
           {selectedPet && (
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
               <WeeklyChallengeCard
                 petName={selectedPet.name}
                 weekKm={pawthonStats?.weekKm ?? 0}
@@ -478,6 +480,84 @@ export default function Home() {
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
               <DailyIntakeSection petId={selectedPet.id} />
+            </View>
+          )}
+
+          {/* Pet Journal — matches standard dashboard cards (Daily Intake / Book Vet) */}
+          {selectedPet && (
+            <View style={{ marginBottom: 16, paddingHorizontal: 20 }}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/(home)/pet-journal",
+                    params: { petId: selectedPet.id },
+                  } as any)
+                }
+                activeOpacity={0.85}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+                  borderRadius: 20,
+                  paddingVertical: 16,
+                  paddingHorizontal: 16,
+                  ...(Platform.OS === "android"
+                    ? {}
+                    : {
+                        borderWidth: 1,
+                        borderColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                      }),
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "#EDEDEE",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 12,
+                  }}
+                >
+                  <Ionicons name="book-outline" size={22} color={theme.foreground} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Pet Journal</Text>
+                  <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
+                    Log health, behavior & environment
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginLeft: 8,
+                  }}
+                >
+                  <MaterialCommunityIcons name="arrow-top-right" size={20} color={theme.secondary} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Health Briefing — vet-ready summary (separate from journal entries) */}
+          {selectedPet && (
+            <View style={{ paddingHorizontal: 20 }}>
+              <HealthBriefingSummaryCard
+                petId={selectedPet.id}
+                pet={selectedPet}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(home)/pet-journal/briefing",
+                    params: { petId: selectedPet.id },
+                  } as any)
+                }
+              />
             </View>
           )}
 

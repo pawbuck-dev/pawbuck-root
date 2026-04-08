@@ -106,7 +106,7 @@ export default function CatchUpSection({
     });
 
     return items;
-  }, [vaccinations, medicines, petId, petCountry, isDark]);
+  }, [vaccinations, medicines, petId, petCountry]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
