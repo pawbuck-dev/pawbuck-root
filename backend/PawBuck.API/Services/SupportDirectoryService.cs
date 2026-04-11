@@ -22,6 +22,70 @@ public class SupportDirectoryService : ISupportDirectoryService
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<SupportUserRow>> ListUsersAsync(
+        string segment,
+        CancellationToken cancellationToken = default)
+    {
+        var s = (segment ?? "").Trim().ToLowerInvariant();
+        string sql = s switch
+        {
+            "all" =>
+                """
+                SELECT id, email, created_at
+                FROM auth.users
+                ORDER BY created_at DESC NULLS LAST
+                LIMIT 500
+                """,
+            "withpets" =>
+                """
+                SELECT DISTINCT u.id, u.email, u.created_at
+                FROM auth.users u
+                INNER JOIN public.pets p ON p.user_id = u.id AND p.deleted_at IS NULL
+                ORDER BY u.created_at DESC NULLS LAST
+                LIMIT 500
+                """,
+            "withhealth" =>
+                """
+                SELECT DISTINCT u.id, u.email, u.created_at
+                FROM auth.users u
+                WHERE EXISTS (
+                  SELECT 1
+                  FROM public.pets p
+                  WHERE p.user_id = u.id
+                    AND p.deleted_at IS NULL
+                    AND (
+                      EXISTS (SELECT 1 FROM public.vaccinations v WHERE v.pet_id = p.id)
+                      OR EXISTS (SELECT 1 FROM public.medicines m WHERE m.pet_id = p.id)
+                      OR EXISTS (SELECT 1 FROM public.lab_results l WHERE l.pet_id = p.id)
+                      OR EXISTS (SELECT 1 FROM public.clinical_exams e WHERE e.pet_id = p.id)
+                    )
+                )
+                ORDER BY u.created_at DESC NULLS LAST
+                LIMIT 500
+                """,
+            _ => throw new ArgumentException("segment must be all, withPets, or withHealth.", nameof(segment)),
+        };
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        var list = new List<SupportUserRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new SupportUserRow
+            {
+                Id = reader.GetGuid(0),
+                Email = reader.IsDBNull(1) ? null : reader.GetString(1),
+                CreatedAt = reader.IsDBNull(2) ? null : reader.GetFieldValue<DateTimeOffset>(2),
+            });
+        }
+
+        return list;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<SupportUserRow>> SearchUsersByEmailAsync(
         string query,
         CancellationToken cancellationToken = default)

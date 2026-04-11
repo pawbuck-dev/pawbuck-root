@@ -59,6 +59,12 @@ export function createSupportClient(baseUrl: string, getApiKey: () => string) {
   return {
     getMetrics: () => request<SupportMetrics>("/api/support/metrics"),
 
+    /** Same cohorts as the metric cards: all auth users, users with a pet, users with pet + health data. */
+    listUsers: (segment: "all" | "withPets" | "withHealth") =>
+      request<SupportUserRow[]>(
+        `/api/support/users/list?segment=${encodeURIComponent(segment)}`,
+      ),
+
     searchUsers: (q: string) =>
       request<SupportUserRow[]>(`/api/support/users/search?q=${encodeURIComponent(q)}`),
 

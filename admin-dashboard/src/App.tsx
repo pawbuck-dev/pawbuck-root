@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupportClient, SupportApiError } from "@/api/supportClient";
 import type {
   SupportMetrics,
@@ -15,6 +15,12 @@ function formatDateInput(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = iso.slice(0, 10);
   return d.length === 10 ? d : "";
+}
+
+function formatUserCreated(iso: string | null): string {
+  if (!iso) return "—";
+  const d = iso.slice(0, 10);
+  return d.length === 10 ? d : iso;
 }
 
 export function App() {
@@ -56,6 +62,10 @@ export function App() {
   const [searchQ, setSearchQ] = useState("");
   const [users, setUsers] = useState<SupportUserRow[]>([]);
   const [userLoading, setUserLoading] = useState(false);
+  const [userListSource, setUserListSource] = useState<
+    "search" | "all" | "withPets" | "withHealth" | null
+  >(null);
+  const accountsPanelRef = useRef<HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<SupportUserRow | null>(null);
 
   const [pets, setPets] = useState<SupportPetRow[]>([]);
@@ -75,19 +85,48 @@ export function App() {
     const q = searchQ.trim();
     if (!q) {
       setUsers([]);
+      setUserListSource(null);
       return;
     }
     setUserLoading(true);
     setBanner(null);
     try {
       setUsers(await client.searchUsers(q));
+      setUserListSource("search");
     } catch (e) {
       setUsers([]);
+      setUserListSource(null);
       setBanner(e instanceof SupportApiError ? e.message : "User search failed");
     } finally {
       setUserLoading(false);
     }
   }, [client, searchQ]);
+
+  const loadUsersFromMetric = useCallback(
+    async (segment: "all" | "withPets" | "withHealth") => {
+      setUserLoading(true);
+      setBanner(null);
+      setSearchQ("");
+      setSelectedUser(null);
+      setSelectedPet(null);
+      setPets([]);
+      setVaccinations([]);
+      try {
+        setUsers(await client.listUsers(segment));
+        setUserListSource(segment);
+        queueMicrotask(() =>
+          accountsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        );
+      } catch (e) {
+        setUsers([]);
+        setUserListSource(null);
+        setBanner(e instanceof SupportApiError ? e.message : "Failed to load user list");
+      } finally {
+        setUserLoading(false);
+      }
+    },
+    [client],
+  );
 
   const selectUser = async (u: SupportUserRow) => {
     setSelectedUser(u);
@@ -179,30 +218,68 @@ export function App() {
 
       {banner ? <div className="error">{banner}</div> : null}
 
+      <p className="metrics-hint muted">
+        Click a card to open the matching account list (up to 500). Use search below to filter by email.
+      </p>
       <section className="metrics" aria-live="polite">
-        <div className="metric">
+        <button
+          type="button"
+          className="metric metric--clickable"
+          onClick={() => void loadUsersFromMetric("all")}
+          disabled={userLoading || metricsLoading}
+          aria-label="View list of all users"
+        >
           <div className="label">Total users</div>
           <div className="value">
             {metricsLoading ? "…" : metrics?.totalUsers ?? "—"}
           </div>
-        </div>
-        <div className="metric">
+          <span className="metric__action">Open list</span>
+        </button>
+        <button
+          type="button"
+          className="metric metric--clickable"
+          onClick={() => void loadUsersFromMetric("withPets")}
+          disabled={userLoading || metricsLoading}
+          aria-label="View users who have at least one pet"
+        >
           <div className="label">Users with a pet</div>
           <div className="value">
             {metricsLoading ? "…" : metrics?.usersWithPets ?? "—"}
           </div>
-        </div>
-        <div className="metric">
+          <span className="metric__action">Open list</span>
+        </button>
+        <button
+          type="button"
+          className="metric metric--clickable"
+          onClick={() => void loadUsersFromMetric("withHealth")}
+          disabled={userLoading || metricsLoading}
+          aria-label="View users with pet and health data"
+        >
           <div className="label">Users with pet + health data</div>
           <div className="value">
             {metricsLoading ? "…" : metrics?.usersWithPetsAndHealthRecords ?? "—"}
           </div>
-        </div>
+          <span className="metric__action">Open list</span>
+        </button>
       </section>
 
       <div className="layout">
-        <section className="panel">
-          <h2>Find account</h2>
+        <section className="panel" ref={accountsPanelRef} id="accounts-panel">
+          <h2>Accounts</h2>
+          {userListSource && userListSource !== "search" ? (
+            <p className="list-source" role="status">
+              Showing:{" "}
+              <strong>
+                {userListSource === "all"
+                  ? "All users"
+                  : userListSource === "withPets"
+                    ? "Users with a pet"
+                    : "Users with pet + health data"}
+              </strong>
+              <span className="muted"> (max 500, newest first)</span>
+            </p>
+          ) : null}
+          <h3 className="panel-sub">Search by email</h3>
           <div className="search-row">
             <input
               value={searchQ}
@@ -214,29 +291,37 @@ export function App() {
               Search
             </button>
           </div>
-          {users.length === 0 && !userLoading ? (
-            <p className="muted">No results yet. Search by email.</p>
+          {userLoading && users.length === 0 ? (
+            <p className="muted">Loading…</p>
+          ) : users.length === 0 ? (
+            <p className="muted">
+              No results yet. Click a metric above or search by email.
+            </p>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>User id</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className={`clickable ${selectedUser?.id === u.id ? "selected" : ""}`}
-                    onClick={() => void selectUser(u)}
-                  >
-                    <td>{u.email ?? "—"}</td>
-                    <td className="muted">{u.id}</td>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Joined</th>
+                    <th>User id</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr
+                      key={u.id}
+                      className={`clickable ${selectedUser?.id === u.id ? "selected" : ""}`}
+                      onClick={() => void selectUser(u)}
+                    >
+                      <td>{u.email ?? "—"}</td>
+                      <td className="muted">{formatUserCreated(u.createdAt)}</td>
+                      <td className="muted">{u.id}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <h2 style={{ marginTop: "1.25rem" }}>Pets</h2>
           {!selectedUser ? (

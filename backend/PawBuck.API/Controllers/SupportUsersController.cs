@@ -24,6 +24,23 @@ public class SupportUsersController : ControllerBase
         return Ok(rows);
     }
 
+    /// <summary>Lists users by segment (same definitions as dashboard metrics). Max 500 rows.</summary>
+    [HttpGet("list")]
+    public async Task<ActionResult<IReadOnlyList<SupportUserRow>>> List(
+        [FromQuery] string segment,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var rows = await _directory.ListUsersAsync(segment ?? "", cancellationToken);
+            return Ok(rows);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{userId:guid}/pets")]
     public async Task<ActionResult<IReadOnlyList<SupportPetRow>>> Pets(Guid userId, CancellationToken cancellationToken)
     {

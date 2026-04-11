@@ -91,12 +91,52 @@ button {
   margin-bottom: 1.75rem;
 }
 
+.metrics-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.875rem;
+}
+
 .metric {
   background: #fff;
   border-radius: 10px;
   padding: 1rem 1.1rem;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+button.metric {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.metric--clickable:hover:not(:disabled) {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgb(37 99 235 / 12%);
+}
+
+.metric--clickable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.metric--clickable:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.metric__action {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2563eb;
 }
 
 .metric .label {
@@ -139,6 +179,26 @@ button {
   color: #334155;
 }
 
+.panel h3.panel-sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.list-source {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.list-source strong {
+  font-weight: 650;
+  color: #0f172a;
+}
+
 .search-row {
   display: flex;
   gap: 0.5rem;
@@ -171,6 +231,22 @@ button {
   background: #fff;
   color: #1e293b;
   border-color: #cbd5e1;
+}
+
+.table-scroll {
+  max-height: min(60vh, 28rem);
+  overflow: auto;
+  margin-top: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 #e2e8f0;
 }
 
 table {
