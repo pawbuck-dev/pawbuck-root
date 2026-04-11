@@ -100,6 +100,53 @@ public class SupportMetricsService : ISupportMetricsService
             result.UsersWithPetsAndHealthRecords = o is int i ? i : Convert.ToInt32(o);
         }
 
+        var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+        await using (var cmd = new NpgsqlCommand(
+                       "SELECT COUNT(*)::int FROM auth.users WHERE created_at >= @since",
+                       conn))
+        {
+            cmd.Parameters.AddWithValue("since", sevenDaysAgo);
+            var o = await cmd.ExecuteScalarAsync(cancellationToken);
+            result.NewUsersLast7Days = o is int i ? i : Convert.ToInt32(o);
+        }
+
+        await using (var cmd = new NpgsqlCommand(
+                       "SELECT COUNT(*)::int FROM public.pets WHERE deleted_at IS NULL",
+                       conn))
+        {
+            var o = await cmd.ExecuteScalarAsync(cancellationToken);
+            result.TotalPets = o is int i ? i : Convert.ToInt32(o);
+        }
+
+        var chartStart = DateTime.UtcNow.Date.AddDays(-13);
+        var countsByDay = new Dictionary<DateOnly, int>();
+        await using (var cmd = new NpgsqlCommand(
+                       """
+                       SELECT (created_at AT TIME ZONE 'UTC')::date AS d, COUNT(*)::int
+                       FROM auth.users
+                       WHERE created_at >= @start
+                       GROUP BY 1
+                       ORDER BY 1
+                       """,
+                       conn))
+        {
+            cmd.Parameters.AddWithValue("start", chartStart);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var d = reader.GetFieldValue<DateTime>(0).Date;
+                var c = reader.GetInt32(1);
+                countsByDay[DateOnly.FromDateTime(d)] = c;
+            }
+        }
+
+        for (var i = 0; i < 14; i++)
+        {
+            var day = DateOnly.FromDateTime(chartStart.AddDays(i));
+            countsByDay.TryGetValue(day, out var n);
+            result.DailySignups.Add(new SupportDailySignupPoint { Date = day, Count = n });
+        }
+
         return result;
     }
 }

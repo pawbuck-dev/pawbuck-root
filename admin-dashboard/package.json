@@ -12,8 +12,10 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.5",

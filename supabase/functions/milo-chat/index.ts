@@ -1,4 +1,5 @@
 // Milo Chat - AI Pet Assistant powered by Gemini with Function Calling
+// Deprecated for production app: consumer chat uses PawBuck.API POST /api/milo/chat (plan + Npgsql + optional RAG).
 import {
   errorResponse,
   handleCorsRequest,

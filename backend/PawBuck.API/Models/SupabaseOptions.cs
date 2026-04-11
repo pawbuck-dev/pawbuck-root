@@ -40,4 +40,13 @@ public class SupabaseOptions
 
     /// <summary>When true, normalize <c>db.*.supabase.co</c> hostname to IPv4 for Npgsql when DNS is IPv6-only. Pooler hostnames are left as-is.</summary>
     public bool PreferIpv4 { get; set; } = true;
+
+    /// <summary>
+    /// Supabase JWT secret (Dashboard → Project Settings → API → JWT Secret). Used to validate user access tokens (HS256).
+    /// Override with env <c>SUPABASE_JWT_SECRET</c> in deployment.
+    /// </summary>
+    public string? JwtSecret { get; set; }
+
+    /// <summary>JWT <c>aud</c> claim for logged-in users. Default <c>authenticated</c>.</summary>
+    public string JwtAudience { get; set; } = "authenticated";
 }

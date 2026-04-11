@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PawBuck.API.Models;
@@ -13,6 +15,7 @@ namespace PawBuck.API.Controllers;
 public class MiloController : ControllerBase
 {
     private readonly MiloRagService _ragService;
+    private readonly IMiloReasoningService _reasoning;
     private readonly IMiloCuratedSnippetsService _curatedSnippets;
     private readonly IOptions<MiloOptions> _miloOptions;
     private readonly IWebHostEnvironment _environment;
@@ -20,16 +23,51 @@ public class MiloController : ControllerBase
 
     public MiloController(
         MiloRagService ragService,
+        IMiloReasoningService reasoning,
         IMiloCuratedSnippetsService curatedSnippets,
         IOptions<MiloOptions> miloOptions,
         IWebHostEnvironment environment,
         ILogger<MiloController> logger)
     {
         _ragService = ragService;
+        _reasoning = reasoning;
         _curatedSnippets = curatedSnippets;
         _miloOptions = miloOptions;
         _environment = environment;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// In-app Milo chat: plan → fetch authorized pet facts → optional FAQ RAG → answer. Requires Supabase user JWT.
+    /// </summary>
+    [Authorize]
+    [HttpPost("chat")]
+    [ProducesResponseType(typeof(MiloChatResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Chat([FromBody] MiloChatRequest? request, CancellationToken cancellationToken)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.Message))
+            return BadRequest(new { error = "message is required" });
+
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        try
+        {
+            var response = await _reasoning.ChatAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Milo chat failed");
+            return StatusCode(500, new MiloChatResponse
+            {
+                Answer = "Woof! Something went wrong. Please try again! 🐕",
+                PetName = request.Pet?.Name,
+            });
+        }
     }
 
     /// <summary>

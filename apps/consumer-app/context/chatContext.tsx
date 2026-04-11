@@ -1,4 +1,5 @@
 import { Pet } from "@/context/petsContext";
+import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
 
@@ -88,29 +89,52 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         weight_unit: selectedPet.weight_unit,
       } : null;
 
-      // Build history (last 10 messages for context, including current user message)
-      const history = currentMessages.slice(-10).map((msg) => ({
+      // Prior turns only (current message is sent separately as `message`)
+      const history = currentMessages.slice(0, -1).slice(-10).map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-      // Call Milo chat function
-      const { data, error: functionError } = await supabase.functions.invoke<{
-        response: string;
-        pet_name: string | null;
-      }>("milo-chat", {
-        body: {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Please sign in to chat with Milo.");
+      }
+
+      const baseUrl = getPawbuckApiBaseUrl();
+      if (!baseUrl) {
+        throw new Error("PawBuck API URL is not configured (EXPO_PUBLIC_PAWBUCK_API_URL).");
+      }
+
+      const res = await fetch(`${baseUrl}/api/milo/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           message,
           pet: petContext,
           history,
-        },
+        }),
       });
 
-      if (functionError) {
-        throw new Error(functionError.message || "Failed to get response");
+      if (res.status === 401 || res.status === 403) {
+        throw new Error("Your session expired or is not authorized. Please sign in again to use Milo.");
       }
 
-      if (!data?.response) {
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Request failed (${res.status})`);
+      }
+
+      const data = (await res.json()) as {
+        answer?: string;
+        petName?: string | null;
+      };
+
+      if (!data?.answer) {
         throw new Error("No response received");
       }
 
@@ -118,7 +142,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response,
+        content: data.answer,
         timestamp: new Date(),
       };
 

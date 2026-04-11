@@ -11,4 +11,7 @@ public class MiloOptions
     /// When set, <c>GET /api/milo/curated-guidance</c> requires header <c>X-Pawbuck-Milo-Internal-Key</c> to match.
     /// </summary>
     public string? InternalServiceKey { get; set; }
+
+    /// <summary>When true, <c>POST /api/milo/chat</c> includes <see cref="MiloChatResponse.PlanSummary"/> for debugging.</summary>
+    public bool ExposePlanSummary { get; set; }
 }

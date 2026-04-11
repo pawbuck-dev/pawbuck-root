@@ -1,5 +1,8 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using PawBuck.API.Configuration;
 using PawBuck.API.Models;
 using PawBuck.API.Scheduling;
@@ -35,6 +38,39 @@ builder.Services.AddScoped<ClassificationService>();
 
 // Supabase: REST client (Url + anon key, same as Expo) + optional Postgres via Npgsql (see SupabaseOptions).
 builder.Services.Configure<SupabaseOptions>(builder.Configuration.GetSection(SupabaseOptions.SectionName));
+builder.Services.PostConfigure<SupabaseOptions>(o =>
+{
+    if (string.IsNullOrWhiteSpace(o.JwtSecret))
+        o.JwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+});
+
+var supabaseJwtSecret = builder.Configuration["Supabase:JwtSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var supabaseUrlForJwt = builder.Configuration["Supabase:Url"];
+var jwtAudience = builder.Configuration["Supabase:JwtAudience"] ?? "authenticated";
+var jwtIssuer = SupabaseJwtIssuer.FromSupabaseUrl(supabaseUrlForJwt);
+if (string.IsNullOrWhiteSpace(supabaseJwtSecret))
+{
+    // Allows the host to start; tokens will fail signature validation until Supabase:JwtSecret is set.
+    supabaseJwtSecret = "dev-placeholder-jwt-secret-minimum-32-characters!";
+    if (!builder.Environment.IsDevelopment())
+        Console.WriteLine("WARNING: Supabase:JwtSecret not configured; set Supabase:JwtSecret or SUPABASE_JWT_SECRET for Milo chat JWT validation.");
+}
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(supabaseJwtSecret)),
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            ValidateIssuer = jwtIssuer != null,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(2),
+        };
+    });
 
 builder.Services.AddHttpClient(SupabaseConnectionStringNormalizer.DohHttpClientName, client =>
 {
@@ -57,6 +93,8 @@ builder.Services.AddScoped<IEmbeddingService, GeminiEmbeddingService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();
 builder.Services.AddScoped<IMiloCuratedSnippetsService, MiloCuratedSnippetsService>();
+builder.Services.AddScoped<IMiloPetFactsService, MiloPetFactsService>();
+builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
 // Scheduling / booking (plug-in Vetstoria, EazyVet; extend for grooming/boarding via BookingServiceType)
 builder.Services.Configure<SchedulingRoutingOptions>(builder.Configuration.GetSection(SchedulingRoutingOptions.SectionName));
@@ -85,7 +123,11 @@ builder.Services.AddCors(options =>
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "http://localhost:3000",
-                "http://127.0.0.1:3000")
+                "http://127.0.0.1:3000",
+                "http://localhost:8081",
+                "http://127.0.0.1:8081",
+                "http://localhost:19006",
+                "http://127.0.0.1:19006")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -111,6 +153,7 @@ if (app.Environment.IsDevelopment())
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 app.UseCors();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

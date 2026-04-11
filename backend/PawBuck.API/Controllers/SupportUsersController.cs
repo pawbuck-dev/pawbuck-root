@@ -41,6 +41,27 @@ public class SupportUsersController : ControllerBase
         }
     }
 
+    /// <summary>Paginated user directory with server-side search (email or display name).</summary>
+    [HttpGet("directory")]
+    public async Task<ActionResult<SupportUserDirectoryResponse>> Directory(
+        [FromQuery] string? q,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _directory.GetUserDirectoryAsync(q, page, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("{userId:guid}/timeline")]
+    public async Task<ActionResult<IReadOnlyList<SupportHealthTimelineEvent>>> Timeline(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _directory.GetUserHealthTimelineAsync(userId, cancellationToken);
+        return Ok(rows);
+    }
+
     [HttpGet("{userId:guid}/pets")]
     public async Task<ActionResult<IReadOnlyList<SupportPetRow>>> Pets(Guid userId, CancellationToken cancellationToken)
     {

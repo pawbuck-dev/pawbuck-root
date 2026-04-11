@@ -1,13 +1,36 @@
+export interface SupportDailySignupPoint {
+  date: string;
+  count: number;
+}
+
 export interface SupportMetrics {
   totalUsers: number;
   usersWithPets: number;
   usersWithPetsAndHealthRecords: number;
+  newUsersLast7Days: number;
+  totalPets: number;
+  dailySignups: SupportDailySignupPoint[];
 }
 
 export interface SupportUserRow {
   id: string;
   email: string | null;
   createdAt: string | null;
+}
+
+export interface SupportUserDirectoryRow {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  createdAt: string | null;
+  petCount: number;
+}
+
+export interface SupportUserDirectoryResponse {
+  items: SupportUserDirectoryRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface SupportPetRow {
@@ -19,6 +42,26 @@ export interface SupportPetRow {
   dateOfBirth: string;
   sex: string;
   createdAt: string;
+}
+
+export interface SupportPetExplorerRow {
+  id: string;
+  userId: string;
+  ownerEmail: string | null;
+  name: string;
+  breed: string;
+  animalType: string;
+  /** good | attention | minimal */
+  healthStatus: string;
+}
+
+export interface SupportHealthTimelineEvent {
+  occurredAt: string;
+  eventType: string;
+  title: string;
+  relatedId: string;
+  petId: string;
+  petName: string;
 }
 
 export interface SupportVaccinationRow {

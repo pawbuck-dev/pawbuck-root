@@ -1,7 +1,10 @@
 import type {
   CreateSupportVaccinationBody,
+  SupportHealthTimelineEvent,
   SupportMetrics,
+  SupportPetExplorerRow,
   SupportPetRow,
+  SupportUserDirectoryResponse,
   SupportUserRow,
   SupportVaccinationRow,
   UpdateSupportVaccinationBody,
@@ -67,6 +70,25 @@ export function createSupportClient(baseUrl: string, getApiKey: () => string) {
 
     searchUsers: (q: string) =>
       request<SupportUserRow[]>(`/api/support/users/search?q=${encodeURIComponent(q)}`),
+
+    getUserDirectory: (q: string, page: number, pageSize: number) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (q.trim()) params.set("q", q.trim());
+      return request<SupportUserDirectoryResponse>(`/api/support/users/directory?${params.toString()}`);
+    },
+
+    searchPets: (q: string) =>
+      request<SupportPetExplorerRow[]>(
+        `/api/support/pets/search?q=${encodeURIComponent(q)}`,
+      ),
+
+    getUserTimeline: (userId: string) =>
+      request<SupportHealthTimelineEvent[]>(
+        `/api/support/users/${userId}/timeline`,
+      ),
 
     getPetsForUser: (userId: string) =>
       request<SupportPetRow[]>(`/api/support/users/${userId}/pets`),

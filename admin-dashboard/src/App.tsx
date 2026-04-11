@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, SupportApiError } from "@/api/supportClient";
+import { DashboardOverview } from "@/components/DashboardOverview";
+import { PetHealthExplorer } from "@/components/PetHealthExplorer";
+import { UserDirectoryTable } from "@/components/UserDirectoryTable";
 import type {
+  SupportHealthTimelineEvent,
   SupportMetrics,
+  SupportPetExplorerRow,
   SupportPetRow,
+  SupportUserDirectoryRow,
   SupportUserRow,
   SupportVaccinationRow,
 } from "@/types/support";
@@ -17,10 +23,8 @@ function formatDateInput(iso: string | null | undefined): string {
   return d.length === 10 ? d : "";
 }
 
-function formatUserCreated(iso: string | null): string {
-  if (!iso) return "—";
-  const d = iso.slice(0, 10);
-  return d.length === 10 ? d : iso;
+function mapDirectoryUser(u: SupportUserDirectoryRow): SupportUserRow {
+  return { id: u.id, email: u.email, createdAt: u.createdAt };
 }
 
 export function App() {
@@ -29,6 +33,7 @@ export function App() {
     typeof window !== "undefined" ? window.localStorage.getItem(API_KEY_STORAGE) ?? "" : "",
   );
   const [banner, setBanner] = useState<string | null>(null);
+  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support">("overview");
 
   const client = useMemo(
     () => createSupportClient(baseUrl, () => apiKey),
@@ -59,21 +64,14 @@ export function App() {
     void loadMetrics();
   }, [loadMetrics]);
 
-  const [searchQ, setSearchQ] = useState("");
-  const [users, setUsers] = useState<SupportUserRow[]>([]);
-  const [userLoading, setUserLoading] = useState(false);
-  const [userListSource, setUserListSource] = useState<
-    "search" | "all" | "withPets" | "withHealth" | null
-  >(null);
-  const accountsPanelRef = useRef<HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<SupportUserRow | null>(null);
-
   const [pets, setPets] = useState<SupportPetRow[]>([]);
   const [petsLoading, setPetsLoading] = useState(false);
   const [selectedPet, setSelectedPet] = useState<SupportPetRow | null>(null);
-
   const [vaccinations, setVaccinations] = useState<SupportVaccinationRow[]>([]);
   const [vacLoading, setVacLoading] = useState(false);
+  const [timeline, setTimeline] = useState<SupportHealthTimelineEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   const [vacName, setVacName] = useState("");
   const [vacDate, setVacDate] = useState("");
@@ -81,68 +79,29 @@ export function App() {
   const [vacClinic, setVacClinic] = useState("");
   const [vacNotes, setVacNotes] = useState("");
 
-  const runSearch = useCallback(async () => {
-    const q = searchQ.trim();
-    if (!q) {
-      setUsers([]);
-      setUserListSource(null);
-      return;
-    }
-    setUserLoading(true);
-    setBanner(null);
-    try {
-      setUsers(await client.searchUsers(q));
-      setUserListSource("search");
-    } catch (e) {
-      setUsers([]);
-      setUserListSource(null);
-      setBanner(e instanceof SupportApiError ? e.message : "User search failed");
-    } finally {
-      setUserLoading(false);
-    }
-  }, [client, searchQ]);
+  const [segmentUsers, setSegmentUsers] = useState<SupportUserRow[]>([]);
+  const [segmentLoading, setSegmentLoading] = useState(false);
+  const [segmentLabel, setSegmentLabel] = useState<string | null>(null);
 
-  const loadUsersFromMetric = useCallback(
-    async (segment: "all" | "withPets" | "withHealth") => {
-      setUserLoading(true);
-      setBanner(null);
-      setSearchQ("");
-      setSelectedUser(null);
+  const selectUser = useCallback(
+    async (u: SupportUserRow) => {
+      setSelectedUser(u);
       setSelectedPet(null);
-      setPets([]);
       setVaccinations([]);
+      setTimeline([]);
+      setPetsLoading(true);
+      setBanner(null);
       try {
-        setUsers(await client.listUsers(segment));
-        setUserListSource(segment);
-        queueMicrotask(() =>
-          accountsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-        );
+        setPets(await client.getPetsForUser(u.id));
       } catch (e) {
-        setUsers([]);
-        setUserListSource(null);
-        setBanner(e instanceof SupportApiError ? e.message : "Failed to load user list");
+        setPets([]);
+        setBanner(e instanceof SupportApiError ? e.message : "Failed to load pets");
       } finally {
-        setUserLoading(false);
+        setPetsLoading(false);
       }
     },
     [client],
   );
-
-  const selectUser = async (u: SupportUserRow) => {
-    setSelectedUser(u);
-    setSelectedPet(null);
-    setVaccinations([]);
-    setPetsLoading(true);
-    setBanner(null);
-    try {
-      setPets(await client.getPetsForUser(u.id));
-    } catch (e) {
-      setPets([]);
-      setBanner(e instanceof SupportApiError ? e.message : "Failed to load pets");
-    } finally {
-      setPetsLoading(false);
-    }
-  };
 
   const selectPet = async (p: SupportPetRow) => {
     setSelectedPet(p);
@@ -155,6 +114,64 @@ export function App() {
       setBanner(e instanceof SupportApiError ? e.message : "Failed to load vaccinations");
     } finally {
       setVacLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedUser) {
+      setTimeline([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setTimelineLoading(true);
+      try {
+        const rows = await client.getUserTimeline(selectedUser.id);
+        if (!cancelled) setTimeline(rows);
+      } catch {
+        if (!cancelled) setTimeline([]);
+      } finally {
+        if (!cancelled) setTimelineLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, selectedUser]);
+
+  const loadSegment = async (segment: "all" | "withPets" | "withHealth", label: string) => {
+    setSegmentLoading(true);
+    setBanner(null);
+    try {
+      setSegmentUsers(await client.listUsers(segment));
+      setSegmentLabel(label);
+    } catch (e) {
+      setSegmentUsers([]);
+      setSegmentLabel(null);
+      setBanner(e instanceof SupportApiError ? e.message : "Failed to load list");
+    } finally {
+      setSegmentLoading(false);
+    }
+  };
+
+  const openPetFromExplorer = async (pet: SupportPetExplorerRow) => {
+    setTab("support");
+    const u: SupportUserRow = {
+      id: pet.userId,
+      email: pet.ownerEmail,
+      createdAt: null,
+    };
+    await selectUser(u);
+    setPetsLoading(true);
+    try {
+      const list = await client.getPetsForUser(pet.userId);
+      setPets(list);
+      const match = list.find((x) => x.id === pet.id);
+      if (match) await selectPet(match);
+    } catch (e) {
+      setBanner(e instanceof SupportApiError ? e.message : "Failed to open pet");
+    } finally {
+      setPetsLoading(false);
     }
   };
 
@@ -181,6 +198,9 @@ export function App() {
       setVacClinic("");
       setVacNotes("");
       setVaccinations(await client.listVaccinations(selectedPet.id));
+      if (selectedUser) {
+        setTimeline(await client.getUserTimeline(selectedUser.id));
+      }
       void loadMetrics();
     } catch (e) {
       setBanner(e instanceof SupportApiError ? e.message : "Create failed");
@@ -188,9 +208,9 @@ export function App() {
   };
 
   return (
-    <div className="shell">
+    <div className="shell shell--admin">
       <header className="topbar">
-        <h1>PawBuck support</h1>
+        <h1>PawBuck admin</h1>
         <div className="field">
           <label htmlFor="base">API base URL</label>
           <input
@@ -212,210 +232,263 @@ export function App() {
           />
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => void loadMetrics()}>
-          Refresh metrics
+          Refresh data
         </button>
       </header>
 
+      <nav className="nav-tabs" aria-label="Main">
+        <button
+          type="button"
+          className={tab === "overview" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("overview")}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          className={tab === "users" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("users")}
+        >
+          Users
+        </button>
+        <button
+          type="button"
+          className={tab === "pets" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("pets")}
+        >
+          Pet health
+        </button>
+        <button
+          type="button"
+          className={tab === "support" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("support")}
+        >
+          Support
+        </button>
+      </nav>
+
       {banner ? <div className="error">{banner}</div> : null}
 
-      <p className="metrics-hint muted">
-        Click a card to open the matching account list (up to 500). Use search below to filter by email.
-      </p>
-      <section className="metrics" aria-live="polite">
-        <button
-          type="button"
-          className="metric metric--clickable"
-          onClick={() => void loadUsersFromMetric("all")}
-          disabled={userLoading || metricsLoading}
-          aria-label="View list of all users"
-        >
-          <div className="label">Total users</div>
-          <div className="value">
-            {metricsLoading ? "…" : metrics?.totalUsers ?? "—"}
-          </div>
-          <span className="metric__action">Open list</span>
-        </button>
-        <button
-          type="button"
-          className="metric metric--clickable"
-          onClick={() => void loadUsersFromMetric("withPets")}
-          disabled={userLoading || metricsLoading}
-          aria-label="View users who have at least one pet"
-        >
-          <div className="label">Users with a pet</div>
-          <div className="value">
-            {metricsLoading ? "…" : metrics?.usersWithPets ?? "—"}
-          </div>
-          <span className="metric__action">Open list</span>
-        </button>
-        <button
-          type="button"
-          className="metric metric--clickable"
-          onClick={() => void loadUsersFromMetric("withHealth")}
-          disabled={userLoading || metricsLoading}
-          aria-label="View users with pet and health data"
-        >
-          <div className="label">Users with pet + health data</div>
-          <div className="value">
-            {metricsLoading ? "…" : metrics?.usersWithPetsAndHealthRecords ?? "—"}
-          </div>
-          <span className="metric__action">Open list</span>
-        </button>
-      </section>
+      {tab === "overview" ? (
+        <DashboardOverview metrics={metrics} loading={metricsLoading} />
+      ) : null}
 
-      <div className="layout">
-        <section className="panel" ref={accountsPanelRef} id="accounts-panel">
-          <h2>Accounts</h2>
-          {userListSource && userListSource !== "search" ? (
+      {tab === "users" ? (
+        <section className="panel panel--flush">
+          <h2 className="panel__title">User directory</h2>
+          <p className="muted segment-hint">
+            Quick lists:{" "}
+            <button type="button" className="btn-linkish" disabled={segmentLoading} onClick={() => void loadSegment("all", "All users")}>
+              All users
+            </button>
+            {" · "}
+            <button
+              type="button"
+              className="btn-linkish"
+              disabled={segmentLoading}
+              onClick={() => void loadSegment("withPets", "Users with a pet")}
+            >
+              With a pet
+            </button>
+            {" · "}
+            <button
+              type="button"
+              className="btn-linkish"
+              disabled={segmentLoading}
+              onClick={() => void loadSegment("withHealth", "Users with health data")}
+            >
+              With health data
+            </button>
+          </p>
+          {segmentLabel ? (
             <p className="list-source" role="status">
-              Showing:{" "}
-              <strong>
-                {userListSource === "all"
-                  ? "All users"
-                  : userListSource === "withPets"
-                    ? "Users with a pet"
-                    : "Users with pet + health data"}
-              </strong>
-              <span className="muted"> (max 500, newest first)</span>
+              Segment: <strong>{segmentLabel}</strong> ({segmentUsers.length} loaded) — click a row to open in Support.
             </p>
           ) : null}
-          <h3 className="panel-sub">Search by email</h3>
-          <div className="search-row">
-            <input
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void runSearch()}
-              placeholder="Email (partial match)"
-            />
-            <button type="button" className="btn" onClick={() => void runSearch()} disabled={userLoading}>
-              Search
-            </button>
-          </div>
-          {userLoading && users.length === 0 ? (
-            <p className="muted">Loading…</p>
-          ) : users.length === 0 ? (
-            <p className="muted">
-              No results yet. Click a metric above or search by email.
-            </p>
-          ) : (
-            <div className="table-scroll">
+          {segmentLoading ? <p className="muted">Loading segment…</p> : null}
+          {segmentUsers.length > 0 ? (
+            <div className="table-scroll" style={{ marginBottom: "1rem" }}>
               <table>
                 <thead>
                   <tr>
                     <th>Email</th>
                     <th>Joined</th>
-                    <th>User id</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {segmentUsers.map((u) => (
                     <tr
                       key={u.id}
                       className={`clickable ${selectedUser?.id === u.id ? "selected" : ""}`}
-                      onClick={() => void selectUser(u)}
+                      onClick={() => {
+                        void selectUser(u);
+                        setTab("support");
+                      }}
                     >
                       <td>{u.email ?? "—"}</td>
-                      <td className="muted">{formatUserCreated(u.createdAt)}</td>
-                      <td className="muted">{u.id}</td>
+                      <td className="muted">{(u.createdAt ?? "").slice(0, 10) || "—"}</td>
+                      <td>
+                        <button type="button" className="btn btn-secondary btn--sm">
+                          Support
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-          <h2 style={{ marginTop: "1.25rem" }}>Pets</h2>
-          {!selectedUser ? (
-            <p className="muted">Select a user to load pets.</p>
-          ) : petsLoading ? (
-            <p className="muted">Loading pets…</p>
-          ) : pets.length === 0 ? (
-            <p className="muted">No pets for this account.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Breed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pets.map((p) => (
-                  <tr
-                    key={p.id}
-                    className={`clickable ${selectedPet?.id === p.id ? "selected" : ""}`}
-                    onClick={() => void selectPet(p)}
-                  >
-                    <td>{p.name}</td>
-                    <td>{p.animalType}</td>
-                    <td>{p.breed || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          ) : null}
+          <UserDirectoryTable
+            client={client}
+            selectedId={selectedUser?.id ?? null}
+            onSelectUser={(row) => {
+              void selectUser(mapDirectoryUser(row));
+              setTab("support");
+            }}
+          />
         </section>
+      ) : null}
 
-        <section className="panel">
-          <h2>Vaccinations</h2>
-          {!selectedPet ? (
-            <p className="muted">Select a pet to view or add vaccinations.</p>
-          ) : vacLoading ? (
-            <p className="muted">Loading…</p>
-          ) : (
-            <>
-              {vaccinations.length === 0 ? (
-                <p className="muted">No vaccinations yet.</p>
-              ) : (
-                <div>
-                  {vaccinations.map((v) => (
-                    <VaccinationEditorCard
-                      key={v.id}
-                      row={v}
-                      onSaved={async () => {
-                        setVaccinations(await client.listVaccinations(selectedPet.id));
-                        void loadMetrics();
-                      }}
-                      client={client}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <h2 style={{ marginTop: "1.25rem" }}>Add vaccination</h2>
-              <div className="form-grid">
-                <div className="row2">
-                  <div className="field">
-                    <label>Name</label>
-                    <input value={vacName} onChange={(e) => setVacName(e.target.value)} />
-                  </div>
-                  <div className="field">
-                    <label>Date</label>
-                    <input type="date" value={vacDate} onChange={(e) => setVacDate(e.target.value)} />
-                  </div>
-                </div>
-                <div className="row2">
-                  <div className="field">
-                    <label>Next due (optional)</label>
-                    <input type="date" value={vacNext} onChange={(e) => setVacNext(e.target.value)} />
-                  </div>
-                  <div className="field">
-                    <label>Clinic (optional)</label>
-                    <input value={vacClinic} onChange={(e) => setVacClinic(e.target.value)} />
-                  </div>
-                </div>
-                <div className="field">
-                  <label>Notes (optional)</label>
-                  <textarea value={vacNotes} onChange={(e) => setVacNotes(e.target.value)} />
-                </div>
-                <button type="button" className="btn" onClick={() => void submitNewVaccination()}>
-                  Save vaccination
-                </button>
-              </div>
-            </>
-          )}
+      {tab === "pets" ? (
+        <section className="panel panel--flush">
+          <h2 className="panel__title">Pet health explorer</h2>
+          <PetHealthExplorer client={client} onOpenHealthRecords={(p) => void openPetFromExplorer(p)} />
         </section>
-      </div>
+      ) : null}
+
+      {tab === "support" ? (
+        <div className="layout layout--support">
+          <section className="panel">
+            <h2 className="panel__title">Account</h2>
+            {!selectedUser ? (
+              <p className="muted">Choose a user from the Users tab or Pet health tab.</p>
+            ) : (
+              <>
+                <p>
+                  <strong>{selectedUser.email ?? "—"}</strong>
+                  <span className="muted" style={{ display: "block", fontSize: "0.85rem" }}>
+                    {selectedUser.id}
+                  </span>
+                </p>
+                <h3 className="panel-sub">Pets</h3>
+                {petsLoading ? (
+                  <p className="muted">Loading pets…</p>
+                ) : pets.length === 0 ? (
+                  <p className="muted">No pets.</p>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Breed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pets.map((p) => (
+                        <tr
+                          key={p.id}
+                          className={`clickable ${selectedPet?.id === p.id ? "selected" : ""}`}
+                          onClick={() => void selectPet(p)}
+                        >
+                          <td>{p.name}</td>
+                          <td>{p.animalType}</td>
+                          <td>{p.breed || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                <h3 className="panel-sub">Health activity timeline</h3>
+                {timelineLoading ? (
+                  <p className="muted">Loading timeline…</p>
+                ) : timeline.length === 0 ? (
+                  <p className="muted">No health events yet.</p>
+                ) : (
+                  <ul className="timeline">
+                    {timeline.map((ev) => (
+                      <li key={`${ev.eventType}-${ev.relatedId}-${ev.occurredAt}`} className="timeline__item">
+                        <div className="timeline__time">{(ev.occurredAt ?? "").slice(0, 16).replace("T", " ")}</div>
+                        <div className="timeline__body">
+                          <span className="timeline__badge">{ev.eventType}</span> {ev.title}
+                          <div className="muted timeline__pet">
+                            {ev.petName} · {ev.petId.slice(0, 8)}…
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </section>
+
+          <section className="panel">
+            <h2 className="panel__title">Vaccinations</h2>
+            {!selectedPet ? (
+              <p className="muted">Select a pet to view or add vaccinations.</p>
+            ) : vacLoading ? (
+              <p className="muted">Loading…</p>
+            ) : (
+              <>
+                {vaccinations.length === 0 ? (
+                  <p className="muted">No vaccinations yet.</p>
+                ) : (
+                  <div>
+                    {vaccinations.map((v) => (
+                      <VaccinationEditorCard
+                        key={v.id}
+                        row={v}
+                        onSaved={async () => {
+                          setVaccinations(await client.listVaccinations(selectedPet.id));
+                          if (selectedUser) setTimeline(await client.getUserTimeline(selectedUser.id));
+                          void loadMetrics();
+                        }}
+                        client={client}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <h3 className="panel-sub" style={{ marginTop: "1rem" }}>
+                  Add vaccination
+                </h3>
+                <div className="form-grid">
+                  <div className="row2">
+                    <div className="field">
+                      <label>Name</label>
+                      <input value={vacName} onChange={(e) => setVacName(e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>Date</label>
+                      <input type="date" value={vacDate} onChange={(e) => setVacDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="row2">
+                    <div className="field">
+                      <label>Next due (optional)</label>
+                      <input type="date" value={vacNext} onChange={(e) => setVacNext(e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>Clinic (optional)</label>
+                      <input value={vacClinic} onChange={(e) => setVacClinic(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Notes (optional)</label>
+                    <textarea value={vacNotes} onChange={(e) => setVacNotes(e.target.value)} />
+                  </div>
+                  <button type="button" className="btn" onClick={() => void submitNewVaccination()}>
+                    Save vaccination
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -485,7 +558,11 @@ function VaccinationEditorCard({
           </div>
           <input value={clinic} onChange={(e) => setClinic(e.target.value)} placeholder="Clinic" />
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" />
-          {err ? <span className="error" style={{ display: "block" }}>{err}</span> : null}
+          {err ? (
+            <span className="error" style={{ display: "block" }}>
+              {err}
+            </span>
+          ) : null}
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <button type="button" className="btn" disabled={saving} onClick={() => void save()}>
               Save
@@ -507,7 +584,7 @@ function VaccinationEditorCard({
             {formatDateInput(row.date) || row.date}
             {row.nextDueDate ? ` · next ${formatDateInput(row.nextDueDate)}` : ""}
           </div>
-          {(row.clinicName || row.notes) ? (
+          {row.clinicName || row.notes ? (
             <div className="muted" style={{ marginTop: "0.35rem" }}>
               {[row.clinicName, row.notes].filter(Boolean).join(" · ")}
             </div>

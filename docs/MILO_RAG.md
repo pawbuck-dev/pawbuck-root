@@ -2,18 +2,24 @@
 
 Operational guide for FAQ retrieval, curated grounding, and how **Edge** vs **PawBuck.API** interact.
 
-## Chosen split (current)
+## In-app chat (canonical)
+
+The **Expo consumer** chat modal calls **`POST /api/milo/chat`** on **PawBuck.API** with a **Supabase user JWT** and optional `pet` + `history`. The server runs **Gemini plan JSON → Npgsql pet facts (owner-scoped) → optional `documentation` RAG → final answer** ([`MiloReasoningService`](../backend/PawBuck.API/Services/MiloReasoningService.cs)). Configure **`EXPO_PUBLIC_PAWBUCK_API_URL`** and **`Supabase:JwtSecret`** (or `SUPABASE_JWT_SECRET`) on the API so tokens validate.
+
+The Edge function **`milo-chat`** is **deprecated** for the app (kept for legacy experiments only).
+
+## Chosen split (vectors)
 
 We run **two vector indexes** on purpose until a consolidation project merges them:
 
 1. **`faq_documents` + `match_documents` (1536-dim)**  
-   - **Consumer:** Edge embeds the user/tool query with Gemini `text-embedding-004` at **1536** output dimensionality ([`milo-chat/tools/knowledge.ts`](../apps/consumer-app/supabase/functions/milo-chat/tools/knowledge.ts)).  
-   - **Use:** Short FAQ / product-help for **in-app Milo** (`search_faqs`).  
+   - **Legacy Edge:** embeds with Gemini `text-embedding-004` at **1536** output dimensionality ([`milo-chat/tools/knowledge.ts`](../apps/consumer-app/supabase/functions/milo-chat/tools/knowledge.ts)).  
+   - **Use:** Short FAQ / product-help when using **deprecated** Edge `milo-chat` tools.  
    - **Ingest:** `faq_source` sync → `faq_documents` (see `apps/consumer-app/supabase/migrations/` for FAQ tables; canonical DB may mirror via root migrations).
 
 2. **`documentation` + `match_documentation` (768-dim)**  
-   - **Consumer:** PawBuck.API embeds with Gemini `text-embedding-004` at **768** dims ([`GeminiEmbeddingService`](../backend/PawBuck.API/Services/GeminiEmbeddingService.cs)).  
-   - **Use:** Longer knowledge chunks for **`POST /api/milo/ask`** only (not the Expo chat modal).
+   - **API:** PawBuck.API embeds with Gemini `text-embedding-004` at **768** dims ([`GeminiEmbeddingService`](../backend/PawBuck.API/Services/GeminiEmbeddingService.cs)).  
+   - **Use:** FAQ RAG for **`POST /api/milo/ask`** and optional RAG inside **`POST /api/milo/chat`** when the plan requests documentation.
 
 **Do not** assume the two RPCs are interchangeable: dimensions and tables differ.
 
@@ -36,6 +42,8 @@ Table **`milo_curated_snippets`** (root `supabase/migrations`) holds **editorial
 | Variable | Where | Purpose |
 |---------|--------|---------|
 | `GOOGLE_GEMINI_API_KEY` | Edge + API | Gemini models / embeddings |
+| `SUPABASE_JWT_SECRET` / `Supabase:JwtSecret` | API | Validate user JWTs for **`POST /api/milo/chat`** |
+| `EXPO_PUBLIC_PAWBUCK_API_URL` | Consumer Expo | Base URL for PawBuck.API (e.g. `http://localhost:5xxx`) |
 | `MILO_INTERNAL_SERVICE_KEY` | Edge + API appsettings | Shared secret for `GET /api/milo/curated-guidance` |
 | `PAWBUCK_API_URL` | Edge (optional) | Base URL for PawBuck.API (e.g. `https://api.example.com`) |
 
