@@ -27,6 +27,16 @@ Provides CORS utilities for Edge Functions:
 - **`jsonResponse(data, status?)`** - Create JSON response with CORS headers
 - **`errorResponse(error, status?)`** - Create error response with CORS headers
 
+### `pawbuck-milo-api.ts`
+
+Optional bridge to **PawBuck.API** for Milo shared retrieval (`GET /api/milo/curated-guidance`):
+
+- **`MILO_INTERNAL_HEADER`** — header name `X-Pawbuck-Milo-Internal-Key`
+- **`getPawbuckApiBaseUrl()`** — from `PAWBUCK_API_URL`
+- **`getMiloInternalServiceKey()`** — from `MILO_INTERNAL_SERVICE_KEY`
+
+Used by `milo-chat/tools/curatedGuidance.ts` when both env vars are set; otherwise the tool reads Postgres directly.
+
 ### `notification.ts`
 
 Provides push notification utilities using Expo Push API:

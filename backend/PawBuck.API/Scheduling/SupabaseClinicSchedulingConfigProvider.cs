@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using PawBuck.API.Models;
 using PawBuck.API.Scheduling.Abstractions;
 using PawBuck.API.Scheduling.Contracts;
 using PawBuck.API.Services;

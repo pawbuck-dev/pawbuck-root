@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using PawBuck.API.Models;
 using PawBuck.API.Scheduling.Abstractions;
 using PawBuck.API.Services;
 

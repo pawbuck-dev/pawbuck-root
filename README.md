@@ -10,8 +10,7 @@ This is the monorepo for PawBuck, containing all applications, backend services,
 │   ├── /consumer-app (Pet Owner App - React Native)
 │   └── /provider-app (Provider App - React Native)
 ├── /backend
-│   ├── /PawBuck.API (.NET Web API)
-│   ├── /PawBuck.Admin.API (.NET Admin API)
+│   ├── /PawBuck.API (.NET — booking, Milo, call-center `/api/support/*`)
 │   └── /PawBuck.Shared (.NET Shared Library)
 ├── /admin-dashboard (Admin Dashboard - Web)
 ├── /supabase (Supabase functions and migrations)

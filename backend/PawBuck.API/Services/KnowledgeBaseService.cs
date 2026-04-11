@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Npgsql;
+using PawBuck.API.Models;
 
 namespace PawBuck.API.Services;
 
@@ -65,14 +66,4 @@ public class KnowledgeBaseService : IKnowledgeBaseService
 
         return results;
     }
-}
-
-/// <summary>
-/// Supabase / Postgres connection for RAG (match_documentation).
-/// </summary>
-public class SupabaseOptions
-{
-    public const string SectionName = "Supabase";
-    /// <summary>Postgres connection string (e.g. from Supabase project settings).</summary>
-    public string? ConnectionString { get; set; }
 }

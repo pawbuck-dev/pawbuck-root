@@ -20,7 +20,7 @@ Follow this for any feature that touches **APIs, Supabase, mobile apps, or share
 | Consumer app | `apps/consumer-app` | Pet owners; primary UX for health records, messages, walks, vet booking UI |
 | Provider app | `apps/provider-app` | Service providers; marketplace profile/offers/bookings (RLS); **same** Supabase project |
 | Scheduling & AI API | `backend/PawBuck.API` | **Only** hub for Vetstoria/EazyVet/demo; Milo/RAG/classification; clinic routing from `clinic_scheduling_config` + appsettings fallback |
-| Admin API | `backend/PawBuck.Admin.API` | Admin operations — not a substitute for mobile calling vendors |
+| Support / call-center API | **`backend/PawBuck.API`** (`/api/support/*`, `X-Admin-Api-Key`) | Same host as booking/Milo; privileged Postgres for support — not a substitute for mobile calling vendors directly |
 | Postgres migrations | `supabase/migrations/` (repo root) | **Authoritative** — do not add new schema under `apps/consumer-app/supabase/migrations/` |
 
 ## Domain separation (do not conflate)

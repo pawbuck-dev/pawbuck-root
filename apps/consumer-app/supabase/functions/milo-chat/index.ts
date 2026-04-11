@@ -9,6 +9,7 @@ import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 import { executeHealthTool, isHealthTool } from "./tools/health.ts";
 import { get_county_vaccines } from "./tools/vaccines.ts";
+import { get_curated_pet_guidance } from "./tools/curatedGuidance.ts";
 import { search_faqs } from "./tools/knowledge.ts";
 
 interface ChatMessage {
@@ -35,7 +36,7 @@ interface ChatRequest {
 }
 
 const TOOL_OUTPUTS_NOTE =
-  "You are Milo. Use the provided Tool Outputs (FAQs or Vaccine Laws) as the absolute source of truth. If data is missing for a specific county, state that you don't have the local records yet.";
+  "You are Milo. Use Tool Outputs (FAQs, Vaccine Laws, health record tools, or get_curated_pet_guidance) as the source of truth for factual claims. If a tool returns no data, say so. For numeric breed ranges or weight context, call get_curated_pet_guidance before stating numbers.";
 
 const MILO_BASE_PROMPT = `Role: Milo, PawBuck's AI Pet Care Assistant. Use pet-related expressions sparingly. Sign-off: 🐕.
 Mission: Provide data-driven, evidence-based pet care guidance utilizing user records.
@@ -53,11 +54,9 @@ Vaccination Framework:
 - Explicitly flag "Current," "Approaching," or "Overdue" status based on history.
 
 Weight/Growth Framework:
-- Use breed-specific growth charts. Classify by percentile (Ideal: 50th-75th).
-- If >85th (Obese/Overweight), provide:
-  - Caloric target using metabolic weight formulas.
-  - Portion guidance (cups/day) and treat limits (10% rule).
-  - Activity targets (minutes/day) based on breed energy levels.
+- Call get_curated_pet_guidance when discussing breed-typical weight, growth, or “healthy range” unless the user only wants their pet’s logged weight from records.
+- Numeric breed ranges, pounds/kg bands, or chart language: cite ONLY what appears in get_curated_pet_guidance tool output or health tools—never invent percentiles or AKC/WSAVA numbers.
+- After grounded context: you may discuss body condition and lifestyle in general terms; defer specifics to the vet.
 
 Safety & Constraints:
 - NO Diagnosis/Prescription: Explain symptoms generally; never name a disease or dose a medication.
@@ -93,6 +92,29 @@ const FAQ_AND_VACCINE_DECLARATIONS = [
         pet_type: { type: "string" as const, description: "Pet type, e.g. dog or cat" },
       },
       required: ["county", "pet_type"] as const,
+    },
+  },
+  {
+    name: "get_curated_pet_guidance",
+    description:
+      "PawBuck curated educational snippets (breed weight context, general wellness). Use when the user asks healthy weight, breed size, growth, or if their pet is ‘normal’ for their breed. Call before citing numeric breed ranges. Uses the selected pet’s breed/species when arguments omit them.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        topic: {
+          type: "string" as const,
+          description: "Optional: weight_range or general_wellness. Defaults to weight_range when omitted.",
+        },
+        breed: {
+          type: "string" as const,
+          description: "Breed name when no pet is selected or when asking about a different breed than the selected pet.",
+        },
+        animal_type: {
+          type: "string" as const,
+          description: "Dog or Cat when relevant and not implied by the selected pet.",
+        },
+      },
+      required: [] as const,
     },
   },
 ];
@@ -217,7 +239,8 @@ function buildFunctionDeclarations(includeHealth: boolean): Record<string, unkno
 async function executeTool(
   name: string,
   args: Record<string, unknown>,
-  petId: string | undefined
+  petId: string | undefined,
+  resolvedPet: PetContext | null
 ): Promise<string> {
   if (isHealthTool(name)) {
     if (!petId) return "No pet selected. Please select a pet to view health records.";
@@ -231,6 +254,16 @@ async function executeTool(
     const county = typeof args.county === "string" ? args.county : String(args?.county ?? "");
     const pet_type = typeof args.pet_type === "string" ? args.pet_type : String(args?.pet_type ?? "dog");
     return get_county_vaccines(county, pet_type);
+  }
+  if (name === "get_curated_pet_guidance") {
+    const topicRaw = typeof args.topic === "string" ? args.topic.trim() : "";
+    const topic =
+      topicRaw === "general_wellness" || topicRaw === "weight_range" ? topicRaw : "weight_range";
+    const breedArg = typeof args.breed === "string" ? args.breed : undefined;
+    const animalArg = typeof args.animal_type === "string" ? args.animal_type : undefined;
+    const breed = breedArg ?? resolvedPet?.breed;
+    const animal = animalArg ?? resolvedPet?.animal_type;
+    return await get_curated_pet_guidance(breed, animal, topic);
   }
   throw new Error(`Unknown function: ${name}`);
 }
@@ -317,7 +350,7 @@ Deno.serve(async (req: Request) => {
 
       let functionResult: string;
       try {
-        functionResult = await executeTool(fnName, fnArgs, resolvedPet?.id);
+        functionResult = await executeTool(fnName, fnArgs, resolvedPet?.id, resolvedPet);
       } catch (funcError) {
         console.error(`[Milo Chat] Function error:`, funcError);
         functionResult =

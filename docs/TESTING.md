@@ -34,7 +34,7 @@ pnpm run test:all
 - `BookingsController` depends on `ISchedulingBookingService` so scheduling can be mocked in tests.
 - `CompositeClinicSchedulingConfigProviderTests` covers Supabase vs appsettings fallback for clinic routing.
 - `PawBuck.API.Tests` — run `dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj`.
-- Also run `PawBuck.Shared.Tests` and `PawBuck.Admin.API.Tests` if you change those projects (`pnpm run backend:test` runs all three).
+- Also run `PawBuck.Shared.Tests` when you change shared code (`pnpm run backend:test` runs API + Shared tests). Support dashboard routes live in **PawBuck.API** (`/api/support/*`), covered indirectly by API tests as you add them.
 
 ## What to add next (suggested)
 

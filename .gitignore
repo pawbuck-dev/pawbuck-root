@@ -42,6 +42,9 @@ lerna-debug.log*
 # .NET
 bin/
 obj/
+
+# Local-only API overrides (copy from appsettings.Local.example.json)
+backend/PawBuck.API/appsettings.Local.json
 *.user
 *.suo
 *.cache

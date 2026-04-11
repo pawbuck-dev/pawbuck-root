@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using PawBuck.API.Models;
 using PawBuck.API.Scheduling;
 using PawBuck.API.Scheduling.Contracts;
 using PawBuck.API.Services;

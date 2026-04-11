@@ -4,7 +4,7 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/tests/setup.js"],
   testMatch: ["**/__tests__/**/*.test.{ts,tsx}"],
   moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/$1",
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
     "^.+\\.tsx?$": [

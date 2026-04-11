@@ -7,7 +7,7 @@ alwaysApply: true
 
 **Broader monorepo boundaries** (marketplace vs clinic, migration root, shared packages): `.cursor/rules/architecture-boundaries.mdc` and `docs/ARCHITECTURE.md`.
 
-**Canonical repo:** [pawbuck-dev/pawbuck-root](https://github.com/pawbuck-dev/pawbuck-root). Monorepo layout: `apps/consumer-app`, `apps/provider-app`, `backend/` (PawBuck.API, PawBuck.Admin.API, PawBuck.Shared), `admin-dashboard`, `supabase/`, `packages/milo-core`. A separate `pawbuck-react-native` repo may exist; **this monorepo is canonical** for the consumer app going forward.
+**Canonical repo:** [pawbuck-dev/pawbuck-root](https://github.com/pawbuck-dev/pawbuck-root). Monorepo layout: `apps/consumer-app`, `apps/provider-app`, `backend/` (PawBuck.API includes `/api/support/*` for call-center; PawBuck.Shared), `admin-dashboard`, `supabase/`, `packages/milo-core`. A separate `pawbuck-react-native` repo may exist; **this monorepo is canonical** for the consumer app going forward.
 
 ## Integration hub (.NET)
 
