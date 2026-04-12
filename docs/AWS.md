@@ -89,7 +89,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
    - **S3**: `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on the admin bucket (and prefix if used).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
-   - **Secret:** `AWS_ROLE_TO_ASSUME` = role ARN from step 2.
+   - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
@@ -108,6 +108,83 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 1. **Actions** → **Deploy AWS** → **Run workflow**.
 2. Choose **deploy_target**: `api`, `admin`, or `both`.
 3. Ensure ECS task definition uses the same ECR image repository and tag strategy (`latest` is pushed by the workflow).
+
+### Testing the deployment pipeline
+
+1. **Confirm GitHub configuration**
+   - **Secret:** `AWS_ROLE_ARN` (OIDC role ARN).
+   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`).
+   - **Region:** Set `AWS_REGION` if not `us-east-1`.
+
+2. **Run the workflow**
+   - **Actions** → **Deploy AWS** → **Run workflow** → choose **`api`** first (smallest surface area).
+
+3. **Verify API job (green checkmarks)**
+   - **Configure AWS credentials** succeeds (if OIDC fails, check IAM trust policy: `repo:OWNER/REPO:ref:refs/heads/main` or `workflow_dispatch`, and `id-token: write` in the workflow).
+   - **Login to Amazon ECR** succeeds.
+   - **Build, tag, push image** shows push to `.../REPO:sha` and `:latest`.
+   - **ECS force new deployment** completes without AWS API errors.
+
+4. **Verify in AWS**
+   - **ECR:** New image tags (`latest` and commit SHA) on the repository.
+   - **ECS:** Service **Deployments** tab shows a new deployment in **In progress** then **Completed**; tasks cycle to **Running**.
+   - **ALB (if configured):** Target group **healthy** targets; `GET https://your-api-host/api/health` returns `{"status":"healthy"}`.
+
+5. **Test admin deploy (`deploy_target`: `admin` or `both`)**
+   - Confirm `VITE_ADMIN_API_BASE` is your **public** API URL (the one the browser will call).
+   - After success, open the **CloudFront** URL (or S3 website if used) and confirm the admin UI loads; check browser **Network** tab for API calls to the correct host and **CORS** (API `Cors:AllowedOrigins` must include the admin origin).
+
+6. **If something fails**
+   - Open the failed **job** → expand the failed **step**; common issues: wrong role ARN, ECR repo name mismatch, ECS cluster/service names, missing IAM permission (`ecr:*`, `ecs:UpdateService`, `s3:*`, `cloudfront:CreateInvalidation`), or admin build missing `VITE_ADMIN_API_BASE`.
+
+### OIDC error: “Could not load credentials from any providers”
+
+This comes from `aws-actions/configure-aws-credentials` when **no usable credentials** were produced. Check in order:
+
+1. **Secret `AWS_ROLE_ARN`**
+   - Repo → **Settings → Secrets and variables → Actions → Secrets**.
+   - Name must be exactly **`AWS_ROLE_ARN`** (not a Variable).
+   - Value must be the **full ARN**: `arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME` (no quotes or spaces).
+
+2. **Workflow permission for OIDC**
+   - The workflow must include `permissions: id-token: write` (already set in `deploy-aws.yml`). Without it, GitHub cannot mint the OIDC token.
+
+3. **IAM OIDC identity provider (AWS)**
+   - **IAM → Identity providers** must include **token.actions.githubusercontent.com** (provider URL) with **audience** `sts.amazonaws.com` (default for GitHub → AWS).
+   - If missing, add the GitHub OIDC provider using AWS docs / “Configure AWS credentials” guide.
+
+4. **IAM role trust policy**
+   - The role in `AWS_ROLE_ARN` must **trust** GitHub’s OIDC. Example condition (replace `OWNER`, `REPO`, and account id):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:OWNER/REPO:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+   - **`sub` must match** how GitHub identifies the workflow. If you restricted to one branch, use e.g. `repo:OWNER/REPO:ref:refs/heads/main`. For manual runs (**workflow_dispatch**), the subject still includes the branch you selected (e.g. `refs/heads/main`). A broad pattern `repo:OWNER/REPO:*` is easiest while testing; tighten later.
+
+5. **Wrong AWS account**
+   - The role ARN must live in the **same account** as ECR/ECS/S3 you are deploying to.
+
+If OIDC is blocked, you can temporarily use **long-lived keys** (less secure): add secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, then replace the **Configure AWS credentials** step with the [static key inputs](https://github.com/aws-actions/configure-aws-credentials#readme) (`aws-access-key-id` / `aws-secret-access-key`) and **omit** `role-to-assume`.
 
 ### Without OIDC (not recommended)
 

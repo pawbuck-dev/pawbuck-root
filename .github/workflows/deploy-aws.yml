@@ -32,11 +32,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate AWS_ROLE_ARN secret
+        env:
+          ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "${ROLE_ARN}" ]; then
+            echo "::error::Repository secret AWS_ROLE_ARN is empty or missing. Add it under Settings → Secrets and variables → Actions. Value must be the full IAM role ARN (e.g. arn:aws:iam::123456789012:role/GitHubActionsDeploy)."
+            exit 1
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: pawbuck-api-${{ github.run_id }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -93,11 +103,21 @@ jobs:
           VITE_ADMIN_API_BASE: ${{ vars.VITE_ADMIN_API_BASE }}
         run: pnpm --filter pawbuck-admin-dashboard build
 
+      - name: Validate AWS_ROLE_ARN secret
+        env:
+          ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "${ROLE_ARN}" ]; then
+            echo "::error::Repository secret AWS_ROLE_ARN is empty or missing. See docs/AWS.md (OIDC troubleshooting)."
+            exit 1
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: pawbuck-admin-${{ github.run_id }}
 
       - name: Sync to S3
         env:
