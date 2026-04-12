@@ -27,10 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm version from root package.json "packageManager" (pinning version here conflicts with packageManager).
       - uses: pnpm/action-setup@v4
-        with:
-          # Must match the pnpm major used to generate pnpm-lock.yaml (lockfile v9 + patches differ on pnpm 9 vs 10).
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
