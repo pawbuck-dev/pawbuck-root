@@ -1,0 +1,35 @@
+# PawBuck.API — build + test (.NET 8)
+name: PawBuck API CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/PawBuck.API/**"
+      - "backend/PawBuck.API.Tests/**"
+      - ".github/workflows/pawbuck-api-ci.yml"
+  pull_request:
+    paths:
+      - "backend/PawBuck.API/**"
+      - "backend/PawBuck.API.Tests/**"
+      - ".github/workflows/pawbuck-api-ci.yml"
+
+concurrency:
+  group: pawbuck-api-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and test
+        run: dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj -c Release --verbosity normal

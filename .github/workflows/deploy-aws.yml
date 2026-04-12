@@ -1,0 +1,120 @@
+# Deploy PawBuck.API (ECR → ECS) and/or admin-dashboard (S3 → CloudFront)
+# Requires: GitHub → AWS OIDC (recommended) or access-key secrets; repo Variables below.
+name: Deploy AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: "Deploy API (ECR/ECS), admin (S3/CloudFront), or both"
+        type: choice
+        options:
+          - api
+          - admin
+          - both
+        default: api
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  deploy-api:
+    if: ${{ inputs.deploy_target == 'api' || inputs.deploy_target == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Optional: set GitHub Environment for approvals (e.g. name: production).
+    # environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, push image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -eux
+          test -n "${REPOSITORY:-}" || { echo "Set repo Variable AWS_ECR_REPOSITORY"; exit 1; }
+          cd backend/PawBuck.API
+          docker build -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$REPOSITORY:latest" .
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+
+      - name: ECS force new deployment
+        env:
+          CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
+          SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+        run: |
+          set -eux
+          test -n "${CLUSTER:-}" && test -n "${SERVICE:-}" || { echo "Set Variables AWS_ECS_CLUSTER and AWS_ECS_SERVICE"; exit 1; }
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            --region "$AWS_REGION"
+
+  deploy-admin:
+    if: ${{ inputs.deploy_target == 'admin' || inputs.deploy_target == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build admin dashboard
+        env:
+          VITE_ADMIN_API_BASE: ${{ vars.VITE_ADMIN_API_BASE }}
+        run: pnpm --filter pawbuck-admin-dashboard build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        env:
+          BUCKET: ${{ vars.AWS_S3_ADMIN_BUCKET }}
+        run: |
+          set -eux
+          test -n "${BUCKET:-}" || { echo "Set Variable AWS_S3_ADMIN_BUCKET"; exit 1; }
+          aws s3 sync admin-dashboard/dist/ "s3://${BUCKET}/" --delete
+
+      - name: Invalidate CloudFront
+        env:
+          DIST_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          if [ -z "${DIST_ID:-}" ]; then
+            echo "Skipping CloudFront: set Variable AWS_CLOUDFRONT_DISTRIBUTION_ID to invalidate cache."
+            exit 0
+          fi
+          aws cloudfront create-invalidation \
+            --distribution-id "$DIST_ID" \
+            --paths "/*"

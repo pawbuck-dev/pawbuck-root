@@ -115,19 +115,28 @@ builder.Services.AddSingleton<IClinicSchedulingConfigProvider, CompositeClinicSc
 builder.Services.AddScoped<SchedulingBookingService>();
 builder.Services.AddScoped<ISchedulingBookingService>(sp => sp.GetRequiredService<SchedulingBookingService>());
 
+// When Cors:AllowedOrigins is non-empty, only those origins are allowed (use for AWS admin CloudFront, etc.).
+// When empty, local dev defaults apply (Expo + admin Vite).
+var corsConfigured = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var corsOrigins = corsConfigured.Length > 0
+    ? corsConfigured
+    : new[]
+    {
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:19006",
+        "http://127.0.0.1:19006",
+    };
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:8081",
-                "http://127.0.0.1:8081",
-                "http://localhost:19006",
-                "http://127.0.0.1:19006")
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
