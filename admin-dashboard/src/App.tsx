@@ -14,8 +14,14 @@ import type {
 } from "@/types/support";
 
 const API_KEY_STORAGE = "pawbuck-admin-api-key";
-const BASE_DEFAULT =
-  import.meta.env.VITE_ADMIN_API_BASE?.replace(/\/$/, "") ?? "http://localhost:5289";
+
+/** Empty env var is "" (not undefined) — would make fetch use relative URLs on CloudFront → 403 on /api/*. */
+function resolveAdminApiBase(): string {
+  const raw = (import.meta.env.VITE_ADMIN_API_BASE ?? "").trim().replace(/\/$/, "");
+  return raw.length > 0 ? raw : "http://localhost:5289";
+}
+
+const BASE_DEFAULT = resolveAdminApiBase();
 
 function formatDateInput(iso: string | null | undefined): string {
   if (!iso) return "";

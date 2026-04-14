@@ -97,6 +97,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Require VITE_ADMIN_API_BASE (admin build)
+        run: |
+          BASE="${{ vars.VITE_ADMIN_API_BASE }}"
+          if [ -z "$(echo -n "$BASE" | tr -d '[:space:]')"; then
+            echo "::error::Set repository Variable VITE_ADMIN_API_BASE to your public PawBuck.API URL (https://your-alb-or-domain, no trailing slash). Without it, the admin SPA calls relative /api paths on CloudFront and gets HTTP 403."
+            exit 1
+          fi
+
       - name: Build admin dashboard
         env:
           VITE_ADMIN_API_BASE: ${{ vars.VITE_ADMIN_API_BASE }}

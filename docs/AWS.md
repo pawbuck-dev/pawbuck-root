@@ -101,7 +101,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_ECS_SERVICE` | API deploy | `pawbuck-api` |
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
-| `VITE_ADMIN_API_BASE` | Admin build | `https://api.example.com` (no trailing slash) |
+| `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |
 
 ### Run a deploy
 
