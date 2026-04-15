@@ -1,8 +1,12 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using PawBuck.API.Security;
 using PawBuck.API.Configuration;
 using PawBuck.API.Models;
 using PawBuck.API.Scheduling;
@@ -56,6 +60,8 @@ if (string.IsNullOrWhiteSpace(supabaseJwtSecret))
         Console.WriteLine("WARNING: Supabase:JwtSecret not configured; set Supabase:JwtSecret or SUPABASE_JWT_SECRET for Milo chat JWT validation.");
 }
 
+builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.SectionName));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -70,7 +76,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2),
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                if (context.Principal?.Identity is not ClaimsIdentity identity)
+                    return Task.CompletedTask;
+                if (context.SecurityToken is not JwtSecurityToken jwt)
+                    return Task.CompletedTask;
+                var opts = context.HttpContext.RequestServices.GetRequiredService<IOptions<AdminOptions>>();
+                SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(identity, jwt, opts.Value);
+                return Task.CompletedTask;
+            },
+        };
     });
+
+builder.Services.AddSingleton<IAuthorizationHandler, AdminSupportAuthorizationHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.AdminSupport, policy =>
+        policy.Requirements.Add(new AdminSupportRequirement()));
+});
 
 builder.Services.AddHttpClient(SupabaseConnectionStringNormalizer.DohHttpClientName, client =>
 {
@@ -78,14 +104,6 @@ builder.Services.AddHttpClient(SupabaseConnectionStringNormalizer.DohHttpClientN
 });
 builder.Services.AddSingleton<IPostConfigureOptions<SupabaseOptions>, SupabaseOptionsPostConfigure>();
 builder.Services.AddSingleton<SupabaseClientAccessor>();
-
-builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.SectionName));
-if (string.IsNullOrWhiteSpace(builder.Configuration["Admin:ApiKey"]))
-{
-    var k = Environment.GetEnvironmentVariable("ADMIN_API_KEY");
-    if (!string.IsNullOrWhiteSpace(k))
-        builder.Services.PostConfigure<AdminOptions>(o => o.ApiKey ??= k);
-}
 
 // RAG FAQ (Milo)
 builder.Services.Configure<MiloOptions>(builder.Configuration.GetSection(MiloOptions.SectionName));

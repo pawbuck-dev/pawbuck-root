@@ -10,8 +10,6 @@ import type {
   UpdateSupportVaccinationBody,
 } from "@/types/support";
 
-const API_KEY_HEADER = "X-Admin-Api-Key";
-
 export class SupportApiError extends Error {
   constructor(
     message: string,
@@ -33,18 +31,22 @@ async function parseErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
-export function createSupportClient(baseUrl: string, getApiKey: () => string) {
+/** Pass the Supabase session access token (or empty when using Development anonymous support). */
+export function createSupportClient(
+  baseUrl: string,
+  getAccessToken: () => string | null | undefined,
+) {
   const root = baseUrl.replace(/\/$/, "");
 
   async function request<T>(
     path: string,
     init?: RequestInit & { json?: unknown },
   ): Promise<T> {
-    const key = getApiKey();
+    const token = getAccessToken();
     const { json, headers: initHeaders, body: initBody, ...rest } = init ?? {};
     const headers: HeadersInit = {
       ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(key ? { [API_KEY_HEADER]: key } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(initHeaders ?? {}),
     };
     const res = await fetch(`${root}${path}`, {

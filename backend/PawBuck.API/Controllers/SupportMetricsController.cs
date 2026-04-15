@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PawBuck.API.Models;
 using PawBuck.API.Security;
@@ -7,7 +8,7 @@ namespace PawBuck.API.Controllers;
 
 [ApiController]
 [Route("api/support/metrics")]
-[AdminApiKey]
+[Authorize(Policy = AuthorizationPolicies.AdminSupport)]
 public class SupportMetricsController : ControllerBase
 {
     private readonly ISupportMetricsService _metrics;

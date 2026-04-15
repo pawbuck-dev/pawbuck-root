@@ -1,8 +1,10 @@
+import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, SupportApiError } from "@/api/supportClient";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
 import { UserDirectoryTable } from "@/components/UserDirectoryTable";
+import { isSupabaseConfigured, supabase } from "@/supabaseClient";
 import type {
   SupportHealthTimelineEvent,
   SupportMetrics,
@@ -12,8 +14,6 @@ import type {
   SupportUserRow,
   SupportVaccinationRow,
 } from "@/types/support";
-
-const API_KEY_STORAGE = "pawbuck-admin-api-key";
 
 /** Empty env var is "" (not undefined) — would make fetch use relative URLs on CloudFront → 403 on /api/*. */
 function resolveAdminApiBase(): string {
@@ -33,22 +33,94 @@ function mapDirectoryUser(u: SupportUserDirectoryRow): SupportUserRow {
   return { id: u.id, email: u.email, createdAt: u.createdAt };
 }
 
+function AdminAuthToolbar({ session }: { session: Session | null }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authErr, setAuthErr] = useState<string | null>(null);
+
+  if (!isSupabaseConfigured || !supabase) {
+    return (
+      <p className="hint" style={{ margin: 0, fontSize: "0.85rem", maxWidth: 320 }}>
+        With PawBuck.API in Development, support routes allow requests without a token. For production, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY and sign in as a user with app_metadata.role = admin.
+      </p>
+    );
+  }
+
+  const sb = supabase;
+
+  if (session) {
+    return (
+      <div className="field" style={{ alignItems: "flex-start" }}>
+        <span className="list-source">{session.user.email}</span>
+        <button type="button" className="btn btn-secondary" onClick={() => void sb.auth.signOut()}>
+          Sign out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field">
+      <label htmlFor="adm-email">Admin sign-in</label>
+      <input
+        id="adm-email"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        autoComplete="username"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        autoComplete="current-password"
+        placeholder="Password"
+      />
+      {authErr ? <span className="error">{authErr}</span> : null}
+      <button
+        type="button"
+        className="btn btn-secondary"
+        onClick={() => {
+          void (async () => {
+            setAuthErr(null);
+            const { error } = await sb.auth.signInWithPassword({
+              email: email.trim(),
+              password,
+            });
+            if (error) setAuthErr(error.message);
+          })();
+        }}
+      >
+        Sign in
+      </button>
+    </div>
+  );
+}
+
 export function App() {
   const [baseUrl, setBaseUrl] = useState(BASE_DEFAULT);
-  const [apiKey, setApiKey] = useState(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(API_KEY_STORAGE) ?? "" : "",
-  );
+  const [session, setSession] = useState<Session | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "users" | "pets" | "support">("overview");
 
-  const client = useMemo(
-    () => createSupportClient(baseUrl, () => apiKey),
-    [baseUrl, apiKey],
-  );
-
   useEffect(() => {
-    window.localStorage.setItem(API_KEY_STORAGE, apiKey);
-  }, [apiKey]);
+    if (!supabase) {
+      setSession(null);
+      return;
+    }
+    void supabase.auth.getSession().then(({ data: { session: s } }) => setSession(s));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const client = useMemo(
+    () => createSupportClient(baseUrl, () => session?.access_token ?? ""),
+    [baseUrl, session],
+  );
 
   const [metrics, setMetrics] = useState<SupportMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
@@ -226,17 +298,7 @@ export function App() {
             autoComplete="off"
           />
         </div>
-        <div className="field">
-          <label htmlFor="key">X-Admin-Api-Key</label>
-          <input
-            id="key"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Optional in Development"
-            autoComplete="off"
-          />
-        </div>
+        <AdminAuthToolbar session={session} />
         <button type="button" className="btn btn-secondary" onClick={() => void loadMetrics()}>
           Refresh data
         </button>

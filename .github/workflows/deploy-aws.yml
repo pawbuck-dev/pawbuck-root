@@ -78,21 +78,19 @@ jobs:
             --force-new-deployment \
             --region "$AWS_REGION"
 
-      # Optional: set secret ADMIN_API_KEY and Variable API_PUBLIC_BASE_URL (or reuse VITE_ADMIN_API_BASE).
-      # Confirms health + admin-auth path after rollout; skips if base URL or key missing.
+      # Optional: set Variable API_PUBLIC_BASE_URL or VITE_ADMIN_API_BASE (public API origin).
       - name: Smoke test deployed API (optional)
         env:
           BASE: ${{ vars.API_PUBLIC_BASE_URL }}
           BASE_FALLBACK: ${{ vars.VITE_ADMIN_API_BASE }}
-          KEY: ${{ secrets.ADMIN_API_KEY }}
         run: |
           set -euo pipefail
           B="${BASE:-}"
           if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ]; then
             B="${BASE_FALLBACK:-}"
           fi
-          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ] || [ -z "${KEY:-}" ]; then
-            echo "Skipping API smoke test: set repository Variable API_PUBLIC_BASE_URL (or VITE_ADMIN_API_BASE) and secret ADMIN_API_KEY to verify /api/health and /api/support/metrics after deploy."
+          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ]; then
+            echo "Skipping API smoke test: set repository Variable API_PUBLIC_BASE_URL (or VITE_ADMIN_API_BASE) to curl public /api/health after deploy."
             exit 0
           fi
           B="${B%/}"
@@ -105,8 +103,6 @@ jobs:
             sleep 15
           done
           curl -sfS "$B/api/health"
-          echo
-          curl -sfS -H "X-Admin-Api-Key: $KEY" "$B/api/support/metrics" | head -c 800
           echo
 
   deploy-admin:
@@ -139,6 +135,8 @@ jobs:
       - name: Build admin dashboard
         env:
           VITE_ADMIN_API_BASE: ${{ vars.VITE_ADMIN_API_BASE }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: pnpm --filter pawbuck-admin-dashboard build
 
       - name: Validate AWS_ROLE_ARN secret

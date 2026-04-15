@@ -8,7 +8,7 @@ This matches the **recommended** layout: run the .NET API in containers behind a
 |-----------|-------------|--------|
 | **PawBuck.API** | **ECR** (image) → **ECS Fargate** → **Application Load Balancer** | HTTPS on ALB; tasks listen on **8080** (see `Dockerfile`). |
 | **admin-dashboard** | **S3** (bucket) + **CloudFront** | `pnpm --filter pawbuck-admin-dashboard build`; upload `admin-dashboard/dist/`. |
-| **Secrets** | **Secrets Manager** or **SSM Parameter Store** | DB string, JWT secret, Gemini, `Admin:ApiKey`, vendor keys. |
+| **Secrets** | **Secrets Manager** or **SSM Parameter Store** | DB string, JWT secret, Gemini, vendor keys. |
 | **Region** | Prefer **us-east-1** (or same region as your Supabase project) | Low latency to Supabase Postgres. |
 
 ## API container
@@ -32,8 +32,10 @@ Set the same values you use locally (`appsettings`), via task definition env or 
 
 - `Supabase__ConnectionString`, `Supabase__Url`, `Supabase__JwtSecret` (or `SUPABASE_JWT_SECRET`)
 - `Gemini__ApiKey` or `GOOGLE_GEMINI_API_KEY`
-- `Admin__ApiKey` or **`ADMIN_API_KEY`** (same value everywhere; must match what the admin dashboard sends as **`X-Admin-Api-Key`**)
+- Optional: `Admin__RequiredAppMetadataRole` (default `admin`), `Admin__AllowAnonymousSupportInDevelopment` (must be **false** in Production)
 - Scheduling / vendor keys as needed
+
+**Support routes** (`/api/support/*`) require a **Supabase access token** whose JWT includes `app_metadata.role` matching `Admin:RequiredAppMetadataRole` (see below). No shared API key.
 
 ### CORS (admin browser → API)
 
@@ -47,14 +49,16 @@ If you leave `Cors:AllowedOrigins` empty, the **localhost / Expo dev** defaults 
 
 ## Admin dashboard (S3 + CloudFront)
 
-1. **Build** with the **production API base URL** baked in:
+1. **Build** with the **production API base URL** and **Supabase** (same project as the mobile app) baked in:
 
    ```bash
    export VITE_ADMIN_API_BASE=https://api.example.com
+   export VITE_SUPABASE_URL=https://YOUR_REF.supabase.co
+   export VITE_SUPABASE_ANON_KEY=your_anon_key
    pnpm --filter pawbuck-admin-dashboard build
    ```
 
-   (`admin-dashboard` uses `import.meta.env.VITE_ADMIN_API_BASE`; see `src/App.tsx`.)
+   (`VITE_ADMIN_API_BASE` is the PawBuck.API origin; `VITE_SUPABASE_*` powers sign-in so the SPA can send `Authorization: Bearer` to support routes. See `src/App.tsx` and `src/supabaseClient.ts`.)
 
 2. **Upload** `admin-dashboard/dist/` to an S3 bucket (private; origin access controlled by CloudFront OAC).
 
@@ -90,7 +94,6 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
-   - **Optional secret:** `ADMIN_API_KEY` = the same string as **`Admin__ApiKey`** / **`ADMIN_API_KEY`** on the ECS task. Used only by the **optional post-deploy smoke test** in `deploy-aws.yml` (never bake this into the Vite admin build).
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
@@ -103,16 +106,17 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
 | `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |
-| `API_PUBLIC_BASE_URL` | API smoke test (optional) | Same public API origin as `VITE_ADMIN_API_BASE` (no trailing slash). If unset, the workflow falls back to `VITE_ADMIN_API_BASE` for the post-deploy curl checks. |
+| `VITE_SUPABASE_URL` | Admin build | Same as consumer app: `https://YOUR_REF.supabase.co`. Needed for admin **sign-in** and support API calls. |
+| `VITE_SUPABASE_ANON_KEY` | Admin build | Supabase **anon** key (public; same as `EXPO_PUBLIC_SUPABASE_KEY`). |
+| `API_PUBLIC_BASE_URL` | API smoke test (optional) | Same public API origin as `VITE_ADMIN_API_BASE` (no trailing slash). If unset, the workflow falls back to `VITE_ADMIN_API_BASE` for the post-deploy `GET /api/health` check. |
 
-### Admin API key (ECS + dashboard)
+### Admin access (Supabase JWT, not an API key)
 
-The **deploy workflow does not** push secrets into ECS. You must configure the running API task with the admin key (Secrets Manager, SSM, or plain env in the task definition):
+1. In **Supabase Dashboard → Authentication → Users**, create or pick a user for operators, then set **User Metadata / App Metadata** so **`app_metadata.role`** equals the API’s `Admin:RequiredAppMetadataRole` (default **`admin`**). You can use the SQL editor or Auth Admin API; `role` must appear on the **access token** JWT.
+2. **ECS** must set `ASPNETCORE_ENVIRONMENT=Production` (or Staging) and **`Admin__AllowAnonymousSupportInDevelopment=false`** (default in `appsettings.json`). The API validates Supabase JWTs using **`Supabase__JwtSecret`** (or `SUPABASE_JWT_SECRET`).
+3. Operators open the hosted **admin-dashboard**, sign in with email/password (or your enabled providers), and the SPA sends **`Authorization: Bearer`** (Supabase access token) to `/api/support/*`.
 
-- **`Admin__ApiKey`** or **`ADMIN_API_KEY`** — one strong random value.
-- The **admin-dashboard** sends it as header **`X-Admin-Api-Key`** on support routes; keep it **only** in server-side config and the dashboard’s runtime config mechanism — **do not** add a `VITE_*` variable for the key (the static site would expose it).
-
-For **CI verification**, add GitHub secret **`ADMIN_API_KEY`** (same value as ECS) and set **`API_PUBLIC_BASE_URL`** or **`VITE_ADMIN_API_BASE`** so the **Smoke test deployed API** step can call `GET /api/health` and `GET /api/support/metrics` after rollout.
+The **optional** GitHub **Smoke test deployed API** step only checks **`GET /api/health`** (no JWT). Verifying support routes is a manual sign-in test or a separate integration test with a real token.
 
 ### Run a deploy
 
@@ -124,8 +128,7 @@ For **CI verification**, add GitHub secret **`ADMIN_API_KEY`** (same value as EC
 
 1. **Confirm GitHub configuration**
    - **Secret:** `AWS_ROLE_ARN` (OIDC role ARN).
-   - **Optional secret:** `ADMIN_API_KEY` — matches ECS `Admin__ApiKey` / `ADMIN_API_KEY`; enables post-deploy API smoke test.
-   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`, optional `API_PUBLIC_BASE_URL` for API-only smoke tests).
+   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`, optional `API_PUBLIC_BASE_URL` for API-only smoke tests).
    - **Region:** Set `AWS_REGION` if not `us-east-1`.
 
 2. **Run the workflow**
@@ -136,7 +139,7 @@ For **CI verification**, add GitHub secret **`ADMIN_API_KEY`** (same value as EC
    - **Login to Amazon ECR** succeeds.
    - **Build, tag, push image** shows push to `.../REPO:sha` and `:latest`.
    - **ECS force new deployment** completes without AWS API errors.
-   - **Smoke test deployed API (optional)** runs if `ADMIN_API_KEY` and `API_PUBLIC_BASE_URL` or `VITE_ADMIN_API_BASE` are set; otherwise it prints a skip message (not a failure).
+   - **Smoke test deployed API (optional)** runs if `API_PUBLIC_BASE_URL` or `VITE_ADMIN_API_BASE` is set; otherwise it prints a skip message (not a failure).
 
 4. **Verify in AWS**
    - **ECR:** New image tags (`latest` and commit SHA) on the repository.

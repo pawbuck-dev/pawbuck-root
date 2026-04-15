@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PawBuck.API.Models;
 using PawBuck.API.Security;
@@ -7,7 +8,7 @@ namespace PawBuck.API.Controllers;
 
 [ApiController]
 [Route("api/support/users")]
-[AdminApiKey]
+[Authorize(Policy = AuthorizationPolicies.AdminSupport)]
 public class SupportUsersController : ControllerBase
 {
     private readonly ISupportDirectoryService _directory;
