@@ -202,6 +202,13 @@ startupLogger.LogInformation(
     builder.Configuration["Admin:RequiredAppMetadataRole"] ?? "admin",
     builder.Configuration.GetValue("Admin:AllowAnonymousSupportInDevelopment", false));
 
+if (!app.Environment.IsDevelopment() &&
+    (string.IsNullOrWhiteSpace(jwtSecretFromConfig) || string.IsNullOrWhiteSpace(supabaseUrlForJwt)))
+{
+    startupLogger.LogWarning(
+        "Supabase JWT is not fully configured for this environment: set Supabase__Url and Supabase__JwtSecret or SUPABASE_JWT_SECRET on the host (ECS task env). CI deploy can set both via repository Variable VITE_SUPABASE_URL + secret SUPABASE_JWT_SECRET when using scripts/deploy/ecs-merge-pawbuck-api-env.sh.");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

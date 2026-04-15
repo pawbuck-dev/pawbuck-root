@@ -89,9 +89,30 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 2. Create an **IAM role** trusted by GitHub (e.g. `repo:YOUR_ORG/pawbuck-root:ref:refs/heads/main` or a tighter pattern).
 3. Attach policies allowing:
    - **ECR**: `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `BatchGetImage` on your repository ARN.
-   - **ECS**: `UpdateService`, `DescribeServices`, `DescribeTaskDefinition`, `RegisterTaskDefinition` on your cluster/task-definition family (see `deploy-aws.yml` — API deploy registers a new task definition revision with merged env vars).
+   - **ECS**: `UpdateService`, `DescribeServices`, **`DescribeTaskDefinition`**, **`RegisterTaskDefinition`** (required for `scripts/deploy/ecs-merge-pawbuck-api-env.sh`; without them you get `AccessDeniedException` on `DescribeTaskDefinition`). `DescribeServices` and `UpdateService` are also required for the cluster/service you deploy to.
    - **S3**: `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on the admin bucket (and prefix if used).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
+
+   **Minimal ECS add-on** (attach to the same role GitHub assumes, e.g. `GitHubActions-Pawbuck-Deploy`), if your role only had `UpdateService` and `DescribeServices` before:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "EcsTaskDefinitionDeploy",
+         "Effect": "Allow",
+         "Action": [
+           "ecs:DescribeTaskDefinition",
+           "ecs:RegisterTaskDefinition"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+   Tighten `Resource` later to `arn:aws:ecs:REGION:ACCOUNT:task-definition/YOUR_FAMILY:*` if your org requires it.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
    - **Secret (recommended):** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). If set, the **Deploy AWS** API job merges it (and related env) into the ECS task definition. If omitted, the workflow only **forces a new deployment** (you can keep JWT set manually on the task definition).
