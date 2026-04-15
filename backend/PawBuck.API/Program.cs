@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using PawBuck.API.Security;
@@ -48,7 +49,8 @@ builder.Services.PostConfigure<SupabaseOptions>(o =>
         o.JwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
 });
 
-var supabaseJwtSecret = builder.Configuration["Supabase:JwtSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var jwtSecretFromConfig = builder.Configuration["Supabase:JwtSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var supabaseJwtSecret = jwtSecretFromConfig;
 var supabaseUrlForJwt = builder.Configuration["Supabase:Url"];
 var jwtAudience = builder.Configuration["Supabase:JwtAudience"] ?? "authenticated";
 var jwtIssuer = SupabaseJwtIssuer.FromSupabaseUrl(supabaseUrlForJwt);
@@ -78,6 +80,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
         options.Events = new JwtBearerEvents
         {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("PawBuck.API.Auth.JwtBearer");
+                logger.LogWarning(context.Exception, "Supabase JWT Bearer authentication failed");
+                return Task.CompletedTask;
+            },
             OnTokenValidated = context =>
             {
                 if (context.Principal?.Identity is not ClaimsIdentity identity)
@@ -86,6 +95,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return Task.CompletedTask;
                 var opts = context.HttpContext.RequestServices.GetRequiredService<IOptions<AdminOptions>>();
                 SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(identity, jwt, opts.Value);
+                var hasAdmin = identity.HasClaim(SupabaseAdminClaimHelper.PawbuckAdminClaimType, SupabaseAdminClaimHelper.PawbuckAdminClaimValue);
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("PawBuck.API.Auth.JwtBearer");
+                var path = context.HttpContext.Request.Path.Value ?? "";
+                var msg = "JWT validated: sub={Sub}, pawbuck_admin_claim={HasAdmin}";
+                var sub = jwt.Subject ?? "(null)";
+                if (path.StartsWith("/api/support", StringComparison.Ordinal))
+                    logger.LogInformation(msg + " (support route)", sub, hasAdmin);
+                else
+                    logger.LogDebug(msg, sub, hasAdmin);
                 return Task.CompletedTask;
             },
         };
@@ -169,6 +188,19 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("PawBuck.API.Startup");
+var supabaseHost = string.IsNullOrWhiteSpace(supabaseUrlForJwt)
+    ? "(empty — issuer validation may be disabled)"
+    : (Uri.TryCreate(supabaseUrlForJwt, UriKind.Absolute, out var u) ? u.Host : supabaseUrlForJwt);
+startupLogger.LogInformation(
+    "Supabase JWT: urlHost={SupabaseHost}, issuer={Issuer}, audience={Audience}, jwtSecretFromConfig={HasSecret}, adminRoleRequired={AdminRole}, allowAnonymousSupportInDev={AllowAnonDev}",
+    supabaseHost,
+    jwtIssuer ?? "(null)",
+    jwtAudience,
+    !string.IsNullOrWhiteSpace(jwtSecretFromConfig),
+    builder.Configuration["Admin:RequiredAppMetadataRole"] ?? "admin",
+    builder.Configuration.GetValue("Admin:AllowAnonymousSupportInDevelopment", false));
 
 if (app.Environment.IsDevelopment())
 {
