@@ -94,7 +94,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
-   - **Secret:** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). Used by the **Deploy AWS** workflow when deploying the API to merge `SUPABASE_JWT_SECRET` (and related env) into the ECS task definition.
+   - **Secret (recommended):** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). If set, the **Deploy AWS** API job merges it (and related env) into the ECS task definition. If omitted, the workflow only **forces a new deployment** (you can keep JWT set manually on the task definition).
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
