@@ -1,6 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, SupportApiError } from "@/api/supportClient";
+import { AdminHeaderBar } from "@/components/AdminHeaderBar";
+import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
 import { UserDirectoryTable } from "@/components/UserDirectoryTable";
@@ -33,82 +35,27 @@ function mapDirectoryUser(u: SupportUserDirectoryRow): SupportUserRow {
   return { id: u.id, email: u.email, createdAt: u.createdAt };
 }
 
-function AdminAuthToolbar({ session }: { session: Session | null }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authErr, setAuthErr] = useState<string | null>(null);
-
-  if (!isSupabaseConfigured || !supabase) {
-    return (
-      <p className="hint" style={{ margin: 0, fontSize: "0.85rem", maxWidth: 320 }}>
-        With PawBuck.API in Development, support routes allow requests without a token. For production, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY and sign in as a user with app_metadata.role = admin.
-      </p>
-    );
-  }
-
-  const sb = supabase;
-
-  if (session) {
-    return (
-      <div className="field" style={{ alignItems: "flex-start" }}>
-        <span className="list-source">{session.user.email}</span>
-        <button type="button" className="btn btn-secondary" onClick={() => void sb.auth.signOut()}>
-          Sign out
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="field">
-      <label htmlFor="adm-email">Admin sign-in</label>
-      <input
-        id="adm-email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        autoComplete="username"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        autoComplete="current-password"
-        placeholder="Password"
-      />
-      {authErr ? <span className="error">{authErr}</span> : null}
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={() => {
-          void (async () => {
-            setAuthErr(null);
-            const { error } = await sb.auth.signInWithPassword({
-              email: email.trim(),
-              password,
-            });
-            if (error) setAuthErr(error.message);
-          })();
-        }}
-      >
-        Sign in
-      </button>
-    </div>
-  );
-}
-
 export function App() {
   const [baseUrl, setBaseUrl] = useState(BASE_DEFAULT);
   const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [banner, setBanner] = useState<string | null>(null);
   const [tab, setTab] = useState<"overview" | "users" | "pets" | "support">("overview");
 
   useEffect(() => {
     if (!supabase) {
       setSession(null);
+      setAuthReady(true);
       return;
     }
-    void supabase.auth.getSession().then(({ data: { session: s } }) => setSession(s));
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session: s } }) => {
+        setSession(s);
+      })
+      .finally(() => {
+        setAuthReady(true);
+      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -139,8 +86,10 @@ export function App() {
   }, [client]);
 
   useEffect(() => {
+    if (!authReady) return;
+    if (isSupabaseConfigured && !session) return;
     void loadMetrics();
-  }, [loadMetrics]);
+  }, [loadMetrics, authReady, isSupabaseConfigured, session]);
 
   const [selectedUser, setSelectedUser] = useState<SupportUserRow | null>(null);
   const [pets, setPets] = useState<SupportPetRow[]>([]);
@@ -285,24 +234,26 @@ export function App() {
     }
   };
 
+  if (!authReady) {
+    return (
+      <div className="login-screen login-screen--loading">
+        <p className="muted">Loading…</p>
+      </div>
+    );
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return <AdminLoginScreen />;
+  }
+
   return (
     <div className="shell shell--admin">
-      <header className="topbar">
-        <h1>PawBuck admin</h1>
-        <div className="field">
-          <label htmlFor="base">API base URL</label>
-          <input
-            id="base"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value.replace(/\/$/, ""))}
-            autoComplete="off"
-          />
-        </div>
-        <AdminAuthToolbar session={session} />
-        <button type="button" className="btn btn-secondary" onClick={() => void loadMetrics()}>
-          Refresh data
-        </button>
-      </header>
+      <AdminHeaderBar
+        baseUrl={baseUrl}
+        onBaseUrlChange={setBaseUrl}
+        session={session}
+        onRefresh={() => void loadMetrics()}
+      />
 
       <nav className="nav-tabs" aria-label="Main">
         <button

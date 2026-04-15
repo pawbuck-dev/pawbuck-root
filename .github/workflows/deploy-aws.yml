@@ -132,6 +132,24 @@ jobs:
             exit 1
           fi
 
+      # VITE_* are baked in at build time (S3/CloudFront does not set them at runtime). This only prints the hostname — never log the anon key.
+      - name: Confirm Supabase project for admin build
+        run: |
+          set -euo pipefail
+          URL_RAW="${{ vars.VITE_SUPABASE_URL }}"
+          KEY_RAW="${{ vars.VITE_SUPABASE_ANON_KEY }}"
+          URL_TRIM="$(echo -n "$URL_RAW" | tr -d '[:space:]')"
+          KEY_TRIM="$(echo -n "$KEY_RAW" | tr -d '[:space:]')"
+          if [ -z "$URL_TRIM" ] || [ -z "$KEY_TRIM" ]; then
+            echo "::warning::VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is empty. Admin sign-in will not work until both GitHub Variables are set and you redeploy."
+            exit 0
+          fi
+          HOST="${URL_TRIM#https://}"
+          HOST="${HOST#http://}"
+          HOST="${HOST%%/*}"
+          echo "Admin bundle will use Supabase host: ${HOST}"
+          echo "Check this matches Supabase Dashboard → Project Settings → API → Project URL (same *.supabase.co hostname)."
+
       - name: Build admin dashboard
         env:
           VITE_ADMIN_API_BASE: ${{ vars.VITE_ADMIN_API_BASE }}
