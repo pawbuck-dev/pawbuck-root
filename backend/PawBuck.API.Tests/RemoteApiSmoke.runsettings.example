@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
-  <!-- Copy to RemoteApiSmoke.runsettings (gitignored), paste your Supabase access_token, then:
-       Visual Studio: Test → Configure Run Settings → select RemoteApiSmoke.runsettings       Rider: Run → Edit Configurations → Unit Tests → .runsettings file -->
+  <!-- Copy to RemoteApiSmoke.runsettings (gitignored).
+ Visual Studio: Test → Configure Run Settings → RemoteApiSmoke.runsettings
+       Rider: Unit test run config → .runsettings file -->
   <RunConfiguration>
     <EnvironmentVariables>
       <PAWBUCK_REMOTE_API_BASE>http://pawbuck-api-alb-735389831.us-east-1.elb.amazonaws.com</PAWBUCK_REMOTE_API_BASE>
-      <PAWBUCK_REMOTE_ADMIN_JWT>paste_supabase_access_token_here</PAWBUCK_REMOTE_ADMIN_JWT>
+      <!-- Must start with eyJ — this is the user's session access_token after sign-in, NOT "JWT Secret" from Supabase Dashboard. -->
+      <PAWBUCK_REMOTE_ADMIN_JWT>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.paste_rest_of_access_token.single_line_no_spaces</PAWBUCK_REMOTE_ADMIN_JWT>
     </EnvironmentVariables>
   </RunConfiguration>
 </RunSettings>

@@ -23,19 +23,54 @@ namespace PawBuck.API.Tests;
 public sealed class RemoteApiSmokeTests
 {
     private static string? RemoteBase =>
-        Environment.GetEnvironmentVariable("PAWBUCK_REMOTE_API_BASE");
+        Environment.GetEnvironmentVariable("PAWBUCK_REMOTE_API_BASE")?.Trim();
 
     private static string? AdminJwt =>
-        Environment.GetEnvironmentVariable("PAWBUCK_REMOTE_ADMIN_JWT");
+        Environment.GetEnvironmentVariable("PAWBUCK_REMOTE_ADMIN_JWT")?.Trim();
+
+    private const string UnauthorizedHint =
+        "If 401: use a fresh Supabase session access_token (from sign-in), not the anon or service_role key. "
+        + "Whitespace in .runsettings values breaks the token—keep JWT on one line. "
+        + "The ECS task must have SUPABASE_JWT_SECRET and Supabase__Url for the same Supabase project (see API startup logs).";
 
     private static HttpClient CreateClient(bool withAdminBearer)
     {
         var baseUrl = RemoteBase!.TrimEnd('/') + "/";
         var client = new HttpClient { BaseAddress = new Uri(baseUrl) };
         if (withAdminBearer)
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AdminJwt);
+        {
+            var token = AdminJwt!;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         return client;
+    }
+
+    private static void AssertOk(HttpResponseMessage response, string path, string body)
+    {
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "{0} {1}", UnauthorizedHint, body);
+    }
+
+    /// <summary>Bearer must be a user session JWT (<c>eyJ…</c>), not the Supabase project's signing secret from Dashboard.</summary>
+    private static void AssertAdminJwtIsAccessToken()
+    {
+        var t = AdminJwt!;
+        if (t.StartsWith("eyJ", StringComparison.Ordinal))
+        {
+            t.Split('.').Should().HaveCount(3, "JWT should be header.payload.signature");
+            return;
+        }
+
+        // Dashboard "JWT Secret" is base64, no dots — common copy-paste mistake.
+        var resemblesJwtSecret = !t.Contains('.') && t.Length >= 32;
+        var hint = resemblesJwtSecret
+            ? "This value looks like Supabase Dashboard → Settings → API → JWT Secret. "
+              + "That secret must only be set on the API (SUPABASE_JWT_SECRET). "
+              + "For smoke tests, set PAWBUCK_REMOTE_ADMIN_JWT to session.access_token after admin sign-in "
+              + "(three base64url segments joined by dots, starts with eyJ)."
+            : "PAWBUCK_REMOTE_ADMIN_JWT must be session.access_token (starts with eyJ), not the anon key or service_role key.";
+        throw new InvalidOperationException(hint);
     }
 
     [SkippableFact]
@@ -56,12 +91,13 @@ public sealed class RemoteApiSmokeTests
     {
         Skip.If(string.IsNullOrWhiteSpace(RemoteBase), "Set PAWBUCK_REMOTE_API_BASE to run remote smoke tests.");
         Skip.If(string.IsNullOrWhiteSpace(AdminJwt), "Set PAWBUCK_REMOTE_ADMIN_JWT for admin /api/support/* checks.");
+        AssertAdminJwtIsAccessToken();
 
         using var client = CreateClient(withAdminBearer: true);
         using var response = await client.GetAsync("api/support/metrics");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        var body = await response.Content.ReadAsStringAsync();
+        AssertOk(response, "api/support/metrics", body);
+        using var doc = JsonDocument.Parse(body);
         var root = doc.RootElement;
         foreach (var name in new[]
  {
@@ -79,12 +115,13 @@ public sealed class RemoteApiSmokeTests
     {
         Skip.If(string.IsNullOrWhiteSpace(RemoteBase), "Set PAWBUCK_REMOTE_API_BASE to run remote smoke tests.");
         Skip.If(string.IsNullOrWhiteSpace(AdminJwt), "Set PAWBUCK_REMOTE_ADMIN_JWT for admin /api/support/* checks.");
+        AssertAdminJwtIsAccessToken();
 
         using var client = CreateClient(withAdminBearer: true);
         using var response = await client.GetAsync("api/support/users/directory?page=1&pageSize=5");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        var body = await response.Content.ReadAsStringAsync();
+        AssertOk(response, "api/support/users/directory", body);
+        using var doc = JsonDocument.Parse(body);
         var root = doc.RootElement;
         root.GetProperty("page").GetInt32().Should().Be(1);
         root.GetProperty("pageSize").GetInt32().Should().Be(5);
@@ -98,12 +135,13 @@ public sealed class RemoteApiSmokeTests
     {
         Skip.If(string.IsNullOrWhiteSpace(RemoteBase), "Set PAWBUCK_REMOTE_API_BASE to run remote smoke tests.");
         Skip.If(string.IsNullOrWhiteSpace(AdminJwt), "Set PAWBUCK_REMOTE_ADMIN_JWT for admin /api/support/* checks.");
+        AssertAdminJwtIsAccessToken();
 
         using var client = CreateClient(withAdminBearer: true);
         using var response = await client.GetAsync("api/support/users/list?segment=all");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        var body = await response.Content.ReadAsStringAsync();
+        AssertOk(response, "api/support/users/list", body);
+        using var doc = JsonDocument.Parse(body);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
         doc.RootElement.GetArrayLength().Should().BeLessOrEqualTo(500);
     }
@@ -113,12 +151,13 @@ public sealed class RemoteApiSmokeTests
     {
         Skip.If(string.IsNullOrWhiteSpace(RemoteBase), "Set PAWBUCK_REMOTE_API_BASE to run remote smoke tests.");
         Skip.If(string.IsNullOrWhiteSpace(AdminJwt), "Set PAWBUCK_REMOTE_ADMIN_JWT for admin /api/support/* checks.");
+        AssertAdminJwtIsAccessToken();
 
         using var client = CreateClient(withAdminBearer: true);
         using var response = await client.GetAsync("api/support/pets/search?q=ab");
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        var body = await response.Content.ReadAsStringAsync();
+        AssertOk(response, "api/support/pets/search", body);
+        using var doc = JsonDocument.Parse(body);
         doc.RootElement.ValueKind.Should().Be(JsonValueKind.Array);
     }
 }
