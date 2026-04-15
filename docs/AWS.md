@@ -32,7 +32,7 @@ Set the same values you use locally (`appsettings`), via task definition env or 
 
 - `Supabase__ConnectionString`, `Supabase__Url`, `Supabase__JwtSecret` (or `SUPABASE_JWT_SECRET`)
 - `Gemini__ApiKey` or `GOOGLE_GEMINI_API_KEY`
-- `Admin__ApiKey` (must match what admins store in the dashboard)
+- `Admin__ApiKey` or **`ADMIN_API_KEY`** (same value everywhere; must match what the admin dashboard sends as **`X-Admin-Api-Key`**)
 - Scheduling / vendor keys as needed
 
 ### CORS (admin browser → API)
@@ -90,6 +90,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
+   - **Optional secret:** `ADMIN_API_KEY` = the same string as **`Admin__ApiKey`** / **`ADMIN_API_KEY`** on the ECS task. Used only by the **optional post-deploy smoke test** in `deploy-aws.yml` (never bake this into the Vite admin build).
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
@@ -102,6 +103,16 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
 | `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |
+| `API_PUBLIC_BASE_URL` | API smoke test (optional) | Same public API origin as `VITE_ADMIN_API_BASE` (no trailing slash). If unset, the workflow falls back to `VITE_ADMIN_API_BASE` for the post-deploy curl checks. |
+
+### Admin API key (ECS + dashboard)
+
+The **deploy workflow does not** push secrets into ECS. You must configure the running API task with the admin key (Secrets Manager, SSM, or plain env in the task definition):
+
+- **`Admin__ApiKey`** or **`ADMIN_API_KEY`** — one strong random value.
+- The **admin-dashboard** sends it as header **`X-Admin-Api-Key`** on support routes; keep it **only** in server-side config and the dashboard’s runtime config mechanism — **do not** add a `VITE_*` variable for the key (the static site would expose it).
+
+For **CI verification**, add GitHub secret **`ADMIN_API_KEY`** (same value as ECS) and set **`API_PUBLIC_BASE_URL`** or **`VITE_ADMIN_API_BASE`** so the **Smoke test deployed API** step can call `GET /api/health` and `GET /api/support/metrics` after rollout.
 
 ### Run a deploy
 
@@ -113,7 +124,8 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 
 1. **Confirm GitHub configuration**
    - **Secret:** `AWS_ROLE_ARN` (OIDC role ARN).
-   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`).
+   - **Optional secret:** `ADMIN_API_KEY` — matches ECS `Admin__ApiKey` / `ADMIN_API_KEY`; enables post-deploy API smoke test.
+   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`, optional `API_PUBLIC_BASE_URL` for API-only smoke tests).
    - **Region:** Set `AWS_REGION` if not `us-east-1`.
 
 2. **Run the workflow**
@@ -124,6 +136,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
    - **Login to Amazon ECR** succeeds.
    - **Build, tag, push image** shows push to `.../REPO:sha` and `:latest`.
    - **ECS force new deployment** completes without AWS API errors.
+   - **Smoke test deployed API (optional)** runs if `ADMIN_API_KEY` and `API_PUBLIC_BASE_URL` or `VITE_ADMIN_API_BASE` are set; otherwise it prints a skip message (not a failure).
 
 4. **Verify in AWS**
    - **ECR:** New image tags (`latest` and commit SHA) on the repository.

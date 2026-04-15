@@ -78,6 +78,37 @@ jobs:
             --force-new-deployment \
             --region "$AWS_REGION"
 
+      # Optional: set secret ADMIN_API_KEY and Variable API_PUBLIC_BASE_URL (or reuse VITE_ADMIN_API_BASE).
+      # Confirms health + admin-auth path after rollout; skips if base URL or key missing.
+      - name: Smoke test deployed API (optional)
+        env:
+          BASE: ${{ vars.API_PUBLIC_BASE_URL }}
+          BASE_FALLBACK: ${{ vars.VITE_ADMIN_API_BASE }}
+          KEY: ${{ secrets.ADMIN_API_KEY }}
+        run: |
+          set -euo pipefail
+          B="${BASE:-}"
+          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ]; then
+            B="${BASE_FALLBACK:-}"
+          fi
+          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ] || [ -z "${KEY:-}" ]; then
+            echo "Skipping API smoke test: set repository Variable API_PUBLIC_BASE_URL (or VITE_ADMIN_API_BASE) and secret ADMIN_API_KEY to verify /api/health and /api/support/metrics after deploy."
+            exit 0
+          fi
+          B="${B%/}"
+          echo "Smoke test against $B ..."
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sfS "$B/api/health" > /dev/null 2>&1; then
+              break
+            fi
+            echo "Waiting for API health (attempt $i/10) ..."
+            sleep 15
+          done
+          curl -sfS "$B/api/health"
+          echo
+          curl -sfS -H "X-Admin-Api-Key: $KEY" "$B/api/support/metrics" | head -c 800
+          echo
+
   deploy-admin:
     if: ${{ inputs.deploy_target == 'admin' || inputs.deploy_target == 'both' }}
     runs-on: ubuntu-latest
