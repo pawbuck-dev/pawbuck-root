@@ -78,7 +78,7 @@ jobs:
           set -eux
           test -n "${AWS_ECS_CLUSTER:-}" && test -n "${AWS_ECS_SERVICE:-}" || { echo "Set Variables AWS_ECS_CLUSTER and AWS_ECS_SERVICE"; exit 1; }
           if [ -z "${SUPABASE_JWT_SECRET:-}" ]; then
-            echo "::warning::Repository secret SUPABASE_JWT_SECRET is empty — skipping ECS task env merge. Add it under Settings → Secrets and variables → Actions (same value as Supabase Dashboard → Project Settings → API → JWT Secret) to inject ASPNETCORE_ENVIRONMENT, SUPABASE_JWT_SECRET, etc. on each deploy. Forcing new deployment only."
+            echo "::warning::Repository secret SUPABASE_JWT_SECRET is empty — skipping ECS task env merge. Add it under Settings → Secrets and variables → Actions (same value as Supabase Dashboard → Project Settings → API → JWT Secret) to inject ASPNETCORE_ENVIRONMENT, Supabase__JwtSecret, etc. on each deploy. Forcing new deployment only."
             aws ecs update-service \
               --cluster "$AWS_ECS_CLUSTER" \
               --service "$AWS_ECS_SERVICE" \
