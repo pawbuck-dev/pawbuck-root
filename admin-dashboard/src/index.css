@@ -732,6 +732,7 @@ tr.selected {
   font-size: 0.78rem;
   color: #64748b;
   line-height: 1.45;
+  white-space: pre-line;
 }
 
 .login-card__submit {
