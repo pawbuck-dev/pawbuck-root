@@ -89,11 +89,12 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 2. Create an **IAM role** trusted by GitHub (e.g. `repo:YOUR_ORG/pawbuck-root:ref:refs/heads/main` or a tighter pattern).
 3. Attach policies allowing:
    - **ECR**: `GetAuthorizationToken`, `BatchCheckLayerAvailability`, `PutImage`, `InitiateLayerUpload`, `UploadLayerPart`, `CompleteLayerUpload`, `BatchGetImage` on your repository ARN.
-   - **ECS**: `UpdateService`, `DescribeServices` on your cluster/service.
+   - **ECS**: `UpdateService`, `DescribeServices`, `DescribeTaskDefinition`, `RegisterTaskDefinition` on your cluster/task-definition family (see `deploy-aws.yml` — API deploy registers a new task definition revision with merged env vars).
    - **S3**: `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on the admin bucket (and prefix if used).
    - **CloudFront**: `cloudfront:CreateInvalidation` on the distribution.
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
+   - **Secret:** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). Used by the **Deploy AWS** workflow when deploying the API to merge `SUPABASE_JWT_SECRET` (and related env) into the ECS task definition.
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
@@ -103,6 +104,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_ECR_REPOSITORY` | API deploy | `pawbuck-api` |
 | `AWS_ECS_CLUSTER` | API deploy | `my-cluster` |
 | `AWS_ECS_SERVICE` | API deploy | `pawbuck-api` |
+| `AWS_ECS_CONTAINER_NAME` | API deploy | Optional. Container name to set env on; defaults to the **first** container in the task definition. |
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
 | `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |

@@ -41,6 +41,15 @@ jobs:
             exit 1
           fi
 
+      - name: Validate SUPABASE_JWT_SECRET (API deploy)
+        env:
+          JWT: ${{ secrets.SUPABASE_JWT_SECRET }}
+        run: |
+          if [ -z "${JWT:-}" ]; then
+            echo "::error::Set repository secret SUPABASE_JWT_SECRET to your Supabase JWT secret (Dashboard → Project Settings → API). Required for ECS task env merge and JWT validation."
+            exit 1
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -65,18 +74,18 @@ jobs:
           docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
           docker push "$REGISTRY/$REPOSITORY:latest"
 
-      - name: ECS force new deployment
+      # Merges env into the live task definition (preserves other env vars), registers a new revision, deploys.
+      # Optional Variable: AWS_ECS_CONTAINER_NAME (defaults to first container in the task).
+      - name: Register ECS task definition (API env) and deploy
         env:
-          CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
-          SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+          AWS_ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
+          AWS_ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+          AWS_ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
         run: |
           set -eux
-          test -n "${CLUSTER:-}" && test -n "${SERVICE:-}" || { echo "Set Variables AWS_ECS_CLUSTER and AWS_ECS_SERVICE"; exit 1; }
-          aws ecs update-service \
-            --cluster "$CLUSTER" \
-            --service "$SERVICE" \
-            --force-new-deployment \
-            --region "$AWS_REGION"
+          test -n "${AWS_ECS_CLUSTER:-}" && test -n "${AWS_ECS_SERVICE:-}" || { echo "Set Variables AWS_ECS_CLUSTER and AWS_ECS_SERVICE"; exit 1; }
+          bash scripts/deploy/ecs-merge-pawbuck-api-env.sh
 
       # Optional: set Variable API_PUBLIC_BASE_URL or VITE_ADMIN_API_BASE (public API origin).
       - name: Smoke test deployed API (optional)
