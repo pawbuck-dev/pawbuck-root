@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- Copy to RemoteApiSmoke.runsettings (gitignored), paste your Supabase access_token, then:
+       Visual Studio: Test → Configure Run Settings → select RemoteApiSmoke.runsettings       Rider: Run → Edit Configurations → Unit Tests → .runsettings file -->
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <PAWBUCK_REMOTE_API_BASE>http://pawbuck-api-alb-735389831.us-east-1.elb.amazonaws.com</PAWBUCK_REMOTE_API_BASE>
+      <PAWBUCK_REMOTE_ADMIN_JWT>paste_supabase_access_token_here</PAWBUCK_REMOTE_ADMIN_JWT>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>
