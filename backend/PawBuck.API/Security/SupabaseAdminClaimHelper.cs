@@ -1,7 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using PawBuck.API.Models;
 
@@ -14,6 +17,45 @@ public static class SupabaseAdminClaimHelper
 {
     public const string PawbuckAdminClaimType = "pawbuck_admin";
     public const string PawbuckAdminClaimValue = "true";
+
+    /// <summary>
+    /// JwtBearer validates with <see cref="Microsoft.IdentityModel.JsonWebTokens.JsonWebToken"/>, which is not a <see cref="JwtSecurityToken"/>.
+    /// After validation, re-read the Bearer string so we get a <see cref="JwtSecurityToken"/> with the same payload Supabase issues.
+    /// </summary>
+    public static void TryAddPawbuckAdminClaim(
+        ClaimsIdentity identity,
+        Microsoft.IdentityModel.Tokens.SecurityToken? securityToken,
+        HttpRequest request,
+        AdminOptions options)
+    {
+        if (securityToken is JwtSecurityToken jwtFromHandler)
+        {
+            TryAddPawbuckAdminClaim(identity, jwtFromHandler, options);
+            return;
+        }
+
+        if (TryReadBearerJwtSecurityToken(request, out var jwtFromHeader))
+            TryAddPawbuckAdminClaim(identity, jwtFromHeader, options);
+    }
+
+    internal static bool TryReadBearerJwtSecurityToken(HttpRequest request, [NotNullWhen(true)] out JwtSecurityToken? jwt)
+    {
+        jwt = null;
+        var authHeader = request.Headers.Authorization.ToString();
+        if (string.IsNullOrWhiteSpace(authHeader))
+            return false;
+        if (!AuthenticationHeaderValue.TryParse(authHeader, out var ahv))
+            return false;
+        if (!string.Equals(ahv.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (string.IsNullOrEmpty(ahv.Parameter))
+            return false;
+        var handler = new JwtSecurityTokenHandler();
+        if (!handler.CanReadToken(ahv.Parameter))
+            return false;
+        jwt = handler.ReadJwtToken(ahv.Parameter);
+        return true;
+    }
 
     public static void TryAddPawbuckAdminClaim(ClaimsIdentity identity, JwtSecurityToken jwt, AdminOptions options)
     {
@@ -90,7 +132,7 @@ public static class SupabaseAdminClaimHelper
         role = null;
         try
         {
-            var segment = jwt.RawPayload;
+            var segment = GetJwtPayloadSegment(jwt);
             if (string.IsNullOrEmpty(segment))
                 return false;
             var bytes = Base64UrlEncoder.DecodeBytes(segment);
@@ -119,5 +161,19 @@ public static class SupabaseAdminClaimHelper
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Prefer <see cref="JwtSecurityToken.RawPayload"/>; fall back to splitting <see cref="JwtSecurityToken.RawData"/> (header.payload.sig).
+    /// </summary>
+    internal static string? GetJwtPayloadSegment(JwtSecurityToken jwt)
+    {
+        if (!string.IsNullOrEmpty(jwt.RawPayload))
+            return jwt.RawPayload;
+        var raw = jwt.RawData;
+        if (string.IsNullOrEmpty(raw))
+            return null;
+        var parts = raw.Split('.');
+        return parts.Length >= 2 ? parts[1] : null;
     }
 }

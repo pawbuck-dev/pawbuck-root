@@ -91,16 +91,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 if (context.Principal?.Identity is not ClaimsIdentity identity)
                     return Task.CompletedTask;
-                if (context.SecurityToken is not JwtSecurityToken jwt)
-                    return Task.CompletedTask;
                 var opts = context.HttpContext.RequestServices.GetRequiredService<IOptions<AdminOptions>>();
-                SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(identity, jwt, opts.Value);
+                // Validated token is often Microsoft.IdentityModel.JsonWebTokens.JsonWebToken (not JwtSecurityToken); re-read Bearer for payload-based admin claim.
+                SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(
+                    identity,
+                    context.SecurityToken,
+                    context.HttpContext.Request,
+                    opts.Value);
                 var hasAdmin = identity.HasClaim(SupabaseAdminClaimHelper.PawbuckAdminClaimType, SupabaseAdminClaimHelper.PawbuckAdminClaimValue);
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
                     .CreateLogger("PawBuck.API.Auth.JwtBearer");
                 var path = context.HttpContext.Request.Path.Value ?? "";
                 var msg = "JWT validated: sub={Sub}, pawbuck_admin_claim={HasAdmin}";
-                var sub = jwt.Subject ?? "(null)";
+                var sub = context.Principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                    ?? context.Principal.FindFirst("sub")?.Value
+                    ?? "(null)";
                 if (path.StartsWith("/api/support", StringComparison.Ordinal))
                     logger.LogInformation(msg + " (support route)", sub, hasAdmin);
                 else

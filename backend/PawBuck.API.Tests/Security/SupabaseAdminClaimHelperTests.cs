@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using PawBuck.API.Models;
 using PawBuck.API.Security;
@@ -35,6 +36,27 @@ public class SupabaseAdminClaimHelperTests
         SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(
             identity,
             jwt,
+            new AdminOptions { RequiredAppMetadataRole = "admin" });
+        Assert.True(identity.HasClaim(SupabaseAdminClaimHelper.PawbuckAdminClaimType, SupabaseAdminClaimHelper.PawbuckAdminClaimValue));
+    }
+
+    /// <summary>
+    /// JwtBearer validates with JsonWebToken (not JwtSecurityToken); re-read Bearer for payload-based admin mapping.
+    /// </summary>
+    [Fact]
+    public void TryAddPawbuckAdminClaim_adds_claim_when_validated_token_is_not_jwt_security_token_but_bearer_is_present()
+    {
+        var payload =
+            "{\"sub\":\"x\",\"iss\":\"https://fchxefstqvyrmogfesjw.supabase.co/auth/v1\",\"aud\":\"authenticated\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"],\"role\":\"admin\"}}";
+        var payloadB64 = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(payload));
+        var token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." + payloadB64 + ".sig";
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Headers.Authorization = "Bearer " + token;
+        var identity = new ClaimsIdentity();
+        SupabaseAdminClaimHelper.TryAddPawbuckAdminClaim(
+            identity,
+            securityToken: null,
+            ctx.Request,
             new AdminOptions { RequiredAppMetadataRole = "admin" });
         Assert.True(identity.HasClaim(SupabaseAdminClaimHelper.PawbuckAdminClaimType, SupabaseAdminClaimHelper.PawbuckAdminClaimValue));
     }
