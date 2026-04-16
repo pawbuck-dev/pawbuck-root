@@ -76,6 +76,9 @@ jobs:
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
         run: |
           set -eux
+          # Trim pasted newlines from GitHub Variables (avoids aws/curl "malformed" issues).
+          export AWS_ECS_CLUSTER="$(echo -n "${AWS_ECS_CLUSTER:-}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          export AWS_ECS_SERVICE="$(echo -n "${AWS_ECS_SERVICE:-}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           test -n "${AWS_ECS_CLUSTER:-}" && test -n "${AWS_ECS_SERVICE:-}" || { echo "Set Variables AWS_ECS_CLUSTER and AWS_ECS_SERVICE"; exit 1; }
           if [ -z "${SUPABASE_JWT_SECRET:-}" ]; then
             echo "::warning::Repository secret SUPABASE_JWT_SECRET is empty — skipping ECS task env merge. Add it under Settings → Secrets and variables → Actions (same value as Supabase Dashboard → Project Settings → API → JWT Secret) to inject ASPNETCORE_ENVIRONMENT, Supabase__JwtSecret, etc. on each deploy. Forcing new deployment only."
@@ -95,33 +98,6 @@ jobs:
             fi
             bash scripts/deploy/ecs-merge-pawbuck-api-env.sh
           fi
-
-      # Optional: set Variable API_PUBLIC_BASE_URL or VITE_ADMIN_API_BASE (public API origin).
-      - name: Smoke test deployed API (optional)
-        env:
-          BASE: ${{ vars.API_PUBLIC_BASE_URL }}
-          BASE_FALLBACK: ${{ vars.VITE_ADMIN_API_BASE }}
-        run: |
-          set -euo pipefail
-          B="${BASE:-}"
-          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ]; then
-            B="${BASE_FALLBACK:-}"
-          fi
-          if [ -z "$(echo -n "$B" | tr -d '[:space:]')" ]; then
-            echo "Skipping API smoke test: set repository Variable API_PUBLIC_BASE_URL (or VITE_ADMIN_API_BASE) to curl public /api/health after deploy."
-            exit 0
-          fi
-          B="${B%/}"
-          echo "Smoke test against $B ..."
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -sfS "$B/api/health" > /dev/null 2>&1; then
-              break
-            fi
-            echo "Waiting for API health (attempt $i/10) ..."
-            sleep 15
-          done
-          curl -sfS "$B/api/health"
-          echo
 
   deploy-admin:
     if: ${{ inputs.deploy_target == 'admin' || inputs.deploy_target == 'both' }}

@@ -45,8 +45,6 @@ obj/
 
 # Local-only API overrides (copy from appsettings.Local.example.json)
 backend/PawBuck.API/appsettings.Local.json
-# Local remote API smoke settings (copy from RemoteApiSmoke.runsettings.example)
-backend/PawBuck.API.Tests/RemoteApiSmoke.runsettings
 *.user
 *.suo
 *.cache

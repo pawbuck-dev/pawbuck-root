@@ -131,7 +131,6 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |
 | `VITE_SUPABASE_URL` | Admin build | Same as consumer app: `https://YOUR_REF.supabase.co`. Needed for admin **sign-in** and support API calls. |
 | `VITE_SUPABASE_ANON_KEY` | Admin build | Supabase **anon** key (public; same as `EXPO_PUBLIC_SUPABASE_KEY`). |
-| `API_PUBLIC_BASE_URL` | API smoke test (optional) | Same public API origin as `VITE_ADMIN_API_BASE` (no trailing slash). If unset, the workflow falls back to `VITE_ADMIN_API_BASE` for the post-deploy `GET /api/health` check. |
 
 ### Admin access (Supabase JWT, not an API key)
 
@@ -139,7 +138,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 2. **ECS** must set `ASPNETCORE_ENVIRONMENT=Production` (or Staging) and **`Admin__AllowAnonymousSupportInDevelopment=false`** (default in `appsettings.json`). The API validates Supabase JWTs using **`Supabase__JwtSecret`** (or `SUPABASE_JWT_SECRET`).
 3. Operators open the hosted **admin-dashboard**, sign in with email/password (or your enabled providers), and the SPA sends **`Authorization: Bearer`** (Supabase access token) to `/api/support/*`.
 
-The **optional** GitHub **Smoke test deployed API** step only checks **`GET /api/health`** (no JWT). Verifying support routes is a manual sign-in test or a separate integration test with a real token.
+Verify **`GET /api/health`** on your public API host after deploy (e.g. `curl`); support routes need a real admin JWT (manual sign-in to the admin app is enough).
 
 ### Run a deploy
 
@@ -151,7 +150,7 @@ The **optional** GitHub **Smoke test deployed API** step only checks **`GET /api
 
 1. **Confirm GitHub configuration**
    - **Secret:** `AWS_ROLE_ARN` (OIDC role ARN).
-   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`, optional `API_PUBLIC_BASE_URL` for API-only smoke tests).
+   - **Variables:** `AWS_ECR_REPOSITORY`, `AWS_ECS_CLUSTER`, `AWS_ECS_SERVICE` (and for admin: `AWS_S3_ADMIN_BUCKET`, `VITE_ADMIN_API_BASE`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, optional `AWS_CLOUDFRONT_DISTRIBUTION_ID`).
    - **Region:** Set `AWS_REGION` if not `us-east-1`.
 
 2. **Run the workflow**
@@ -162,7 +161,6 @@ The **optional** GitHub **Smoke test deployed API** step only checks **`GET /api
    - **Login to Amazon ECR** succeeds.
    - **Build, tag, push image** shows push to `.../REPO:sha` and `:latest`.
    - **ECS force new deployment** completes without AWS API errors.
-   - **Smoke test deployed API (optional)** runs if `API_PUBLIC_BASE_URL` or `VITE_ADMIN_API_BASE` is set; otherwise it prints a skip message (not a failure).
 
 4. **Verify in AWS**
    - **ECR:** New image tags (`latest` and commit SHA) on the repository.
@@ -234,7 +232,7 @@ Use long-lived keys only if you must: store `AWS_ACCESS_KEY_ID` and `AWS_SECRET_
 - **CI:** Runs on every relevant PR (`pawbuck-api-ci.yml`).
 - **CD:** Starts manually until you add `push` triggers or **GitHub Environments** with approvals; extend `deploy-aws.yml` when you are ready.
 
-## Local smoke test of the image
+## Local health check (Docker image)
 
 ```bash
 cd backend/PawBuck.API
