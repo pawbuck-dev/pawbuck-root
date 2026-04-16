@@ -31,12 +31,27 @@ async function parseErrorMessage(res: Response): Promise<string> {
   return res.statusText || `HTTP ${res.status}`;
 }
 
+/**
+ * PawBuck.API base must be the origin only (e.g. https://api.pawbuck.com).
+ * Strips accidental paths such as /api/support/metrics from env typos or pasted URLs.
+ */
+export function normalizePawbuckApiBase(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const href = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    return new URL(href).origin;
+  } catch {
+    return t.replace(/\/$/, "");
+  }
+}
+
 /** Pass the Supabase session access token (or empty when using Development anonymous support). */
 export function createSupportClient(
   baseUrl: string,
   getAccessToken: () => string | null | undefined,
 ) {
-  const root = baseUrl.replace(/\/$/, "");
+  const root = normalizePawbuckApiBase(baseUrl);
 
   async function request<T>(
     path: string,

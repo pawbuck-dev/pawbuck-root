@@ -209,6 +209,12 @@ if (!app.Environment.IsDevelopment() &&
         "Supabase JWT is not fully configured for this environment: set Supabase__Url and Supabase__JwtSecret or SUPABASE_JWT_SECRET on the host (ECS task env). CI deploy can set both via repository Variable VITE_SUPABASE_URL + secret SUPABASE_JWT_SECRET when using scripts/deploy/ecs-merge-pawbuck-api-env.sh.");
 }
 
+if (!app.Environment.IsDevelopment() && corsConfigured.Length == 0)
+{
+    startupLogger.LogWarning(
+        "CORS: Cors:AllowedOrigins is unset — using localhost dev origins only. Browsers loading the admin from CloudFront (or any non-localhost URL) will block fetches until you set Cors__AllowedOrigins__0 on the API host (e.g. GitHub variable ADMIN_DASHBOARD_ORIGIN + API deploy using ecs-merge-pawbuck-api-env.sh).");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

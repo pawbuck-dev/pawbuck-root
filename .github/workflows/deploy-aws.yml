@@ -86,8 +86,12 @@ jobs:
               --region "$AWS_REGION"
           else
             export SUPABASE_PROJECT_URL="${{ vars.VITE_SUPABASE_URL }}"
+            export ADMIN_CORS_ORIGIN="${{ vars.ADMIN_DASHBOARD_ORIGIN }}"
             if [ -z "$(echo -n "${SUPABASE_PROJECT_URL:-}" | tr -d '[:space:]')" ]; then
               echo "::warning::Variable VITE_SUPABASE_URL is empty — ECS merge will not set Supabase__Url. Set it to https://YOUR_REF.supabase.co (same as admin build) so JWT issuer validation matches Supabase tokens."
+            fi
+            if [ -z "$(echo -n "${ADMIN_CORS_ORIGIN:-}" | tr -d '[:space:]')" ]; then
+              echo "::warning::Variable ADMIN_DASHBOARD_ORIGIN is empty — ECS merge will not set Cors__AllowedOrigins__0. Set it to your admin CloudFront URL (e.g. https://dxxxx.cloudfront.net) so the browser allows api.pawbuck.com from that origin."
             fi
             bash scripts/deploy/ecs-merge-pawbuck-api-env.sh
           fi

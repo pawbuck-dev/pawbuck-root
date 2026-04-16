@@ -31,7 +31,7 @@ export function AdminHeaderBar({ baseUrl, onBaseUrlChange, session, onRefresh }:
             onChange={(e) => onBaseUrlChange(e.target.value.replace(/\/$/, ""))}
             autoComplete="off"
             spellCheck={false}
-            placeholder="https://api.example.com"
+            placeholder="https://api.example.com (origin only — no /api/... path)"
           />
         </label>
 

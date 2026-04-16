@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createSupportClient, SupportApiError } from "@/api/supportClient";
+import { createSupportClient, normalizePawbuckApiBase, SupportApiError } from "@/api/supportClient";
 import { AdminHeaderBar } from "@/components/AdminHeaderBar";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
@@ -19,11 +19,17 @@ import type {
 
 /** Empty env var is "" (not undefined) — would make fetch use relative URLs on CloudFront → 403 on /api/*. */
 function resolveAdminApiBase(): string {
-  const raw = (import.meta.env.VITE_ADMIN_API_BASE ?? "").trim().replace(/\/$/, "");
-  return raw.length > 0 ? raw : "http://localhost:5289";
+  const raw = (import.meta.env.VITE_ADMIN_API_BASE ?? "").trim();
+  if (!raw) return "http://localhost:5289";
+  return normalizePawbuckApiBase(raw);
 }
 
 const BASE_DEFAULT = resolveAdminApiBase();
+
+function isBrowserMixedContentApi(adminPageHttps: boolean, apiBase: string): boolean {
+  if (!adminPageHttps) return false;
+  return apiBase.trim().toLowerCase().startsWith("http://");
+}
 
 function formatDateInput(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -79,11 +85,21 @@ export function App() {
       setMetrics(await client.getMetrics());
     } catch (e) {
       setMetrics(null);
-      setBanner(e instanceof SupportApiError ? e.message : "Failed to load metrics");
+      const httpsAdmin =
+        typeof window !== "undefined" && window.location.protocol === "https:";
+      if (e instanceof SupportApiError) {
+        setBanner(e.message);
+      } else if (isBrowserMixedContentApi(httpsAdmin, baseUrl)) {
+        setBanner(
+          "Browser blocked the request: this admin page is HTTPS but the API URL is HTTP (mixed content). Point the API field to an https:// URL (TLS on the load balancer or API behind CloudFront), or run the admin locally over HTTP for development.",
+        );
+      } else {
+        setBanner(e instanceof Error && e.message ? e.message : "Failed to load metrics");
+      }
     } finally {
       setMetricsLoading(false);
     }
-  }, [client]);
+  }, [client, baseUrl]);
 
   useEffect(() => {
     if (!authReady) return;
@@ -248,12 +264,22 @@ export function App() {
 
   return (
     <div className="shell shell--admin">
-      <AdminHeaderBar
+           <AdminHeaderBar
         baseUrl={baseUrl}
         onBaseUrlChange={setBaseUrl}
         session={session}
         onRefresh={() => void loadMetrics()}
       />
+
+      {typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      isBrowserMixedContentApi(true, baseUrl) ? (
+        <div className="banner-warn" role="status">
+          <strong>Mixed content:</strong> this page is loaded over HTTPS, so the browser will not call an{" "}
+          <code>http://</code> API. Set <strong>VITE_ADMIN_API_BASE</strong> to an <code>https://</code> API origin when
+          you deploy the admin to CloudFront, or terminate TLS on your load balancer.
+        </div>
+      ) : null}
 
       <nav className="nav-tabs" aria-label="Main">
         <button

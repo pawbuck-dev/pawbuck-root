@@ -297,6 +297,16 @@ tr.selected {
   margin-bottom: 1rem;
 }
 
+.banner-warn {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
 .form-grid {
   display: grid;
   gap: 0.65rem;
