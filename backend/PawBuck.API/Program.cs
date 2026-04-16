@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -230,6 +232,58 @@ if (app.Environment.IsDevelopment())
 if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 app.UseCors();
+// CorsMiddleware only adds response headers when await next() completes without throwing. Unhandled
+// exceptions (e.g. DB not configured) would skip those headers and the browser reports a CORS error
+// masking the real 500. Catch here so the outer CORS middleware can still attach Access-Control-Allow-Origin.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("PawBuck.API.UnhandledException");
+        if (context.Response.HasStarted)
+        {
+            logger.LogError(ex, "Unhandled exception after response started");
+            throw;
+        }
+
+        logger.LogError(ex, "Unhandled exception");
+
+        var status = StatusCodes.Status500InternalServerError;
+        string message;
+        if (ex is InvalidOperationException ioe)
+        {
+            message = ioe.Message;
+            var m = ioe.Message;
+            if (m.Contains("Database", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("pooler", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("Postgres", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("Session pooler", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("TCP", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("IPv6", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("Tenant", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("28P01", StringComparison.OrdinalIgnoreCase) ||
+                m.Contains("XX000", StringComparison.OrdinalIgnoreCase))
+                status = StatusCodes.Status503ServiceUnavailable;
+        }
+        else if (app.Environment.IsDevelopment())
+        {
+            message = ex.Message;
+        }
+        else
+        {
+            message = "An error occurred.";
+        }
+
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = message }));
+    }
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
