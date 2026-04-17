@@ -4,6 +4,8 @@ import {
   FIGMA_HEALTH_MEDS_ICON_BG,
   FIGMA_HEALTH_TEAL,
   HEALTH_ELEVATION,
+  dashboardCareTeamCardChrome,
+  dashboardIconPlateMuted,
 } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { fetchMedicines } from "@/services/medicines";
@@ -106,6 +108,8 @@ export default function HealthRecordsSection({
     ? {}
     : { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" };
   const cardBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+  const hubIconPlate = dashboardIconPlateMuted(isDark);
+  const hubIconInk = isDark ? theme.foreground : theme.primary;
 
   const { data: vaccinations = [], isLoading: loadingVac } = useQuery({
     queryKey: ["vaccinations", petId],
@@ -252,6 +256,7 @@ export default function HealthRecordsSection({
   const hubCards = [
     {
       id: "vaccines",
+      hubShortTitle: "Vaccines",
       title: petPossessiveLabel(petNameForTitles, "Vaccinations"),
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations` as const,
       addRoute: `/(home)/health-record/${petId}/vaccination-upload-modal?upload=library` as const,
@@ -267,6 +272,7 @@ export default function HealthRecordsSection({
     },
     {
       id: "meds",
+      hubShortTitle: "Medications",
       title: petPossessiveLabel(petNameForTitles, "Medications"),
       route: `/(home)/health-record/${petId}/(tabs)/medications` as const,
       /** Empty hub: Meds tab (empty state + FAB); + opens Add Medication sheet */
@@ -282,6 +288,7 @@ export default function HealthRecordsSection({
     },
     {
       id: "exams",
+      hubShortTitle: "Clinical visits",
       title: petPossessiveLabel(petNameForTitles, "Exams"),
       route: `/(home)/health-record/${petId}/(tabs)/exams` as const,
       /** Empty hub: Exams tab (empty state + FAB); + opens Upload Exam Documents sheet */
@@ -297,6 +304,7 @@ export default function HealthRecordsSection({
     },
     {
       id: "labs",
+      hubShortTitle: "Labs",
       title: petPossessiveLabel(petNameForTitles, "Lab Results"),
       route: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
       /** Empty hub: go to Labs tab (empty state + FAB); user taps + for Upload Lab Result sheet */
@@ -376,6 +384,145 @@ export default function HealthRecordsSection({
       {loading ? (
         <View style={{ paddingVertical: 24, alignItems: "center" }}>
           <ActivityIndicator color={theme.primary} />
+        </View>
+      ) : isHub ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {hubCards.map((card) => {
+            const hubCardEmpty =
+              (card.type === "vaccine" && vaccinations.length === 0) ||
+              (card.type === "med" && medicines.length === 0) ||
+              (card.type === "exam" && exams.length === 0) ||
+              (card.type === "lab" && labs.length === 0);
+
+            const docCount =
+              card.type === "vaccine"
+                ? vaccinations.length
+                : card.type === "med"
+                  ? medicines.length
+                  : card.type === "exam"
+                    ? exams.length
+                    : labs.length;
+
+            const hubTileShell = {
+              width: "48%" as const,
+              borderRadius: 16,
+              padding: 12,
+              ...dashboardCareTeamCardChrome(isDark),
+              ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
+            };
+
+            const hubGlyph =
+              card.type === "vaccine" ? (
+                <MaterialCommunityIcons name="heart-pulse" size={20} color={hubIconInk} />
+              ) : card.type === "med" ? (
+                <MaterialCommunityIcons name="pill" size={20} color={hubIconInk} />
+              ) : card.type === "exam" ? (
+                <MaterialCommunityIcons name="stethoscope" size={20} color={hubIconInk} />
+              ) : (
+                <Ionicons name="flask" size={20} color={hubIconInk} />
+              );
+
+            const compactLine =
+              card.type === "vaccine"
+                ? (card.body as typeof vaccineSummary).primary
+                : card.type === "med"
+                  ? (card.body as typeof medSummary).primary
+                  : card.type === "exam"
+                    ? (card.body as typeof examSummary).primary
+                    : (card.body as typeof labSummary).primary;
+
+            return hubCardEmpty ? (
+              <View key={card.id} style={hubTileShell}>
+                <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(card.route as any)}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: hubIconPlate,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {hubGlyph}
+                    </View>
+                    <MaterialCommunityIcons name="arrow-top-right" size={18} color={theme.secondary} />
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginTop: 10 }}>
+                    {card.hubShortTitle}
+                  </Text>
+                  <View style={{ marginTop: 6 }}>
+                    <StatusBadge
+                      label={card.hubEmptyBadge.label}
+                      variant={card.hubEmptyBadge.variant}
+                      isDark={isDark}
+                    />
+                  </View>
+                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 8 }} numberOfLines={2}>
+                    {card.hubEmptyLine}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.secondary, marginTop: 8 }}>
+                    {docCount} {docCount === 1 ? "record" : "records"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push(card.addRoute as any)}
+                  activeOpacity={0.85}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    marginTop: 10,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : theme.dashedCard,
+                  }}
+                >
+                  <Ionicons name="add" size={18} color={theme.foreground} />
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                    {card.hubAddLabel.replace(/^\+ /, "")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                key={card.id}
+                activeOpacity={0.85}
+                onPress={() => router.push(card.route as any)}
+                style={hubTileShell}
+              >
+                <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: hubIconPlate,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {hubGlyph}
+                  </View>
+                  <MaterialCommunityIcons name="arrow-top-right" size={18} color={theme.secondary} />
+                </View>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginTop: 10 }}>
+                  {card.hubShortTitle}
+                </Text>
+                <View style={{ marginTop: 6, flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  <StatusBadge label={card.badge.label} variant={card.badge.variant} isDark={isDark} />
+                </View>
+                <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 8 }} numberOfLines={2}>
+                  {compactLine}
+                </Text>
+                <Text style={{ fontSize: 11, color: theme.secondary, marginTop: 8 }}>
+                  {docCount} {docCount === 1 ? "record" : "records"}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ) : (
         <View style={{ gap: 12 }}>

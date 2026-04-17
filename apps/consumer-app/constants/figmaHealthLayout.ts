@@ -11,7 +11,29 @@
  * - Dark tokens: theme/dark.ts (#182424, #1C2128, #5FC4C0, #30363D, backgroundEnd #121C1C)
  */
 import type { Theme } from "@/theme/model";
-import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
+import { Platform, StyleSheet, type TextStyle, type ViewStyle } from "react-native";
+
+/**
+ * Dashboard `MyCareTeamSection` / `CareTeamMemberContactCard` — elevated card on dark tab canvas.
+ * Slightly lighter than `healthRecordTabCanvas` so tiles read as surfaces (4% white + 6% border).
+ */
+export function dashboardCareTeamCardChrome(isDark: boolean): ViewStyle {
+  const isAndroid = Platform.OS === "android";
+  return {
+    backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+    ...(isAndroid
+      ? {}
+      : {
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+        }),
+  };
+}
+
+/** Small circular icon well next to titles (matches Care Team type row). */
+export function dashboardIconPlateMuted(isDark: boolean): string {
+  return isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
+}
 
 export const FIGMA_HEALTH_TEAL = "#3BD0D2";
 /** Solid disc + white glyph (same pattern as vaccines / 1340:33860) */

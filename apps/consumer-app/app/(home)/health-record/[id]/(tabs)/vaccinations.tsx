@@ -1,3 +1,4 @@
+import RequiredVaccinesHubCard from "@/components/health/RequiredVaccinesHubCard";
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import {
   FIGMA_HEALTH_TEAL,
@@ -78,46 +79,6 @@ export default function VaccinationsScreen() {
     );
   }
 
-  if (vaccinations.length === 0) {
-    return (
-      <ScrollView
-        className="flex-1"
-        style={{ backgroundColor: listCanvas }}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View
-          className="flex-1 items-center justify-center px-6"
-          style={{ minHeight: 420 }}
-        >
-          <View
-            className="items-center justify-center mb-6"
-            style={{
-              width: 128,
-              height: 128,
-              borderRadius: 64,
-              backgroundColor: FIGMA_HEALTH_TEAL,
-            }}
-          >
-            <MaterialCommunityIcons name="heart-pulse" size={56} color="#FFFFFF" />
-          </View>
-          <Text
-            className="text-xl font-bold mb-2 text-center"
-            style={{ color: theme.foreground }}
-          >
-            No Vaccines Recorded Yet
-          </Text>
-          <Text
-            className="text-sm text-center leading-5"
-            style={{ maxWidth: 320, color: theme.secondary }}
-          >
-            Ask your vet to email or upload your pet&apos;s vaccine certificate below.
-          </Text>
-        </View>
-      </ScrollView>
-    );
-  }
-
   const { required, recommended, other } = categorizedVaccinations;
 
   const sections: { category: VaccineCategory; items: typeof required }[] = [
@@ -126,11 +87,17 @@ export default function VaccinationsScreen() {
     { category: "other", items: other },
   ];
 
+  const listEmpty = vaccinations.length === 0;
+
   return (
     <View className="flex-1" style={{ backgroundColor: listCanvas }}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 120 }}
+        contentContainerStyle={{
+          paddingTop: 8,
+          paddingBottom: 120,
+          flexGrow: listEmpty ? 1 : undefined,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -142,32 +109,65 @@ export default function VaccinationsScreen() {
         }
       >
         <View style={{ paddingHorizontal: 16 }}>
-          {sections.map(({ category, items }, sectionIndex) => {
-            if (items.length === 0) return null;
-            return (
-              <View key={category} style={{ marginBottom: 22 }}>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "700",
-                    color: isDark ? theme.foreground : "#0D0F0F",
-                    marginBottom: 14,
-                    marginTop: sectionIndex === 0 ? 0 : 6,
-                    letterSpacing: -0.2,
-                  }}
-                >
-                  {SECTION_TITLE[category]}
-                </Text>
-                {items.map((item) => (
-                  <VaccinationCard
-                    key={item.vaccination.id}
-                    vaccination={item.vaccination}
-                    category={item.category}
-                  />
-                ))}
+          <RequiredVaccinesHubCard petId={pet.id} hideViewInVaccinationsCta />
+
+          {listEmpty ? (
+            <View
+              className="flex-1 items-center justify-center px-2"
+              style={{ minHeight: 420 }}
+            >
+              <View
+                className="items-center justify-center mb-6"
+                style={{
+                  width: 128,
+                  height: 128,
+                  borderRadius: 64,
+                  backgroundColor: FIGMA_HEALTH_TEAL,
+                }}
+              >
+                <MaterialCommunityIcons name="heart-pulse" size={56} color="#FFFFFF" />
               </View>
-            );
-          })}
+              <Text
+                className="text-xl font-bold mb-2 text-center"
+                style={{ color: theme.foreground }}
+              >
+                No Vaccines Recorded Yet
+              </Text>
+              <Text
+                className="text-sm text-center leading-5"
+                style={{ maxWidth: 320, color: theme.secondary }}
+              >
+                Ask your vet to email or upload your pet&apos;s vaccine certificate below.
+              </Text>
+            </View>
+          ) : (
+            sections.map(({ category, items }, sectionIndex) => {
+              if (items.length === 0) return null;
+              return (
+                <View key={category} style={{ marginBottom: 22 }}>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "700",
+                      color: theme.foreground,
+                      marginBottom: 14,
+                      marginTop: sectionIndex === 0 ? 0 : 6,
+                      letterSpacing: -0.2,
+                    }}
+                  >
+                    {SECTION_TITLE[category]}
+                  </Text>
+                  {items.map((item) => (
+                    <VaccinationCard
+                      key={item.vaccination.id}
+                      vaccination={item.vaccination}
+                      category={item.category}
+                    />
+                  ))}
+                </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </View>

@@ -5,6 +5,7 @@ import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { petPossessiveLabel } from "@/utils/petCopy";
+import { hexToRgba } from "@/utils/healthHubAttention";
 import { getRequiredVaccinesCompliantBody } from "@/utils/vaccinationUi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -15,24 +16,25 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const RED_BG = "rgba(239, 68, 68, 0.12)";
-const RED_TEXT = "#DC2626";
-const RED_ICON_BG = "rgba(239, 68, 68, 0.18)";
-
-const GREEN_TEXT = "#1D9C3D";
-const GREEN_BG = "rgba(29, 156, 61, 0.15)";
-const GREEN_ICON_BG = "rgba(29, 156, 61, 0.18)";
+/** Align with HealthRecordsSection / hub StatusBadge success */
+const SUCCESS_BG_DARK = "rgba(34,197,94,0.2)";
+const SUCCESS_BG_LIGHT = "rgba(34,197,94,0.12)";
+const SUCCESS_TEXT_DARK = "#4ADE80";
+const SUCCESS_TEXT_LIGHT = "#15803D";
 
 type Props = {
   petId: string;
+  /** Hide redundant navigation when already on the Vaccinations tab. */
+  hideViewInVaccinationsCta?: boolean;
 };
 
 /**
  * Figma health hub (2033:133716) — Required Vaccines: compliant (Complaint.svg) or missing (ActionRequired) + expandable list when applicable.
  */
-export default function RequiredVaccinesHubCard({ petId }: Props) {
+export default function RequiredVaccinesHubCard({ petId, hideViewInVaccinationsCta }: Props) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const isAndroid = Platform.OS === "android";
   const router = useRouter();
   const { pet } = useSelectedPet();
   const { requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
@@ -42,21 +44,26 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
   const hasRequiredModel = total > 0;
   const hasGaps = missing.length > 0;
 
+  const errorMuted = hexToRgba(theme.error, isDark ? 0.18 : 0.12);
+  const errorIconBg = hexToRgba(theme.error, isDark ? 0.24 : 0.16);
+  const successBg = isDark ? SUCCESS_BG_DARK : SUCCESS_BG_LIGHT;
+  const successText = isDark ? SUCCESS_TEXT_DARK : SUCCESS_TEXT_LIGHT;
+
   if (isLoadingRequirements || !hasRequiredModel) {
     return null;
   }
 
-  const cardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";
-  const borderStyle = isDark
-    ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }
-    : {};
-
   const cardShell = {
-    backgroundColor: cardBg,
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
-    ...borderStyle,
+    ...(isAndroid
+      ? {}
+      : {
+          borderWidth: 1,
+          borderColor: theme.border,
+        }),
     ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
   } as const;
 
@@ -71,13 +78,13 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
               width: 48,
               height: 48,
               borderRadius: 24,
-              backgroundColor: GREEN_ICON_BG,
+              backgroundColor: successBg,
               alignItems: "center",
               justifyContent: "center",
               marginRight: 12,
             }}
           >
-            <Ionicons name="shield-checkmark" size={24} color={GREEN_TEXT} />
+            <Ionicons name="shield-checkmark" size={24} color={successText} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -89,10 +96,10 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
                   paddingHorizontal: 10,
                   paddingVertical: 4,
                   borderRadius: 100,
-                  backgroundColor: GREEN_BG,
+                  backgroundColor: successBg,
                 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: GREEN_TEXT }}>Compliant</Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: successText }}>Compliant</Text>
               </View>
             </View>
             <Text style={{ fontSize: 14, color: theme.secondary, marginTop: 4 }}>
@@ -102,7 +109,10 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
         </View>
 
         <View style={{ marginTop: 14 }}>
-          <CompliantVaccineBanner body={getRequiredVaccinesCompliantBody(pet?.country)} onCtaPress={goVaccinations} />
+          <CompliantVaccineBanner
+            body={getRequiredVaccinesCompliantBody(pet?.country)}
+            onCtaPress={hideViewInVaccinationsCta ? undefined : goVaccinations}
+          />
         </View>
       </View>
     );
@@ -121,13 +131,13 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
             width: 48,
             height: 48,
             borderRadius: 24,
-            backgroundColor: RED_ICON_BG,
+            backgroundColor: errorIconBg,
             alignItems: "center",
             justifyContent: "center",
             marginRight: 12,
           }}
         >
-          <MaterialCommunityIcons name="shield-alert" size={24} color={RED_TEXT} />
+          <MaterialCommunityIcons name="shield-alert" size={24} color={theme.error} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -139,10 +149,10 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
                 paddingHorizontal: 10,
                 paddingVertical: 4,
                 borderRadius: 100,
-                backgroundColor: RED_BG,
+                backgroundColor: errorMuted,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: RED_TEXT }}>Missing</Text>
+              <Text style={{ fontSize: 12, fontWeight: "600", color: theme.error }}>Missing</Text>
             </View>
           </View>
           <Text style={{ fontSize: 14, color: theme.secondary, marginTop: 4 }}>
@@ -172,7 +182,7 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
           marginTop: 14,
           paddingTop: 14,
           borderTopWidth: 1,
-          borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          borderTopColor: theme.border,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -202,11 +212,13 @@ export default function RequiredVaccinesHubCard({ petId }: Props) {
               ) : null}
             </View>
           ))}
-          <TouchableOpacity onPress={goVaccinations} activeOpacity={0.85}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary, marginTop: 4 }}>
-              View in Vaccinations →
-            </Text>
-          </TouchableOpacity>
+          {!hideViewInVaccinationsCta ? (
+            <TouchableOpacity onPress={goVaccinations} activeOpacity={0.85}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary, marginTop: 4 }}>
+                View in Vaccinations →
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       )}
     </View>

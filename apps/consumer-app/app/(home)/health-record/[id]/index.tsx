@@ -1,16 +1,16 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import PetSelector from "@/components/home/PetSelector";
-import RequiredVaccinesHubCard from "@/components/health/RequiredVaccinesHubCard";
-import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
-import { FIGMA_MINT_SCREEN_LIGHT } from "@/constants/figmaHealthLayout";
+import HealthRecordsAttentionBanner from "@/components/health/HealthRecordsAttentionBanner";
 import { usePets } from "@/context/petsContext";
+import { useHealthAttentionForPet, usePetHealthNotificationCounts } from "@/hooks/useHealthHubAttention";
+import { dashboardCareTeamCardChrome, healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { petPossessiveLabel } from "@/utils/petCopy";
 import { useTheme } from "@/context/themeContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
-import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,7 +28,11 @@ export default function HealthRecordsHubScreen() {
   const pet = pets.find((p) => p.id === id);
   const petName = pet?.name ?? "your pet";
 
-  const pageBg = isDark ? theme.background : FIGMA_MINT_SCREEN_LIGHT;
+  const notificationCounts = usePetHealthNotificationCounts(pets.map((p) => p.id));
+  const { attentionCount, subtitle: attentionSubtitle } = useHealthAttentionForPet(id);
+
+  /** Dark: same deeper well as health tabs + dashboard (cards sit on top like Care Team). */
+  const pageBg = healthRecordTabCanvas(theme, isDark);
 
   return (
     <View className="flex-1" style={{ backgroundColor: pageBg }}>
@@ -47,7 +51,7 @@ export default function HealthRecordsHubScreen() {
             style={{
               fontSize: 28,
               fontWeight: "700",
-              color: isDark ? "#FFFFFF" : "#0D0F0F",
+              color: theme.foreground,
               letterSpacing: -0.3,
             }}
           >
@@ -63,12 +67,67 @@ export default function HealthRecordsHubScreen() {
               onSelectPet={(petId) => {
                 router.replace(`/(home)/health-record/${petId}` as any);
               }}
-              notificationCounts={{}}
+              notificationCounts={notificationCounts}
             />
           </View>
         )}
 
         <View style={{ paddingHorizontal: 16 }}>
+          {attentionCount > 0 ? (
+            <HealthRecordsAttentionBanner
+              subtitle={attentionSubtitle}
+              onPress={() => router.push(`/(home)/health-record/${id}/(tabs)/vaccinations` as any)}
+            />
+          ) : null}
+
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() =>
+                router.push(`/(home)/health-record/${id}/vaccination-upload-modal?upload=library` as any)
+              }
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 14,
+                borderRadius: 100,
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+              }}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color={theme.foreground} />
+              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>Upload</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                Share.share({
+                  message: `${petName}'s health records are in PawBuck. Ask your clinic how they prefer to receive documents or visit summaries.`,
+                  title: "Share with vet",
+                }).catch(() => {});
+              }}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                paddingVertical: 14,
+                borderRadius: 100,
+                backgroundColor: theme.primary,
+              }}
+            >
+              <Ionicons name="share-outline" size={20} color={theme.primaryForeground} />
+              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
+                Share with vet
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             onPress={() =>
               router.push({ pathname: "/(home)/pet-journal", params: { petId: id } } as any)
@@ -77,17 +136,11 @@ export default function HealthRecordsHubScreen() {
             style={{
               flexDirection: "row",
               alignItems: "flex-start",
-              backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-              borderRadius: 20,
+              borderRadius: 24,
               paddingVertical: 16,
               paddingHorizontal: 16,
               marginBottom: 14,
-              ...(Platform.OS === "android"
-                ? {}
-                : {
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                  }),
+              ...dashboardCareTeamCardChrome(isDark),
             }}
           >
             <View
@@ -95,7 +148,7 @@ export default function HealthRecordsHubScreen() {
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#EDEDEE",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
                 alignItems: "center",
                 justifyContent: "center",
                 marginRight: 12,
@@ -124,17 +177,6 @@ export default function HealthRecordsHubScreen() {
             </View>
           </TouchableOpacity>
 
-          {pet ? (
-            <HealthBriefingSummaryCard
-              petId={id}
-              pet={pet}
-              onPress={() =>
-                router.push({ pathname: "/(home)/pet-journal/briefing", params: { petId: id } } as any)
-              }
-            />
-          ) : null}
-
-          <RequiredVaccinesHubCard petId={id} />
           <HealthRecordsSection
             petId={id}
             petName={petName}
