@@ -14,7 +14,9 @@ export async function registerForPush() {
   }
 
   if (!isDevice) {
-    console.error("Not a device");
+    if (__DEV__) {
+      console.debug("Push: skipped on simulator (not a physical device)");
+    }
     return null;
   }
 

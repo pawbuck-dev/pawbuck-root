@@ -31,6 +31,10 @@ interface NewMessageModalProps {
     petId: string;
   }) => Promise<void>;
   initialRecipientEmail?: string;
+  /** Pre-fill body when opening from Milo journal / deep link */
+  initialMessageBody?: string;
+  /** Pre-select pet when opening from Milo journal */
+  initialPetId?: string;
 }
 
 interface WhitelistedContact {
@@ -45,6 +49,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   onClose,
   onSend,
   initialRecipientEmail,
+  initialMessageBody,
+  initialPetId,
 }) => {
   const { theme, mode } = useTheme();
   const router = useRouter();
@@ -60,6 +66,18 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   const [showPetDropdown, setShowPetDropdown] = useState(false);
   const [sending, setSending] = useState(false);
   const lastProcessedEmailRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (visible && initialPetId && pets.some((p) => p.id === initialPetId)) {
+      setSelectedPetId(initialPetId);
+    }
+  }, [visible, initialPetId, pets]);
+
+  useEffect(() => {
+    if (visible && initialMessageBody) {
+      setMessage(initialMessageBody);
+    }
+  }, [visible, initialMessageBody]);
 
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId) || null,

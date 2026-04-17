@@ -42,6 +42,12 @@ export async function getDailyIntake(petId: string): Promise<DailyIntake> {
       water_intake: 0,
       food_target: DEFAULT_FOOD_TARGET,
       water_target: DEFAULT_WATER_TARGET,
+      poop_count: 0,
+      pee_count: 0,
+      poop_target: 6,
+      pee_target: 6,
+      poop_tags: [],
+      pee_tags: [],
     })
     .select("*")
     .single();
@@ -52,7 +58,21 @@ export async function getDailyIntake(petId: string): Promise<DailyIntake> {
 
 export async function updateDailyIntake(
   petId: string,
-  updates: Partial<Pick<DailyIntake, "food_intake" | "water_intake" | "food_target" | "water_target">>
+  updates: Partial<
+    Pick<
+      DailyIntake,
+      | "food_intake"
+      | "water_intake"
+      | "food_target"
+      | "water_target"
+      | "poop_count"
+      | "pee_count"
+      | "poop_target"
+      | "pee_target"
+      | "poop_tags"
+      | "pee_tags"
+    >
+  >
 ): Promise<DailyIntake> {
   const {
     data: { user },

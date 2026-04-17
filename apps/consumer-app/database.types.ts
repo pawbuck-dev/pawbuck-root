@@ -7,54 +7,58 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
       analytics_events: {
         Row: {
-          id: string
+          created_at: string | null
           event_type: string
-          user_id: string | null
+          id: string
           metadata: Json | null
-          created_at: string
+          user_id: string | null
         }
         Insert: {
-          id?: string
+          created_at?: string | null
           event_type: string
-          user_id?: string | null
+          id?: string
           metadata?: Json | null
-          created_at?: string
+          user_id?: string | null
         }
         Update: {
-          id?: string
+          created_at?: string | null
           event_type?: string
-          user_id?: string | null
+          id?: string
           metadata?: Json | null
-          created_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      clinic_scheduling_config: {
+        Row: {
+          clinic_id: string
+          external_clinic_id: string | null
+          integration_settings: Json
+          provider_kind: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          external_clinic_id?: string | null
+          integration_settings?: Json
+          provider_kind: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          external_clinic_id?: string | null
+          integration_settings?: Json
+          provider_kind?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -170,40 +174,58 @@ export type Database = {
       }
       daily_intake: {
         Row: {
-          id: string
-          pet_id: string
-          user_id: string
+          created_at: string
           date: string
           food_intake: number
-          water_intake: number
           food_target: number
-          water_target: number
-          created_at: string
+          id: string
+          pee_count: number
+          pee_tags: string[]
+          pee_target: number
+          pet_id: string
+          poop_count: number
+          poop_tags: string[]
+          poop_target: number
           updated_at: string
+          user_id: string
+          water_intake: number
+          water_target: number
         }
         Insert: {
-          id?: string
-          pet_id: string
-          user_id: string
+          created_at?: string
           date?: string
           food_intake?: number
-          water_intake?: number
           food_target?: number
-          water_target?: number
-          created_at?: string
+          id?: string
+          pee_count?: number
+          pee_tags?: string[]
+          pee_target?: number
+          pet_id: string
+          poop_count?: number
+          poop_tags?: string[]
+          poop_target?: number
           updated_at?: string
+          user_id: string
+          water_intake?: number
+          water_target?: number
         }
         Update: {
-          id?: string
-          pet_id?: string
-          user_id?: string
+          created_at?: string
           date?: string
           food_intake?: number
-          water_intake?: number
           food_target?: number
-          water_target?: number
-          created_at?: string
+          id?: string
+          pee_count?: number
+          pee_tags?: string[]
+          pee_target?: number
+          pet_id?: string
+          poop_count?: number
+          poop_tags?: string[]
+          poop_target?: number
           updated_at?: string
+          user_id?: string
+          water_intake?: number
+          water_target?: number
         }
         Relationships: [
           {
@@ -214,6 +236,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      documentation: {
+        Row: {
+          content: string
+          created_at: string | null
+          embedding: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          embedding: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          embedding?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      email_delete_audit: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          thread_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          thread_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          thread_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      faq_documents: {
+        Row: {
+          answer: string
+          content: string
+          created_at: string
+          embedding: string | null
+          faq_source_id: string | null
+          id: string
+          question: string
+        }
+        Insert: {
+          answer: string
+          content: string
+          created_at?: string
+          embedding?: string | null
+          faq_source_id?: string | null
+          id?: string
+          question: string
+        }
+        Update: {
+          answer?: string
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          faq_source_id?: string | null
+          id?: string
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faq_documents_faq_source_id_fkey"
+            columns: ["faq_source_id"]
+            isOneToOne: false
+            referencedRelation: "faq_source"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faq_source: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       household_invites: {
         Row: {
@@ -321,6 +453,64 @@ export type Database = {
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_service_bookings: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          pet_id: string | null
+          pet_owner_user_id: string
+          provider_profile_id: string
+          service_offering_id: string | null
+          start_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pet_id?: string | null
+          pet_owner_user_id: string
+          provider_profile_id: string
+          service_offering_id?: string | null
+          start_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pet_id?: string | null
+          pet_owner_user_id?: string
+          provider_profile_id?: string
+          service_offering_id?: string | null
+          start_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_service_bookings_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_service_bookings_provider_profile_id_fkey"
+            columns: ["provider_profile_id"]
+            isOneToOne: false
+            referencedRelation: "provider_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_service_bookings_service_offering_id_fkey"
+            columns: ["service_offering_id"]
+            isOneToOne: false
+            referencedRelation: "service_offerings"
             referencedColumns: ["id"]
           },
         ]
@@ -506,34 +696,35 @@ export type Database = {
           },
         ]
       }
-      thread_read_status: {
+      milo_curated_snippets: {
         Row: {
+          animal_type: string | null
+          breed_key: string | null
+          content: string
+          created_at: string
           id: string
-          user_id: string
-          thread_id: string
-          last_read_at: string
+          source_attribution: string
+          topic: string
         }
         Insert: {
+          animal_type?: string | null
+          breed_key?: string | null
+          content: string
+          created_at?: string
           id?: string
-          user_id: string
-          thread_id: string
-          last_read_at?: string
+          source_attribution: string
+          topic: string
         }
         Update: {
+          animal_type?: string | null
+          breed_key?: string | null
+          content?: string
+          created_at?: string
           id?: string
-          user_id?: string
-          thread_id?: string
-          last_read_at?: string
+          source_attribution?: string
+          topic?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "thread_read_status_thread_id_fkey"
-            columns: ["thread_id"]
-            isOneToOne: false
-            referencedRelation: "message_threads"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       pending_email_approvals: {
         Row: {
@@ -835,6 +1026,44 @@ export type Database = {
           },
         ]
       }
+      pet_weight_logs: {
+        Row: {
+          created_at: string
+          id: string
+          pet_id: string
+          recorded_at: string
+          user_id: string
+          weight_unit: string
+          weight_value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pet_id: string
+          recorded_at?: string
+          user_id: string
+          weight_unit: string
+          weight_value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pet_id?: string
+          recorded_at?: string
+          user_id?: string
+          weight_unit?: string
+          weight_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_weight_logs_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           animal_type: string
@@ -851,6 +1080,8 @@ export type Database = {
           passport_number: string | null
           photo_url: string | null
           sex: string
+          target_weight_unit: string | null
+          target_weight_value: number | null
           user_id: string
           weight_unit: string
           weight_value: number
@@ -870,6 +1101,8 @@ export type Database = {
           passport_number?: string | null
           photo_url?: string | null
           sex: string
+          target_weight_unit?: string | null
+          target_weight_value?: number | null
           user_id?: string
           weight_unit: string
           weight_value: number
@@ -889,6 +1122,8 @@ export type Database = {
           passport_number?: string | null
           photo_url?: string | null
           sex?: string
+          target_weight_unit?: string | null
+          target_weight_value?: number | null
           user_id?: string
           weight_unit?: string
           weight_value?: number
@@ -948,6 +1183,33 @@ export type Database = {
           },
         ]
       }
+      provider_profiles: {
+        Row: {
+          business_name: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_name?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_name?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_tokens: {
         Row: {
           created_at: string
@@ -972,29 +1234,84 @@ export type Database = {
         }
         Relationships: []
       }
-      email_delete_audit: {
+      service_areas: {
         Row: {
-          id: string
-          thread_id: string
-          user_id: string | null
-          action: string
+          center_lat: number | null
+          center_lng: number | null
+          country_code: string
           created_at: string
+          id: string
+          provider_profile_id: string
+          radius_km: number | null
+          region: string | null
         }
         Insert: {
-          id?: string
-          thread_id: string
-          user_id?: string | null
-          action: string
+          center_lat?: number | null
+          center_lng?: number | null
+          country_code: string
           created_at?: string
+          id?: string
+          provider_profile_id: string
+          radius_km?: number | null
+          region?: string | null
         }
         Update: {
-          id?: string
-          thread_id?: string
-          user_id?: string | null
-          action?: string
+          center_lat?: number | null
+          center_lng?: number | null
+          country_code?: string
           created_at?: string
+          id?: string
+          provider_profile_id?: string
+          radius_km?: number | null
+          region?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "service_areas_provider_profile_id_fkey"
+            columns: ["provider_profile_id"]
+            isOneToOne: false
+            referencedRelation: "provider_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_offerings: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          provider_profile_id: string
+          service_type: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          provider_profile_id: string
+          service_type: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          provider_profile_id?: string
+          service_type?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_offerings_provider_profile_id_fkey"
+            columns: ["provider_profile_id"]
+            isOneToOne: false
+            referencedRelation: "provider_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       thread_messages: {
         Row: {
@@ -1036,6 +1353,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "thread_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      thread_read_status: {
+        Row: {
+          id: string
+          last_read_at: string
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_read_status_thread_id_fkey"
             columns: ["thread_id"]
             isOneToOne: false
             referencedRelation: "message_threads"
@@ -1147,6 +1493,65 @@ export type Database = {
         }
         Relationships: []
       }
+      vet_bookings: {
+        Row: {
+          clinic_id: string
+          clinic_name: string | null
+          created_at: string
+          end_utc: string
+          external_appointment_id: string | null
+          id: string
+          notes: string | null
+          pawbuck_appointment_id: string | null
+          pet_id: string | null
+          service_id: string
+          service_label: string | null
+          start_utc: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          clinic_id: string
+          clinic_name?: string | null
+          created_at?: string
+          end_utc: string
+          external_appointment_id?: string | null
+          id?: string
+          notes?: string | null
+          pawbuck_appointment_id?: string | null
+          pet_id?: string | null
+          service_id: string
+          service_label?: string | null
+          start_utc: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          clinic_id?: string
+          clinic_name?: string | null
+          created_at?: string
+          end_utc?: string
+          external_appointment_id?: string | null
+          id?: string
+          notes?: string | null
+          pawbuck_appointment_id?: string | null
+          pet_id?: string | null
+          service_id?: string
+          service_label?: string | null
+          start_utc?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_bookings_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vet_information: {
         Row: {
           address: string
@@ -1185,100 +1590,41 @@ export type Database = {
       }
       walk_sessions: {
         Row: {
-          id: string
-          user_id: string
-          pet_id: string
-          started_at: string
-          ended_at: string
+          created_at: string
           distance_meters: number
           duration_seconds: number
+          ended_at: string
+          id: string
+          pet_id: string
           points: Json | null
-          created_at: string
+          started_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          pet_id: string
-          started_at: string
-          ended_at: string
+          created_at?: string
           distance_meters?: number
           duration_seconds?: number
+          ended_at: string
+          id?: string
+          pet_id: string
           points?: Json | null
-          created_at?: string
+          started_at: string
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          pet_id?: string
-          started_at?: string
-          ended_at?: string
+          created_at?: string
           distance_meters?: number
           duration_seconds?: number
+          ended_at?: string
+          id?: string
+          pet_id?: string
           points?: Json | null
-          created_at?: string
+          started_at?: string
+          user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "walk_sessions_pet_id_fkey"
-            columns: ["pet_id"]
-            isOneToOne: false
-            referencedRelation: "pets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vet_bookings: {
-        Row: {
-          id: string
-          user_id: string
-          pet_id: string | null
-          clinic_id: string
-          clinic_name: string | null
-          service_id: string
-          service_label: string | null
-          start_utc: string
-          end_utc: string
-          external_appointment_id: string | null
-          pawbuck_appointment_id: string | null
-          status: string
-          notes: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          pet_id?: string | null
-          clinic_id: string
-          clinic_name?: string | null
-          service_id: string
-          service_label?: string | null
-          start_utc: string
-          end_utc: string
-          external_appointment_id?: string | null
-          pawbuck_appointment_id?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          pet_id?: string | null
-          clinic_id?: string
-          clinic_name?: string | null
-          service_id?: string
-          service_label?: string | null
-          start_utc?: string
-          end_utc?: string
-          external_appointment_id?: string | null
-          pawbuck_appointment_id?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vet_bookings_pet_id_fkey"
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
@@ -1295,18 +1641,45 @@ export type Database = {
         Args: { p_email_id: string; p_exclude_pet_id?: string }
         Returns: boolean
       }
-      user_can_access_pet: {
-        Args: { p_pet_id: string }
-        Returns: boolean
-      }
       create_user_preferences: {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      pawthon_my_weekly_walker_rank: {
-        Args: Record<string, never>
-        Returns: Json
+      match_documentation: {
+        Args: {
+          match_count?: number
+          query_embedding: string
+          similarity_threshold?: number
+        }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
       }
+      match_documents: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: number[]
+        }
+        Returns: {
+          answer: string
+          content: string
+          id: string
+          question: string
+          similarity: number
+        }[]
+      }
+      pawthon_my_weekly_walker_rank: {
+        Args: never
+        Returns: {
+          rank: number
+          total: number
+        }[]
+      }
+      user_can_access_pet: { Args: { p_pet_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -1435,11 +1808,7 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
 } as const
-

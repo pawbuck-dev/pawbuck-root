@@ -1,18 +1,23 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
+import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
 import {
   JOURNAL_DOMAIN_LABEL,
   subtypeLabel,
   type JournalDomain,
 } from "@/constants/petJournal";
+import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import type { PetJournalEntry } from "@/services/petJournal";
 import { fetchJournalEntries } from "@/services/petJournal";
+import type { PetLogEntry } from "@/types/petLog";
+import { loadPetLogsForPet } from "@/utils/miloJournalStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -32,13 +37,19 @@ function domainIcon(d: JournalDomain): React.ComponentProps<typeof Ionicons>["na
   return "globe-outline";
 }
 
+type TimelineRow =
+  | { kind: "server"; entry: PetJournalEntry }
+  | { kind: "milo"; entry: PetLogEntry };
+
 export default function PetJournalScreen() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { pets, loadingPets } = usePets();
   const { petId: petIdParam } = useLocalSearchParams<{ petId?: string }>();
+  const [miloLogs, setMiloLogs] = useState<PetLogEntry[]>([]);
 
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [domain, setDomain] = useState<JournalDomain>("health");
@@ -68,15 +79,38 @@ export default function PetJournalScreen() {
 
   const onRefresh = useCallback(() => {
     void refetch();
-  }, [refetch]);
+    if (user?.id && selectedPetId) {
+      void loadPetLogsForPet(user.id, selectedPetId).then(setMiloLogs);
+    }
+  }, [refetch, user?.id, selectedPetId]);
 
-  const openNew = () => {
-    if (!selectedPetId) return;
-    router.push({
-      pathname: "/(home)/pet-journal/new",
-      params: { petId: selectedPetId, domain },
-    } as any);
-  };
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id && selectedPetId) {
+        void loadPetLogsForPet(user.id, selectedPetId).then(setMiloLogs);
+      }
+    }, [user?.id, selectedPetId])
+  );
+
+  const mergedRows: TimelineRow[] = useMemo(() => {
+    const serverRows: TimelineRow[] = entries.map((e) => ({ kind: "server", entry: e }));
+    const miloRows: TimelineRow[] = miloLogs
+      .filter((e) => e.domain === domain && e.pet_id === selectedPetId)
+      .map((e) => ({ kind: "milo", entry: e }));
+    const all = [...serverRows, ...miloRows];
+    all.sort((a, b) => {
+      const ta =
+        a.kind === "server"
+          ? `${a.entry.entry_date}T${a.entry.created_at?.slice(11) ?? "00:00:00"}`
+          : a.entry.created_at;
+      const tb =
+        b.kind === "server"
+          ? `${b.entry.entry_date}T${b.entry.created_at?.slice(11) ?? "00:00:00"}`
+          : b.entry.created_at;
+      return tb.localeCompare(ta);
+    });
+    return all;
+  }, [entries, miloLogs, domain, selectedPetId]);
 
   const openBriefing = () => {
     if (!selectedPetId) return;
@@ -201,6 +235,10 @@ export default function PetJournalScreen() {
             );
           })}
         </View>
+
+        {selectedPetId && pets.find((p) => p.id === selectedPetId) && (
+          <MiloJournalBar pet={pets.find((p) => p.id === selectedPetId)!} domain={domain} />
+        )}
       </View>
 
       {loadingPets || !selectedPetId ? (
@@ -209,8 +247,10 @@ export default function PetJournalScreen() {
         </View>
       ) : (
         <FlatList
-          data={entries}
-          keyExtractor={(item) => item.id}
+          data={mergedRows}
+          keyExtractor={(item) =>
+            item.kind === "server" ? item.entry.id : `milo-${item.entry.id}`
+          }
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 120,
@@ -230,89 +270,140 @@ export default function PetJournalScreen() {
                   fontSize: 15,
                 }}
               >
-                No entries yet. Tap + to add a note.
+                No entries yet. Tell Milo above or use Manual entry.
               </Text>
             )
           }
-          renderItem={({ item }) => (
-            <View
-              style={{
-                backgroundColor: isDark ? theme.card : "#FFFFFF",
-                borderRadius: 16,
-                padding: 14,
-                marginBottom: 10,
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                  <Ionicons name={domainIcon(item.domain as JournalDomain)} size={20} color={theme.primary} />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: "700",
-                      letterSpacing: 0.5,
-                      color: theme.secondary,
-                    }}
-                  >
-                    {subtypeLabel(item.domain as JournalDomain, item.subtype).toUpperCase()}
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 12, color: theme.secondary }}>{item.entry_date}</Text>
-              </View>
-              {item.vet_flagged && (
+          renderItem={({ item }) => {
+            if (item.kind === "milo") {
+              const e = item.entry;
+              const sevColor =
+                e.severity === "urgent"
+                  ? "#b91c1c"
+                  : e.severity === "high"
+                    ? "#c2410c"
+                    : e.severity === "medium"
+                      ? "#b45309"
+                      : "#15803d";
+              return (
                 <View
                   style={{
-                    alignSelf: "flex-start",
-                    backgroundColor: "rgba(249,115,22,0.15)",
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 8,
+                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 10,
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                      <Ionicons name="sparkles" size={20} color={theme.primary} />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "700",
+                          letterSpacing: 0.5,
+                          color: theme.secondary,
+                        }}
+                      >
+                        MILO · {e.severity.toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: theme.secondary }}>
+                      {e.created_at.slice(0, 10)}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      alignSelf: "flex-start",
+                      backgroundColor: `${sevColor}22`,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: sevColor }}>
+                      {e.severity}
+                    </Text>
+                  </View>
+                  {e.note ? (
+                    <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>{e.note}</Text>
+                  ) : null}
+                </View>
+              );
+            }
+            const journal = item.entry;
+            return (
+              <View
+                style={{
+                  backgroundColor: isDark ? theme.card : "#FFFFFF",
+                  borderRadius: 16,
+                  padding: 14,
+                  marginBottom: 10,
+                  borderWidth: 1,
+                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                     marginBottom: 8,
                   }}
                 >
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#C2410C" }}>Vet</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                    <Ionicons
+                      name={domainIcon(journal.domain as JournalDomain)}
+                      size={20}
+                      color={theme.primary}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "700",
+                        letterSpacing: 0.5,
+                        color: theme.secondary,
+                      }}
+                    >
+                      {subtypeLabel(journal.domain as JournalDomain, journal.subtype).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: theme.secondary }}>{journal.entry_date}</Text>
                 </View>
-              )}
-              {item.note ? (
-                <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>{item.note}</Text>
-              ) : null}
-            </View>
-          )}
+                {journal.vet_flagged && (
+                  <View
+                    style={{
+                      alignSelf: "flex-start",
+                      backgroundColor: "rgba(249,115,22,0.15)",
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#C2410C" }}>Vet</Text>
+                  </View>
+                )}
+                {journal.note ? (
+                  <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>
+                    {journal.note}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          }}
         />
       )}
-
-      <TouchableOpacity
-        onPress={openNew}
-        disabled={!selectedPetId}
-        style={{
-          position: "absolute",
-          right: 20,
-          bottom: 96,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: theme.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          elevation: 6,
-          opacity: selectedPetId ? 1 : 0.5,
-        }}
-      >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
 
       <BottomNavBar activeTab="profile" />
     </View>

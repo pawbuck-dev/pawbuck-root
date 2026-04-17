@@ -7,8 +7,7 @@ import {
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
 import CatchUpSection from "@/components/home/CatchUpSection";
-import DailyIntakeSection from "@/components/home/DailyIntakeSection";
-import HealthRecordsSection from "@/components/home/HealthRecordsSection";
+import BodyTrackerSection from "@/components/home/BodyTrackerSection";
 import HomeHeader from "@/components/home/HomeHeader";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
@@ -410,7 +409,7 @@ export default function Home() {
             />
           }
         >
-          {/* Pet Selector */}
+          {/* 1. Pet selector + profile photo */}
           <View style={{ marginBottom: 16 }}>
             <PetSelector
               pets={pets}
@@ -420,7 +419,6 @@ export default function Home() {
             />
           </View>
 
-          {/* Pet Photo Card with Email Overlay */}
           {selectedPet && (
             <View style={{ marginBottom: 20 }}>
               <PetImage
@@ -432,60 +430,25 @@ export default function Home() {
             </View>
           )}
 
-          {/* Daily Goal — sky card + Start a Walk (Figma home, above Weekly Challenge) */}
+          {/* 2. Health Briefing */}
           {selectedPet && (
-            <DailyGoalWalkCard
-              petName={selectedPet.name}
-              onStartWalk={() => router.push("/pawthon-walk")}
-            />
-          )}
-
-          {/* Weekly Challenge — same horizontal inset as Daily Goal / Book Vet (padding on wrapper) */}
-          {selectedPet && (
-            <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
-              <WeeklyChallengeCard
-                petName={selectedPet.name}
-                weekKm={pawthonStats?.weekKm ?? 0}
-                streakDays={pawthonStats?.streak ?? 0}
-                walkerRank={weeklyWalkerRank?.rank ?? null}
-                walkerTotal={weeklyWalkerRank?.total ?? 0}
-                onPress={() => router.push("/leaderboard")}
-              />
-            </View>
-          )}
-
-          {/* Book A Vet Visit */}
-          {selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <BookVetVisitSection
-                petName={selectedPet.name}
-                onSchedule={() => router.push("/book-vet-visit")}
-              />
-            </View>
-          )}
-
-          {/* Catch Up Section (Vaccinations & Medication Alerts) */}
-          {selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <CatchUpSection
+            <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+              <HealthBriefingSummaryCard
                 petId={selectedPet.id}
-                vaccinations={vaccinations}
-                medicines={medicines}
-                petCountry={selectedPet.country}
+                pet={selectedPet}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(home)/pet-journal/briefing",
+                    params: { petId: selectedPet.id },
+                  } as any)
+                }
               />
             </View>
           )}
 
-          {/* Daily Intake Section */}
+          {/* 3. Pet Journal */}
           {selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <DailyIntakeSection petId={selectedPet.id} />
-            </View>
-          )}
-
-          {/* Pet Journal — matches standard dashboard cards (Daily Intake / Book Vet) */}
-          {selectedPet && (
-            <View style={{ marginBottom: 16, paddingHorizontal: 20 }}>
+            <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
               <TouchableOpacity
                 onPress={() =>
                   router.push({
@@ -545,36 +508,58 @@ export default function Home() {
             </View>
           )}
 
-          {/* Health Briefing — vet-ready summary (separate from journal entries) */}
-          {selectedPet && (
-            <View style={{ paddingHorizontal: 20 }}>
-              <HealthBriefingSummaryCard
-                petId={selectedPet.id}
-                pet={selectedPet}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(home)/pet-journal/briefing",
-                    params: { petId: selectedPet.id },
-                  } as any)
-                }
-              />
-            </View>
-          )}
-
-          {/* Health Records Section */}
+          {/* 4. Catch up */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
-              <HealthRecordsSection
+              <CatchUpSection
                 petId={selectedPet.id}
-                petName={selectedPet.name}
-                onTitlePress={() =>
-                  router.push(`/(home)/health-record/${selectedPet.id}` as any)
-                }
+                vaccinations={vaccinations}
+                medicines={medicines}
+                petCountry={selectedPet.country}
               />
             </View>
           )}
 
-          {/* My Care Team Section */}
+          {/* 5. Body Tracker */}
+          {selectedPet && (
+            <View style={{ marginBottom: 24 }}>
+              <BodyTrackerSection petId={selectedPet.id} />
+            </View>
+          )}
+
+          {/* 6. Daily walking goal */}
+          {selectedPet && (
+            <DailyGoalWalkCard
+              petName={selectedPet.name}
+              onStartWalk={() => router.push("/pawthon-walk")}
+            />
+          )}
+
+          {/* 7. Weekly Challenge */}
+          {selectedPet && (
+            <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+              <WeeklyChallengeCard
+                petName={selectedPet.name}
+                weekKm={pawthonStats?.weekKm ?? 0}
+                streakDays={pawthonStats?.streak ?? 0}
+                walkerRank={weeklyWalkerRank?.rank ?? null}
+                walkerTotal={weeklyWalkerRank?.total ?? 0}
+                onPress={() => router.push("/leaderboard")}
+              />
+            </View>
+          )}
+
+          {/* Book a vet visit */}
+          {selectedPet && (
+            <View style={{ marginBottom: 24 }}>
+              <BookVetVisitSection
+                petName={selectedPet.name}
+                onSchedule={() => router.push("/book-vet-visit")}
+              />
+            </View>
+          )}
+
+          {/* My Care Team */}
           {selectedPet && (
             <View style={{ marginBottom: 32 }}>
               <MyCareTeamSection

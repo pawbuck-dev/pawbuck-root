@@ -49,12 +49,18 @@ export default function MessagesScreen() {
   const { pets } = usePets();
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const { pendingApprovals, setCurrentApproval, refreshPendingApprovals } = useEmailApproval();
-  const params = useLocalSearchParams<{ email?: string }>();
+  const params = useLocalSearchParams<{
+    email?: string;
+    composeMessage?: string;
+    composePetId?: string;
+  }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
   const [initialRecipientEmail, setInitialRecipientEmail] = useState<
     string | undefined
   >();
+  const [composeInitialBody, setComposeInitialBody] = useState<string | undefined>();
+  const [composeInitialPetId, setComposeInitialPetId] = useState<string | undefined>();
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
     null
   );
@@ -122,6 +128,21 @@ export default function MessagesScreen() {
       router.setParams({ email: undefined });
     }
   }, [params.email]);
+
+  React.useEffect(() => {
+    if (params.composeMessage) {
+      try {
+        setComposeInitialBody(decodeURIComponent(String(params.composeMessage)));
+      } catch {
+        setComposeInitialBody(String(params.composeMessage));
+      }
+      if (params.composePetId) {
+        setComposeInitialPetId(String(params.composePetId));
+      }
+      setShowNewMessageModal(true);
+      router.setParams({ composeMessage: undefined, composePetId: undefined });
+    }
+  }, [params.composeMessage, params.composePetId]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -763,8 +784,12 @@ export default function MessagesScreen() {
         onClose={() => {
           setShowNewMessageModal(false);
           setInitialRecipientEmail(undefined);
+          setComposeInitialBody(undefined);
+          setComposeInitialPetId(undefined);
         }}
         initialRecipientEmail={initialRecipientEmail}
+        initialMessageBody={composeInitialBody}
+        initialPetId={composeInitialPetId}
         onSend={async (messageData) => {
           try {
             const {

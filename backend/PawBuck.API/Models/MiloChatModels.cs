@@ -13,6 +13,13 @@ public class MiloChatRequest
 
     [JsonPropertyName("history")]
     public IReadOnlyList<MiloChatHistoryMessage>? History { get; set; }
+
+    /// <summary>
+    /// When true, runs the journal interview flow: JSON answer + suggested quick replies + completion flag.
+    /// Requires a verified pet in <see cref="Pet"/>.
+    /// </summary>
+    [JsonPropertyName("journalMode")]
+    public bool JournalMode { get; set; }
 }
 
 public class MiloPetContextDto
@@ -69,6 +76,14 @@ public class MiloChatResponse
 
     [JsonPropertyName("petName")]
     public string? PetName { get; set; }
+
+    /// <summary>Quick-reply chips for journal mode (empty when <see cref="JournalSessionComplete"/> is true).</summary>
+    [JsonPropertyName("suggestedReplies")]
+    public IReadOnlyList<string>? SuggestedReplies { get; set; }
+
+    /// <summary>When true, the journal interview is finished and the client should persist one entry.</summary>
+    [JsonPropertyName("journalSessionComplete")]
+    public bool JournalSessionComplete { get; set; }
 }
 
 /// <summary>Gemini plan step (JSON). Property names match API camelCase.</summary>

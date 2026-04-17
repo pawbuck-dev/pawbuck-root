@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using PawBuck.API.Models;
 
@@ -64,6 +66,15 @@ public class MiloReasoningService : IMiloReasoningService
             };
         }
 
+        if (request.JournalMode && (!petId.HasValue || !petOwned))
+        {
+            return new MiloChatResponse
+            {
+                Answer = "Please select a pet you own to use journal chat.",
+                PetName = request.Pet?.Name,
+            };
+        }
+
         var apiKey = _geminiOptions.Value.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -76,6 +87,20 @@ public class MiloReasoningService : IMiloReasoningService
         }
 
         var petContextBlock = BuildPetContextPrompt(request.Pet, petOwned);
+
+        if (request.JournalMode)
+        {
+            var journalResponse = await RunJournalInterviewAsync(apiKey, request, petContextBlock, cancellationToken);
+            if (journalResponse != null)
+                return journalResponse;
+
+            return new MiloChatResponse
+            {
+                Answer = "Sorry, I'm having trouble. Please try again! 🐕",
+                PetName = request.Pet?.Name,
+            };
+        }
+
         var plan = await RunPlanStepAsync(apiKey, message, request.History, petContextBlock, petOwned, cancellationToken);
         if (plan == null)
         {
@@ -209,6 +234,124 @@ public class MiloReasoningService : IMiloReasoningService
         if (years <= 0)
             return $"{Math.Max(0, months)} month(s) old";
         return $"{years} year(s) old";
+    }
+
+    private async Task<MiloChatResponse?> RunJournalInterviewAsync(
+        string apiKey,
+        MiloChatRequest request,
+        string petContextBlock,
+        CancellationToken cancellationToken)
+    {
+        var userMessage = NormalizeJournalUserMessage(request.Message);
+        if (string.IsNullOrEmpty(userMessage))
+            return null;
+
+        var petName = request.Pet?.Name?.Trim() ?? "your pet";
+        var journalSystem = $"""
+            You are Milo (PawBuck pet assistant) running a **journal observation** interview for {petName}.
+
+            Conversation style:
+            - Warm, brief, one question at a time.
+            - Ask clarifying follow-ups until you have enough context (duration, severity, changes in behavior, appetite, or energy).
+            - Do NOT diagnose or prescribe. Remind that this is general information, not medical advice; consult a veterinarian when appropriate.
+            - For emergency signs (toxins, seizures, collapse, severe bleeding, trouble breathing), tell the user to seek urgent veterinary care immediately.
+            - Keep answers under ~120 words. Use 🐕 sparingly when it fits.
+
+            Output rules (JSON only):
+            - answer: your user-facing message only (no JSON).
+            - suggestedReplies: 2–4 short tap replies for the *next* user message that fits your question. If journalSessionComplete is true, suggestedReplies MUST be [] (empty array).
+            - journalSessionComplete: true when you have enough to log a meaningful entry (typically after 2–4 turns). When true, answer should confirm logging and monitoring.
+
+            Pet context:{petContextBlock}
+            """;
+
+        var contents = BuildHistoryContents(request.History, userMessage, isForPlan: false);
+        var requestBody = new
+        {
+            systemInstruction = new { parts = new[] { new { text = journalSystem } } },
+            contents,
+            generationConfig = new
+            {
+                temperature = 0.65,
+                maxOutputTokens = 1024,
+                response_mime_type = "application/json",
+                response_schema = new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        answer = new { type = "string" },
+                        suggestedReplies = new
+                        {
+                            type = "array",
+                            items = new { type = "string" },
+                        },
+                        journalSessionComplete = new { type = "boolean" },
+                    },
+                    required = new[] { "answer", "suggestedReplies", "journalSessionComplete" },
+                },
+            },
+        };
+
+        var text = await GeminiGenerateContentTextAsync(apiKey, requestBody, cancellationToken);
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        MiloJournalInterviewDto dto;
+        try
+        {
+            dto = JsonSerializer.Deserialize<MiloJournalInterviewDto>(text, JsonOptions) ?? new MiloJournalInterviewDto();
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize Milo journal JSON: {Text}", text);
+            return null;
+        }
+
+        var answer = (dto.Answer ?? "").Trim();
+        if (string.IsNullOrEmpty(answer))
+            return null;
+
+        var complete = dto.JournalSessionComplete;
+        var replies = (dto.SuggestedReplies ?? new List<string>())
+            .Where(static s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Take(4)
+            .ToList();
+        if (complete)
+            replies = [];
+
+        return new MiloChatResponse
+        {
+            Answer = answer,
+            JournalSessionComplete = complete,
+            SuggestedReplies = replies,
+            PetName = request.Pet?.Name,
+            UsedPetData = false,
+            UsedRag = false,
+        };
+    }
+
+    private static string NormalizeJournalUserMessage(string? raw)
+    {
+        var s = (raw ?? "").Trim();
+        if (s.StartsWith("[Journal observation]", StringComparison.OrdinalIgnoreCase))
+            return s.Substring("[Journal observation]".Length).Trim();
+        if (s.StartsWith("[Journal]", StringComparison.OrdinalIgnoreCase))
+            return s.Substring("[Journal]".Length).Trim();
+        return s;
+    }
+
+    private sealed class MiloJournalInterviewDto
+    {
+        [JsonPropertyName("answer")]
+        public string Answer { get; set; } = "";
+
+        [JsonPropertyName("suggestedReplies")]
+        public List<string>? SuggestedReplies { get; set; }
+
+        [JsonPropertyName("journalSessionComplete")]
+        public bool JournalSessionComplete { get; set; }
     }
 
     private async Task<MiloChatPlanDto?> RunPlanStepAsync(
