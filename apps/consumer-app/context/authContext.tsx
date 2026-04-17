@@ -1,4 +1,5 @@
 import { useNotificationHandlers } from "@/hooks/useNotificationHandler";
+import { syncRevenueCatUser } from "@/services/revenuecat";
 import { supabase } from "@/utils/supabase";
 import { User } from "@supabase/supabase-js";
 import React, {
@@ -72,6 +73,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    void syncRevenueCatUser(user?.id ?? null);
+  }, [user?.id]);
 
   useEffect(() => {
     const updatePushToken = async () => {

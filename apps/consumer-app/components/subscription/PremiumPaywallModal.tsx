@@ -1,8 +1,11 @@
 import { useTheme } from "@/context/themeContext";
+import { isRevenueCatConfigured } from "@/services/revenuecat";
+import { presentRevenueCatPaywall } from "@/services/revenuecatPaywall";
 import { trackSubscriptionEvent } from "@/utils/subscriptionAnalytics";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Modal,
   Platform,
@@ -17,22 +20,53 @@ type PremiumPaywallModalProps = {
   onClose: () => void;
   /** Where the paywall was opened from (analytics). */
   source?: string;
+  /** Refresh Supabase + RevenueCat entitlement after a successful purchase/restore. */
+  refetchEntitlement: () => Promise<void>;
 };
 
+function openStoreSubscriptionSettings(): void {
+  if (Platform.OS === "ios") {
+    void Linking.openURL("https://apps.apple.com/account/subscriptions");
+  } else {
+    void Linking.openURL("https://play.google.com/store/account/subscriptions");
+  }
+}
+
 /**
- * Contextual upgrade sheet. Wire IAP / RevenueCat here when products are configured.
+ * Contextual upgrade sheet; primary CTA presents the RevenueCat paywall on iOS/Android when configured.
  */
-export default function PremiumPaywallModal({ visible, onClose, source }: PremiumPaywallModalProps) {
+export default function PremiumPaywallModal({
+  visible,
+  onClose,
+  source,
+  refetchEntitlement,
+}: PremiumPaywallModalProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const [presenting, setPresenting] = useState(false);
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     void trackSubscriptionEvent("paywall_subscribe_tap", { source: source ?? "unknown" });
-    // Placeholder until RevenueCat + store products are linked.
-    if (Platform.OS === "ios") {
-      void Linking.openURL("https://apps.apple.com/account/subscriptions");
-    } else {
-      void Linking.openURL("https://play.google.com/store/account/subscriptions");
+
+    if (Platform.OS === "web") {
+      openStoreSubscriptionSettings();
+      return;
+    }
+
+    setPresenting(true);
+    try {
+      const success = await presentRevenueCatPaywall();
+      if (success) {
+        await refetchEntitlement();
+        void trackSubscriptionEvent("paywall_purchase_success", { source: source ?? "unknown" });
+        onClose();
+        return;
+      }
+      if (!isRevenueCatConfigured()) {
+        openStoreSubscriptionSettings();
+      }
+    } finally {
+      setPresenting(false);
     }
   };
 
@@ -97,16 +131,22 @@ export default function PremiumPaywallModal({ visible, onClose, source }: Premiu
             )}
           </View>
           <TouchableOpacity
-            onPress={handleSubscribe}
+            onPress={() => void handleSubscribe()}
+            disabled={presenting}
             style={{
               backgroundColor: "#2BA89E",
               paddingVertical: 14,
               borderRadius: 14,
               alignItems: "center",
               marginBottom: 10,
+              opacity: presenting ? 0.7 : 1,
             }}
           >
-            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>View subscription options</Text>
+            {presenting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>View subscription options</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={handleClose} style={{ paddingVertical: 10, alignItems: "center" }}>
             <Text style={{ color: theme.secondary, fontWeight: "600", fontSize: 15 }}>Maybe later</Text>

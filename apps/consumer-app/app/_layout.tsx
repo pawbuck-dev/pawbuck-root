@@ -2,6 +2,7 @@ import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalMod
 import { AuthProvider } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
 import { SubscriptionProvider } from "@/context/subscriptionContext";
+import { configureRevenueCat } from "@/services/revenuecat";
 import { EmailApprovalProvider } from "@/context/emailApprovalContext";
 import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
@@ -26,7 +27,7 @@ import * as Notifications from "expo-notifications";
 import { NotificationBehavior } from "expo-notifications";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
@@ -112,6 +113,11 @@ export default function RootLayout() {
   );
 
   useNotificationObserver();
+
+  useLayoutEffect(() => {
+    if (!fontsLoaded) return;
+    configureRevenueCat();
+  }, [fontsLoaded]);
 
   useEffect(() => {
     if (fontsLoaded) {
