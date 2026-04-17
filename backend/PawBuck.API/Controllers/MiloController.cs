@@ -20,6 +20,8 @@ public class MiloController : ControllerBase
     private readonly IOptions<MiloOptions> _miloOptions;
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<MiloController> _logger;
+    private readonly IUserEntitlementService _entitlements;
+    private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
 
     public MiloController(
         MiloRagService ragService,
@@ -27,7 +29,9 @@ public class MiloController : ControllerBase
         IMiloCuratedSnippetsService curatedSnippets,
         IOptions<MiloOptions> miloOptions,
         IWebHostEnvironment environment,
-        ILogger<MiloController> logger)
+        ILogger<MiloController> logger,
+        IUserEntitlementService entitlements,
+        IOptions<SubscriptionOptions> subscriptionOptions)
     {
         _ragService = ragService;
         _reasoning = reasoning;
@@ -35,6 +39,8 @@ public class MiloController : ControllerBase
         _miloOptions = miloOptions;
         _environment = environment;
         _logger = logger;
+        _entitlements = entitlements;
+        _subscriptionOptions = subscriptionOptions;
     }
 
     /// <summary>
@@ -45,6 +51,7 @@ public class MiloController : ControllerBase
     [ProducesResponseType(typeof(MiloChatResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status402PaymentRequired)]
     public async Task<IActionResult> Chat([FromBody] MiloChatRequest? request, CancellationToken cancellationToken)
     {
         if (request == null || string.IsNullOrWhiteSpace(request.Message))
@@ -53,6 +60,19 @@ public class MiloController : ControllerBase
         var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
             return Unauthorized();
+
+        if (_subscriptionOptions.Value.RequirePremiumForMilo)
+        {
+            var premium = await _entitlements.HasActivePremiumAsync(userId, cancellationToken);
+            if (!premium)
+            {
+                return StatusCode(StatusCodes.Status402PaymentRequired, new
+                {
+                    error = "subscription_required",
+                    message = "PawBuck Premium is required to chat with Milo.",
+                });
+            }
+        }
 
         try
         {

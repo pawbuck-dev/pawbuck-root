@@ -2,6 +2,7 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { ChatMessage as CM } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -11,13 +12,14 @@ import {
   appendPetLog,
   syncPetLogToServer,
 } from "@/utils/miloJournalStorage";
-import { fetchMiloChat } from "@/utils/miloChatApi";
+import { fetchMiloChat, SubscriptionRequiredError } from "@/utils/miloChatApi";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
   extractPetLogEntry,
   severityFromConversationText,
   type TriageContext,
 } from "@/utils/miloTriage";
+import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -57,6 +59,7 @@ export default function MiloJournalChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { isPremium, isLoading: subLoading, openPaywall } = useSubscription();
   const { pets } = usePets();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
@@ -188,6 +191,10 @@ export default function MiloJournalChatScreen() {
           await persistJournalEntry(userTurns);
         }
       } catch (e) {
+        if (e instanceof SubscriptionRequiredError) {
+          openPaywall("milo_journal_chat");
+          return;
+        }
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         const offline = getOfflineJournalTurn(priorUserLines.length, pet.name);
@@ -203,10 +210,11 @@ export default function MiloJournalChatScreen() {
         setBusy(false);
       }
     },
-    [pet, user, journalDomain, triageCtx, pushAssistant, messages, persistJournalEntry]
+    [pet, user, journalDomain, triageCtx, pushAssistant, messages, persistJournalEntry, openPaywall]
   );
 
   useEffect(() => {
+    if (subLoading || !isPremium) return;
     const ctx = params.context ? String(params.context) : "";
     if (!ctx || !pet || autoSentRef.current) return;
     autoSentRef.current = true;
@@ -217,7 +225,7 @@ export default function MiloJournalChatScreen() {
       /* use raw */
     }
     void handleSend(decoded);
-  }, [params.context, pet, handleSend]);
+  }, [params.context, pet, handleSend, subLoading, isPremium]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -511,6 +519,27 @@ export default function MiloJournalChatScreen() {
           <Text style={{ color: theme.primary, fontWeight: "600" }}>Go back</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+  if (subLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.background,
+        }}
+      >
+        <ActivityIndicator color={theme.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <PremiumFeatureLocked title="Milo" onGoBack={() => router.back()} feature="milo_journal_screen" />
     );
   }
 

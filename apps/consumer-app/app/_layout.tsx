@@ -1,6 +1,7 @@
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import { AuthProvider } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
+import { SubscriptionProvider } from "@/context/subscriptionContext";
 import { EmailApprovalProvider } from "@/context/emailApprovalContext";
 import { NotificationsProvider } from "@/context/notificationsContext";
 import { OnboardingProvider } from "@/context/onboardingContext";
@@ -134,9 +135,11 @@ export default function RootLayout() {
                     <NotificationsProvider>
                       <SafeAreaProvider>
                         <GestureHandlerRootView>
-                          <ChatProvider>
-                            <ThemedRootStack />
-                          </ChatProvider>
+                          <SubscriptionProvider>
+                            <ChatProvider>
+                              <ThemedRootStack />
+                            </ChatProvider>
+                          </SubscriptionProvider>
                         </GestureHandlerRootView>
                         <EmailApprovalModal />
                       </SafeAreaProvider>

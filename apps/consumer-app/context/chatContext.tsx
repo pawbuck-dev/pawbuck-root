@@ -1,5 +1,6 @@
 import { Pet } from "@/context/petsContext";
-import { fetchMiloChatAnswer } from "@/utils/miloChatApi";
+import { useSubscription } from "@/context/subscriptionContext";
+import { fetchMiloChatAnswer, SubscriptionRequiredError } from "@/utils/miloChatApi";
 import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
 
 export interface ChatMessage {
@@ -24,7 +25,8 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+function ChatProviderInner({ children }: { children: ReactNode }) {
+  const { openPaywall } = useSubscription();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,10 +91,14 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.error("Chat error:", err);
+      if (err instanceof SubscriptionRequiredError) {
+        openPaywall("milo_chat");
+        setError(err.message);
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : "Something went wrong";
       setError(errorMessage);
-      
-      // Add error message as assistant response using functional update
+
       const errorResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -103,7 +109,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPet]);
+  }, [selectedPet, openPaywall]);
 
   return (
     <ChatContext.Provider
@@ -123,7 +129,11 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       {children}
     </ChatContext.Provider>
   );
-};
+}
+
+export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) => (
+  <ChatProviderInner>{children}</ChatProviderInner>
+);
 
 export const useChat = () => {
   const context = useContext(ChatContext);

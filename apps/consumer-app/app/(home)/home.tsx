@@ -9,12 +9,14 @@ import {
 import CatchUpSection from "@/components/home/CatchUpSection";
 import BodyTrackerSection from "@/components/home/BodyTrackerSection";
 import HomeHeader from "@/components/home/HomeHeader";
+import PremiumUpsellCard from "@/components/subscription/PremiumUpsellCard";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -76,6 +78,7 @@ export default function Home() {
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
+  const { ensurePremium } = useSubscription();
   const queryClient = useQueryClient();
 
   const [emailCopied, setEmailCopied] = useState(false);
@@ -430,6 +433,12 @@ export default function Home() {
             </View>
           )}
 
+          {selectedPet && (
+            <View style={{ paddingHorizontal: 20 }}>
+              <PremiumUpsellCard />
+            </View>
+          )}
+
           {/* 2. Health Briefing */}
           {selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
@@ -437,10 +446,14 @@ export default function Home() {
                 petId={selectedPet.id}
                 pet={selectedPet}
                 onPress={() =>
-                  router.push({
-                    pathname: "/(home)/pet-journal/briefing",
-                    params: { petId: selectedPet.id },
-                  } as any)
+                  ensurePremium(
+                    () =>
+                      router.push({
+                        pathname: "/(home)/pet-journal/briefing",
+                        params: { petId: selectedPet.id },
+                      } as any),
+                    "health_briefing"
+                  )
                 }
               />
             </View>
@@ -451,10 +464,14 @@ export default function Home() {
             <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
               <TouchableOpacity
                 onPress={() =>
-                  router.push({
-                    pathname: "/(home)/pet-journal",
-                    params: { petId: selectedPet.id },
-                  } as any)
+                  ensurePremium(
+                    () =>
+                      router.push({
+                        pathname: "/(home)/pet-journal",
+                        params: { petId: selectedPet.id },
+                      } as any),
+                    "pet_journal_home_row"
+                  )
                 }
                 activeOpacity={0.85}
                 style={{
@@ -544,7 +561,9 @@ export default function Home() {
                 streakDays={pawthonStats?.streak ?? 0}
                 walkerRank={weeklyWalkerRank?.rank ?? null}
                 walkerTotal={weeklyWalkerRank?.total ?? 0}
-                onPress={() => router.push("/leaderboard")}
+                onPress={() =>
+                  ensurePremium(() => router.push("/leaderboard" as any), "weekly_challenge")
+                }
               />
             </View>
           )}
@@ -554,7 +573,9 @@ export default function Home() {
             <View style={{ marginBottom: 24 }}>
               <BookVetVisitSection
                 petName={selectedPet.name}
-                onSchedule={() => router.push("/book-vet-visit")}
+                onSchedule={() =>
+                  ensurePremium(() => router.push("/book-vet-visit" as any), "book_vet")
+                }
               />
             </View>
           )}

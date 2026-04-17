@@ -140,6 +140,9 @@ builder.Services.AddScoped<IMiloCuratedSnippetsService, MiloCuratedSnippetsServi
 builder.Services.AddScoped<IMiloPetFactsService, MiloPetFactsService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
+builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
+builder.Services.AddScoped<IUserEntitlementService, UserEntitlementService>();
+
 // Scheduling / booking (plug-in Vetstoria, EazyVet; extend for grooming/boarding via BookingServiceType)
 builder.Services.Configure<SchedulingRoutingOptions>(builder.Configuration.GetSection(SchedulingRoutingOptions.SectionName));
 builder.Services.Configure<VetstoriaOptions>(builder.Configuration.GetSection(VetstoriaOptions.SectionName));

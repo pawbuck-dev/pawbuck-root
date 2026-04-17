@@ -1,5 +1,6 @@
 import type { JournalDomain } from "@/constants/petJournal";
 import type { Pet } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -31,6 +32,7 @@ export const MiloJournalBar: React.FC<MiloJournalBarProps> = ({ pet, domain }) =
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const router = useRouter();
+  const { ensurePremium } = useSubscription();
   const [draft, setDraft] = useState("");
 
   const pills = useMemo(() => QUICK_PROMPTS[domain], [domain]);
@@ -38,12 +40,14 @@ export const MiloJournalBar: React.FC<MiloJournalBarProps> = ({ pet, domain }) =
   const submit = (text: string) => {
     const t = text.trim();
     if (!t) return;
-    const encoded = encodeURIComponent(t);
-    setDraft("");
-    router.push({
-      pathname: "/(home)/milo",
-      params: { pet: pet.id, context: encoded, journalDomain: domain },
-    } as any);
+    ensurePremium(() => {
+      const encoded = encodeURIComponent(t);
+      setDraft("");
+      router.push({
+        pathname: "/(home)/milo",
+        params: { pet: pet.id, context: encoded, journalDomain: domain },
+      } as any);
+    }, "milo_journal_bar");
   };
 
   return (

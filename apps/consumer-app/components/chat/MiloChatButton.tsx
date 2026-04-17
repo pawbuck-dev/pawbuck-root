@@ -1,4 +1,5 @@
 import { useChat } from "@/context/chatContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { Image } from "expo-image";
 import React from "react";
@@ -14,12 +15,13 @@ interface MiloChatButtonProps {
 export const MiloChatButton: React.FC<MiloChatButtonProps> = ({ onPress }) => {
   const { theme } = useTheme();
   const { openChat } = useChat();
+  const { ensurePremium } = useSubscription();
 
   const handlePress = () => {
     if (onPress) {
       onPress();
     } else {
-      openChat();
+      ensurePremium(() => openChat(), "milo_fab");
     }
   };
 

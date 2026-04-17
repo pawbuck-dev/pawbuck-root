@@ -3,6 +3,7 @@ import PrivateImage from "@/components/common/PrivateImage";
 import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
+import PremiumUpsellCard from "@/components/subscription/PremiumUpsellCard";
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
 import { ProfileListCard } from "@/components/profile/ProfileListCard";
 import { ProfilePetPickerModal } from "@/components/profile/ProfilePetPickerModal";
@@ -193,6 +194,8 @@ export default function Profile() {
           onAvatarError={() => setAvatarLoadFailed(true)}
           onEditPress={handleEdit}
         />
+
+        <PremiumUpsellCard />
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
         {/* Current pet — own card (Figma / light ref: separate from action rows) */}

@@ -2,6 +2,15 @@ import { Pet } from "@/context/petsContext";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 
+/** API returned 402 Payment Required — PawBuck Premium required. */
+export class SubscriptionRequiredError extends Error {
+  readonly code = "subscription_required" as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "SubscriptionRequiredError";
+  }
+}
+
 export type MiloChatHistoryItem = {
   role: "user" | "assistant";
   content: string;
@@ -68,6 +77,17 @@ export async function fetchMiloChat(params: {
 
   if (res.status === 401 || res.status === 403) {
     throw new Error("Your session expired or is not authorized. Please sign in again to use Milo.");
+  }
+
+  if (res.status === 402) {
+    let msg = "PawBuck Premium is required to chat with Milo.";
+    try {
+      const j = (await res.json()) as { message?: string };
+      if (j?.message) msg = j.message;
+    } catch {
+      /* ignore */
+    }
+    throw new SubscriptionRequiredError(msg);
   }
 
   if (!res.ok) {

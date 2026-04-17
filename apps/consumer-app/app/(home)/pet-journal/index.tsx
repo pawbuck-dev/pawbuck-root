@@ -1,5 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
+import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
 import {
   JOURNAL_DOMAIN_LABEL,
@@ -8,6 +9,7 @@ import {
 } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import type { PetJournalEntry } from "@/services/petJournal";
 import { fetchJournalEntries } from "@/services/petJournal";
@@ -47,6 +49,7 @@ export default function PetJournalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { isPremium, isLoading: subLoading, ensurePremium } = useSubscription();
   const { pets, loadingPets } = usePets();
   const { petId: petIdParam } = useLocalSearchParams<{ petId?: string }>();
   const [miloLogs, setMiloLogs] = useState<PetLogEntry[]>([]);
@@ -114,11 +117,36 @@ export default function PetJournalScreen() {
 
   const openBriefing = () => {
     if (!selectedPetId) return;
-    router.push({
-      pathname: "/(home)/pet-journal/briefing",
-      params: { petId: selectedPetId },
-    } as any);
+    ensurePremium(
+      () =>
+        router.push({
+          pathname: "/(home)/pet-journal/briefing",
+          params: { petId: selectedPetId },
+        } as any),
+      "pet_journal_briefing_button"
+    );
   };
+
+  if (subLoading) {
+    return (
+      <View className="flex-1" style={{ backgroundColor: theme.background, justifyContent: "center" }}>
+        <ActivityIndicator color={theme.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <PremiumFeatureLocked
+          title="Pet Journal"
+          onGoBack={() => router.back()}
+          feature="pet_journal_screen"
+        />
+        <BottomNavBar activeTab="profile" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>

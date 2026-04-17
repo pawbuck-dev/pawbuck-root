@@ -1,6 +1,8 @@
 import PrivateImage from "@/components/common/PrivateImage";
+import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import { usePets } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchHealthBriefingBundle } from "@/services/healthBriefing";
 import { Ionicons } from "@expo/vector-icons";
@@ -58,6 +60,7 @@ export default function HealthBriefingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { pets } = usePets();
+  const { isPremium, isLoading: subLoading } = useSubscription();
   const { petId } = useLocalSearchParams<{ petId?: string }>();
 
   const pet = pets.find((p) => p.id === petId);
@@ -130,6 +133,24 @@ export default function HealthBriefingScreen() {
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
         <Text style={{ color: theme.secondary }}>Missing pet</Text>
       </View>
+    );
+  }
+
+  if (subLoading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+        <ActivityIndicator color={theme.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!isPremium) {
+    return (
+      <PremiumFeatureLocked
+        title="Health Briefing"
+        onGoBack={() => router.back()}
+        feature="health_briefing_screen"
+      />
     );
   }
 

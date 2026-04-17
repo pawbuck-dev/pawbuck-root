@@ -1389,6 +1389,33 @@ export type Database = {
           },
         ]
       }
+      user_entitlements: {
+        Row: {
+          expires_at: string | null
+          plan: string
+          provider_customer_id: string | null
+          subscription_status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          expires_at?: string | null
+          plan?: string
+          provider_customer_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string | null
+          plan?: string
+          provider_customer_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           address: string | null
