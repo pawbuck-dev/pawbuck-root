@@ -60,7 +60,8 @@ export default function HealthBriefingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { pets } = usePets();
-  const { isPremium, isLoading: subLoading } = useSubscription();
+  const { canAccessFeature, isLoading: subLoading } = useSubscription();
+  const canUseBriefing = canAccessFeature("health_briefing");
   const { petId } = useLocalSearchParams<{ petId?: string }>();
 
   const pet = pets.find((p) => p.id === petId);
@@ -144,7 +145,7 @@ export default function HealthBriefingScreen() {
     );
   }
 
-  if (!isPremium) {
+  if (!canUseBriefing) {
     return (
       <PremiumFeatureLocked
         title="Health Briefing"

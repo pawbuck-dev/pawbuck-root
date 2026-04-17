@@ -1,8 +1,11 @@
 import PremiumPaywallModal from "@/components/subscription/PremiumPaywallModal";
+import { resolveFeatureGateKey } from "@/constants/featureGates";
 import { useAuth } from "@/context/authContext";
+import { fetchSubscriptionFeatureGates } from "@/services/featureGatesApi";
 import { getHasPawbuckProEntitlement } from "@/services/revenuecat";
 import { fetchUserEntitlement, isActivePremium } from "@/services/userEntitlements";
 import { trackSubscriptionEvent } from "@/utils/subscriptionAnalytics";
+import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Platform } from "react-native";
@@ -28,9 +31,13 @@ type SubscriptionContextValue = {
   paywallVisible: boolean;
   openPaywall: (source?: string) => void;
   closePaywall: () => void;
-  /** Runs `onAllowed` only if premium; otherwise opens paywall and tracks `premium_feature_blocked`. */
+  /** Runs `onAllowed` only if premium (or feature gate is off); otherwise opens paywall and tracks `premium_feature_blocked`. */
   ensurePremium: (onAllowed: () => void, feature?: string) => void;
   refetchEntitlement: () => Promise<void>;
+  /** Admin-controlled: false when this feature does not require premium. */
+  featureRequiresPremium: (gateKey: string) => boolean;
+  /** True when user may use the feature (gate off or has premium). */
+  canAccessFeature: (gateKey: string) => boolean;
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
@@ -38,6 +45,7 @@ const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const apiConfigured = !!getPawbuckApiBaseUrl();
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [paywallSource, setPaywallSource] = useState<string | undefined>();
 
@@ -55,7 +63,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     staleTime: 30_000,
   });
 
-  const isLoading = !!user && (supabaseLoading || revenueCatLoading);
+  const {
+    data: featureGatesMap,
+    isLoading: featureGatesLoading,
+    isError: featureGatesError,
+  } = useQuery({
+    queryKey: ["subscription_feature_gates", user?.id],
+    queryFn: fetchSubscriptionFeatureGates,
+    enabled: !!user && apiConfigured,
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const gatesLoading = apiConfigured && !!user && featureGatesLoading;
+
+  const isLoading = !!user && (supabaseLoading || revenueCatLoading || gatesLoading);
 
   const isPremium = useMemo(() => {
     if (DEV_PREMIUM) return true;
@@ -64,10 +86,29 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return false;
   }, [entitlement, revenueCatPro]);
 
+  const featureRequiresPremium = useCallback(
+    (gateKey: string) => {
+      if (!apiConfigured) return true;
+      if (featureGatesError) return true;
+      if (featureGatesMap === undefined) return true;
+      return featureGatesMap[gateKey] ?? true;
+    },
+    [apiConfigured, featureGatesError, featureGatesMap]
+  );
+
+  const canAccessFeature = useCallback(
+    (gateKey: string) => {
+      if (!featureRequiresPremium(gateKey)) return true;
+      return isPremium;
+    },
+    [featureRequiresPremium, isPremium]
+  );
+
   const refetchEntitlement = useCallback(async () => {
     await refetchSupabase();
     await queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
     await queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+    await queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
   }, [queryClient, refetchSupabase]);
 
   const openPaywall = useCallback((source?: string) => {
@@ -84,6 +125,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const ensurePremium = useCallback(
     (onAllowed: () => void, feature?: string) => {
       if (isLoading) return;
+      const gateKey = resolveFeatureGateKey(feature);
+      if (gateKey && !featureRequiresPremium(gateKey)) {
+        onAllowed();
+        return;
+      }
       if (isPremium) {
         onAllowed();
         return;
@@ -91,7 +137,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       void trackSubscriptionEvent("premium_feature_blocked", { feature: feature ?? "unknown" });
       openPaywall(feature);
     },
-    [isLoading, isPremium, openPaywall]
+    [isLoading, featureRequiresPremium, isPremium, openPaywall]
   );
 
   React.useEffect(() => {
@@ -100,6 +146,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange(() => {
       queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
       queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
     });
     return () => subscription.unsubscribe();
   }, [queryClient]);
@@ -121,8 +168,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       closePaywall,
       ensurePremium,
       refetchEntitlement,
+      featureRequiresPremium,
+      canAccessFeature,
     }),
-    [isPremium, isLoading, paywallVisible, openPaywall, closePaywall, ensurePremium, refetchEntitlement]
+    [
+      isPremium,
+      isLoading,
+      paywallVisible,
+      openPaywall,
+      closePaywall,
+      ensurePremium,
+      refetchEntitlement,
+      featureRequiresPremium,
+      canAccessFeature,
+    ]
   );
 
   return (

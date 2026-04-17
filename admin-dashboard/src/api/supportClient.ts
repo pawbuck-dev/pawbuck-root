@@ -1,5 +1,8 @@
 import type {
   CreateSupportVaccinationBody,
+  PatchSubscriptionFeatureGateBody,
+  SubscriptionFeatureGateRow,
+  SubscriptionFeatureGatesResponse,
   SupportHealthTimelineEvent,
   SupportMetrics,
   SupportPetExplorerRow,
@@ -124,5 +127,17 @@ export function createSupportClient(
         method: "PUT",
         json: body,
       }),
+
+    listSubscriptionFeatureGates: () =>
+      request<SubscriptionFeatureGatesResponse>("/api/support/subscription/feature-gates"),
+
+    patchSubscriptionFeatureGate: (featureKey: string, body: PatchSubscriptionFeatureGateBody) =>
+      request<SubscriptionFeatureGateRow>(
+        `/api/support/subscription/feature-gates/${encodeURIComponent(featureKey)}`,
+        {
+          method: "PATCH",
+          json: body,
+        },
+      ),
   };
 }

@@ -1416,6 +1416,30 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_feature_gates: {
+        Row: {
+          feature_key: string
+          label: string
+          requires_premium: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          feature_key: string
+          label: string
+          requires_premium?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          feature_key?: string
+          label?: string
+          requires_premium?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           address: string | null

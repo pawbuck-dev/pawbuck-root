@@ -21,6 +21,7 @@ public class MiloController : ControllerBase
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<MiloController> _logger;
     private readonly IUserEntitlementService _entitlements;
+    private readonly ISubscriptionFeatureGateService _featureGates;
     private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
 
     public MiloController(
@@ -31,6 +32,7 @@ public class MiloController : ControllerBase
         IWebHostEnvironment environment,
         ILogger<MiloController> logger,
         IUserEntitlementService entitlements,
+        ISubscriptionFeatureGateService featureGates,
         IOptions<SubscriptionOptions> subscriptionOptions)
     {
         _ragService = ragService;
@@ -40,6 +42,7 @@ public class MiloController : ControllerBase
         _environment = environment;
         _logger = logger;
         _entitlements = entitlements;
+        _featureGates = featureGates;
         _subscriptionOptions = subscriptionOptions;
     }
 
@@ -61,7 +64,9 @@ public class MiloController : ControllerBase
         if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
             return Unauthorized();
 
-        if (_subscriptionOptions.Value.RequirePremiumForMilo)
+        var gateRequiresPremium = await _featureGates.IsPremiumRequiredForFeatureAsync("milo_chat", cancellationToken);
+        var requirePremiumMilo = _subscriptionOptions.Value.RequirePremiumForMilo || gateRequiresPremium;
+        if (requirePremiumMilo)
         {
             var premium = await _entitlements.HasActivePremiumAsync(userId, cancellationToken);
             if (!premium)

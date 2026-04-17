@@ -2,6 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, normalizePawbuckApiBase, SupportApiError } from "@/api/supportClient";
 import { AdminHeaderBar } from "@/components/AdminHeaderBar";
+import { FeatureGatesPanel } from "@/components/FeatureGatesPanel";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
@@ -46,7 +47,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [banner, setBanner] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support" | "gates">("overview");
 
   useEffect(() => {
     if (!supabase) {
@@ -310,6 +311,13 @@ export function App() {
         >
           Support
         </button>
+        <button
+          type="button"
+          className={tab === "gates" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("gates")}
+        >
+          Paywall
+        </button>
       </nav>
 
       {banner ? <div className="error">{banner}</div> : null}
@@ -401,6 +409,8 @@ export function App() {
           <PetHealthExplorer client={client} onOpenHealthRecords={(p) => void openPetFromExplorer(p)} />
         </section>
       ) : null}
+
+      {tab === "gates" ? <FeatureGatesPanel client={client} /> : null}
 
       {tab === "support" ? (
         <div className="layout layout--support">

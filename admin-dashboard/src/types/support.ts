@@ -1,3 +1,19 @@
+export interface SubscriptionFeatureGateRow {
+  featureKey: string;
+  requiresPremium: boolean;
+  label: string;
+  sortOrder: number;
+  updatedAt: string;
+}
+
+export interface SubscriptionFeatureGatesResponse {
+  items: SubscriptionFeatureGateRow[];
+}
+
+export interface PatchSubscriptionFeatureGateBody {
+  requiresPremium: boolean;
+}
+
 export interface SupportDailySignupPoint {
   date: string;
   count: number;

@@ -49,7 +49,8 @@ export default function PetJournalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { isPremium, isLoading: subLoading, ensurePremium } = useSubscription();
+  const { canAccessFeature, isLoading: subLoading, ensurePremium } = useSubscription();
+  const canUseJournal = canAccessFeature("pet_journal");
   const { pets, loadingPets } = usePets();
   const { petId: petIdParam } = useLocalSearchParams<{ petId?: string }>();
   const [miloLogs, setMiloLogs] = useState<PetLogEntry[]>([]);
@@ -135,7 +136,7 @@ export default function PetJournalScreen() {
     );
   }
 
-  if (!isPremium) {
+  if (!canUseJournal) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
         <PremiumFeatureLocked

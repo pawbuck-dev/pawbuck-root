@@ -59,7 +59,8 @@ export default function MiloJournalChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { isPremium, isLoading: subLoading, openPaywall } = useSubscription();
+  const { canAccessFeature, isLoading: subLoading, openPaywall } = useSubscription();
+  const canUseMilo = canAccessFeature("milo_chat");
   const { pets } = usePets();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
@@ -214,7 +215,7 @@ export default function MiloJournalChatScreen() {
   );
 
   useEffect(() => {
-    if (subLoading || !isPremium) return;
+    if (subLoading || !canUseMilo) return;
     const ctx = params.context ? String(params.context) : "";
     if (!ctx || !pet || autoSentRef.current) return;
     autoSentRef.current = true;
@@ -225,7 +226,7 @@ export default function MiloJournalChatScreen() {
       /* use raw */
     }
     void handleSend(decoded);
-  }, [params.context, pet, handleSend, subLoading, isPremium]);
+  }, [params.context, pet, handleSend, subLoading, canUseMilo]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -537,7 +538,7 @@ export default function MiloJournalChatScreen() {
     );
   }
 
-  if (!isPremium) {
+  if (!canUseMilo) {
     return (
       <PremiumFeatureLocked title="Milo" onGoBack={() => router.back()} feature="milo_journal_screen" />
     );
