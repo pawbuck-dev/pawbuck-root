@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
+using System.Net.Sockets;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using PawBuck.API.Models;
@@ -13,11 +14,16 @@ public sealed class SubscriptionFeatureGateService : ISubscriptionFeatureGateSer
 
     private readonly IOptions<SupabaseOptions> _options;
     private readonly IMemoryCache _cache;
+    private readonly ILogger<SubscriptionFeatureGateService> _logger;
 
-    public SubscriptionFeatureGateService(IOptions<SupabaseOptions> options, IMemoryCache cache)
+    public SubscriptionFeatureGateService(
+        IOptions<SupabaseOptions> options,
+        IMemoryCache cache,
+        ILogger<SubscriptionFeatureGateService> logger)
     {
         _options = options;
         _cache = cache;
+        _logger = logger;
     }
 
     private NpgsqlConnection CreateConnection()
@@ -42,6 +48,43 @@ public sealed class SubscriptionFeatureGateService : ISubscriptionFeatureGateSer
     }
 
     private async Task<IReadOnlyList<SubscriptionFeatureGateDto>> LoadAllFromDbAsync(CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                return await LoadAllFromDbOnceAsync(cancellationToken);
+            }
+            catch (Exception ex) when (IsTransientPostgresReadFailure(ex))
+            {
+                if (attempt >= maxAttempts)
+                    throw;
+
+                _logger.LogWarning(
+                    ex,
+                    "subscription_feature_gates read attempt {Attempt}/{Max} failed (transient); retrying",
+                    attempt,
+                    maxAttempts);
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * attempt), cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException("subscription_feature_gates read failed after retries");
+    }
+
+    /// <summary>
+    /// Pooler/network drops or SSL resets mid-read; short retries often succeed. Do not retry SQL errors (wrong table, etc.).
+    /// Persistent failures: wrong Session pooler host/port (Supabase Connect), IPv6 (PreferIpv4), or missing migration.
+    /// </summary>
+    private static bool IsTransientPostgresReadFailure(Exception ex)
+    {
+        if (ex is IOException or SocketException)
+            return true;
+        return ex.InnerException != null && IsTransientPostgresReadFailure(ex.InnerException);
+    }
+
+    private async Task<IReadOnlyList<SubscriptionFeatureGateDto>> LoadAllFromDbOnceAsync(CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT feature_key, requires_premium, label, sort_order, updated_at
@@ -101,15 +144,36 @@ public sealed class SubscriptionFeatureGateService : ISubscriptionFeatureGateSer
             WHERE feature_key = @featureKey
             """;
 
-        await using var conn = CreateConnection();
-        await conn.OpenAsync(cancellationToken);
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("featureKey", featureKey);
-        cmd.Parameters.AddWithValue("requiresPremium", requiresPremium);
-        var n = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        if (n > 0)
-            _cache.Remove(CacheKey);
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                await using var conn = CreateConnection();
+                await conn.OpenAsync(cancellationToken);
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("featureKey", featureKey);
+                cmd.Parameters.AddWithValue("requiresPremium", requiresPremium);
+                var n = await cmd.ExecuteNonQueryAsync(cancellationToken);
+                if (n > 0)
+                    _cache.Remove(CacheKey);
 
-        return n > 0;
+                return n > 0;
+            }
+            catch (Exception ex) when (IsTransientPostgresReadFailure(ex))
+            {
+                if (attempt >= maxAttempts)
+                    throw;
+
+                _logger.LogWarning(
+                    ex,
+                    "subscription_feature_gates update attempt {Attempt}/{Max} failed (transient); retrying",
+                    attempt,
+                    maxAttempts);
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * attempt), cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException("subscription_feature_gates update failed after retries");
     }
 }
