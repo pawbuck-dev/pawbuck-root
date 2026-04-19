@@ -21,4 +21,16 @@ public interface IMiloVisionService
     Task<PetDocumentVaultRowDto> AnalyzeAndPersistInternalAsync(
         AnalyzePetDocumentInternalRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin preview only: run the same flexible vault JSON extraction as the document pipeline (no storage/DB).
+    /// </summary>
+    /// <param name="bytes">Raw file bytes (image or PDF).</param>
+    /// <param name="mimeType">MIME type for Gemini inline_data.</param>
+    /// <param name="classifiedDocumentType">Raw type string from the classifier (normalized internally).</param>
+    Task<string> PreviewFlexibleExtractionAsync(
+        byte[] bytes,
+        string mimeType,
+        string classifiedDocumentType,
+        CancellationToken cancellationToken = default);
 }

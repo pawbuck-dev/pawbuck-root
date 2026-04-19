@@ -1,5 +1,5 @@
 import { SupportApiError, createSupportClient } from "@/api/supportClient";
-import type { MiloClassifyResponse } from "@/types/support";
+import type { MiloClassifyExtractPreviewResponse } from "@/types/support";
 import { useCallback, useState, type ChangeEvent } from "react";
 
 type MiloClassifyHarnessProps = {
@@ -13,14 +13,24 @@ function stripDataUrlPrefix(dataUrl: string): string {
   return comma >= 0 ? t.slice(comma + 1) : t;
 }
 
+function prettyJson(raw: string | null | undefined): string {
+  if (raw == null || !String(raw).trim()) return "—";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
   const [fileLabel, setFileLabel] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState("image/jpeg");
   const [base64Payload, setBase64Payload] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<MiloClassifyResponse | null>(null);
-  const [showPrompt, setShowPrompt] = useState(false);
+  const [result, setResult] = useState<MiloClassifyExtractPreviewResponse | null>(null);
+  const [showLegacyPrompt, setShowLegacyPrompt] = useState(false);
+  const [showFlexiblePrompt, setShowFlexiblePrompt] = useState(false);
 
   const onFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,14 +66,14 @@ export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
     setError(null);
     setResult(null);
     try {
-      const res = await client.classifyMiloPreview({
+      const res = await client.classifyMiloExtractPreview({
         fileBase64: base64Payload,
         mimeType,
       });
       setResult(res);
     } catch (err) {
       setResult(null);
-      setError(err instanceof SupportApiError ? err.message : "Classification failed.");
+      setError(err instanceof SupportApiError ? err.message : "Request failed.");
     } finally {
       setLoading(false);
     }
@@ -71,22 +81,18 @@ export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
 
   return (
     <section className="panel panel--flush">
-      <h2 className="panel__title">Milo classification (preview)</h2>
+      <h2 className="panel__title">Milo document preview</h2>
       <p className="muted">
-        Upload an image or PDF to run the same Gemini classification as production. Files stay in browser memory only until you
-        send a request; the API does not persist uploads.
+        Runs the same steps as the consumer app vision pipeline: <strong>classification</strong>, then <strong>flexible vault extraction</strong>{" "}
+        (JSON with <code>title</code>, <code>summary</code>, <code>primaryDate</code>, <code>keyFacts</code>, <code>confidenceScore</code>) — matching{" "}
+        <code>MiloVisionService</code> and the Gemini <code>response_schema</code> used there. Nothing is written to storage or Postgres.
       </p>
 
       <div style={{ marginBottom: "1rem" }}>
         <label htmlFor="milo-classify-file" className="muted" style={{ display: "block", marginBottom: "0.35rem" }}>
           File
         </label>
-        <input
-          id="milo-classify-file"
-          type="file"
-          accept="image/*,application/pdf"
-          onChange={onFileChange}
-        />
+        <input id="milo-classify-file" type="file" accept="image/*,application/pdf" onChange={onFileChange} />
         {fileLabel ? (
           <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.9rem" }}>
             Selected: {fileLabel}
@@ -110,7 +116,7 @@ export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
 
       <p style={{ marginBottom: "1rem" }}>
         <button type="button" className="btn btn-primary" disabled={loading || !base64Payload} onClick={() => void run()}>
-          {loading ? "Classifying…" : "Run classification"}
+          {loading ? "Running…" : "Run classification & extraction"}
         </button>
       </p>
 
@@ -118,10 +124,12 @@ export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
 
       {result ? (
         <div style={{ marginTop: "1rem" }}>
-          <h3 className="panel-sub">Result</h3>
+          <h3 className="panel-sub">Classification</h3>
           <p>
-            <strong>documentType:</strong>{" "}
-            <code>{result.documentType}</code>
+            <strong>documentType (raw):</strong> <code>{result.documentType}</code>
+          </p>
+          <p>
+            <strong>normalizedDocumentType (vault):</strong> <code>{result.normalizedDocumentType}</code>
           </p>
           <p>
             <strong>confidence:</strong> {result.confidence}
@@ -129,24 +137,78 @@ export function MiloClassifyHarness({ client }: MiloClassifyHarnessProps) {
           <p style={{ whiteSpace: "pre-wrap" }}>
             <strong>reasoning:</strong> {result.reasoning ?? "—"}
           </p>
-          <button type="button" className="btn btn-secondary btn--sm" onClick={() => setShowPrompt((s) => !s)}>
-            {showPrompt ? "Hide" : "Show"} extraction prompt
+
+          <h3 className="panel-sub" style={{ marginTop: "1.25rem" }}>
+            Prompts (by document type)
+          </h3>
+          <p className="muted" style={{ fontSize: "0.9rem" }}>
+            <strong>Legacy / GetPromptForType</strong> — older medical-record schema (items, dateOfVisit, …). Shown for parity with{" "}
+            <code>/api/document/classify</code>.
+          </p>
+          <button type="button" className="btn btn-secondary btn--sm" onClick={() => setShowLegacyPrompt((s) => !s)}>
+            {showLegacyPrompt ? "Hide" : "Show"} legacy extraction prompt
           </button>
-          {showPrompt ? (
+          {showLegacyPrompt ? (
             <pre
               style={{
-                marginTop: "0.75rem",
+                marginTop: "0.5rem",
                 padding: "0.75rem",
-                maxHeight: "18rem",
+                maxHeight: "14rem",
                 overflow: "auto",
-                fontSize: "0.8rem",
+                fontSize: "0.78rem",
                 background: "var(--panel-subtle, #1a1a1e)",
                 borderRadius: "6px",
               }}
             >
-              {result.extractionPrompt}
+              {result.extractionPromptByType}
             </pre>
           ) : null}
+
+          <p className="muted" style={{ marginTop: "1rem", fontSize: "0.9rem" }}>
+            <strong>Flexible vault</strong> — same template as production <code>GetFlexibleExtractionPrompt</code> + Gemini JSON schema (title, summary, keyFacts,
+            …).
+          </p>
+          <button type="button" className="btn btn-secondary btn--sm" onClick={() => setShowFlexiblePrompt((s) => !s)}>
+            {showFlexiblePrompt ? "Hide" : "Show"} flexible extraction prompt
+          </button>
+          {showFlexiblePrompt ? (
+            <pre
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.75rem",
+                maxHeight: "14rem",
+                overflow: "auto",
+                fontSize: "0.78rem",
+                background: "var(--panel-subtle, #1a1a1e)",
+                borderRadius: "6px",
+              }}
+            >
+              {result.flexibleExtractionPrompt}
+            </pre>
+          ) : null}
+
+          <h3 className="panel-sub" style={{ marginTop: "1.25rem" }}>
+            Extracted JSON (vault output)
+          </h3>
+          {result.extractionError ? (
+            <div className="error" role="alert">
+              Extraction failed: {result.extractionError}
+            </div>
+          ) : null}
+          <pre
+            style={{
+              marginTop: "0.5rem",
+              padding: "0.75rem",
+              maxHeight: "24rem",
+              overflow: "auto",
+              fontSize: "0.8rem",
+              lineHeight: 1.45,
+              background: "var(--panel-subtle, #1a1a1e)",
+              borderRadius: "6px",
+            }}
+          >
+            {prettyJson(result.extractedJson)}
+          </pre>
         </div>
       ) : null}
     </section>

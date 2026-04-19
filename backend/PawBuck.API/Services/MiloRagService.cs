@@ -11,7 +11,6 @@ namespace PawBuck.API.Services;
 /// </summary>
 public class MiloRagService
 {
-    private const string GenerateModel = "gemini-2.0-flash";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public static readonly string MILO_MASTER_PROMPT = """
@@ -109,8 +108,11 @@ If you tell me more about what you're trying to do, I can try to point you in th
             generationConfig = new { temperature = 0.3, maxOutputTokens = 1024 }
         };
 
+        var model = string.IsNullOrWhiteSpace(_options.Value.Model)
+            ? GeminiOptions.DefaultModelId
+            : _options.Value.Model!.Trim();
         var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{GenerateModel}:generateContent?key={apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
         using var requestContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = requestContent };
 

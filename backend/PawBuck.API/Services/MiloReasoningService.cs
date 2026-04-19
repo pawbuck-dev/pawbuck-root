@@ -13,7 +13,6 @@ namespace PawBuck.API.Services;
 /// </summary>
 public class MiloReasoningService : IMiloReasoningService
 {
-    private const string GenerateModel = "gemini-2.0-flash";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly IMiloPetFactsService _petFacts;
@@ -518,10 +517,16 @@ public class MiloReasoningService : IMiloReasoningService
         return await GeminiGenerateContentTextAsync(apiKey, requestBody, cancellationToken) ?? "";
     }
 
+    private string ResolveGenerateModel() =>
+        string.IsNullOrWhiteSpace(_geminiOptions.Value.Model)
+            ? GeminiOptions.DefaultModelId
+            : _geminiOptions.Value.Model!.Trim();
+
     private async Task<string?> GeminiGenerateContentTextAsync(string apiKey, object requestBody, CancellationToken cancellationToken)
     {
         var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{GenerateModel}:generateContent?key={apiKey}";
+        var model = ResolveGenerateModel();
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
         using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
 

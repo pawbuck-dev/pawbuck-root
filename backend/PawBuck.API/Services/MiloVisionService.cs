@@ -127,11 +127,11 @@ public class MiloVisionService : IMiloVisionService
             throw new InvalidOperationException("Gemini API key is not configured");
 
         var model = string.IsNullOrWhiteSpace(_geminiOptions.Value.Model)
-            ? "gemini-1.5-flash"
+            ? GeminiOptions.DefaultModelId
             : _geminiOptions.Value.Model!.Trim();
 
         var classification = await RunClassificationAsync(base64, mimeType, apiKey, model, cancellationToken);
-        var docType = NormalizeDocumentType(classification.DocumentType);
+        var docType = NormalizeVaultDocumentType(classification.DocumentType);
         var classConfidence = classification.Confidence;
 
         var extractionPrompt = _prompts.GetFlexibleExtractionPrompt(docType);
@@ -162,10 +162,40 @@ public class MiloVisionService : IMiloVisionService
             cancellationToken);
     }
 
-    private static string NormalizeDocumentType(string? raw)
+    /// <summary>
+    /// Maps classifier output to allowed <c>pet_documents</c> document types (same rules as ingestion).
+    /// </summary>
+    public static string NormalizeVaultDocumentType(string? raw)
     {
         var t = raw?.Trim().ToLowerInvariant() ?? "irrelevant";
         return AllowedDocumentTypes.Contains(t) ? t : "irrelevant";
+    }
+
+    /// <inheritdoc />
+    public async Task<string> PreviewFlexibleExtractionAsync(
+        byte[] bytes,
+        string mimeType,
+        string classifiedDocumentType,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        if (bytes.Length == 0)
+            throw new ArgumentException("File bytes are empty.", nameof(bytes));
+
+        var apiKey = _geminiOptions.Value.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("Gemini API key is not configured");
+
+        var model = string.IsNullOrWhiteSpace(_geminiOptions.Value.Model)
+            ? GeminiOptions.DefaultModelId
+            : _geminiOptions.Value.Model!.Trim();
+
+        var docType = NormalizeVaultDocumentType(classifiedDocumentType);
+        var extractionPrompt = _prompts.GetFlexibleExtractionPrompt(docType);
+        var base64 = Convert.ToBase64String(bytes);
+        return await RunFlexibleExtractionAsync(base64, mimeType, extractionPrompt, apiKey, model, cancellationToken);
     }
 
     private async Task<byte[]> DownloadStorageObjectAsync(

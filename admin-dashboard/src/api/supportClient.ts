@@ -1,5 +1,6 @@
 import type {
   CreateSupportVaccinationBody,
+  MiloClassifyExtractPreviewResponse,
   MiloClassifyPreviewBody,
   MiloClassifyResponse,
   PatchSubscriptionFeatureGateBody,
@@ -142,9 +143,18 @@ export function createSupportClient(
         },
       ),
 
-    /** In-memory Milo document classification (admin/support only; no storage). */
+    /** In-memory Milo document classification only (admin/support only; no storage). */
     classifyMiloPreview: (body: MiloClassifyPreviewBody) =>
       request<MiloClassifyResponse>("/api/support/milo/classify-preview", {
+        method: "POST",
+        json: body,
+      }),
+
+    /**
+     * Classification + flexible vault JSON extraction (title, summary, keyFacts, …) — same pipeline as consumer Milo vision; no DB/storage.
+     */
+    classifyMiloExtractPreview: (body: MiloClassifyPreviewBody) =>
+      request<MiloClassifyExtractPreviewResponse>("/api/support/milo/classify-extract-preview", {
         method: "POST",
         json: body,
       }),

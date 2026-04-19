@@ -123,3 +123,15 @@ export interface MiloClassifyResponse {
   reasoning: string | null;
   extractionPrompt: string;
 }
+
+/** Classify + flexible vault extraction (same schema as Milo vision / pet_documents). */
+export interface MiloClassifyExtractPreviewResponse {
+  documentType: string;
+  confidence: number;
+  reasoning: string | null;
+  extractionPromptByType: string;
+  normalizedDocumentType: string;
+  flexibleExtractionPrompt: string;
+  extractedJson: string | null;
+  extractionError: string | null;
+}

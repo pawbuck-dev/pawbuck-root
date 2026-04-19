@@ -18,13 +18,19 @@ public class SupportMiloClassifyController : ControllerBase
     internal const int MaxDecodedBytes = 20 * 1024 * 1024;
 
     private readonly ClassificationService _classification;
+    private readonly IMiloVisionService _miloVision;
+    private readonly IMiloPromptProvider _promptProvider;
     private readonly ILogger<SupportMiloClassifyController> _logger;
 
     public SupportMiloClassifyController(
         ClassificationService classification,
+        IMiloVisionService miloVision,
+        IMiloPromptProvider promptProvider,
         ILogger<SupportMiloClassifyController> logger)
     {
         _classification = classification;
+        _miloVision = miloVision;
+        _promptProvider = promptProvider;
         _logger = logger;
     }
 
@@ -69,6 +75,74 @@ public class SupportMiloClassifyController : ControllerBase
 
         var response = await _classification.ClassifyFromBytesAsync(bytes, mime, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Classify then run flexible vault extraction (same JSON schema as Milo vision — title, summary, keyFacts, etc.).
+    /// </summary>
+    [HttpPost("classify-extract-preview")]
+    [ProducesResponseType(typeof(MiloClassifyExtractPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ClassifyExtractPreview(
+        [FromBody] ClassifyPreviewRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request == null)
+            return BadRequest(new { error = "Request body is required." });
+
+        if (string.IsNullOrWhiteSpace(request.FileBase64))
+            return BadRequest(new { error = "FileBase64 is required." });
+
+        var b64 = StripDataUrlPrefix(request.FileBase64.Trim());
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(b64);
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new { error = "FileBase64 is not valid base64." });
+        }
+
+        if (bytes.Length == 0)
+            return BadRequest(new { error = "Decoded file is empty." });
+
+        if (bytes.Length > MaxDecodedBytes)
+        {
+            _logger.LogWarning("Classify-extract-preview rejected: decoded size {Size} exceeds max {Max}", bytes.Length, MaxDecodedBytes);
+            return BadRequest(new { error = $"File exceeds maximum size ({MaxDecodedBytes / (1024 * 1024)} MB)." });
+        }
+
+        var mime = string.IsNullOrWhiteSpace(request.MimeType) ? "image/jpeg" : request.MimeType.Trim();
+
+        var classify = await _classification.ClassifyFromBytesAsync(bytes, mime, cancellationToken);
+        var normalized = MiloVisionService.NormalizeVaultDocumentType(classify.DocumentType);
+        var flexiblePrompt = _promptProvider.GetFlexibleExtractionPrompt(normalized);
+
+        string? extractedJson = null;
+        string? extractionError = null;
+        try
+        {
+            extractedJson = await _miloVision.PreviewFlexibleExtractionAsync(bytes, mime, classify.DocumentType, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            extractionError = ex.Message;
+            _logger.LogWarning(ex, "Flexible extraction preview failed after classification");
+        }
+
+        return Ok(new MiloClassifyExtractPreviewResponse
+        {
+            DocumentType = classify.DocumentType,
+            Confidence = classify.Confidence,
+            Reasoning = classify.Reasoning,
+            ExtractionPromptByType = classify.ExtractionPrompt,
+            NormalizedDocumentType = normalized,
+            FlexibleExtractionPrompt = flexiblePrompt,
+            ExtractedJson = extractedJson,
+            ExtractionError = extractionError,
+        });
     }
 
     private static string StripDataUrlPrefix(string value)

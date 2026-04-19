@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using Microsoft.Extensions.Options;
 
 namespace PawBuck.API.Services;
@@ -9,6 +10,8 @@ namespace PawBuck.API.Services;
 /// </summary>
 public class GeminiClassifier : IDocumentClassifier
 {
+    private static int _missingApiKeyLogged;
+
     private const string GeminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -104,14 +107,23 @@ public class GeminiClassifier : IDocumentClassifier
             apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogWarning("GOOGLE_GEMINI_API_KEY not configured");
+            if (Interlocked.CompareExchange(ref _missingApiKeyLogged, 1, 0) == 0)
+            {
+                _logger.LogWarning(
+                    "Gemini API key not configured. Set {ConfigKey} (e.g. appsettings.Local.json or user secrets) or environment variable {EnvVar}.",
+                    "Gemini:ApiKey",
+                    "GOOGLE_GEMINI_API_KEY");
+            }
+
             return new DocumentClassificationResult { Type = "Irrelevant", Confidence = 0, Reasoning = "API key not configured." };
         }
 
         var requestBody = BuildClassificationRequestBody(base64Image, mimeType);
 
         var geminiClient = _httpClientFactory.CreateClient("Gemini");
-        var model = string.IsNullOrWhiteSpace(_options.Value.Model) ? "gemini-1.5-flash" : _options.Value.Model!.Trim();
+        var model = string.IsNullOrWhiteSpace(_options.Value.Model)
+            ? GeminiOptions.DefaultModelId
+            : _options.Value.Model!.Trim();
         var url = $"{GeminiBaseUrl}{model}:generateContent?key={apiKey}";
         using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
@@ -221,9 +233,13 @@ public class GeminiClassifier : IDocumentClassifier
 public class GeminiOptions
 {
     public const string SectionName = "Gemini";
+
+    /// <summary>Used when <see cref="Model"/> is empty — aligned with Supabase Edge (<c>gemini-2.5-flash</c> primary).</summary>
+    public const string DefaultModelId = "gemini-2.5-flash";
+
     /// <summary>API key (or set GOOGLE_GEMINI_API_KEY env var).</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Model id for vision/classification (default gemini-1.5-flash). Aligned with Milo document pipeline.</summary>
+    /// <summary>Model id for vision/classification. Defaults to <see cref="DefaultModelId"/>.</summary>
     public string? Model { get; set; }
 }

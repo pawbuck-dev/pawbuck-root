@@ -13,6 +13,7 @@ public class SupportMiloClassifyControllerTests
 {
     private readonly Mock<IDocumentClassifier> _classifierMock;
     private readonly Mock<IMiloPromptProvider> _promptProviderMock;
+    private readonly Mock<IMiloVisionService> _miloVisionMock;
     private readonly ClassificationService _classificationService;
     private readonly SupportMiloClassifyController _controller;
 
@@ -20,6 +21,7 @@ public class SupportMiloClassifyControllerTests
     {
         _classifierMock = new Mock<IDocumentClassifier>();
         _promptProviderMock = new Mock<IMiloPromptProvider>();
+        _miloVisionMock = new Mock<IMiloVisionService>();
         var serviceLoggerMock = new Mock<ILogger<ClassificationService>>();
         var controllerLoggerMock = new Mock<ILogger<SupportMiloClassifyController>>();
 
@@ -28,7 +30,11 @@ public class SupportMiloClassifyControllerTests
             _promptProviderMock.Object,
             serviceLoggerMock.Object);
 
-        _controller = new SupportMiloClassifyController(_classificationService, controllerLoggerMock.Object);
+        _controller = new SupportMiloClassifyController(
+            _classificationService,
+            _miloVisionMock.Object,
+            _promptProviderMock.Object,
+            controllerLoggerMock.Object);
     }
 
     [Fact]
@@ -124,5 +130,43 @@ public class SupportMiloClassifyControllerTests
         _classifierMock.Verify(
             c => c.ClassifyFromBytesAsync(png, "image/png", It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task ClassifyExtractPreview_WhenValid_ReturnsClassificationAndFlexibleJson()
+    {
+        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
+        _classifierMock
+            .Setup(c => c.ClassifyFromBytesAsync(png, "image/png", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DocumentClassificationResult
+            {
+                Type = "vaccinations",
+                Confidence = 88,
+                Reasoning = "ok",
+            });
+        _promptProviderMock.Setup(p => p.GetPromptForType("vaccinations")).Returns("legacy prompt");
+        _promptProviderMock.Setup(p => p.GetFlexibleExtractionPrompt("vaccinations")).Returns("flex prompt");
+
+        const string extracted = """{"title":"Rabies","summary":"Cert","primaryDate":null,"keyFacts":[],"confidenceScore":90}""";
+        _miloVisionMock
+            .Setup(v => v.PreviewFlexibleExtractionAsync(png, "image/png", "vaccinations", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(extracted);
+
+        var result = await _controller.ClassifyExtractPreview(
+            new ClassifyPreviewRequest
+            {
+                FileBase64 = Convert.ToBase64String(png),
+                MimeType = "image/png",
+            },
+            CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var body = ok.Value.Should().BeOfType<MiloClassifyExtractPreviewResponse>().Subject;
+        body.DocumentType.Should().Be("vaccinations");
+        body.NormalizedDocumentType.Should().Be("vaccinations");
+        body.FlexibleExtractionPrompt.Should().Be("flex prompt");
+        body.ExtractionPromptByType.Should().Be("legacy prompt");
+        body.ExtractedJson.Should().Be(extracted);
+        body.ExtractionError.Should().BeNull();
     }
 }

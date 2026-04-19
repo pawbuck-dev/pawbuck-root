@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using Microsoft.Extensions.Options;
 
 namespace PawBuck.API.Services;
@@ -9,6 +10,8 @@ namespace PawBuck.API.Services;
 /// </summary>
 public class GeminiEmbeddingService : IEmbeddingService
 {
+    private static int _missingApiKeyLogged;
+
     private const string ModelName = "text-embedding-004";
     private const int EmbeddingDimensions = 768;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -35,8 +38,17 @@ public class GeminiEmbeddingService : IEmbeddingService
 
         var apiKey = _options.Value.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogWarning("GOOGLE_GEMINI_API_KEY not configured");
+            if (Interlocked.CompareExchange(ref _missingApiKeyLogged, 1, 0) == 0)
+            {
+                _logger.LogWarning(
+                    "Gemini API key not configured. Set {ConfigKey} (e.g. appsettings.Local.json or user secrets) or environment variable {EnvVar}.",
+                    "Gemini:ApiKey",
+                    "GOOGLE_GEMINI_API_KEY");
+            }
+
             return new float[EmbeddingDimensions];
         }
 
