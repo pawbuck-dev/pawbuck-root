@@ -180,10 +180,16 @@ export type Database = {
           food_target: number
           id: string
           pee_count: number
+          pee_journal_entry_id: string | null
+          pee_observation_note: string | null
+          pee_observation_photo_path: string | null
           pee_tags: string[]
           pee_target: number
           pet_id: string
           poop_count: number
+          poop_journal_entry_id: string | null
+          poop_observation_note: string | null
+          poop_observation_photo_path: string | null
           poop_tags: string[]
           poop_target: number
           updated_at: string
@@ -198,10 +204,16 @@ export type Database = {
           food_target?: number
           id?: string
           pee_count?: number
+          pee_journal_entry_id?: string | null
+          pee_observation_note?: string | null
+          pee_observation_photo_path?: string | null
           pee_tags?: string[]
           pee_target?: number
           pet_id: string
           poop_count?: number
+          poop_journal_entry_id?: string | null
+          poop_observation_note?: string | null
+          poop_observation_photo_path?: string | null
           poop_tags?: string[]
           poop_target?: number
           updated_at?: string
@@ -216,10 +228,16 @@ export type Database = {
           food_target?: number
           id?: string
           pee_count?: number
+          pee_journal_entry_id?: string | null
+          pee_observation_note?: string | null
+          pee_observation_photo_path?: string | null
           pee_tags?: string[]
           pee_target?: number
           pet_id?: string
           poop_count?: number
+          poop_journal_entry_id?: string | null
+          poop_observation_note?: string | null
+          poop_observation_photo_path?: string | null
           poop_tags?: string[]
           poop_target?: number
           updated_at?: string

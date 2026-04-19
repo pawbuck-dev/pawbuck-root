@@ -71,6 +71,12 @@ export async function updateDailyIntake(
       | "pee_target"
       | "poop_tags"
       | "pee_tags"
+      | "poop_observation_note"
+      | "poop_observation_photo_path"
+      | "pee_observation_note"
+      | "pee_observation_photo_path"
+      | "poop_journal_entry_id"
+      | "pee_journal_entry_id"
     >
   >
 ): Promise<DailyIntake> {

@@ -9,30 +9,61 @@ type CachedUrl = {
 
 const urlCache = new Map<string, CachedUrl>();
 
+/** Supabase Storage returns 404 when the object was deleted or the DB path is stale. */
+function isStorageObjectMissing(error: unknown): boolean {
+  if (error == null) return false;
+  const e = error as {
+    statusCode?: string | number;
+    message?: string;
+    name?: string;
+  };
+  if (e.statusCode === "404" || e.statusCode === 404) return true;
+  const msg = String(e.message ?? "").toLowerCase();
+  if (msg.includes("not found") || msg.includes("object not found")) return true;
+  return false;
+}
+
+/**
+ * Returns a short-lived signed URL for `pets` bucket path, or `null` if the object does not exist
+ * or signing fails (stale `photo_url` / `document_url` rows are common after deletes or env switches).
+ */
 export const getPrivateImageUrl = async (
   imagePath: string,
   expiresIn = 3600
-) => {
+): Promise<string | null> => {
+  const trimmed = imagePath?.trim();
+  if (!trimmed) return null;
+
   try {
     const { data, error } = await supabase.storage
       .from("pets")
-      .createSignedUrl(imagePath, expiresIn); // URL valid for 1 hour
+      .createSignedUrl(trimmed, expiresIn);
 
     if (error) {
-      throw error;
+      if (isStorageObjectMissing(error)) {
+        if (__DEV__) {
+          console.debug("[storage] Signed URL skipped (missing object):", trimmed);
+        }
+        return null;
+      }
+      console.warn("[storage] createSignedUrl:", error.message ?? error);
+      return null;
     }
 
-    return data.signedUrl;
+    return data?.signedUrl ?? null;
   } catch (error) {
-    console.error("Error getting signed URL:", error);
-    throw error;
+    if (isStorageObjectMissing(error)) {
+      return null;
+    }
+    console.warn("[storage] createSignedUrl failed:", error);
+    return null;
   }
 };
 
 export const getCachedSignedUrl = async (
   imagePath: string,
   expiresIn = 3600
-) => {
+): Promise<string | null> => {
   const now = Date.now();
   const cached = urlCache.get(imagePath);
 
@@ -41,8 +72,12 @@ export const getCachedSignedUrl = async (
     return cached.url;
   }
 
-  // Generate new signed URL
   const url = await getPrivateImageUrl(imagePath, expiresIn);
+  if (!url) {
+    urlCache.delete(imagePath);
+    return null;
+  }
+
   urlCache.set(imagePath, {
     url,
     expiresAt: now + expiresIn * 1000,

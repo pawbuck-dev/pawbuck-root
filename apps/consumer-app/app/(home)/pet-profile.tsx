@@ -42,9 +42,7 @@ export default function PetProfile() {
   // Load pet image
   useEffect(() => {
     if (currentPet?.photo_url) {
-      getPrivateImageUrl(currentPet.photo_url)
-        .then((url) => setPetImageUrl(url))
-        .catch(() => setPetImageUrl(null));
+      getPrivateImageUrl(currentPet.photo_url).then((url) => setPetImageUrl(url));
     } else {
       setPetImageUrl(null);
     }

@@ -63,10 +63,15 @@ export default function PrivateImage({
       setImageUrl(null);
       try {
         const url = await getCachedSignedUrl(filePath, expiresIn);
-        setImageUrl(url);
-        setError(false);
+        if (url) {
+          setImageUrl(url);
+          setError(false);
+        } else {
+          setImageUrl(null);
+          setError(true);
+        }
       } catch (err) {
-        console.error("Error fetching signed URL:", err);
+        console.warn("Error fetching signed URL:", err);
         setError(true);
         setImageUrl(null);
       } finally {

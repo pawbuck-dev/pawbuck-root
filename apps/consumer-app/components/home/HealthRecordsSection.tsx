@@ -283,6 +283,7 @@ export default function HealthRecordsSection({
       hubEmptyBadge: { label: "None Active", variant: "infoBlue" as BadgeVariant },
       hubEmptyLine: "No Medications Recorded Yet",
       hubAddLabel: "+ Add Medication Record",
+      showHubAddButton: false,
       body: medSummary,
       type: "med" as const,
     },
@@ -315,6 +316,7 @@ export default function HealthRecordsSection({
       hubEmptyBadge: { label: "No Data", variant: "neutral" as BadgeVariant },
       hubEmptyLine: "No Lab Results Recorded Yet",
       hubAddLabel: "+ Add Lab Result",
+      showHubAddButton: false,
       body: labSummary,
       type: "lab" as const,
     },
@@ -466,25 +468,27 @@ export default function HealthRecordsSection({
                     {docCount} {docCount === 1 ? "record" : "records"}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => router.push(card.addRoute as any)}
-                  activeOpacity={0.85}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    marginTop: 10,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : theme.dashedCard,
-                  }}
-                >
-                  <Ionicons name="add" size={18} color={theme.foreground} />
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
-                    {card.hubAddLabel.replace(/^\+ /, "")}
-                  </Text>
-                </TouchableOpacity>
+                {card.showHubAddButton !== false ? (
+                  <TouchableOpacity
+                    onPress={() => router.push(card.addRoute as any)}
+                    activeOpacity={0.85}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      marginTop: 10,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : theme.dashedCard,
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color={theme.foreground} />
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                      {card.hubAddLabel.replace(/^\+ /, "")}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : (
               <TouchableOpacity
@@ -594,29 +598,31 @@ export default function HealthRecordsSection({
                       textAlign: "center",
                       fontSize: 14,
                       color: theme.secondary,
-                      marginBottom: 14,
+                      marginBottom: card.showHubAddButton !== false ? 14 : 0,
                     }}
                   >
                     {card.hubEmptyLine}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => router.push(card.addRoute as any)}
-                    activeOpacity={0.85}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      paddingVertical: 12,
-                      borderRadius: 14,
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F3F4F6",
-                    }}
-                  >
-                    <Ionicons name="add" size={20} color={theme.foreground} />
-                    <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
-                      {card.hubAddLabel.replace(/^\+ /, "")}
-                    </Text>
-                  </TouchableOpacity>
+                  {card.showHubAddButton !== false ? (
+                    <TouchableOpacity
+                      onPress={() => router.push(card.addRoute as any)}
+                      activeOpacity={0.85}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        paddingVertical: 12,
+                        borderRadius: 14,
+                        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F3F4F6",
+                      }}
+                    >
+                      <Ionicons name="add" size={20} color={theme.foreground} />
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
+                        {card.hubAddLabel.replace(/^\+ /, "")}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </View>
             ) : (

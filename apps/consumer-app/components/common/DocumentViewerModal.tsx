@@ -56,12 +56,15 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       if (documentPath.startsWith('http://') || documentPath.startsWith('https://')) {
         setSignedUrl(documentPath);
       } else {
-        // It's a storage path, need to get signed URL
         const url = await getCachedSignedUrl(documentPath);
+        if (!url) {
+          setError("This file is no longer in storage (it may have been removed).");
+          return;
+        }
         setSignedUrl(url);
       }
     } catch (err) {
-      console.error("Error loading document:", err);
+      console.warn("Error loading document:", err);
       setError("Failed to load document");
     } finally {
       setLoading(false);

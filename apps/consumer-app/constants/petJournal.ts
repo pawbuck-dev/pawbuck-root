@@ -12,6 +12,7 @@ export const JOURNAL_HEALTH_SUBTYPES = [
   { id: "diet", label: "Diet" },
   { id: "mood", label: "Mood" },
   { id: "sleep", label: "Sleep" },
+  { id: "elimination", label: "Elimination (stool & urine)" },
   { id: "other", label: "Other" },
 ] as const;
 

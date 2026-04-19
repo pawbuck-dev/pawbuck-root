@@ -30,6 +30,16 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 const EXAM_CATEGORIES: ExamCategory[] = ["Routine Checkup", "Invoice", "Travel"];
 
+function allSectionsCollapsed(): Record<ExamCategory, boolean> {
+  return EXAM_CATEGORIES.reduce(
+    (acc, cat) => {
+      acc[cat] = false;
+      return acc;
+    },
+    {} as Record<ExamCategory, boolean>
+  );
+}
+
 // Helper function to check if exam belongs to category
 const examMatchesCategory = (examType: string | null, category: ExamCategory): boolean => {
   if (!examType) return false;
@@ -48,12 +58,8 @@ export default function ExamsScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Track expanded state for each section
-  const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>({
-    "Routine Checkup": true,
-    Invoice: true,
-    Travel: true,
-  });
+  // Track expanded state for each section (start collapsed; reset on screen focus)
+  const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>(allSectionsCollapsed);
 
   const toggleSection = (category: ExamCategory) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -93,6 +99,7 @@ export default function ExamsScreen() {
   useFocusEffect(
     React.useCallback(() => {
       if (!pet) return;
+      setExpandedSections(allSectionsCollapsed());
       queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
     }, [queryClient, pet])
   );

@@ -12,6 +12,10 @@ export async function shareStorageDocument(
 ): Promise<void> {
   try {
     const url = await getCachedSignedUrl(storagePath);
+    if (!url) {
+      Alert.alert("Share", "This file is no longer available in storage.");
+      return;
+    }
     const safeName = suggestedFileName.replace(/[^a-zA-Z0-9._-]/g, "_") || "document";
     const ext = storagePath.toLowerCase().endsWith(".pdf") ? ".pdf" : "";
     const name = safeName.includes(".") ? safeName : `${safeName}${ext}`;

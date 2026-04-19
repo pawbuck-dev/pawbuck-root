@@ -921,15 +921,13 @@ export const generatePetPassportPDF = async ({
   const [petPhotoUrl, ...documentBase64Results] = await Promise.all([
     // Pet photo
     pet.photo_url
-      ? getPrivateImageUrl(pet.photo_url)
-          .then((url) => getBase64FromUrl(url))
-          .catch(() => null)
+      ? getPrivateImageUrl(pet.photo_url).then((url) =>
+          url ? getBase64FromUrl(url) : null
+        )
       : Promise.resolve(null),
     // All vaccination documents in parallel
     ...documents.map((doc) =>
-      getPrivateImageUrl(doc.url)
-        .then((url) => getBase64FromUrl(url))
-        .catch(() => null)
+      getPrivateImageUrl(doc.url).then((url) => (url ? getBase64FromUrl(url) : null))
     ),
   ]);
 

@@ -113,10 +113,10 @@ export default function DocumentsAndIdSection({ pet }: Props) {
       ]
     );
   };
-  const [microExpanded, setMicroExpanded] = useState(true);
-  const [insuranceExpanded, setInsuranceExpanded] = useState(true);
-  const [pedigreeExpanded, setPedigreeExpanded] = useState(true);
-  const [certificatesExpanded, setCertificatesExpanded] = useState(true);
+  const [microExpanded, setMicroExpanded] = useState(false);
+  const [insuranceExpanded, setInsuranceExpanded] = useState(false);
+  const [pedigreeExpanded, setPedigreeExpanded] = useState(false);
+  const [certificatesExpanded, setCertificatesExpanded] = useState(false);
 
   const warnOrange = isDark ? "#FB923C" : "#EA580C";
 

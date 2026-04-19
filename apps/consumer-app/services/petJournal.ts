@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert } from "@/database.types";
+import type { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 import type { JournalDomain } from "@/constants/petJournal";
 
@@ -45,6 +45,23 @@ export async function createJournalEntry(
 
 export async function deleteJournalEntry(id: string): Promise<void> {
   const { error } = await supabase.from("pet_journal_entries").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateJournalEntry(
+  id: string,
+  patch: Pick<
+    TablesUpdate<"pet_journal_entries">,
+    "note" | "vet_flagged" | "subtype" | "entry_date" | "domain"
+  >
+): Promise<void> {
+  const { error } = await supabase
+    .from("pet_journal_entries")
+    .update({
+      ...patch,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
   if (error) throw error;
 }
 

@@ -1,18 +1,29 @@
-import { POOP_OUTPUT_TAGS, PEE_OUTPUT_TAGS } from "@/constants/bodyTracker";
+import {
+  PEE_OUTPUT_TAGS,
+  POOP_OUTPUT_TAGS,
+  peeNeedsObservationDetail,
+  poopNeedsObservationDetail,
+} from "@/constants/bodyTracker";
+import BodyTrackerObservationBlock from "@/components/home/BodyTrackerObservationBlock";
 import { RiceBowlIcon, WaterGlassIcon } from "@/components/icons";
 import DailyIntakeConfigModal from "@/components/home/DailyIntakeConfigModal";
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { syncBodyTrackerObservationJournals } from "@/services/bodyTrackerJournalSync";
 import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
 import { insertWeightLog, listWeightLogs, updatePetTargetWeight } from "@/services/petWeightLogs";
 import type { WeightUnit } from "@/utils/weightUnits";
+import { clearUrlCache, deleteFile, uploadFile } from "@/utils/image";
+import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { convertWeight, formatWeight } from "@/utils/weightUnits";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import React, { useCallback, useMemo, useState } from "react";
+import type { ImagePickerAsset } from "expo-image-picker";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -31,6 +42,8 @@ type BodyTrackerSectionProps = {
 
 type BodyTrackerSegment = "intake" | "output" | "weight";
 
+const EMPTY_TAG_LIST: string[] = [];
+
 const SEGMENTS: { id: BodyTrackerSegment; label: string; emoji: string }[] = [
   { id: "intake", label: "Intake", emoji: "🍖" },
   { id: "output", label: "Output", emoji: "💩" },
@@ -43,12 +56,14 @@ const ProgressIcons = ({
   filledColor,
   emptyColor,
   type,
+  onSelectSlot,
 }: {
   count: number;
   total: number;
   filledColor: string;
   emptyColor: string;
   type: "food" | "water";
+  onSelectSlot: (slotIndex: number) => void;
 }) => (
   <View
     style={{
@@ -59,15 +74,28 @@ const ProgressIcons = ({
       justifyContent: "center",
     }}
   >
-    {Array.from({ length: total }).map((_, i) => (
-      <View key={i}>
-        {type === "food" ? (
-          <RiceBowlIcon size={28} color={i < count ? filledColor : emptyColor} />
-        ) : (
-          <WaterGlassIcon size={28} filled={i < count} color="#93C5FD" />
-        )}
-      </View>
-    ))}
+    {Array.from({ length: total }).map((_, i) => {
+      const filled = i < count;
+      const label =
+        type === "food"
+          ? `Meal ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set meals to ${i + 1}.`
+          : `Cup ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set cups to ${i + 1}.`;
+      return (
+        <Pressable
+          key={i}
+          onPress={() => onSelectSlot(i)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+        >
+          {type === "food" ? (
+            <RiceBowlIcon size={28} color={filled ? filledColor : emptyColor} />
+          ) : (
+            <WaterGlassIcon size={28} filled={filled} color="#93C5FD" />
+          )}
+        </Pressable>
+      );
+    })}
   </View>
 );
 
@@ -75,21 +103,32 @@ function OutputDropIcons({
   count,
   total,
   iconType,
+  onSelectSlot,
 }: {
   count: number;
   total: number;
   iconType: "poop" | "pee";
+  onSelectSlot: (slotIndex: number) => void;
 }) {
+  const emoji = iconType === "poop" ? "💩" : "💧";
+  const unit = iconType === "poop" ? "bowel movement" : "urination";
   return (
     <>
-      {Array.from({ length: total }).map((_, i) => (
-        <Text
-          key={i}
-          style={{ fontSize: iconType === "poop" ? 20 : 22, opacity: i < count ? 1 : 0.22, marginHorizontal: 2 }}
-        >
-          {iconType === "poop" ? "💩" : "💧"}
-        </Text>
-      ))}
+      {Array.from({ length: total }).map((_, i) => {
+        const filled = i < count;
+        return (
+          <Pressable
+            key={i}
+            onPress={() => onSelectSlot(i)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${unit} ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set count to ${i + 1}.`}
+            style={{ marginHorizontal: 2 }}
+          >
+            <Text style={{ fontSize: iconType === "poop" ? 20 : 22, opacity: filled ? 1 : 0.22 }}>{emoji}</Text>
+          </Pressable>
+        );
+      })}
     </>
   );
 }
@@ -139,6 +178,12 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
           | "pee_count"
           | "poop_tags"
           | "pee_tags"
+          | "poop_observation_note"
+          | "poop_observation_photo_path"
+          | "pee_observation_note"
+          | "pee_observation_photo_path"
+          | "poop_journal_entry_id"
+          | "pee_journal_entry_id"
         >
       >
     ) => updateDailyIntake(petId, updates),
@@ -188,8 +233,200 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
   const peeCount = intake?.pee_count ?? 0;
   const poopTarget = intake?.poop_target ?? 6;
   const peeTarget = intake?.pee_target ?? 6;
-  const poopTags = intake?.poop_tags ?? [];
-  const peeTags = intake?.pee_tags ?? [];
+  const poopTags = intake?.poop_tags ?? EMPTY_TAG_LIST;
+  const peeTags = intake?.pee_tags ?? EMPTY_TAG_LIST;
+
+  const showPoopObservation = poopNeedsObservationDetail(poopTags);
+  const showPeeObservation = peeNeedsObservationDetail(peeTags);
+
+  const [poopNoteDraft, setPoopNoteDraft] = useState("");
+  const [peeNoteDraft, setPeeNoteDraft] = useState("");
+  const [uploadingPoopPhoto, setUploadingPoopPhoto] = useState(false);
+  const [uploadingPeePhoto, setUploadingPeePhoto] = useState(false);
+
+  useEffect(() => {
+    setPoopNoteDraft(intake?.poop_observation_note ?? "");
+  }, [intake?.poop_observation_note]);
+
+  useEffect(() => {
+    setPeeNoteDraft(intake?.pee_observation_note ?? "");
+  }, [intake?.pee_observation_note]);
+
+  useEffect(() => {
+    if (!intake?.id || !user) return;
+    const timer = setTimeout(() => {
+      const row = queryClient.getQueryData<DailyIntake>(intakeQueryKey);
+      if (!row) return;
+      void (async () => {
+        try {
+          await syncBodyTrackerObservationJournals(
+            petId,
+            row,
+            poopNoteDraft,
+            peeNoteDraft,
+            queryClient,
+            intakeQueryKey
+          );
+          await queryClient.invalidateQueries({ queryKey: ["pet_journal", petId] });
+          await queryClient.invalidateQueries({ queryKey: ["health_briefing", petId] });
+        } catch (e) {
+          console.warn("Body tracker journal sync failed", e);
+        }
+      })();
+    }, 750);
+    return () => clearTimeout(timer);
+  }, [
+    petId,
+    user?.id,
+    intake?.id,
+    poopTags,
+    peeTags,
+    poopNoteDraft,
+    peeNoteDraft,
+    intake?.poop_observation_photo_path,
+    intake?.pee_observation_photo_path,
+    intake?.poop_observation_note,
+    intake?.pee_observation_note,
+    intake?.date,
+    queryClient,
+    intakeQueryKey,
+  ]);
+
+  const savePoopObservationNote = useCallback(() => {
+    const next = poopNoteDraft.trim() || null;
+    const prev = intake?.poop_observation_note?.trim() || null;
+    if (next === prev) return;
+    mutation.mutate({ poop_observation_note: next });
+  }, [poopNoteDraft, intake?.poop_observation_note, mutation]);
+
+  const savePeeObservationNote = useCallback(() => {
+    const next = peeNoteDraft.trim() || null;
+    const prev = intake?.pee_observation_note?.trim() || null;
+    if (next === prev) return;
+    mutation.mutate({ pee_observation_note: next });
+  }, [peeNoteDraft, intake?.pee_observation_note, mutation]);
+
+  const petSlug = pet?.name?.split(/\s+/).join("_") ?? "pet";
+
+  const uploadPoopObservationPhoto = useCallback(
+    async (asset: ImagePickerAsset) => {
+      if (!user) return;
+      setUploadingPoopPhoto(true);
+      try {
+        const ext = asset.uri.split(".").pop() || "jpg";
+        const path = `${user.id}/pet_${petSlug}_${petId}/body-tracker/poop-${Date.now()}.${ext}`;
+        const data = await uploadFile(asset, path);
+        clearUrlCache(data.path);
+        const previous = intake?.poop_observation_photo_path;
+        if (previous && previous !== data.path) {
+          try {
+            await deleteFile(previous);
+          } catch {
+            /* ignore storage cleanup errors */
+          }
+        }
+        mutation.mutate({ poop_observation_photo_path: data.path });
+      } catch {
+        Alert.alert("Error", "Could not upload photo. Please try again.");
+      } finally {
+        setUploadingPoopPhoto(false);
+      }
+    },
+    [user, petSlug, petId, intake?.poop_observation_photo_path, mutation]
+  );
+
+  const uploadPeeObservationPhoto = useCallback(
+    async (asset: ImagePickerAsset) => {
+      if (!user) return;
+      setUploadingPeePhoto(true);
+      try {
+        const ext = asset.uri.split(".").pop() || "jpg";
+        const path = `${user.id}/pet_${petSlug}_${petId}/body-tracker/pee-${Date.now()}.${ext}`;
+        const data = await uploadFile(asset, path);
+        clearUrlCache(data.path);
+        const previous = intake?.pee_observation_photo_path;
+        if (previous && previous !== data.path) {
+          try {
+            await deleteFile(previous);
+          } catch {
+            /* ignore */
+          }
+        }
+        mutation.mutate({ pee_observation_photo_path: data.path });
+      } catch {
+        Alert.alert("Error", "Could not upload photo. Please try again.");
+      } finally {
+        setUploadingPeePhoto(false);
+      }
+    },
+    [user, petSlug, petId, intake?.pee_observation_photo_path, mutation]
+  );
+
+  const promptPoopPhoto = useCallback(() => {
+    Alert.alert("Add photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const image = await takePhoto();
+          if (image) await uploadPoopObservationPhoto(image);
+        },
+      },
+      {
+        text: "Photo library",
+        onPress: async () => {
+          const image = await pickImageFromLibrary();
+          if (image) await uploadPoopObservationPhoto(image);
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [uploadPoopObservationPhoto]);
+
+  const promptPeePhoto = useCallback(() => {
+    Alert.alert("Add photo", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: async () => {
+          const image = await takePhoto();
+          if (image) await uploadPeeObservationPhoto(image);
+        },
+      },
+      {
+        text: "Photo library",
+        onPress: async () => {
+          const image = await pickImageFromLibrary();
+          if (image) await uploadPeeObservationPhoto(image);
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [uploadPeeObservationPhoto]);
+
+  const removePoopObservationPhoto = useCallback(async () => {
+    const p = intake?.poop_observation_photo_path;
+    if (p) {
+      try {
+        await deleteFile(p);
+      } catch {
+        /* ignore */
+      }
+      clearUrlCache(p);
+    }
+    mutation.mutate({ poop_observation_photo_path: null });
+  }, [intake?.poop_observation_photo_path, mutation]);
+
+  const removePeeObservationPhoto = useCallback(async () => {
+    const p = intake?.pee_observation_photo_path;
+    if (p) {
+      try {
+        await deleteFile(p);
+      } catch {
+        /* ignore */
+      }
+      clearUrlCache(p);
+    }
+    mutation.mutate({ pee_observation_photo_path: null });
+  }, [intake?.pee_observation_photo_path, mutation]);
 
   const toggleTag = (kind: "poop" | "pee", tag: string) => {
     const arr = kind === "poop" ? [...poopTags] : [...peeTags];
@@ -298,6 +535,8 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
     android: { elevation: 3 },
     default: {},
   });
+
+  const obsCardBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
 
   const pill = (label: string, selected: boolean, onPress: () => void) => (
     <Pressable
@@ -444,24 +683,19 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
             filledColor={primaryTeal}
             emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
             type="food"
+            onSelectSlot={(i) => mutation.mutate({ food_intake: Math.min(i + 1, foodTarget) })}
           />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-            <TouchableOpacity
-              onPress={() => foodIntake > 0 && mutation.mutate({ food_intake: foodIntake - 1 })}
-              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="remove" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
-              {foodIntake}/{foodTarget} meals
-            </Text>
-            <TouchableOpacity
-              onPress={() => foodIntake < foodTarget && mutation.mutate({ food_intake: foodIntake + 1 })}
-              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="add" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-          </View>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "600",
+              color: theme.foreground,
+              textAlign: "center",
+              marginTop: 4,
+            }}
+          >
+            {foodIntake}/{foodTarget} meals
+          </Text>
         </View>
 
         <View
@@ -488,24 +722,19 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
             filledColor={isDark ? "#60A5FA" : "#3B82F6"}
             emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
             type="water"
+            onSelectSlot={(i) => mutation.mutate({ water_intake: Math.min(i + 1, waterTarget) })}
           />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-            <TouchableOpacity
-              onPress={() => waterIntake > 0 && mutation.mutate({ water_intake: waterIntake - 1 })}
-              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="remove" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
-              {waterIntake}/{waterTarget} cups
-            </Text>
-            <TouchableOpacity
-              onPress={() => waterIntake < waterTarget && mutation.mutate({ water_intake: waterIntake + 1 })}
-              style={{ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="add" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-          </View>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "600",
+              color: theme.foreground,
+              textAlign: "center",
+              marginTop: 4,
+            }}
+          >
+            {waterIntake}/{waterTarget} cups
+          </Text>
         </View>
       </View>
         </>
@@ -523,53 +752,101 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>💩 Poop</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "flex-end", minWidth: 200 }}>
-            <TouchableOpacity
-              onPress={() => poopCount > 0 && mutation.mutate({ poop_count: poopCount - 1 })}
-              style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="remove" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-            <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 6, flexWrap: "wrap", maxWidth: 160, justifyContent: "center" }}>
-              <OutputDropIcons count={poopCount} total={poopTarget} iconType="poop" />
-            </View>
-            <TouchableOpacity
-              onPress={() => poopCount < poopTarget && mutation.mutate({ poop_count: poopCount + 1 })}
-              style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="add" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-          </View>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: theme.secondary }}>
+            {poopCount}/{poopTarget}
+          </Text>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            marginTop: 10,
+            gap: 4,
+          }}
+        >
+          <OutputDropIcons
+            count={poopCount}
+            total={poopTarget}
+            iconType="poop"
+            onSelectSlot={(i) => mutation.mutate({ poop_count: Math.min(i + 1, poopTarget) })}
+          />
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>
           {POOP_OUTPUT_TAGS.map((t) => pill(t, poopTags.includes(t), () => toggleTag("poop", t)))}
         </View>
 
+        {showPoopObservation ? (
+          <BodyTrackerObservationBlock
+            title="Stool observation"
+            note={poopNoteDraft}
+            onChangeNote={setPoopNoteDraft}
+            onBlurSave={savePoopObservationNote}
+            photoPath={intake?.poop_observation_photo_path ?? null}
+            onAddPhoto={promptPoopPhoto}
+            onRemovePhoto={() => {
+              void removePoopObservationPhoto();
+            }}
+            uploadingPhoto={uploadingPoopPhoto}
+            isDark={isDark}
+            cardSubtleBg={obsCardBg}
+            borderStyle={cardBorderStyle}
+            secondaryText={theme.secondary}
+            foreground={theme.foreground}
+            btnBg={btnBg}
+          />
+        ) : null}
+
         <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", marginVertical: 16 }} />
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>💧 Pee</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, justifyContent: "flex-end", minWidth: 200 }}>
-            <TouchableOpacity
-              onPress={() => peeCount > 0 && mutation.mutate({ pee_count: peeCount - 1 })}
-              style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="remove" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-            <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 6, flexWrap: "wrap", maxWidth: 180, justifyContent: "center" }}>
-              <OutputDropIcons count={peeCount} total={peeTarget} iconType="pee" />
-            </View>
-            <TouchableOpacity
-              onPress={() => peeCount < peeTarget && mutation.mutate({ pee_count: peeCount + 1 })}
-              style={{ width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: btnBg }}
-            >
-              <Ionicons name="add" size={18} color={theme.foreground} />
-            </TouchableOpacity>
-          </View>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: theme.secondary }}>
+            {peeCount}/{peeTarget}
+          </Text>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            marginTop: 10,
+            gap: 4,
+          }}
+        >
+          <OutputDropIcons
+            count={peeCount}
+            total={peeTarget}
+            iconType="pee"
+            onSelectSlot={(i) => mutation.mutate({ pee_count: Math.min(i + 1, peeTarget) })}
+          />
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>
           {PEE_OUTPUT_TAGS.map((t) => pill(t, peeTags.includes(t), () => toggleTag("pee", t)))}
         </View>
+
+        {showPeeObservation ? (
+          <BodyTrackerObservationBlock
+            title="Urine observation"
+            note={peeNoteDraft}
+            onChangeNote={setPeeNoteDraft}
+            onBlurSave={savePeeObservationNote}
+            photoPath={intake?.pee_observation_photo_path ?? null}
+            onAddPhoto={promptPeePhoto}
+            onRemovePhoto={() => {
+              void removePeeObservationPhoto();
+            }}
+            uploadingPhoto={uploadingPeePhoto}
+            isDark={isDark}
+            cardSubtleBg={obsCardBg}
+            borderStyle={cardBorderStyle}
+            secondaryText={theme.secondary}
+            foreground={theme.foreground}
+            btnBg={btnBg}
+          />
+        ) : null}
       </View>
       )}
 
