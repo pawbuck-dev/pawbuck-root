@@ -110,3 +110,16 @@ export interface UpdateSupportVaccinationBody {
   notes?: string | null;
   documentUrl?: string | null;
 }
+
+/** Admin Milo classify preview — matches PawBuck.API ClassifyResponse. */
+export interface MiloClassifyPreviewBody {
+  fileBase64: string;
+  mimeType: string;
+}
+
+export interface MiloClassifyResponse {
+  documentType: string;
+  confidence: number;
+  reasoning: string | null;
+  extractionPrompt: string;
+}

@@ -12,6 +12,17 @@ public interface IDocumentClassifier
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Classification result (type, confidence, reasoning).</returns>
     Task<DocumentClassificationResult> ClassifyAsync(string imageUrl, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Classifies document bytes (e.g. image or PDF) without fetching a URL.
+    /// </summary>
+    /// <param name="content">Raw file bytes.</param>
+    /// <param name="mimeType">MIME type (e.g. image/jpeg, application/pdf).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<DocumentClassificationResult> ClassifyFromBytesAsync(
+        byte[] content,
+        string mimeType,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

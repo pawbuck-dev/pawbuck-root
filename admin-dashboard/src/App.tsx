@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, normalizePawbuckApiBase, SupportApiError } from "@/api/supportClient";
 import { AdminHeaderBar } from "@/components/AdminHeaderBar";
 import { FeatureGatesPanel } from "@/components/FeatureGatesPanel";
+import { MiloClassifyHarness } from "@/components/MiloClassifyHarness";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
@@ -47,7 +48,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [banner, setBanner] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support" | "gates">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support" | "milo" | "gates">("overview");
 
   useEffect(() => {
     if (!supabase) {
@@ -313,6 +314,13 @@ export function App() {
         </button>
         <button
           type="button"
+          className={tab === "milo" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("milo")}
+        >
+          Milo
+        </button>
+        <button
+          type="button"
           className={tab === "gates" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
           onClick={() => setTab("gates")}
         >
@@ -411,6 +419,8 @@ export function App() {
       ) : null}
 
       {tab === "gates" ? <FeatureGatesPanel client={client} /> : null}
+
+      {tab === "milo" ? <MiloClassifyHarness client={client} /> : null}
 
       {tab === "support" ? (
         <div className="layout layout--support">

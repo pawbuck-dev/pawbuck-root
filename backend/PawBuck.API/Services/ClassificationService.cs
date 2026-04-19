@@ -43,4 +43,30 @@ public class ClassificationService
             ExtractionPrompt = extractionPrompt
         };
     }
+
+    /// <summary>
+    /// Classifies raw document bytes (e.g. admin preview harness) and returns the same shape as <see cref="ClassifyAsync"/>.
+    /// </summary>
+    public async Task<ClassifyResponse> ClassifyFromBytesAsync(
+        byte[] content,
+        string mimeType,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _classifier.ClassifyFromBytesAsync(content, mimeType, cancellationToken);
+
+        var extractionPrompt = _promptProvider.GetPromptForType(result.Type);
+
+        _logger.LogInformation(
+            "Classified document bytes as {Type} (confidence: {Confidence})",
+            result.Type,
+            result.Confidence);
+
+        return new ClassifyResponse
+        {
+            DocumentType = result.Type,
+            Confidence = result.Confidence,
+            Reasoning = result.Reasoning,
+            ExtractionPrompt = extractionPrompt
+        };
+    }
 }

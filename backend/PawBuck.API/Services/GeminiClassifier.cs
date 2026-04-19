@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -38,8 +37,8 @@ public class GeminiClassifier : IDocumentClassifier
             return new DocumentClassificationResult { Type = "irrelevant", Confidence = 0, Reasoning = "No image URL provided." };
         }
 
-        string? base64Image = null;
-        string? mimeType = null;
+        string base64Image;
+        string mimeType;
 
         try
         {
@@ -56,58 +55,60 @@ public class GeminiClassifier : IDocumentClassifier
             return new DocumentClassificationResult { Type = "irrelevant", Confidence = 0, Reasoning = "Failed to download image." };
         }
 
+        return await ClassifyWithInlineDataAsync(base64Image, mimeType, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<DocumentClassificationResult> ClassifyFromBytesAsync(
+        byte[] content,
+        string mimeType,
+        CancellationToken cancellationToken = default)
+    {
+        if (content == null || content.Length == 0)
+        {
+            return Task.FromResult(
+                new DocumentClassificationResult { Type = "irrelevant", Confidence = 0, Reasoning = "No file content." });
+        }
+
+        var normalized = NormalizeMimeForClassification(mimeType);
+        var base64 = Convert.ToBase64String(content);
+        return ClassifyWithInlineDataAsync(base64, normalized, cancellationToken);
+    }
+
+    /// <summary>
+    /// Aligns with <see cref="MiloVisionService"/> MIME handling for images/PDF.
+    /// </summary>
+    internal static string NormalizeMimeForClassification(string? mimeType)
+    {
+        if (string.IsNullOrWhiteSpace(mimeType))
+            return "image/jpeg";
+
+        var m = mimeType.Trim().ToLowerInvariant();
+        if (m == "image/jpg")
+            return "image/jpeg";
+
+        return m switch
+        {
+            "image/jpeg" or "image/png" or "image/webp" or "image/heic" or "application/pdf" => m,
+            _ => "image/jpeg",
+        };
+    }
+
+    private async Task<DocumentClassificationResult> ClassifyWithInlineDataAsync(
+        string base64Image,
+        string mimeType,
+        CancellationToken cancellationToken)
+    {
         var apiKey = _options.Value.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             _logger.LogWarning("GOOGLE_GEMINI_API_KEY not configured");
             return new DocumentClassificationResult { Type = "Irrelevant", Confidence = 0, Reasoning = "API key not configured." };
         }
 
-        var requestBody = new
-        {
-            contents = new[]
-            {
-                new
-                {
-                    parts = new object[]
-                    {
-                        new { text = _prompts.PetDocumentClassificationPrompt },
-                        new
-                        {
-                            inline_data = new
-                            {
-                                mime_type = mimeType,
-                                data = base64Image
-                            }
-                        }
-                    }
-                }
-            },
-            generationConfig = new
-            {
-                temperature = 0.1,
-                response_mime_type = "application/json",
-                response_schema = new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        documentType = new
-                        {
-                            type = "string",
-                            @enum = new[]
-                            {
-                                "medications", "lab_results", "clinical_exams", "vaccinations", "billing_invoice",
-                                "travel_certificate", "insurance_policy", "pedigree", "identity_document", "irrelevant"
-                            }
-                        },
-                        confidence = new { type = "number" },
-                        reasoning = new { type = "string" }
-                    },
-                    required = new[] { "documentType", "confidence", "reasoning" }
-                }
-            }
-        };
+        var requestBody = BuildClassificationRequestBody(base64Image, mimeType);
 
         var geminiClient = _httpClientFactory.CreateClient("Gemini");
         var model = string.IsNullOrWhiteSpace(_options.Value.Model) ? "gemini-1.5-flash" : _options.Value.Model!.Trim();
@@ -159,6 +160,52 @@ public class GeminiClassifier : IDocumentClassifier
 
         return new DocumentClassificationResult { Type = type, Confidence = confidence, Reasoning = reasoning };
     }
+
+    private object BuildClassificationRequestBody(string base64Image, string mimeType) => new
+    {
+        contents = new[]
+        {
+            new
+            {
+                parts = new object[]
+                {
+                    new { text = _prompts.PetDocumentClassificationPrompt },
+                    new
+                    {
+                        inline_data = new
+                        {
+                            mime_type = mimeType,
+                            data = base64Image
+                        }
+                    }
+                }
+            }
+        },
+        generationConfig = new
+        {
+            temperature = 0.1,
+            response_mime_type = "application/json",
+            response_schema = new
+            {
+                type = "object",
+                properties = new
+                {
+                    documentType = new
+                    {
+                        type = "string",
+                        @enum = new[]
+                        {
+                            "medications", "lab_results", "clinical_exams", "vaccinations", "billing_invoice",
+                            "travel_certificate", "insurance_policy", "pedigree", "identity_document", "irrelevant"
+                        }
+                    },
+                    confidence = new { type = "number" },
+                    reasoning = new { type = "string" }
+                },
+                required = new[] { "documentType", "confidence", "reasoning" }
+            }
+        }
+    };
 
     private sealed class PetDocClassificationJson
     {

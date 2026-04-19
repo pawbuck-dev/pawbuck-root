@@ -1,5 +1,7 @@
 import type {
   CreateSupportVaccinationBody,
+  MiloClassifyPreviewBody,
+  MiloClassifyResponse,
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
@@ -139,5 +141,12 @@ export function createSupportClient(
           json: body,
         },
       ),
+
+    /** In-memory Milo document classification (admin/support only; no storage). */
+    classifyMiloPreview: (body: MiloClassifyPreviewBody) =>
+      request<MiloClassifyResponse>("/api/support/milo/classify-preview", {
+        method: "POST",
+        json: body,
+      }),
   };
 }
