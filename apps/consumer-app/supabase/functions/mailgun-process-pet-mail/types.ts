@@ -28,6 +28,9 @@ export type DocumentType =
   | "vaccinations"
   | "billing_invoice"
   | "travel_certificate"
+  | "insurance_policy"
+  | "pedigree"
+  | "identity_document"
   | "irrelevant";
 
 export interface DocumentClassification {

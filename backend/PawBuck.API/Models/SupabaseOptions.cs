@@ -20,6 +20,9 @@ public class SupabaseOptions
     /// <summary>Public anon key (JWT) from Dashboard → API — same as <c>EXPO_PUBLIC_SUPABASE_KEY</c>. Powers the Supabase REST client when paired with <see cref="Url"/>.</summary>
     public string? AnonKey { get; set; }
 
+    /// <summary>Optional service role JWT for server-side Storage (e.g. Milo analyze-internal from Edge). Prefer env <c>SUPABASE_SERVICE_ROLE_KEY</c>.</summary>
+    public string? ServiceRoleKey { get; set; }
+
     /// <summary>Database password from Supabase Dashboard → Database (not the <c>anon</c> or <c>service_role</c> JWT).</summary>
     public string? DbPassword { get; set; }
 

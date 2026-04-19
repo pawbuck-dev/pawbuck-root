@@ -1,3 +1,4 @@
+// @deprecated Use PawBuck.API POST /api/milo/documents/analyze (or analyze-internal). Kept for rollback only.
 // Medication OCR using Gemini 2.5 Flash with structured function calling
 // Analyzes prescription/medication images and extracts structured data
 import {

@@ -1,3 +1,7 @@
+/**
+ * @deprecated process-pet-mail now calls PawBuck.API /api/milo/documents/analyze-internal.
+ * This module is kept for reference or rollback only.
+ */
 import type { DocumentType } from "./types.ts";
 
 /**

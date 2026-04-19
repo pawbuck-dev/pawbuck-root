@@ -1,9 +1,16 @@
 import { z } from "zod";
 
+import { petDocumentTypeSchema } from "./schema";
+
 /**
  * Source of truth for what Milo extracts from documents (pet identification, vaccinations, etc.).
  * Used across consumer app, provider app, and backend/edge functions for validation and typing.
  */
+
+/** Same as petDocumentTypeSchema — vault + email routing taxonomy */
+export const documentTypeSchema = petDocumentTypeSchema;
+
+export type DocumentType = z.infer<typeof documentTypeSchema>;
 
 /** Pet identification info extracted from documents (e.g. vet forms, certificates) */
 export const extractedPetInfoSchema = z.object({
@@ -35,16 +42,3 @@ export const vaccinationOcrResponseSchema = z.object({
 });
 
 export type VaccinationOcrResponse = z.infer<typeof vaccinationOcrResponseSchema>;
-
-/** Document type classification (for email attachment routing) */
-export const documentTypeSchema = z.enum([
-  "medications",
-  "lab_results",
-  "clinical_exams",
-  "vaccinations",
-  "billing_invoice",
-  "travel_certificate",
-  "irrelevant",
-]);
-
-export type DocumentType = z.infer<typeof documentTypeSchema>;

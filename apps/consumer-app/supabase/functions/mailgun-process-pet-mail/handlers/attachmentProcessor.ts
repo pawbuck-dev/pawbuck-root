@@ -1,6 +1,4 @@
-import { saveOCRResults } from "../dbPersistence.ts";
 import { classifyAttachment } from "../geminiClassifier.ts";
-import { triggerOCR } from "../ocrTrigger.ts";
 import { formatValidationResult, validatePetFromDocument } from "../petValidator.ts";
 import { uploadAttachment } from "../storageUploader.ts";
 import type {
@@ -97,12 +95,16 @@ async function processSingleAttachment(
 
     const storagePath = uploadResult.storagePath!;
 
-    // Step 5: Trigger OCR
-    const ocrResult = await runOCR(classification.type, storagePath);
+    // Step 5: PawBuck.API Milo vision → pet_documents vault (replaces Edge OCR functions)
+    const ocrResult = await runOCR(classification.type, storagePath, pet, attachment.mimeType);
 
-    // Step 6: Save to database if OCR was successful
     const dbResult = ocrResult.success && ocrResult.data
-      ? await saveToDatabase(classification.type, pet, storagePath, ocrResult.data)
+      ? {
+          success: true,
+          recordIds: [(ocrResult.data as { id?: string }).id].filter(
+            (x): x is string => typeof x === "string" && x.length > 0
+          ),
+        }
       : { success: false, recordIds: undefined };
 
     // Build final result
@@ -157,63 +159,69 @@ async function uploadToStorage(
 }
 
 /**
- * Run OCR on uploaded attachment
+ * Milo vision via PawBuck.API (pet_documents vault). Requires PAWBUCK_API_URL + MILO_INTERNAL_SERVICE_KEY on Edge.
  */
 async function runOCR(
   documentType: string,
-  storagePath: string
+  storagePath: string,
+  pet: Pet,
+  mimeType: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
-  try {
-    const ocrResponse = await triggerOCR(documentType, "pets", storagePath);
+  if (documentType === "irrelevant") {
+    return { success: false, error: "irrelevant" };
+  }
 
-    if (!ocrResponse.success) {
-      console.error(`OCR failed: ${ocrResponse.error}`);
-      return { success: false, error: ocrResponse.error };
+  const apiUrl = Deno.env.get("PAWBUCK_API_URL")?.trim();
+  const internalKey = Deno.env.get("MILO_INTERNAL_SERVICE_KEY")?.trim();
+  if (!apiUrl || !internalKey) {
+    console.error(
+      "PAWBUCK_API_URL or MILO_INTERNAL_SERVICE_KEY not set; cannot run Milo document analyze"
+    );
+    return { success: false, error: "PawBuck API not configured for email pipeline" };
+  }
+
+  try {
+    const res = await fetch(
+      `${apiUrl.replace(/\/$/, "")}/api/milo/documents/analyze-internal`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Pawbuck-Milo-Internal-Key": internalKey,
+        },
+        body: JSON.stringify({
+          petId: pet.id,
+          userId: pet.user_id,
+          bucket: "pets",
+          path: storagePath,
+          mimeType,
+        }),
+      }
+    );
+
+    const text = await res.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return { success: false, error: text || `HTTP ${res.status}` };
     }
 
-    console.log("OCR completed successfully");
-    return { success: true, data: ocrResponse.data };
+    if (!res.ok) {
+      return {
+        success: false,
+        error: typeof text === "string" ? text : `HTTP ${res.status}`,
+      };
+    }
+
+    console.log("Milo analyze-internal completed");
+    return { success: true, data };
   } catch (ocrError) {
-    console.error(`OCR trigger failed:`, ocrError);
+    console.error(`Milo analyze-internal failed:`, ocrError);
     return {
       success: false,
       error: ocrError instanceof Error ? ocrError.message : String(ocrError),
     };
-  }
-}
-
-/**
- * Save OCR results to database
- */
-async function saveToDatabase(
-  documentType: string,
-  pet: Pet,
-  storagePath: string,
-  ocrResult: any
-): Promise<{ success: boolean; recordIds?: string[] }> {
-  try {
-    const saveResult = await saveOCRResults(
-      documentType,
-      pet,
-      storagePath,
-      ocrResult
-    );
-
-    if (saveResult.success) {
-      console.log(
-        `DB insert successful: ${saveResult.recordIds?.length || 0} record(s) inserted`
-      );
-    } else {
-      console.error(`DB insert failed: ${saveResult.error}`);
-    }
-
-    return {
-      success: saveResult.success,
-      recordIds: saveResult.recordIds,
-    };
-  } catch (dbError) {
-    console.error(`DB save failed:`, dbError);
-    return { success: false };
   }
 }
 

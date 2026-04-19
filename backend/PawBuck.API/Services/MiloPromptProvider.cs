@@ -1,8 +1,7 @@
 namespace PawBuck.API.Services;
 
 /// <summary>
-/// Central library for Milo extraction prompts. Maps document type to the corresponding extraction prompt.
-/// Aligned with packages/milo-core MEDICAL_RECORD_EXTRACTION_SYSTEM_PROMPT.
+/// Central library for Milo extraction prompts. Mirrors <c>packages/milo-core</c> prompt strings (TS source of truth).
 /// </summary>
 public class MiloPromptProvider : IMiloPromptProvider
 {
@@ -48,6 +47,52 @@ Return ONLY valid JSON matching this shape (no markdown, no commentary):
 - If the document clearly refers to multiple pets, extract the primary or first-mentioned pet only and set a lower `confidenceScore` to reflect the ambiguity.
 """;
 
+    private static readonly string FlexibleExtractionTemplate = """
+You are a veterinary document specialist. Extract key information from the attached document for a pet owner app.
+
+The document was classified as type: {{DOCUMENT_TYPE}}
+
+Return ONLY valid JSON (no markdown):
+{
+  "title": "Short display title (e.g. policy name, certificate name)",
+  "summary": "1-3 sentences in plain English",
+  "primaryDate": "YYYY-MM-DD or null if none",
+  "keyFacts": [
+    { "label": "Field label", "value": "Value" }
+  ],
+  "confidenceScore": <0-100>
+}
+
+Rules:
+- Use ISO-8601 dates (YYYY-MM-DD) only for primaryDate.
+- keyFacts: 3-12 entries when possible (policy number, clinic, pet name, expiry, amounts, etc.).
+- If text is illegible, lower confidenceScore and still return best-effort title/summary.
+- Do not invent data; use null or empty strings when unknown.
+""";
+
+    private static readonly string PetDocumentClassificationPromptValue = """
+You are a veterinary records expert. Classify the attached pet health or identity document into exactly one type.
+
+## Types (use these exact snake_case strings)
+- medications — prescriptions, medication labels, pharmacy printouts
+- lab_results — lab reports, bloodwork, urinalysis
+- clinical_exams — exam notes, SOAP, visit summaries (non-lab)
+- vaccinations — vaccine certificates, immunization records
+- billing_invoice — invoices, receipts, payment summaries from a vet
+- travel_certificate — health certificates for travel
+- insurance_policy — pet insurance policy, coverage summary, renewal
+- pedigree — breed registry, pedigree papers, registration certificates (AKC/CKC/etc.)
+- identity_document — microchip paperwork, ID photos of registration cards, owner/pet ID tied to the pet
+- irrelevant — not a pet document, unreadable, or unrelated
+
+Return ONLY valid JSON (no markdown):
+{
+  "documentType": "<one of the types above>",
+  "confidence": <number 0-100>,
+  "reasoning": "<short string>"
+}
+""";
+
     private readonly Dictionary<string, string> _promptsByType = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Vaccine"] = MedicalRecordExtractionPrompt,
@@ -64,10 +109,26 @@ Return ONLY valid JSON matching this shape (no markdown, no commentary):
     };
 
     /// <inheritdoc />
+    public string PetDocumentClassificationPrompt => PetDocumentClassificationPromptValue;
+
+    /// <inheritdoc />
     public string GetPromptForType(string documentType)
     {
+        var dt = documentType?.Trim() ?? "";
+        if (dt.Equals("insurance_policy", StringComparison.OrdinalIgnoreCase)
+            || dt.Equals("pedigree", StringComparison.OrdinalIgnoreCase)
+            || dt.Equals("identity_document", StringComparison.OrdinalIgnoreCase))
+            return GetFlexibleExtractionPrompt(dt);
+
         return _promptsByType.TryGetValue(documentType ?? "", out var prompt)
             ? prompt
             : MedicalRecordExtractionPrompt;
+    }
+
+    /// <inheritdoc />
+    public string GetFlexibleExtractionPrompt(string documentType)
+    {
+        var t = string.IsNullOrWhiteSpace(documentType) ? "unknown" : documentType.Trim();
+        return FlexibleExtractionTemplate.Replace("{{DOCUMENT_TYPE}}", t, StringComparison.Ordinal);
     }
 }

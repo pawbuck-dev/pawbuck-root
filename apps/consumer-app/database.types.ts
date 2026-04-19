@@ -897,6 +897,56 @@ export type Database = {
           },
         ]
       }
+      pet_documents: {
+        Row: {
+          id: string
+          pet_id: string
+          user_id: string
+          storage_path: string
+          mime_type: string
+          document_type: Database["public"]["Enums"]["pet_document_type"]
+          confidence: number
+          extracted_json: Json
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          user_id: string
+          storage_path: string
+          mime_type?: string
+          document_type: Database["public"]["Enums"]["pet_document_type"]
+          confidence?: number
+          extracted_json?: Json
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          user_id?: string
+          storage_path?: string
+          mime_type?: string
+          document_type?: Database["public"]["Enums"]["pet_document_type"]
+          confidence?: number
+          extracted_json?: Json
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_documents_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_email_list: {
         Row: {
           created_at: string
@@ -1733,7 +1783,17 @@ export type Database = {
       user_can_access_pet: { Args: { p_pet_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      pet_document_type:
+        | "medications"
+        | "lab_results"
+        | "clinical_exams"
+        | "vaccinations"
+        | "billing_invoice"
+        | "travel_certificate"
+        | "insurance_policy"
+        | "pedigree"
+        | "identity_document"
+        | "irrelevant"
     }
     CompositeTypes: {
       [_ in never]: never

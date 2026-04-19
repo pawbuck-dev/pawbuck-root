@@ -10,4 +10,14 @@ public interface IMiloPromptProvider
     /// Returns the Milo extraction prompt for the given document type (Vaccine, Invoice, Prescription, etc.).
     /// </summary>
     string GetPromptForType(string documentType);
+
+    /// <summary>
+    /// Multimodal classification prompt (aligned with @pawbuck/milo PET_DOCUMENT_CLASSIFICATION_SYSTEM_PROMPT).
+    /// </summary>
+    string PetDocumentClassificationPrompt { get; }
+
+    /// <summary>
+    /// Flexible vault extraction prompt (aligned with @pawbuck/milo FLEXIBLE_DOCUMENT_EXTRACTION_SYSTEM_PROMPT).
+    /// </summary>
+    string GetFlexibleExtractionPrompt(string documentType);
 }

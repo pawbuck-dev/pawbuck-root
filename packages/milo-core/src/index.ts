@@ -13,6 +13,16 @@ export {
   MedicalRecordSchema,
   medicalRecordDocumentTypeSchema,
   medicalRecordItemSchema,
+  petDocumentTypeSchema,
+  petDocumentClassificationSchema,
+  flexibleDocumentExtractionSchema,
   type MedicalRecord,
   type MedicalRecordItem,
+  type PetDocumentType,
+  type PetDocumentClassification,
+  type FlexibleDocumentExtraction,
 } from "./schema";
+
+export { MEDICAL_RECORD_EXTRACTION_SYSTEM_PROMPT } from "./prompts/extraction-prompt";
+export { PET_DOCUMENT_CLASSIFICATION_SYSTEM_PROMPT } from "./prompts/classification-prompt";
+export { FLEXIBLE_DOCUMENT_EXTRACTION_SYSTEM_PROMPT } from "./prompts/flexible-extraction-prompt";

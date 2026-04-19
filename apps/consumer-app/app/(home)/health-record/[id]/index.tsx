@@ -1,6 +1,7 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import PetSelector from "@/components/home/PetSelector";
+import DocumentsAndIdSection from "@/components/health/DocumentsAndIdSection";
 import HealthRecordsAttentionBanner from "@/components/health/HealthRecordsAttentionBanner";
 import { usePets } from "@/context/petsContext";
 import { useHealthAttentionForPet, usePetHealthNotificationCounts } from "@/hooks/useHealthHubAttention";
@@ -183,6 +184,8 @@ export default function HealthRecordsHubScreen() {
             variant="hub"
             showTitle={false}
           />
+
+          <DocumentsAndIdSection pet={pet} />
         </View>
       </ScrollView>
 

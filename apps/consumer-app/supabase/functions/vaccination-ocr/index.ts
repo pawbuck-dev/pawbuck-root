@@ -1,3 +1,4 @@
+// @deprecated Use PawBuck.API POST /api/milo/documents/analyze (or analyze-internal). Kept for rollback only.
 // Vaccination OCR using Gemini Vision API
 // Analyzes vaccination certificate images and extracts structured data
 import {

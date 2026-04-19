@@ -8,7 +8,7 @@ import { trackSubscriptionEvent } from "@/utils/subscriptionAnalytics";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Platform } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import Purchases from "react-native-purchases";
 import React, {
   createContext,
@@ -67,12 +67,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     data: featureGatesMap,
     isLoading: featureGatesLoading,
     isError: featureGatesError,
+    error: featureGatesQueryError,
   } = useQuery({
     queryKey: ["subscription_feature_gates", user?.id],
     queryFn: fetchSubscriptionFeatureGates,
     enabled: !!user && apiConfigured,
-    staleTime: 60_000,
+    /** Admin paywall changes: root QueryClient sets refetchOnMount/focus to false — override here. */
+    staleTime: 30_000,
     retry: 1,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    /** Matches admin copy (~1 min); keeps long sessions from stale “all premium” gates. */
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   const gatesLoading = apiConfigured && !!user && featureGatesLoading;
@@ -150,6 +158,30 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     });
     return () => subscription.unsubscribe();
   }, [queryClient]);
+
+  /** React Query “window focus” is unreliable on RN; refresh gates when app returns to foreground. */
+  React.useEffect(() => {
+    const onChange = (state: AppStateStatus) => {
+      if (state === "active" && user && apiConfigured) {
+        void queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+      }
+    };
+    const sub = AppState.addEventListener("change", onChange);
+    return () => sub.remove();
+  }, [queryClient, user, apiConfigured]);
+
+  React.useEffect(() => {
+    if (!__DEV__ || !featureGatesError) return;
+    const msg =
+      featureGatesQueryError instanceof Error
+        ? featureGatesQueryError.message
+        : String(featureGatesQueryError);
+    console.warn(
+      "[subscription] Feature gates failed to load — all areas treat as premium until this succeeds.",
+      msg,
+      "If testing on a physical device, EXPO_PUBLIC_PAWBUCK_API_URL cannot be http://127.0.0.1 — use your Mac LAN IP or the deployed API URL."
+    );
+  }, [featureGatesError, featureGatesQueryError]);
 
   React.useEffect(() => {
     if (Platform.OS === "web") return;

@@ -1,4 +1,4 @@
-import { MedicalRecordSchema } from "./schema";
+import { MedicalRecordSchema, flexibleDocumentExtractionSchema, petDocumentTypeSchema } from "./schema";
 import {
   STAINED_VET_RECEIPT,
   HANDWRITTEN_DIET_NOTE,
@@ -170,6 +170,30 @@ describe("Milo extraction (MedicalRecordSchema)", () => {
       expect(MULTI_PET_INVOICE.length).toBeGreaterThan(0);
       expect(MULTI_PET_INVOICE).toContain("Luna");
       expect(MULTI_PET_INVOICE).toContain("Cooper");
+    });
+  });
+
+  describe("flexibleDocumentExtractionSchema", () => {
+    it("parses vault extraction payload", () => {
+      const payload = {
+        title: "Policy",
+        summary: "Coverage summary.",
+        primaryDate: "2026-03-01",
+        keyFacts: [
+          { label: "Policy #", value: "P-1" },
+          { label: "Provider", value: "Acme" },
+        ],
+        confidenceScore: 88,
+      };
+      expect(flexibleDocumentExtractionSchema.parse(payload)).toEqual(payload);
+    });
+  });
+
+  describe("petDocumentTypeSchema", () => {
+    it("includes non-clinical types", () => {
+      expect(petDocumentTypeSchema.safeParse("insurance_policy").success).toBe(true);
+      expect(petDocumentTypeSchema.safeParse("pedigree").success).toBe(true);
+      expect(petDocumentTypeSchema.safeParse("identity_document").success).toBe(true);
     });
   });
 });

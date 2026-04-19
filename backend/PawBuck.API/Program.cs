@@ -29,6 +29,8 @@ builder.Services.Configure<GeminiOptions>(options =>
     builder.Configuration.GetSection(GeminiOptions.SectionName).Bind(options);
     if (string.IsNullOrWhiteSpace(options.ApiKey))
         options.ApiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+    if (string.IsNullOrWhiteSpace(options.Model))
+        options.Model = Environment.GetEnvironmentVariable("GEMINI_MODEL");
 });
 
 // HttpClient for downloading document images (no retry)
@@ -49,6 +51,8 @@ builder.Services.PostConfigure<SupabaseOptions>(o =>
 {
     if (string.IsNullOrWhiteSpace(o.JwtSecret))
         o.JwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+    if (string.IsNullOrWhiteSpace(o.ServiceRoleKey))
+        o.ServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
 });
 
 var jwtSecretFromConfig = builder.Configuration["Supabase:JwtSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
@@ -138,6 +142,7 @@ builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();
 builder.Services.AddScoped<IMiloCuratedSnippetsService, MiloCuratedSnippetsService>();
 builder.Services.AddScoped<IMiloPetFactsService, MiloPetFactsService>();
+builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
 builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
