@@ -23,14 +23,35 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// Gemini config: Gemini:ApiKey or env GOOGLE_GEMINI_API_KEY
+// Gemini: Gemini:ApiKey, env GOOGLE_GEMINI_API_KEY, or (dev convenience) Admin:ApiKey if it looks like an AI Studio key (AIza…)
 builder.Services.Configure<GeminiOptions>(options =>
 {
     builder.Configuration.GetSection(GeminiOptions.SectionName).Bind(options);
+    if (!string.IsNullOrEmpty(options.ApiKey))
+        options.ApiKey = options.ApiKey.Trim();
     if (string.IsNullOrWhiteSpace(options.ApiKey))
-        options.ApiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+    {
+        var env = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+        if (!string.IsNullOrEmpty(env))
+            options.ApiKey = env.Trim();
+    }
+    if (!string.IsNullOrEmpty(options.Model))
+        options.Model = options.Model.Trim();
     if (string.IsNullOrWhiteSpace(options.Model))
-        options.Model = Environment.GetEnvironmentVariable("GEMINI_MODEL");
+    {
+        var envModel = Environment.GetEnvironmentVariable("GEMINI_MODEL");
+        if (!string.IsNullOrEmpty(envModel))
+            options.Model = envModel.Trim();
+    }
+});
+
+builder.Services.PostConfigure<GeminiOptions>(options =>
+{
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        return;
+    var adminKey = builder.Configuration["Admin:ApiKey"]?.Trim();
+    if (!string.IsNullOrEmpty(adminKey) && adminKey.StartsWith("AIza", StringComparison.Ordinal))
+        options.ApiKey = adminKey;
 });
 
 // HttpClient for downloading document images (no retry)
@@ -142,6 +163,12 @@ builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();
 builder.Services.AddScoped<IMiloCuratedSnippetsService, MiloCuratedSnippetsService>();
 builder.Services.AddScoped<IMiloPetFactsService, MiloPetFactsService>();
+builder.Services.AddScoped<IPetConversationalContextService, PetConversationalContextService>();
+builder.Services.AddScoped<IMiloJournalConfigProvider, MiloJournalConfigProvider>();
+builder.Services.AddScoped<IMiloJournalConfigAdminService, MiloJournalConfigAdminService>();
+builder.Services.AddScoped<MiloJournalTurnService>();
+builder.Services.AddScoped<IMiloJournalTurnService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
+builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
@@ -253,6 +280,8 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
+        if (ex is OperationCanceledException)
+            throw;
         var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("PawBuck.API.UnhandledException");
         if (context.Response.HasStarted)

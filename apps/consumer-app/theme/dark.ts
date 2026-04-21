@@ -2,11 +2,11 @@ import { Theme } from "./model";
 
 /** Figma UI Design (Dark) — e.g. onboarding/sign in 1340:30146, 1340:31106 */
 export const darkTheme: Theme = {
-  background: "#000000",
+  background: "#0B0F14",
   backgroundEnd: "#121C1C",
   foreground: "#FFFFFF",
 
-  card: "#1C2128",
+  card: "#18222D",
   cardForeground: "#FFFFFF",
 
   primary: "#5FC4C0",

@@ -14,6 +14,7 @@ import { fetchLabResults } from "@/services/labResults";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { petPossessiveLabel } from "@/utils/petCopy";
+import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import moment from "moment";
@@ -149,10 +150,12 @@ export default function HealthRecordsSection({
         nextLine: null as string | null,
       };
     }
+    const latestIds = latestVaccinationIdSet(vaccinations);
     const now = new Date();
     let overdue = 0;
     let nearestDue: Date | null = null;
     for (const v of vaccinations) {
+      if (!latestIds.has(v.id)) continue;
       if (v.next_due_date) {
         const d = new Date(v.next_due_date);
         if (d < now) overdue++;

@@ -1,0 +1,439 @@
+using System.Globalization;
+using System.Text;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using PawBuck.API.Models;
+
+namespace PawBuck.API.Services;
+
+public sealed class PetConversationalContextService : IPetConversationalContextService
+{
+    private readonly IOptions<SupabaseOptions> _options;
+
+    public PetConversationalContextService(IOptions<SupabaseOptions> options)
+    {
+        _options = options;
+    }
+
+    private NpgsqlConnection CreateConnection()
+    {
+        var cs = _options.Value.ConnectionString;
+        if (string.IsNullOrWhiteSpace(cs))
+            throw new InvalidOperationException("Database not configured (Supabase:ConnectionString).");
+        return new NpgsqlConnection(cs);
+    }
+
+    /// <inheritdoc />
+    public async Task<PetConversationalContextDto?> GetPetConversationalContextAsync(
+        Guid userId,
+        Guid petId,
+        MiloJournalConfigSnapshot config,
+        CancellationToken cancellationToken = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        var profile = await LoadProfileAsync(conn, userId, petId, config, cancellationToken);
+        if (profile == null)
+            return null;
+
+        var utcNow = DateTime.UtcNow;
+        var medicalFrom = utcNow.Date.AddDays(-config.RecentMedicalWindowDays);
+        var milestoneTo = utcNow.Date.AddDays(config.UpcomingMilestoneWindowDays);
+
+        var recentMedical = new List<RecentMedicalEvent>();
+        recentMedical.AddRange(await LoadRecentVaccinationsAsync(conn, userId, petId, medicalFrom, utcNow.Date, cancellationToken));
+        recentMedical.AddRange(await LoadRecentMedicationsAsync(conn, userId, petId, medicalFrom, utcNow.Date, cancellationToken));
+        recentMedical.AddRange(await LoadRecentSurgeriesAsync(conn, userId, petId, medicalFrom, utcNow.Date, config.SurgeryExamTypePatterns, cancellationToken));
+
+        var journalNotes = await LoadJournalNotesAsync(conn, userId, petId, config.RecentJournalNotesCount, cancellationToken);
+        var milestones = new List<UpcomingMilestone>();
+        milestones.AddRange(await LoadUpcomingVaccinationsAsync(conn, userId, petId, utcNow.Date, milestoneTo, cancellationToken));
+        milestones.AddRange(await LoadUpcomingExamFollowUpsAsync(conn, userId, petId, utcNow.Date, milestoneTo, cancellationToken));
+        milestones.AddRange(await LoadUpcomingVetBookingsAsync(conn, userId, petId, utcNow, cancellationToken));
+
+        return new PetConversationalContextDto
+        {
+            PetProfile = profile,
+            RecentMedicalHistory = recentMedical,
+            RecentJournalNotes = journalNotes,
+            UpcomingMilestones = milestones,
+        };
+    }
+
+    private static async Task<PetProfileSnapshot?> LoadProfileAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        MiloJournalConfigSnapshot config,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT name, animal_type, breed, date_of_birth, sex, weight_value, weight_unit
+            FROM public.pets
+            WHERE id = @petId AND user_id = @userId AND deleted_at IS NULL
+            LIMIT 1
+            """;
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+
+        var dob = reader.GetDateTime(3);
+        var ageYears = CalculateAgeYears(dob, DateTime.UtcNow.Date);
+        var ageDisplay = FormatAgeDisplay(dob, DateTime.UtcNow.Date);
+        var isSenior = ageYears >= config.SeniorAgeYears;
+
+        return new PetProfileSnapshot
+        {
+            Name = reader.GetString(0),
+            Species = reader.GetString(1),
+            Breed = reader.GetString(2),
+            DateOfBirth = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            AgeYears = ageYears,
+            AgeDisplay = ageDisplay,
+            IsSenior = isSenior,
+            Sex = reader.GetString(4),
+            WeightValue = reader.GetDecimal(5),
+            WeightUnit = reader.GetString(6),
+        };
+    }
+
+    private static double CalculateAgeYears(DateTime dateOfBirth, DateTime todayUtc)
+    {
+        var years = todayUtc.Year - dateOfBirth.Year;
+        if (todayUtc.DayOfYear < dateOfBirth.DayOfYear)
+            years--;
+        if (years < 0)
+            return 0;
+        var totalDays = (todayUtc - dateOfBirth.Date).TotalDays;
+        return Math.Round(totalDays / 365.25, 1);
+    }
+
+    private static string FormatAgeDisplay(DateTime dateOfBirth, DateTime todayUtc)
+    {
+        var years = todayUtc.Year - dateOfBirth.Year;
+        if (todayUtc.DayOfYear < dateOfBirth.DayOfYear)
+            years--;
+        var months = (todayUtc.Year - dateOfBirth.Year) * 12 + todayUtc.Month - dateOfBirth.Month;
+        if (todayUtc.Day < dateOfBirth.Day)
+            months--;
+        if (years <= 0)
+            return $"{Math.Max(0, months)} month(s) old";
+        return $"{years} year(s) old";
+    }
+
+    private static async Task<List<RecentMedicalEvent>> LoadRecentVaccinationsAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT name, date, notes, clinic_name
+            FROM public.vaccinations
+            WHERE pet_id = @petId AND user_id = @userId
+              AND date >= @fromDate AND date <= @toDate
+            ORDER BY date DESC
+            """;
+        var list = new List<RecentMedicalEvent>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var date = reader.GetDateTime(1);
+            var details = new StringBuilder();
+            if (!reader.IsDBNull(3) && !string.IsNullOrWhiteSpace(reader.GetString(3)))
+                details.Append("Clinic: ").Append(reader.GetString(3));
+            if (!reader.IsDBNull(2) && !string.IsNullOrWhiteSpace(reader.GetString(2)))
+            {
+                if (details.Length > 0) details.Append("; ");
+                details.Append(reader.GetString(2));
+            }
+
+            list.Add(new RecentMedicalEvent
+            {
+                Type = "vaccination",
+                Name = reader.GetString(0),
+                Date = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = details.Length > 0 ? details.ToString() : null,
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<RecentMedicalEvent>> LoadRecentMedicationsAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT name, type, COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) AS start_day,
+                   purpose, prescribed_by
+            FROM public.medicines
+            WHERE pet_id = @petId AND user_id = @userId
+              AND COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) >= @fromDate
+              AND COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) <= @toDate
+            ORDER BY start_day DESC
+            """;
+        var list = new List<RecentMedicalEvent>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var details = new StringBuilder();
+            details.Append(reader.GetString(1));
+            if (!reader.IsDBNull(3) && !string.IsNullOrWhiteSpace(reader.GetString(3)))
+                details.Append(" — ").Append(reader.GetString(3));
+            if (!reader.IsDBNull(4) && !string.IsNullOrWhiteSpace(reader.GetString(4)))
+                details.Append(" (").Append(reader.GetString(4)).Append(')');
+
+            list.Add(new RecentMedicalEvent
+            {
+                Type = "medication_started",
+                Name = reader.GetString(0),
+                Date = reader.GetDateTime(2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = details.ToString(),
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<RecentMedicalEvent>> LoadRecentSurgeriesAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        IReadOnlyList<string> patterns,
+        CancellationToken cancellationToken)
+    {
+        if (patterns.Count == 0)
+            return new List<RecentMedicalEvent>();
+
+        var or = new StringBuilder();
+        for (var i = 0; i < patterns.Count; i++)
+        {
+            if (i > 0)
+                or.Append(" OR ");
+            or.Append("exam_type ILIKE @p").Append(i);
+        }
+
+        var sql = $"""
+            SELECT COALESCE(exam_type, 'Visit'), exam_date, clinic_name, findings, notes
+            FROM public.clinical_exams
+            WHERE pet_id = @petId AND user_id = @userId
+              AND exam_date >= @fromDate AND exam_date <= @toDate
+              AND ({or})
+            ORDER BY exam_date DESC
+            """;
+
+        var list = new List<RecentMedicalEvent>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        for (var i = 0; i < patterns.Count; i++)
+            cmd.Parameters.AddWithValue("p" + i, "%" + patterns[i].Trim() + "%");
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var details = new StringBuilder();
+            if (!reader.IsDBNull(2) && !string.IsNullOrWhiteSpace(reader.GetString(2)))
+                details.Append(reader.GetString(2));
+            if (!reader.IsDBNull(3) && !string.IsNullOrWhiteSpace(reader.GetString(3)))
+            {
+                if (details.Length > 0) details.Append("; ");
+                details.Append(reader.GetString(3));
+            }
+
+            list.Add(new RecentMedicalEvent
+            {
+                Type = "surgery",
+                Name = reader.GetString(0),
+                Date = reader.GetDateTime(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = details.Length > 0 ? details.ToString() : null,
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<RecentJournalNote>> LoadJournalNotesAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        var sql = $"""
+            SELECT domain, subtype, note, entry_date, created_at
+            FROM public.pet_journal_entries
+            WHERE pet_id = @petId AND user_id = @userId
+            ORDER BY created_at DESC
+            LIMIT {Math.Clamp(limit, 1, 20)}
+            """;
+
+        var list = new List<RecentJournalNote>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var created = reader.GetDateTime(4);
+            list.Add(new RecentJournalNote
+            {
+                Domain = reader.GetString(0),
+                Subtype = reader.GetString(1),
+                Note = reader.IsDBNull(2) ? null : reader.GetString(2),
+                EntryDate = reader.GetDateTime(3).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                CreatedAt = created.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<UpcomingMilestone>> LoadUpcomingVaccinationsAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT name, next_due_date, clinic_name
+            FROM public.vaccinations
+            WHERE pet_id = @petId AND user_id = @userId
+              AND next_due_date IS NOT NULL
+              AND next_due_date >= @fromDate AND next_due_date <= @toDate
+            ORDER BY next_due_date ASC
+            """;
+        var list = new List<UpcomingMilestone>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var due = reader.GetDateTime(1);
+            list.Add(new UpcomingMilestone
+            {
+                Type = "vaccination_due",
+                Label = reader.GetString(0),
+                DueDate = due.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = reader.IsDBNull(2) ? null : reader.GetString(2),
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<UpcomingMilestone>> LoadUpcomingExamFollowUpsAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT COALESCE(exam_type, 'Follow-up'), follow_up_date, clinic_name
+            FROM public.clinical_exams
+            WHERE pet_id = @petId AND user_id = @userId
+              AND follow_up_date IS NOT NULL
+              AND follow_up_date >= @fromDate AND follow_up_date <= @toDate
+            ORDER BY follow_up_date ASC
+            """;
+        var list = new List<UpcomingMilestone>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var due = reader.GetDateTime(1);
+            list.Add(new UpcomingMilestone
+            {
+                Type = "exam_follow_up",
+                Label = reader.GetString(0),
+                DueDate = due.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = reader.IsDBNull(2) ? null : reader.GetString(2),
+            });
+        }
+
+        return list;
+    }
+
+    private static async Task<List<UpcomingMilestone>> LoadUpcomingVetBookingsAsync(
+        NpgsqlConnection conn,
+        Guid userId,
+        Guid petId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        var toUtc = utcNow.AddDays(30);
+
+        const string sql = """
+            SELECT COALESCE(service_label, 'Appointment'), start_utc, clinic_name, status
+            FROM public.vet_bookings
+            WHERE pet_id = @petId AND user_id = @userId
+              AND start_utc >= @fromUtc AND start_utc <= @toUtc
+              AND lower(coalesce(status, '')) NOT IN ('cancelled', 'canceled')
+            ORDER BY start_utc ASC
+            """;
+        var list = new List<UpcomingMilestone>();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("fromUtc", utcNow.Kind == DateTimeKind.Utc ? utcNow : DateTime.SpecifyKind(utcNow, DateTimeKind.Utc));
+        cmd.Parameters.AddWithValue("toUtc", toUtc.Kind == DateTimeKind.Utc ? toUtc : DateTime.SpecifyKind(toUtc, DateTimeKind.Utc));
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var start = reader.GetDateTime(1);
+            var details = reader.IsDBNull(2) ? null : reader.GetString(2);
+            if (!reader.IsDBNull(3))
+            {
+                var st = reader.GetString(3);
+                details = string.IsNullOrEmpty(details) ? st : $"{details} ({st})";
+            }
+
+            list.Add(new UpcomingMilestone
+            {
+                Type = "vet_booking",
+                Label = reader.GetString(0),
+                DueDate = start.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
+                Details = details,
+            });
+        }
+
+        return list;
+    }
+}

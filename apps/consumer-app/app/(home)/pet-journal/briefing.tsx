@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
+import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 
 function BriefingCard({
   children,
@@ -91,8 +92,12 @@ export default function HealthBriefingScreen() {
     if (data.medicines.length > 0) {
       parts.push(`${data.medicines.length} active medication(s).`);
     }
+    const latestVacIds = latestVaccinationIdSet(data.vaccinations);
     const overdueVacs = data.vaccinations.filter(
-      (v) => v.next_due_date && moment(v.next_due_date).startOf("day").isBefore(moment().startOf("day"))
+      (v) =>
+        latestVacIds.has(v.id) &&
+        v.next_due_date &&
+        moment(v.next_due_date).startOf("day").isBefore(moment().startOf("day"))
     );
     if (overdueVacs.length > 0) {
       parts.push(`Overdue vaccines: ${overdueVacs.map((v) => v.name).join(", ")}.`);

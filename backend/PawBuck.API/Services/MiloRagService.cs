@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -112,9 +113,10 @@ If you tell me more about what you're trying to do, I can try to point you in th
             ? GeminiOptions.DefaultModelId
             : _options.Value.Model!.Trim();
         var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
         using var requestContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = requestContent };
+        request.SetGeminiApiKey(apiKey);
 
         var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

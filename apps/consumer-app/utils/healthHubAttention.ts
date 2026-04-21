@@ -1,16 +1,25 @@
 /**
  * Health Records hub — shared “attention” rules for banner + pet strip badges.
- * v1: overdue vaccinations only (next_due_date in the past).
+ * Overdue counts only the latest administration per vaccine name (see vaccinationGrouping).
  */
 
+import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
+
 export type VaccinationDueRow = {
+  id: string;
+  name: string;
+  date: string;
   next_due_date: string | null | undefined;
 };
 
 export function countOverdueVaccinations(vaccinations: VaccinationDueRow[]): number {
+  if (vaccinations.length === 0) return 0;
+
+  const latestIds = latestVaccinationIdSet(vaccinations);
   const now = new Date();
   let overdue = 0;
   for (const v of vaccinations) {
+    if (!latestIds.has(v.id)) continue;
     if (v.next_due_date) {
       const d = new Date(v.next_due_date);
       if (d < now) overdue++;

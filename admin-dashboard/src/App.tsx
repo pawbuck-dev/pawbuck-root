@@ -4,6 +4,7 @@ import { createSupportClient, normalizePawbuckApiBase, SupportApiError } from "@
 import { AdminHeaderBar } from "@/components/AdminHeaderBar";
 import { FeatureGatesPanel } from "@/components/FeatureGatesPanel";
 import { MiloClassifyHarness } from "@/components/MiloClassifyHarness";
+import { MiloJournalPanel } from "@/components/MiloJournalPanel";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
@@ -420,7 +421,12 @@ export function App() {
 
       {tab === "gates" ? <FeatureGatesPanel client={client} /> : null}
 
-      {tab === "milo" ? <MiloClassifyHarness client={client} /> : null}
+      {tab === "milo" ? (
+        <>
+          <MiloJournalPanel client={client} />
+          <MiloClassifyHarness client={client} />
+        </>
+      ) : null}
 
       {tab === "support" ? (
         <div className="layout layout--support">

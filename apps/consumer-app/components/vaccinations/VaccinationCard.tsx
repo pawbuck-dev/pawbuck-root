@@ -32,30 +32,35 @@ import { VaccinationEditModal } from "./VaccinationEditModal";
 interface VaccinationCardProps {
   vaccination: Tables<"vaccinations">;
   category: VaccineCategory;
+  /** When false, due/overdue badge reflects an older dose; show "Previous dose" instead. */
+  isLatestAdministrationForVaccine: boolean;
 }
 
 const BADGE_STYLES_LIGHT: Record<
-  "overdue" | "dueGreen" | "dueOrange",
+  "overdue" | "dueGreen" | "dueOrange" | "previous",
   { bg: string; text: string }
 > = {
   overdue: { bg: "rgba(239, 68, 68, 0.12)", text: "#DC2626" },
   dueGreen: { bg: "rgba(34, 197, 94, 0.12)", text: "#15803D" },
   dueOrange: { bg: "rgba(251, 146, 60, 0.16)", text: "#C2410C" },
+  previous: { bg: "rgba(107, 114, 128, 0.14)", text: "#4B5563" },
 };
 
 /** Figma dark cards (1340:33857): higher-contrast pills on #1C2128 */
 const BADGE_STYLES_DARK: Record<
-  "overdue" | "dueGreen" | "dueOrange",
+  "overdue" | "dueGreen" | "dueOrange" | "previous",
   { bg: string; text: string }
 > = {
   overdue: { bg: "rgba(239, 68, 68, 0.22)", text: "#FCA5A5" },
   dueGreen: { bg: "rgba(22, 163, 74, 0.35)", text: "#86EFAC" },
   dueOrange: { bg: "rgba(251, 146, 60, 0.28)", text: "#FDBA74" },
+  previous: { bg: "rgba(156, 163, 175, 0.2)", text: "#D1D5DB" },
 };
 
 export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   vaccination,
   category,
+  isLatestAdministrationForVaccine,
 }) => {
   const { pet } = useSelectedPet();
   const { theme, mode } = useTheme();
@@ -67,7 +72,9 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const hasDocument = !!vaccination.document_url;
-  const dueBadge = getVaccineDueBadge(vaccination.next_due_date, category);
+  const dueBadge = getVaccineDueBadge(vaccination.next_due_date, category, {
+    isLatestAdministrationForVaccine,
+  });
 
   const chrome = healthListCardChrome(theme, isDark);
   const { cardBg, overflowBtnBg, divider, iconPlate, iconInk } = chrome;

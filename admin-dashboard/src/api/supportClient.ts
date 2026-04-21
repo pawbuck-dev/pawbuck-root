@@ -3,6 +3,8 @@ import type {
   MiloClassifyExtractPreviewResponse,
   MiloClassifyPreviewBody,
   MiloClassifyResponse,
+  MiloJournalConfigSnapshot,
+  MiloJournalFeedbackAggregates,
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
@@ -158,5 +160,16 @@ export function createSupportClient(
         method: "POST",
         json: body,
       }),
+
+    getMiloJournalConfig: () => request<MiloJournalConfigSnapshot>("/api/support/milo/journal/config"),
+
+    patchMiloJournalConfig: (config: MiloJournalConfigSnapshot) =>
+      request<MiloJournalConfigSnapshot>("/api/support/milo/journal/config", {
+        method: "PATCH",
+        json: { config },
+      }),
+
+    getMiloJournalFeedbackAggregates: () =>
+      request<MiloJournalFeedbackAggregates>("/api/support/milo/journal/feedback-aggregates"),
   };
 }

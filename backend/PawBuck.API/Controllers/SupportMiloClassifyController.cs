@@ -128,7 +128,7 @@ public class SupportMiloClassifyController : ControllerBase
         }
         catch (Exception ex)
         {
-            extractionError = ex.Message;
+            extractionError = GeminiUserFacingErrors.FromExceptionMessage(ex.Message);
             _logger.LogWarning(ex, "Flexible extraction preview failed after classification");
         }
 
@@ -136,7 +136,7 @@ public class SupportMiloClassifyController : ControllerBase
         {
             DocumentType = classify.DocumentType,
             Confidence = classify.Confidence,
-            Reasoning = classify.Reasoning,
+            Reasoning = MapClassificationReasoningForAdmin(classify.Reasoning),
             ExtractionPromptByType = classify.ExtractionPrompt,
             NormalizedDocumentType = normalized,
             FlexibleExtractionPrompt = flexiblePrompt,
@@ -151,5 +151,15 @@ public class SupportMiloClassifyController : ControllerBase
             return value;
         var comma = value.IndexOf(',', StringComparison.Ordinal);
         return comma >= 0 && comma + 1 < value.Length ? value[(comma + 1)..] : value;
+    }
+
+    /// <summary>Keep model reasoning; only rewrite Gemini transport failures for the admin UI.</summary>
+    private static string? MapClassificationReasoningForAdmin(string? reasoning)
+    {
+        if (string.IsNullOrWhiteSpace(reasoning))
+            return reasoning;
+        if (reasoning.Contains("API error:", StringComparison.OrdinalIgnoreCase))
+            return GeminiUserFacingErrors.FromExceptionMessage(reasoning);
+        return reasoning;
     }
 }

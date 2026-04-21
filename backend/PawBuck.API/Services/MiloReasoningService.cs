@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,9 @@ public class MiloReasoningService : IMiloReasoningService
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly IMiloPetFactsService _petFacts;
+    private readonly IPetConversationalContextService _petConversationalContext;
+    private readonly IMiloJournalConfigProvider _journalConfig;
+    private readonly IMiloJournalTurnService _journalTurns;
     private readonly IKnowledgeBaseService _knowledgeBase;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<GeminiOptions> _geminiOptions;
@@ -24,6 +28,9 @@ public class MiloReasoningService : IMiloReasoningService
 
     public MiloReasoningService(
         IMiloPetFactsService petFacts,
+        IPetConversationalContextService petConversationalContext,
+        IMiloJournalConfigProvider journalConfig,
+        IMiloJournalTurnService journalTurns,
         IKnowledgeBaseService knowledgeBase,
         IHttpClientFactory httpClientFactory,
         IOptions<GeminiOptions> geminiOptions,
@@ -31,6 +38,9 @@ public class MiloReasoningService : IMiloReasoningService
         ILogger<MiloReasoningService> logger)
     {
         _petFacts = petFacts;
+        _petConversationalContext = petConversationalContext;
+        _journalConfig = journalConfig;
+        _journalTurns = journalTurns;
         _knowledgeBase = knowledgeBase;
         _httpClientFactory = httpClientFactory;
         _geminiOptions = geminiOptions;
@@ -87,9 +97,15 @@ public class MiloReasoningService : IMiloReasoningService
 
         var petContextBlock = BuildPetContextPrompt(request.Pet, petOwned);
 
-        if (request.JournalMode)
+        if (request.JournalMode && petId.HasValue && petOwned)
         {
-            var journalResponse = await RunJournalInterviewAsync(apiKey, request, petContextBlock, cancellationToken);
+            var journalResponse = await RunJournalInterviewAsync(
+                apiKey,
+                request,
+                petContextBlock,
+                userId,
+                petId.Value,
+                cancellationToken);
             if (journalResponse != null)
                 return journalResponse;
 
@@ -239,30 +255,25 @@ public class MiloReasoningService : IMiloReasoningService
         string apiKey,
         MiloChatRequest request,
         string petContextBlock,
+        Guid userId,
+        Guid petId,
         CancellationToken cancellationToken)
     {
         var userMessage = NormalizeJournalUserMessage(request.Message);
         if (string.IsNullOrEmpty(userMessage))
             return null;
 
-        var petName = request.Pet?.Name?.Trim() ?? "your pet";
-        var journalSystem = $"""
-            You are Milo (PawBuck pet assistant) running a **journal observation** interview for {petName}.
+        var config = await _journalConfig.GetAsync(cancellationToken);
+        var ctx = await _petConversationalContext.GetPetConversationalContextAsync(userId, petId, config, cancellationToken)
+                  ?? new PetConversationalContextDto();
 
-            Conversation style:
-            - Warm, brief, one question at a time.
-            - Ask clarifying follow-ups until you have enough context (duration, severity, changes in behavior, appetite, or energy).
-            - Do NOT diagnose or prescribe. Remind that this is general information, not medical advice; consult a veterinarian when appropriate.
-            - For emergency signs (toxins, seizures, collapse, severe bleeding, trouble breathing), tell the user to seek urgent veterinary care immediately.
-            - Keep answers under ~120 words. Use 🐕 sparingly when it fits.
+        var utcNow = DateTime.UtcNow;
+        var (hints, tags) = ContextEngine.EvaluateHeuristicGuidance(ctx, config, utcNow);
+        var petName = request.Pet?.Name?.Trim() ?? ctx.PetProfile.Name.Trim();
+        if (string.IsNullOrEmpty(petName))
+            petName = "your pet";
 
-            Output rules (JSON only):
-            - answer: your user-facing message only (no JSON).
-            - suggestedReplies: 2–4 short tap replies for the *next* user message that fits your question. If journalSessionComplete is true, suggestedReplies MUST be [] (empty array).
-            - journalSessionComplete: true when you have enough to log a meaningful entry (typically after 2–4 turns). When true, answer should confirm logging and monitoring.
-
-            Pet context:{petContextBlock}
-            """;
+        var journalSystem = ContextEngine.BuildProactiveJournalSystemPrompt(petName, petContextBlock, ctx, config, hints, tags);
 
         var contents = BuildHistoryContents(request.History, userMessage, isForPlan: false);
         var requestBody = new
@@ -271,8 +282,8 @@ public class MiloReasoningService : IMiloReasoningService
             contents,
             generationConfig = new
             {
-                temperature = 0.65,
-                maxOutputTokens = 1024,
+                temperature = config.JournalTemperature,
+                maxOutputTokens = config.JournalMaxOutputTokens,
                 response_mime_type = "application/json",
                 response_schema = new
                 {
@@ -320,14 +331,38 @@ public class MiloReasoningService : IMiloReasoningService
         if (complete)
             replies = [];
 
+        Guid responseId;
+        try
+        {
+            responseId = await _journalTurns.RegisterTurnAsync(
+                userId,
+                petId,
+                config.PromptVersion,
+                tags,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register journal turn; continuing without responseId");
+            responseId = Guid.Empty;
+        }
+
+        var usedData = ctx.RecentMedicalHistory.Count > 0
+            || ctx.RecentJournalNotes.Count > 0
+            || ctx.UpcomingMilestones.Count > 0
+            || hints.Count > 0;
+
         return new MiloChatResponse
         {
             Answer = answer,
             JournalSessionComplete = complete,
             SuggestedReplies = replies,
             PetName = request.Pet?.Name,
-            UsedPetData = false,
+            UsedPetData = usedData,
             UsedRag = false,
+            ResponseId = responseId == Guid.Empty ? null : responseId,
+            PromptVersion = config.PromptVersion,
+            HeuristicTags = tags,
         };
     }
 
@@ -526,9 +561,10 @@ public class MiloReasoningService : IMiloReasoningService
     {
         var client = _httpClientFactory.CreateClient("Gemini");
         var model = ResolveGenerateModel();
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
         using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.SetGeminiApiKey(apiKey);
 
         var httpResponse = await client.SendAsync(request, cancellationToken);
         if (!httpResponse.IsSuccessStatusCode)

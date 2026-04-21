@@ -135,3 +135,32 @@ export interface MiloClassifyExtractPreviewResponse {
   extractedJson: string | null;
   extractionError: string | null;
 }
+
+/** Journal Milo tuning — matches PawBuck.API MiloJournalConfigSnapshot. */
+export interface MiloJournalConfigSnapshot {
+  recentMedicalWindowDays: number;
+  upcomingMilestoneWindowDays: number;
+  recentJournalNotesCount: number;
+  seniorAgeYears: number;
+  postVaccineFocusDays: number;
+  newMedicationFocusDays: number;
+  limpingLookbackHours: number;
+  quietJournalDays: number;
+  surgeryExamTypePatterns: string[];
+  promptVersion: string;
+  journalTemperature: number;
+  journalMaxOutputTokens: number;
+}
+
+export interface MiloJournalFeedbackByVersionRow {
+  promptVersion: string;
+  upCount: number;
+  downCount: number;
+}
+
+export interface MiloJournalFeedbackAggregates {
+  totalFeedback: number;
+  upCount: number;
+  downCount: number;
+  byPromptVersion: MiloJournalFeedbackByVersionRow[];
+}

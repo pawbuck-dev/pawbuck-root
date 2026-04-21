@@ -84,6 +84,18 @@ public class MiloChatResponse
     /// <summary>When true, the journal interview is finished and the client should persist one entry.</summary>
     [JsonPropertyName("journalSessionComplete")]
     public bool JournalSessionComplete { get; set; }
+
+    /// <summary>Server id for this assistant turn; use with POST feedback (journal mode).</summary>
+    [JsonPropertyName("responseId")]
+    public Guid? ResponseId { get; set; }
+
+    /// <summary>Prompt pack version from journal config (journal mode).</summary>
+    [JsonPropertyName("promptVersion")]
+    public string? PromptVersion { get; set; }
+
+    /// <summary>Heuristic tags applied when generating this response (journal mode).</summary>
+    [JsonPropertyName("heuristicTags")]
+    public IReadOnlyList<string>? HeuristicTags { get; set; }
 }
 
 /// <summary>Gemini plan step (JSON). Property names match API camelCase.</summary>

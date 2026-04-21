@@ -18,6 +18,7 @@ import { Tables, TablesUpdate } from "@/database.types";
 import { VaccineCategory } from "@/services/vaccineRequirements";
 import { formatDateLong } from "@/utils/dates";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
+import { isLatestVaccinationRow } from "@/utils/vaccinationGrouping";
 import { categorySubtitle, getVaccineDueBadge } from "@/utils/vaccinationUi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -35,21 +36,23 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BADGE_STYLES_LIGHT: Record<
-  "overdue" | "dueGreen" | "dueOrange",
+  "overdue" | "dueGreen" | "dueOrange" | "previous",
   { bg: string; text: string }
 > = {
   overdue: { bg: "rgba(239, 68, 68, 0.12)", text: "#DC2626" },
   dueGreen: { bg: "rgba(34, 197, 94, 0.12)", text: "#15803D" },
   dueOrange: { bg: "rgba(251, 146, 60, 0.16)", text: "#C2410C" },
+  previous: { bg: "rgba(107, 114, 128, 0.14)", text: "#4B5563" },
 };
 
 const BADGE_STYLES_DARK: Record<
-  "overdue" | "dueGreen" | "dueOrange",
+  "overdue" | "dueGreen" | "dueOrange" | "previous",
   { bg: string; text: string }
 > = {
   overdue: { bg: "rgba(239, 68, 68, 0.22)", text: "#FCA5A5" },
   dueGreen: { bg: "rgba(22, 163, 74, 0.35)", text: "#86EFAC" },
   dueOrange: { bg: "rgba(251, 146, 60, 0.28)", text: "#FDBA74" },
+  previous: { bg: "rgba(156, 163, 175, 0.2)", text: "#D1D5DB" },
 };
 
 /** Figma 1386:44644 — clock on peach plate (not grey like other rows) */
@@ -105,8 +108,15 @@ export default function VaccinationDetailScreen() {
   );
 
   const hasDocument = !!vaccination?.document_url;
+  const isLatestForVaccine = useMemo(
+    () =>
+      vaccination ? isLatestVaccinationRow(vaccinations, vaccination.id) : false,
+    [vaccinations, vaccination]
+  );
   const dueBadge = vaccination
-    ? getVaccineDueBadge(vaccination.next_due_date, category)
+    ? getVaccineDueBadge(vaccination.next_due_date, category, {
+        isLatestAdministrationForVaccine: isLatestForVaccine,
+      })
     : null;
   const badgePalette = isDark ? BADGE_STYLES_DARK : BADGE_STYLES_LIGHT;
   const badgeColors = dueBadge ? badgePalette[dueBadge.variant] : null;

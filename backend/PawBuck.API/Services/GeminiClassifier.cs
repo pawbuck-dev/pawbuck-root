@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -102,9 +103,9 @@ public class GeminiClassifier : IDocumentClassifier
         string mimeType,
         CancellationToken cancellationToken)
     {
-        var apiKey = _options.Value.ApiKey;
+        var apiKey = _options.Value.ApiKey?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY")?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             if (Interlocked.CompareExchange(ref _missingApiKeyLogged, 1, 0) == 0)
@@ -124,9 +125,10 @@ public class GeminiClassifier : IDocumentClassifier
         var model = string.IsNullOrWhiteSpace(_options.Value.Model)
             ? GeminiOptions.DefaultModelId
             : _options.Value.Model!.Trim();
-        var url = $"{GeminiBaseUrl}{model}:generateContent?key={apiKey}";
+        var url = $"{GeminiBaseUrl}{model}:generateContent";
         using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.SetGeminiApiKey(apiKey);
 
         var httpResponse = await geminiClient.SendAsync(request, cancellationToken);
 

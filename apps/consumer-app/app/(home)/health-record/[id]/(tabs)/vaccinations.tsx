@@ -10,10 +10,11 @@ import { useTheme } from "@/context/themeContext";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { VaccineCategory } from "@/services/vaccineRequirements";
+import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -80,6 +81,11 @@ export default function VaccinationsScreen() {
   }
 
   const { required, recommended, other } = categorizedVaccinations;
+
+  const latestVaccineRowIds = useMemo(
+    () => latestVaccinationIdSet(vaccinations),
+    [vaccinations]
+  );
 
   const sections: { category: VaccineCategory; items: typeof required }[] = [
     { category: "required", items: required },
@@ -162,6 +168,7 @@ export default function VaccinationsScreen() {
                       key={item.vaccination.id}
                       vaccination={item.vaccination}
                       category={item.category}
+                      isLatestAdministrationForVaccine={latestVaccineRowIds.has(item.vaccination.id)}
                     />
                   ))}
                 </View>

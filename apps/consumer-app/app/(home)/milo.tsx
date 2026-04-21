@@ -12,7 +12,11 @@ import {
   appendPetLog,
   syncPetLogToServer,
 } from "@/utils/miloJournalStorage";
-import { fetchMiloChat, SubscriptionRequiredError } from "@/utils/miloChatApi";
+import {
+  fetchMiloChat,
+  submitMiloJournalFeedback,
+  SubscriptionRequiredError,
+} from "@/utils/miloChatApi";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
   extractPetLogEntry,
@@ -50,6 +54,8 @@ type Row = CM & {
   journalSessionComplete?: boolean;
   /** True when answer came from local offline script (API unreachable). */
   offlineFallback?: boolean;
+  responseId?: string;
+  feedbackRating?: "up" | "down";
 };
 
 export default function MiloJournalChatScreen() {
@@ -111,6 +117,7 @@ export default function MiloJournalChatScreen() {
         suggestedReplies?: string[];
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
+        responseId?: string;
       }
     ) => {
       const m: Row = {
@@ -122,8 +129,23 @@ export default function MiloJournalChatScreen() {
         suggestedReplies: extras?.suggestedReplies,
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
+        responseId: extras?.responseId,
       };
       setMessages((prev) => [...prev, m]);
+    },
+    []
+  );
+
+  const onJournalFeedback = useCallback(
+    async (messageId: string, responseId: string, rating: "up" | "down") => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, feedbackRating: rating } : m))
+      );
+      try {
+        await submitMiloJournalFeedback({ responseId, rating });
+      } catch (e) {
+        console.warn("Journal feedback failed:", e);
+      }
     },
     []
   );
@@ -186,6 +208,7 @@ export default function MiloJournalChatScreen() {
         pushAssistant(result.answer, severityForTurn, {
           suggestedReplies: result.suggestedReplies,
           journalSessionComplete: result.journalSessionComplete,
+          responseId: result.responseId,
         });
 
         if (result.journalSessionComplete) {
@@ -242,6 +265,46 @@ export default function MiloJournalChatScreen() {
         composePetId: pet.id,
       },
     } as any);
+  };
+
+  const renderJournalFeedback = (m: Row) => {
+    if (m.role !== "assistant" || m.offlineFallback || !m.responseId) return null;
+    const active = m.feedbackRating;
+    return (
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginLeft: 56,
+          marginBottom: 8,
+          gap: 16,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: theme.secondary }}>Was this helpful?</Text>
+        <TouchableOpacity
+          onPress={() => void onJournalFeedback(m.id, m.responseId!, "up")}
+          hitSlop={8}
+          accessibilityLabel="Thumbs up"
+        >
+          <Ionicons
+            name="thumbs-up"
+            size={20}
+            color={active === "up" ? theme.primary : theme.secondary}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => void onJournalFeedback(m.id, m.responseId!, "down")}
+          hitSlop={8}
+          accessibilityLabel="Thumbs down"
+        >
+          <Ionicons
+            name="thumbs-down"
+            size={20}
+            color={active === "down" ? "#b91c1c" : theme.secondary}
+          />
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const renderActions = (m: Row, index: number) => {
@@ -630,6 +693,7 @@ export default function MiloJournalChatScreen() {
         renderItem={({ item, index }) => (
           <View>
             <ChatMessage message={item} isNew={index === messages.length - 1} />
+            {renderJournalFeedback(item)}
             {renderActions(item, index)}
           </View>
         )}

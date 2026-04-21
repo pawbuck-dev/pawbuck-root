@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -36,9 +37,9 @@ public class GeminiEmbeddingService : IEmbeddingService
         if (string.IsNullOrWhiteSpace(text))
             return new float[EmbeddingDimensions];
 
-        var apiKey = _options.Value.ApiKey;
+        var apiKey = _options.Value.ApiKey?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY")?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             if (Interlocked.CompareExchange(ref _missingApiKeyLogged, 1, 0) == 0)
@@ -58,9 +59,10 @@ public class GeminiEmbeddingService : IEmbeddingService
         };
 
         var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{ModelName}:embedContent?key={apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{ModelName}:embedContent";
         using var requestContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = requestContent };
+        request.SetGeminiApiKey(apiKey);
 
         var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

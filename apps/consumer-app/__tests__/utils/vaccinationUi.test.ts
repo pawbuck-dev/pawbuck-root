@@ -1,4 +1,14 @@
-import { getRequiredVaccinesCompliantBody } from "@/utils/vaccinationUi";
+import { getRequiredVaccinesCompliantBody, getVaccineDueBadge } from "@/utils/vaccinationUi";
+
+describe("getVaccineDueBadge", () => {
+  it("shows Previous dose when not the latest administration for that vaccine name", () => {
+    const b = getVaccineDueBadge("2024-01-01", "required", {
+      isLatestAdministrationForVaccine: false,
+    });
+    expect(b?.variant).toBe("previous");
+    expect(b?.label).toBe("Previous dose");
+  });
+});
 
 describe("getRequiredVaccinesCompliantBody", () => {
   it("returns U.S. copy for United States", () => {

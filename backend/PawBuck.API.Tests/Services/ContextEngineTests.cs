@@ -1,0 +1,93 @@
+using FluentAssertions;
+using PawBuck.API.Models;
+using PawBuck.API.Services;
+using Xunit;
+
+namespace PawBuck.API.Tests.Services;
+
+public class ContextEngineTests
+{
+    [Fact]
+    public void EvaluateHeuristicGuidance_PostVaccineWithinWindow_AddsTag()
+    {
+        var config = MiloJournalConfigSnapshot.Defaults();
+        var utc = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace", IsSenior = false },
+            RecentMedicalHistory =
+            {
+                new RecentMedicalEvent { Type = "vaccination", Name = "Rabies", Date = "2025-06-08" },
+            },
+        };
+
+        var (_, tags) = ContextEngine.EvaluateHeuristicGuidance(ctx, config, utc);
+
+        tags.Should().Contain(ContextEngine.TagPostVaccine);
+    }
+
+    [Fact]
+    public void EvaluateHeuristicGuidance_LimpingInRecentJournal_AddsTag()
+    {
+        var config = MiloJournalConfigSnapshot.Defaults();
+        var utc = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace", IsSenior = false },
+            RecentJournalNotes =
+            {
+                new RecentJournalNote
+                {
+                    Domain = "health",
+                    Subtype = "walk",
+                    Note = "Seems to be limping on the back leg",
+                    EntryDate = "2025-06-10",
+                    CreatedAt = utc.ToString("o"),
+                },
+            },
+        };
+
+        var (_, tags) = ContextEngine.EvaluateHeuristicGuidance(ctx, config, utc);
+
+        tags.Should().Contain(ContextEngine.TagLimping);
+    }
+
+    [Fact]
+    public void EvaluateHeuristicGuidance_SeniorQuietJournal_AddsTag()
+    {
+        var config = MiloJournalConfigSnapshot.Defaults();
+        var utc = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace", IsSenior = true },
+            RecentJournalNotes =
+            {
+                new RecentJournalNote
+                {
+                    Domain = "health",
+                    Subtype = "note",
+                    Note = "Old",
+                    EntryDate = "2025-05-01",
+                    CreatedAt = new DateTime(2025, 5, 1, 12, 0, 0, DateTimeKind.Utc).ToString("o"),
+                },
+            },
+        };
+
+        var (_, tags) = ContextEngine.EvaluateHeuristicGuidance(ctx, config, utc);
+
+        tags.Should().Contain(ContextEngine.TagSeniorQuiet);
+    }
+
+    [Fact]
+    public void MiloJournalConfigSnapshot_Merge_RespectsOverrides()
+    {
+        var merged = MiloJournalConfigSnapshot.Merge(new MiloJournalConfigSnapshot
+        {
+            PostVaccineFocusDays = 5,
+            PromptVersion = "v2-test",
+        });
+        merged.PostVaccineFocusDays.Should().Be(5);
+        merged.PromptVersion.Should().Be("v2-test");
+        merged.RecentMedicalWindowDays.Should().Be(14);
+    }
+}

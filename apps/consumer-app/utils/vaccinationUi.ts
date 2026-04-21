@@ -1,19 +1,37 @@
 import { VaccineCategory } from "@/services/vaccineRequirements";
 
-export type VaccineDueBadgeVariant = "overdue" | "dueGreen" | "dueOrange";
+export type VaccineDueBadgeVariant =
+  | "overdue"
+  | "dueGreen"
+  | "dueOrange"
+  | "previous";
 
 export type VaccineDueBadge = {
   label: string;
   variant: VaccineDueBadgeVariant;
 } | null;
 
+export type VaccineDueBadgeOptions = {
+  /**
+   * When false, this row is an older dose of the same vaccine name; show a neutral "Previous dose" pill
+   * instead of overdue / due-soon based on that row's next_due_date.
+   */
+  isLatestAdministrationForVaccine?: boolean;
+};
+
 /**
  * Figma-style status line: "Due in 25 days", "Overdue 10 Days", etc.
+ * Only the latest administration per vaccine name should drive overdue/due-soon (see vaccinationGrouping).
  */
 export function getVaccineDueBadge(
   nextDueDate: string | null,
-  category: VaccineCategory
+  category: VaccineCategory,
+  options?: VaccineDueBadgeOptions
 ): VaccineDueBadge {
+  const isLatest = options?.isLatestAdministrationForVaccine !== false;
+  if (!isLatest) {
+    return { label: "Previous dose", variant: "previous" };
+  }
   if (!nextDueDate) return null;
   const due = new Date(nextDueDate);
   due.setHours(0, 0, 0, 0);

@@ -20,6 +20,10 @@ export type MiloChatApiResult = {
   answer: string;
   suggestedReplies?: string[];
   journalSessionComplete?: boolean;
+  /** Journal mode: server turn id for POST /api/milo/chat/feedback */
+  responseId?: string;
+  promptVersion?: string;
+  heuristicTags?: string[];
 };
 
 /** Pet fields sent to POST /api/milo/chat (matches chatContext PetContext). */
@@ -99,6 +103,9 @@ export async function fetchMiloChat(params: {
     answer?: string;
     suggestedReplies?: string[];
     journalSessionComplete?: boolean;
+    responseId?: string;
+    promptVersion?: string;
+    heuristicTags?: string[];
   };
   if (!data?.answer) {
     throw new Error("No response received");
@@ -108,7 +115,49 @@ export async function fetchMiloChat(params: {
     answer: data.answer,
     suggestedReplies: data.suggestedReplies,
     journalSessionComplete: data.journalSessionComplete,
+    responseId: data.responseId,
+    promptVersion: data.promptVersion,
+    heuristicTags: data.heuristicTags,
   };
+}
+
+/** Thumbs up/down for a journal Milo assistant turn. */
+export async function submitMiloJournalFeedback(params: {
+  responseId: string;
+  rating: "up" | "down";
+}): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error("Please sign in to send feedback.");
+  }
+
+  const baseUrl = getPawbuckApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error("PawBuck API URL is not configured (EXPO_PUBLIC_PAWBUCK_API_URL).");
+  }
+
+  const res = await fetch(`${baseUrl}/api/milo/chat/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      responseId: params.responseId,
+      rating: params.rating,
+    }),
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    throw new Error("Session expired.");
+  }
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `Feedback failed (${res.status})`);
+  }
 }
 
 /** Same as `fetchMiloChat` but returns only the answer string (for the main Milo modal). */

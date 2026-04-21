@@ -23,6 +23,7 @@ public class MiloController : ControllerBase
     private readonly IUserEntitlementService _entitlements;
     private readonly ISubscriptionFeatureGateService _featureGates;
     private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
+    private readonly IMiloJournalTurnService _journalTurns;
 
     public MiloController(
         MiloRagService ragService,
@@ -33,7 +34,8 @@ public class MiloController : ControllerBase
         ILogger<MiloController> logger,
         IUserEntitlementService entitlements,
         ISubscriptionFeatureGateService featureGates,
-        IOptions<SubscriptionOptions> subscriptionOptions)
+        IOptions<SubscriptionOptions> subscriptionOptions,
+        IMiloJournalTurnService journalTurns)
     {
         _ragService = ragService;
         _reasoning = reasoning;
@@ -44,6 +46,7 @@ public class MiloController : ControllerBase
         _entitlements = entitlements;
         _featureGates = featureGates;
         _subscriptionOptions = subscriptionOptions;
+        _journalTurns = journalTurns;
     }
 
     /// <summary>
@@ -93,6 +96,35 @@ public class MiloController : ControllerBase
                 PetName = request.Pet?.Name,
             });
         }
+    }
+
+    /// <summary>
+    /// Thumbs up/down on a journal Milo assistant turn (<see cref="MiloChatResponse.ResponseId"/>).
+    /// </summary>
+    [Authorize]
+    [HttpPost("chat/feedback")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PostJournalFeedback(
+        [FromBody] MiloJournalFeedbackRequest? body,
+        CancellationToken cancellationToken)
+    {
+        if (body == null || body.ResponseId == Guid.Empty)
+            return BadRequest(new { error = "responseId is required" });
+        var r = (body.Rating ?? "").Trim().ToLowerInvariant();
+        if (r is not ("up" or "down"))
+            return BadRequest(new { error = "rating must be 'up' or 'down'" });
+
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        var ok = await _journalTurns.TrySubmitFeedbackAsync(userId, body.ResponseId, r, cancellationToken);
+        if (!ok)
+            return NotFound(new { error = "Turn not found, expired, or not yours." });
+
+        return Ok(new { ok = true });
     }
 
     /// <summary>

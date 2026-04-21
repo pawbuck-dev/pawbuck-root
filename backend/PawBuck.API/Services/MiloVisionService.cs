@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -120,9 +121,9 @@ public class MiloVisionService : IMiloVisionService
         CancellationToken cancellationToken)
     {
         var base64 = Convert.ToBase64String(bytes);
-        var apiKey = _geminiOptions.Value.ApiKey;
+        var apiKey = _geminiOptions.Value.ApiKey?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY")?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Gemini API key is not configured");
 
@@ -182,9 +183,9 @@ public class MiloVisionService : IMiloVisionService
         if (bytes.Length == 0)
             throw new ArgumentException("File bytes are empty.", nameof(bytes));
 
-        var apiKey = _geminiOptions.Value.ApiKey;
+        var apiKey = _geminiOptions.Value.ApiKey?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
-            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY");
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY")?.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Gemini API key is not configured");
 
@@ -352,9 +353,10 @@ public class MiloVisionService : IMiloVisionService
     private async Task<string> CallGeminiGenerateContentAsync(object requestBody, string apiKey, string model, CancellationToken cancellationToken)
     {
         var geminiClient = _httpClientFactory.CreateClient("Gemini");
-        var url = $"{GeminiBaseUrl}{model}:generateContent?key={apiKey}";
+        var url = $"{GeminiBaseUrl}{model}:generateContent";
         using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.SetGeminiApiKey(apiKey);
         var httpResponse = await geminiClient.SendAsync(request, cancellationToken);
         var json = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
         if (!httpResponse.IsSuccessStatusCode)
