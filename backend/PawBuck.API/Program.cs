@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Polly;
 using PawBuck.API.Security;
+using Microsoft.Extensions.Hosting;
 using PawBuck.API.Configuration;
 using PawBuck.API.Models;
 using PawBuck.API.Scheduling;
@@ -195,6 +196,14 @@ builder.Services.AddScoped<IMiloJournalTurnService>(sp => sp.GetRequiredService<
 builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
+
+builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection(DocumentSyncOptions.SectionName));
+builder.Services.Configure<ProactivePetHealthOptions>(builder.Configuration.GetSection(ProactivePetHealthOptions.SectionName));
+builder.Services.AddScoped<IPetDocumentClinicalSyncService, PetDocumentClinicalSyncService>();
+builder.Services.AddHttpClient("ExpoPush");
+builder.Services.AddSingleton<IExpoPushService, ExpoPushService>();
+builder.Services.AddHostedService<DocumentSyncWorker>();
+builder.Services.AddHostedService<ProactivePetHealthWorker>();
 
 builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
 builder.Services.AddMemoryCache();
