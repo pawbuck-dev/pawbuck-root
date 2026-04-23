@@ -244,4 +244,20 @@ public class GeminiOptions
 
     /// <summary>Model id for vision/classification. Defaults to <see cref="DefaultModelId"/>.</summary>
     public string? Model { get; set; }
+
+    /// <summary>
+    /// Unversioned <c>gemini-1.5-*</c> short names often return 404 NOT_FOUND for <c>generateContent</c> on
+    /// <c>generativelanguage.googleapis.com/v1beta</c> with typical Google AI Studio keys.
+    /// </summary>
+    public static bool IsLikelyUnsupportedGenerativeLanguageModel(string? modelId)
+    {
+        if (string.IsNullOrWhiteSpace(modelId))
+            return false;
+        var m = modelId.Trim();
+        if (m.StartsWith("gemini-2.", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return m.Equals("gemini-1.5-flash", StringComparison.OrdinalIgnoreCase)
+            || m.Equals("gemini-1.5-pro", StringComparison.OrdinalIgnoreCase)
+            || m.Equals("gemini-1.5-flash-8b", StringComparison.OrdinalIgnoreCase);
+    }
 }

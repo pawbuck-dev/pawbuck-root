@@ -86,6 +86,13 @@ For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
 
 `arn:aws:secretsmanager:REGION:ACCOUNT:secret:pawbuck/prod/gemini-AbCdEf:ApiKey::`
 
+**Model id (`Gemini:Model`)**
+
+- Default in the repo is **`gemini-2.5-flash`** ([appsettings.json](../backend/PawBuck.API/appsettings.json), `GeminiOptions.DefaultModelId`).
+- ECS **environment variables** override appsettings: **`Gemini__Model`** or **`GEMINI_MODEL`** (when `Gemini:Model` is empty in config) can force a different model.
+- Do **not** set unversioned **`gemini-1.5-flash`** or **`gemini-1.5-pro`** for the Generative Language API with typical **AI Studio** keys — they often return **404 NOT_FOUND** for `generateContent` on `v1beta`. Prefer **removing** those env vars so the default applies, or set an id that **ListModels** shows for your key.
+- At startup, the API **remaps** a few legacy short names (`gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-1.5-flash-8b`) to **`gemini-2.5-flash`** and logs a warning — you should still fix the task definition to avoid confusion.
+
 **4. Deploy script / GitHub Actions**
 
 [scripts/deploy/ecs-merge-pawbuck-api-env.sh](../scripts/deploy/ecs-merge-pawbuck-api-env.sh) can merge this for you on each API deploy when **`SUPABASE_JWT_SECRET`** is set (same condition as today’s JWT merge):

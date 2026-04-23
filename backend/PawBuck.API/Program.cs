@@ -58,6 +58,8 @@ builder.Services.PostConfigure<GeminiOptions>(options =>
         options.ApiKey = adminKey;
 });
 
+builder.Services.AddSingleton<IPostConfigureOptions<GeminiOptions>, GeminiModelPostConfigure>();
+
 // HttpClient for downloading document images (no retry)
 builder.Services.AddHttpClient("DocumentImageDownload");
 
