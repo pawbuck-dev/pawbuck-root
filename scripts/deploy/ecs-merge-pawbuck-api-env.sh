@@ -4,6 +4,8 @@
 # Optional: AWS_ECS_CONTAINER_NAME (defaults to first container in the task definition).
 # Optional: SUPABASE_PROJECT_URL — maps to Supabase__Url (same as project URL, e.g. https://REF.supabase.co). Often set from GitHub Variable VITE_SUPABASE_URL in deploy-aws.yml.
 # Optional: ADMIN_CORS_ORIGIN — e.g. https://d123.cloudfront.net — sets Cors__AllowedOrigins__0 so the hosted admin SPA can call the API (browser CORS).
+# Optional: GEMINI_SECRET_ARN — full Secrets Manager secret ARN for the Gemini API key. When set, adds container secret Gemini__ApiKey (valueFrom) and removes plaintext Gemini env vars from the merged environment. See docs/AWS.md (Gemini + ECS).
+# Optional: GEMINI_SECRET_JSON_KEY — when set with GEMINI_SECRET_ARN, appends :KEY:: to valueFrom for JSON-shaped secrets (e.g. ApiKey). Leave empty when the secret stores the raw key string only.
 set -euo pipefail
 
 CLUSTER="${AWS_ECS_CLUSTER:?Set AWS_ECS_CLUSTER}"
@@ -17,6 +19,15 @@ SUPABASE_PROJECT_URL="$(echo -n "$SUPABASE_PROJECT_URL" | tr -d '\r' | sed 's/[[
 ADMIN_CORS_ORIGIN="${ADMIN_CORS_ORIGIN:-}"
 ADMIN_CORS_ORIGIN="$(echo -n "$ADMIN_CORS_ORIGIN" | tr -d '\r' | sed 's/[[:space:]]*$//' | sed 's#/*$##')"
 
+GEMINI_SECRET_ARN="${GEMINI_SECRET_ARN:-}"
+GEMINI_SECRET_ARN="$(echo -n "$GEMINI_SECRET_ARN" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+GEMINI_SECRET_JSON_KEY="${GEMINI_SECRET_JSON_KEY:-}"
+GEMINI_SECRET_JSON_KEY="$(echo -n "$GEMINI_SECRET_JSON_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+GEMINI_VALUE_FROM="$GEMINI_SECRET_ARN"
+if [ -n "$GEMINI_VALUE_FROM" ] && [ -n "$GEMINI_SECRET_JSON_KEY" ]; then
+  GEMINI_VALUE_FROM="${GEMINI_VALUE_FROM}:${GEMINI_SECRET_JSON_KEY}::"
+fi
+
 TD_ARN="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --region "$REGION" --query 'services[0].taskDefinition' --output text)"
 aws ecs describe-task-definition --task-definition "$TD_ARN" --region "$REGION" --query 'taskDefinition' > /tmp/td-full.json
 
@@ -24,7 +35,7 @@ if [ -z "$CONTAINER_NAME" ]; then
   CONTAINER_NAME="$(jq -r '.containerDefinitions[0].name' /tmp/td-full.json)"
 fi
 
-jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg corsOrigin "$ADMIN_CORS_ORIGIN" '
+jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" '
   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
   | .containerDefinitions |= map(
       if .name == $cname then
@@ -36,7 +47,8 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             .name != "Supabase__JwtSecret" and
             .name != "ASPNETCORE_URLS" and
             .name != "Supabase__Url" and
-            (.name | test("^Cors__AllowedOrigins__") | not)
+            (.name | test("^Cors__AllowedOrigins__") | not) and
+            (($gem | length) == 0 or (.name != "Gemini__ApiKey" and .name != "GOOGLE_GEMINI_API_KEY"))
           ))) +
           [
             {"name":"ASPNETCORE_ENVIRONMENT","value":"Production"},
@@ -47,6 +59,9 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
           (if ($supUrl | length) > 0 then [{"name":"Supabase__Url","value":$supUrl}] else [] end) +
           (if ($corsOrigin | length) > 0 then [{"name":"Cors__AllowedOrigins__0","value":$corsOrigin}] else [] end)
         )
+        | if ($gem | length) > 0 then
+            .secrets = (((.secrets // []) | map(select(.name != "Gemini__ApiKey"))) + [{"name":"Gemini__ApiKey","valueFrom":$gem}])
+          else . end
       else . end
     )
 ' /tmp/td-full.json > /tmp/td-register.json

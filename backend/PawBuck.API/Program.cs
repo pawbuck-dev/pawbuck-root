@@ -26,7 +26,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// Gemini: Gemini:ApiKey, env GOOGLE_GEMINI_API_KEY, or (dev convenience) Admin:ApiKey if it looks like an AI Studio key (AIza…)
+// Gemini: Gemini:ApiKey, env GOOGLE_GEMINI_API_KEY, or (dev convenience) Admin:ApiKey if it looks like an AI Studio key (AIza…).
+// Production (ECS): inject Gemini__ApiKey from AWS Secrets Manager — see docs/AWS.md.
 builder.Services.Configure<GeminiOptions>(options =>
 {
     builder.Configuration.GetSection(GeminiOptions.SectionName).Bind(options);

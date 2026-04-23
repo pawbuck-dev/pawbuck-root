@@ -25,6 +25,7 @@ This is the monorepo for PawBuck, containing all applications, backend services,
 | [docs/SUPABASE.md](docs/SUPABASE.md) | Single source of truth for migrations (`supabase/` root) |
 | [docs/COMPLIANCE-BACKLOG.md](docs/COMPLIANCE-BACKLOG.md) | Data map, deletion/export, store checklist |
 | [docs/TESTING.md](docs/TESTING.md) | Commands and coverage notes |
+| [docs/AWS.md](docs/AWS.md) | ECS deploy, GitHub Actions, **Gemini via Secrets Manager** |
 
 ## Getting Started
 

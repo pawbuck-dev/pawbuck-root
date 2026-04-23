@@ -74,6 +74,9 @@ jobs:
           AWS_ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
           AWS_ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          # Optional: full Secrets Manager ARN for Gemini; merge script injects container secret Gemini__ApiKey. See docs/AWS.md.
+          GEMINI_SECRET_ARN: ${{ secrets.GEMINI_SECRET_ARN }}
+          GEMINI_SECRET_JSON_KEY: ${{ vars.GEMINI_SECRET_JSON_KEY }}
         run: |
           set -eux
           # Trim pasted newlines from GitHub Variables (avoids aws/curl "malformed" issues).

@@ -35,6 +35,72 @@ Set the same values you use locally (`appsettings`), via task definition env or 
 - Optional: `Admin__RequiredAppMetadataRole` (default `admin`), `Admin__AllowAnonymousSupportInDevelopment` (must be **false** in Production)
 - Scheduling / vendor keys as needed
 
+### Gemini API key (Secrets Manager + ECS, recommended)
+
+Store the Google AI Studio / Gemini key in **AWS Secrets Manager** and inject it at task startup as a **container secret** (not a plain `environment` value). The API reads **`Gemini__ApiKey`** (same as `Gemini:ApiKey` in appsettings) or **`GOOGLE_GEMINI_API_KEY`** — see [backend/PawBuck.API/Program.cs](../backend/PawBuck.API/Program.cs). ECS maps the secret into the process environment for you; **no .NET AWS SDK is required**.
+
+**1. Create the secret**
+
+- **Plain string secret:** the secret value is only the API key (one line). Use the secret’s **full ARN** as `valueFrom` (see step 3).
+- **JSON secret:** e.g. `{"ApiKey":"AIza…"}`. ECS `valueFrom` must include the JSON key and trailing colons: append **`:ApiKey::`** to the full secret ARN (see [specifying JSON key](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data-secrets.html)).
+
+**2. IAM on the ECS task execution role**
+
+The role in **`executionRoleArn`** on the task definition must allow ECS to call `GetSecretValue` when starting tasks:
+
+- `secretsmanager:GetSecretValue` on the secret ARN (tighten resource to that ARN or prefix).
+- If the secret uses a **customer managed KMS key**, also allow `kms:Decrypt` on that key.
+
+Without this, new tasks fail with **ResourceInitializationError** / cannot pull secrets.
+
+Example statement (replace the secret ARN; add `kms:Decrypt` if you use a CMK):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcsExecutionReadGeminiSecret",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:pawbuck/prod/gemini-*"
+    }
+  ]
+}
+```
+
+**3. Task definition `secrets`**
+
+On the API container, add (example names only):
+
+```json
+"secrets": [
+  {
+    "name": "Gemini__ApiKey",
+    "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:pawbuck/prod/gemini-AbCdEf"
+  }
+]
+```
+
+For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
+
+`arn:aws:secretsmanager:REGION:ACCOUNT:secret:pawbuck/prod/gemini-AbCdEf:ApiKey::`
+
+**4. Deploy script / GitHub Actions**
+
+[scripts/deploy/ecs-merge-pawbuck-api-env.sh](../scripts/deploy/ecs-merge-pawbuck-api-env.sh) can merge this for you on each API deploy when **`SUPABASE_JWT_SECRET`** is set (same condition as today’s JWT merge):
+
+| Input | Type | Purpose |
+|-------|------|---------|
+| `GEMINI_SECRET_ARN` | GitHub **Actions secret** (optional) | Full Secrets Manager ARN for the Gemini key (plaintext secret). When set, the script adds/replaces container secret **`Gemini__ApiKey`** and removes plaintext **`Gemini__ApiKey`** / **`GOOGLE_GEMINI_API_KEY`** from the merged **environment** so the key is not duplicated in the task definition JSON. |
+| `GEMINI_SECRET_JSON_KEY` | GitHub **Actions variable** (optional) | e.g. `ApiKey` — appended as `:KEY::` to `GEMINI_SECRET_ARN` for JSON-shaped secrets. Leave empty when the secret stores the raw key only. |
+
+If `GEMINI_SECRET_ARN` is unset, the script leaves existing container `secrets` / Gemini env as-is (manual console setup still works).
+
+**5. Local development (unchanged)**
+
+ECS injection applies only in AWS. On your machine, keep using **`appsettings.Local.json`** (copy from `appsettings.Local.example.json`), **`GOOGLE_GEMINI_API_KEY`**, or **`Gemini__ApiKey`** in the shell / IDE — same as [Program.cs](../backend/PawBuck.API/Program.cs). Do not commit real keys.
+
 **Support routes** (`/api/support/*`) require a **Supabase access token** whose JWT includes `app_metadata.role` matching `Admin:RequiredAppMetadataRole` (see below). No shared API key.
 
 ### CORS (admin browser → API)
@@ -116,6 +182,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
    - **Secret (recommended):** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). If set, the **Deploy AWS** API job merges it (and related env) into the ECS task definition. If omitted, the workflow only **forces a new deployment** (you can keep JWT set manually on the task definition).
+   - **Secret (optional):** `GEMINI_SECRET_ARN` = full ARN of the Secrets Manager secret for the Gemini API key. When set (with `SUPABASE_JWT_SECRET` so the merge script runs), the deploy injects **`Gemini__ApiKey`** as an ECS container secret. See **Gemini API key (Secrets Manager + ECS)** above.
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
 
@@ -126,6 +193,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_ECS_CLUSTER` | API deploy | `my-cluster` |
 | `AWS_ECS_SERVICE` | API deploy | `pawbuck-api` |
 | `AWS_ECS_CONTAINER_NAME` | API deploy | Optional. Container name to set env on; defaults to the **first** container in the task definition. |
+| `GEMINI_SECRET_JSON_KEY` | API deploy | Optional. When `GEMINI_SECRET_ARN` secret is set and the secret is JSON, set to the field name (e.g. `ApiKey`). Leave empty for a plaintext secret value. |
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
 | `VITE_ADMIN_API_BASE` | Admin build | **`Required`** for deploy: `https://api.example.com` (no trailing slash). If empty, the SPA requests `/api/...` on CloudFront and S3 returns **403**. |
