@@ -149,7 +149,8 @@ public class MiloReasoningServiceJournalTests
         {
             answer = "Great to hear!",
             suggestedReplies = new[] { "More energy", "Same as usual" },
-            journalSessionComplete = false,
+            status = "CONTINUE",
+            summary = "",
         });
         var handler = new GeminiTestHandler { InnerTextPart = inner };
         var journalConfig = ConfigMock();
@@ -162,6 +163,8 @@ public class MiloReasoningServiceJournalTests
         response.Answer.Should().Be("Great to hear!");
         response.SuggestedReplies.Should().BeEquivalentTo(new[] { "More energy", "Same as usual" }, options => options.WithStrictOrdering());
         response.JournalSessionComplete.Should().BeFalse();
+        response.JournalStatus.Should().Be("CONTINUE");
+        response.JournalSummary.Should().BeNull();
         response.PromptVersion.Should().Be("v2-test");
         response.ResponseId.Should().Be(RegisteredTurnId);
         response.PetName.Should().Be("Rex");
@@ -191,7 +194,8 @@ public class MiloReasoningServiceJournalTests
         {
             answer = "   ",
             suggestedReplies = Array.Empty<string>(),
-            journalSessionComplete = false,
+            status = "CONTINUE",
+            summary = "",
         });
         var handler = new GeminiTestHandler { InnerTextPart = inner };
         var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
@@ -295,7 +299,8 @@ public class MiloReasoningServiceJournalTests
         {
             answer = "Recovered",
             suggestedReplies = new[] { "Ok" },
-            journalSessionComplete = false,
+            status = "CONTINUE",
+            summary = "",
         });
         var handler = new Gemini429ThenOkHandler { InnerTextPart = inner };
         var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
@@ -326,5 +331,36 @@ public class MiloReasoningServiceJournalTests
         var response = await sut.ChatAsync(UserId, JournalRequest(), CancellationToken.None);
 
         response.Answer.Should().Be(GeminiJournalCallResult.NappingMessage);
+    }
+
+    [Fact]
+    public async Task ChatAsync_JournalMode_OnSeventhUserTurn_ForcesCompleteEvenWhenModelSaysContinue()
+    {
+        var history = new List<MiloChatHistoryMessage>();
+        for (var i = 0; i < 6; i++)
+        {
+            history.Add(new MiloChatHistoryMessage { Role = "user", Content = $"msg{i}" });
+            history.Add(new MiloChatHistoryMessage { Role = "assistant", Content = $"ack{i}" });
+        }
+
+        var inner = JsonSerializer.Serialize(new
+        {
+            answer = "One more check?",
+            suggestedReplies = new[] { "Yes", "No" },
+            status = "CONTINUE",
+            summary = "",
+        });
+        var handler = new GeminiTestHandler { InnerTextPart = inner };
+        var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
+
+        var request = JournalRequest("seventh user line");
+        request.History = history;
+
+        var response = await sut.ChatAsync(UserId, request, CancellationToken.None);
+
+        response.JournalSessionComplete.Should().BeTrue();
+        response.JournalStatus.Should().Be("COMPLETE");
+        response.SuggestedReplies.Should().BeEmpty();
+        response.JournalSummary.Should().Be("One more check?");
     }
 }

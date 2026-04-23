@@ -180,6 +180,36 @@ public class MiloPetFactsService : IMiloPetFactsService
     }
 
     /// <inheritdoc />
+    public async Task<string> GetJournalEntriesTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT domain, subtype, note, entry_date, created_at
+            FROM public.pet_journal_entries
+            WHERE pet_id = @petId AND user_id = @userId
+            ORDER BY created_at DESC
+            LIMIT 5
+            """;
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var rows = new List<(string Domain, string Subtype, string? Note, DateTime EntryDate)>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add((
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetDateTime(3)));
+        }
+
+        return FormatJournalEntries(rows);
+    }
+
+    /// <inheritdoc />
     public async Task<string> GetHealthSummaryTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
     {
         var v = await GetVaccinationsTextAsync(userId, petId, cancellationToken);
@@ -388,6 +418,31 @@ public class MiloPetFactsService : IMiloPetFactsService
                 sb.Append("  Notes: ").AppendLine(e.Notes);
             if (e.FollowUp.HasValue)
                 sb.Append("  Follow-up: ").AppendLine(e.FollowUp.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string FormatJournalEntries(IReadOnlyList<(string Domain, string Subtype, string? Note, DateTime EntryDate)> rows)
+    {
+        if (rows.Count == 0)
+            return "No recent journal entries for this pet.";
+
+        const int noteMax = 500;
+        var sb = new StringBuilder();
+        sb.AppendLine("=== RECENT PET JOURNAL (owner notes, up to 5) ===");
+        sb.AppendLine();
+        foreach (var r in rows)
+        {
+            sb.Append("- ").Append(r.EntryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            sb.Append(" [").Append(r.Domain).Append('/').Append(r.Subtype).AppendLine("]");
+            if (!string.IsNullOrWhiteSpace(r.Note))
+            {
+                var note = r.Note.Length > noteMax ? r.Note[..noteMax] + "…" : r.Note;
+                sb.Append("  ").AppendLine(note);
+            }
+
             sb.AppendLine();
         }
 

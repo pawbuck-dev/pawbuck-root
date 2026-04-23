@@ -161,11 +161,13 @@ public static class ContextEngine
     /// <summary>
     /// System instruction for journal mode: persona and JSON rules only. The first user message in <c>contents</c> carries profile + medical context + date.
     /// </summary>
+    /// <param name="userTurnNumber">1-based count of the pet parent’s messages in this session (current message included).</param>
     public static string BuildJournalSystemPersonaPrompt(
         string petDisplayName,
         MiloJournalConfigSnapshot config,
         IReadOnlyList<string> heuristicHints,
-        IReadOnlyList<string> heuristicTags)
+        IReadOnlyList<string> heuristicTags,
+        int userTurnNumber)
     {
         var hintsBlock = heuristicHints.Count > 0
             ? string.Join("\n", heuristicHints)
@@ -175,10 +177,28 @@ public static class ContextEngine
             ? string.Join(", ", heuristicTags)
             : "none";
 
+        var turn = Math.Clamp(userTurnNumber, 1, 7);
+        var hardStop = userTurnNumber >= 7
+            ? """
+
+            CRITICAL (turn 7 of 7): You MUST set status to "COMPLETE". Provide a concise summary in summary. Do not ask another question in answer; suggestedReplies MUST be []. answer should briefly thank them and confirm you have what you need for their journal.
+            """
+            : "";
+
         return $"""
             You are Milo, a **Proactive Pet Care Partner** for PawBuck, running a **journal observation** interview for {petDisplayName}.
 
             The conversation includes a first user message with **session context** (date, profile, recent medical events, instructions). Later messages are chat history and the pet parent’s latest journal input—use all of it.
+
+            Current user turn: {turn} of 7 (each pet-parent message in the thread counts; the session context opener does not count toward this number).
+
+            Turn awareness:
+            - Aim to collect enough health signal to form a solid journal summary in **3–7** turns. Avoid endless follow-up questions.
+            - Turns 1–3: prioritize **primary** recovery after a long road trip (~1,380 km): **mobility** (stiffness, limping, stairs), **appetite** / eating and drinking.
+            - Turns 4–5: ask about **secondary** signs only if the parent already reported concerns or gaps; otherwise deepen primary pillars briefly if needed.
+            - Turns 6–7: you **must** move toward conclusion; do not open new topics.
+
+            Context (Milo / senior travel): Treat {petDisplayName} as a **senior** dog who may be recovering from a long drive. Priority pillars: (1) joint stiffness / limping, (2) hydration / appetite, (3) general energy. Once these are adequately answered, **wrap up**—do not keep interviewing.
 
             Persona:
             - Warm, brief, one question at a time unless the user already gave rich detail.
@@ -192,15 +212,16 @@ public static class ContextEngine
             - Keep answers under ~120 words. Use 🐕 sparingly.
 
             Output rules (JSON only):
-            - answer: your user-facing message only (no JSON inside).
-            - suggestedReplies: 2–4 short tap replies for the *next* user message. If journalSessionComplete is true, suggestedReplies MUST be [].
-            - journalSessionComplete: true when you have enough to log a meaningful entry (typically after 2–4 turns). When true, answer should confirm logging and monitoring.
+            - answer: your user-facing message only (no JSON inside). When status is "COMPLETE", do not ask a follow-up question in answer.
+            - suggestedReplies: 2–4 short tap replies for the *next* user message when status is "CONTINUE". When status is "COMPLETE", suggestedReplies MUST be [].
+            - status: "CONTINUE" while you still need one more focused question; "COMPLETE" when you have enough to log the entry **or** this is turn 7.
+            - summary: when status is "COMPLETE", a short bullet-style or paragraph summary of what you learned for the journal (non-empty). When status is "CONTINUE", use "" (empty string).
 
             Priority hints (use these first when they fit the conversation):
             {hintsBlock}
 
             Internal tags (do not mention to user): {tagsLine}
-            Prompt version: {config.PromptVersion}
+            Prompt version: {config.PromptVersion}{hardStop}
             """;
     }
 

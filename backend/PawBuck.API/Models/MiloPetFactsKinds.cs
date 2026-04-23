@@ -11,6 +11,7 @@ public static class MiloPetFactsKinds
     public const string LabResults = "lab_results";
     public const string ClinicalExams = "clinical_exams";
     public const string HealthSummary = "health_summary";
+    public const string Journal = "journal";
     public const string None = "none";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
@@ -20,6 +21,7 @@ public static class MiloPetFactsKinds
         LabResults,
         ClinicalExams,
         HealthSummary,
+        Journal,
         None,
     };
 

@@ -85,6 +85,14 @@ public class MiloChatResponse
     [JsonPropertyName("journalSessionComplete")]
     public bool JournalSessionComplete { get; set; }
 
+    /// <summary>Journal mode: model status from the last turn ("CONTINUE" or "COMPLETE").</summary>
+    [JsonPropertyName("journalStatus")]
+    public string? JournalStatus { get; set; }
+
+    /// <summary>Journal mode: structured summary when the session completed.</summary>
+    [JsonPropertyName("journalSummary")]
+    public string? JournalSummary { get; set; }
+
     /// <summary>Server id for this assistant turn; use with POST feedback (journal mode).</summary>
     [JsonPropertyName("responseId")]
     public Guid? ResponseId { get; set; }

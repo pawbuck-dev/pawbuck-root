@@ -27,6 +27,8 @@ export type MiloChatApiResult = {
   answer: string;
   suggestedReplies?: string[];
   journalSessionComplete?: boolean;
+  journalStatus?: string;
+  journalSummary?: string;
   /** Journal mode: server turn id for POST /api/milo/chat/feedback */
   responseId?: string;
   promptVersion?: string;
@@ -122,6 +124,8 @@ export async function fetchMiloChat(params: {
     answer?: string;
     suggestedReplies?: string[];
     journalSessionComplete?: boolean;
+    journalStatus?: string;
+    journalSummary?: string;
     responseId?: string;
     promptVersion?: string;
     heuristicTags?: string[];
@@ -160,6 +164,8 @@ export async function fetchMiloChat(params: {
     answer: data.answer,
     suggestedReplies: data.suggestedReplies,
     journalSessionComplete: data.journalSessionComplete,
+    journalStatus: data.journalStatus,
+    journalSummary: data.journalSummary,
     responseId: data.responseId,
     promptVersion: data.promptVersion,
     heuristicTags: data.heuristicTags,

@@ -187,12 +187,19 @@ public class MiloReasoningService : IMiloReasoningService
         CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
+        // Order follows `kinds` (e.g. normalizer may return health_summary then journal). Do not return early on health_summary.
         foreach (var k in kinds)
         {
             switch (k)
             {
                 case MiloPetFactsKinds.HealthSummary:
-                    return await _petFacts.GetHealthSummaryTextAsync(userId, petId, cancellationToken);
+                    sb.AppendLine(await _petFacts.GetHealthSummaryTextAsync(userId, petId, cancellationToken));
+                    sb.AppendLine();
+                    break;
+                case MiloPetFactsKinds.Journal:
+                    sb.AppendLine(await _petFacts.GetJournalEntriesTextAsync(userId, petId, cancellationToken));
+                    sb.AppendLine();
+                    break;
                 case MiloPetFactsKinds.Vaccinations:
                     sb.AppendLine(await _petFacts.GetVaccinationsTextAsync(userId, petId, cancellationToken));
                     sb.AppendLine();
@@ -275,7 +282,8 @@ public class MiloReasoningService : IMiloReasoningService
         if (string.IsNullOrEmpty(petName))
             petName = "your pet";
 
-        var systemPersona = ContextEngine.BuildJournalSystemPersonaPrompt(petName, config, hints, tags);
+        var userTurnNumber = CountJournalUserTurnsInHistory(request.History) + 1;
+        var systemPersona = ContextEngine.BuildJournalSystemPersonaPrompt(petName, config, hints, tags, userTurnNumber);
         var contextBlockText = BuildJournalContextBlock(petName, petContextBlock, ctx, utcNow);
         var contents = BuildJournalContentsWithContextPrefix(contextBlockText, request.History, userMessage);
 
@@ -301,9 +309,14 @@ public class MiloReasoningService : IMiloReasoningService
                             type = "array",
                             items = new { type = "string" },
                         },
-                        journalSessionComplete = new { type = "boolean" },
+                        status = new
+                        {
+                            type = "string",
+                            @enum = new[] { "CONTINUE", "COMPLETE" },
+                        },
+                        summary = new { type = "string" },
                     },
-                    required = new[] { "answer", "suggestedReplies", "journalSessionComplete" },
+                    required = new[] { "answer", "suggestedReplies", "status", "summary" },
                 },
             },
         };
@@ -340,7 +353,24 @@ public class MiloReasoningService : IMiloReasoningService
         if (string.IsNullOrEmpty(answer))
             return null;
 
-        var complete = dto.JournalSessionComplete;
+        var status = (dto.Status ?? "").Trim().Equals("COMPLETE", StringComparison.OrdinalIgnoreCase)
+            ? "COMPLETE"
+            : "CONTINUE";
+        var complete = status == "COMPLETE";
+        var summary = (dto.Summary ?? "").Trim();
+
+        if (userTurnNumber >= 7)
+        {
+            complete = true;
+            status = "COMPLETE";
+            if (string.IsNullOrEmpty(summary) && !string.IsNullOrEmpty(answer))
+                summary = answer;
+        }
+        else if (complete && string.IsNullOrEmpty(summary) && !string.IsNullOrEmpty(answer))
+        {
+            summary = answer;
+        }
+
         var replies = (dto.SuggestedReplies ?? new List<string>())
             .Where(static s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim())
@@ -374,6 +404,8 @@ public class MiloReasoningService : IMiloReasoningService
         {
             Answer = answer,
             JournalSessionComplete = complete,
+            JournalStatus = status,
+            JournalSummary = complete ? summary : null,
             SuggestedReplies = replies,
             PetName = request.Pet?.Name,
             UsedPetData = usedData,
@@ -382,6 +414,22 @@ public class MiloReasoningService : IMiloReasoningService
             PromptVersion = config.PromptVersion,
             HeuristicTags = tags,
         };
+    }
+
+    private static int CountJournalUserTurnsInHistory(IReadOnlyList<MiloChatHistoryMessage>? history)
+    {
+        if (history == null || history.Count == 0)
+            return 0;
+        var n = 0;
+        foreach (var h in history)
+        {
+            if (string.IsNullOrWhiteSpace(h.Content))
+                continue;
+            if ((h.Role ?? "").Equals("user", StringComparison.OrdinalIgnoreCase))
+                n++;
+        }
+
+        return n;
     }
 
     private static string NormalizeJournalUserMessage(string? raw)
@@ -402,8 +450,11 @@ public class MiloReasoningService : IMiloReasoningService
         [JsonPropertyName("suggestedReplies")]
         public List<string>? SuggestedReplies { get; set; }
 
-        [JsonPropertyName("journalSessionComplete")]
-        public bool JournalSessionComplete { get; set; }
+        [JsonPropertyName("status")]
+        public string? Status { get; set; }
+
+        [JsonPropertyName("summary")]
+        public string? Summary { get; set; }
     }
 
     private async Task<MiloChatPlanDto?> RunPlanStepAsync(
@@ -421,8 +472,9 @@ public class MiloReasoningService : IMiloReasoningService
 
             Rules:
             - If no pet is verified for this session, dataNeeded must be ["none"] only.
-            - Otherwise, choose one or more from the enum: vaccinations, medications, lab_results, clinical_exams, health_summary, none.
+            - Otherwise, choose one or more from the enum: vaccinations, medications, lab_results, clinical_exams, health_summary, journal, none.
             - Use health_summary when a broad overview of all records is needed; prefer specific categories when the question is narrow.
+            - For health-related messages (symptoms, appetite, energy, recovery, behavior, how the pet has been doing), include journal when recent owner-written observations would help; you may use journal alone for journal-only questions.
             - needsDocumentationRag: true when the user asks about the PawBuck app, product help, or general topics not fully covered by pet records.
             - reasoningBrief: one short sentence explaining the plan (internal).
 
@@ -459,6 +511,7 @@ public class MiloReasoningService : IMiloReasoningService
                                     MiloPetFactsKinds.LabResults,
                                     MiloPetFactsKinds.ClinicalExams,
                                     MiloPetFactsKinds.HealthSummary,
+                                    MiloPetFactsKinds.Journal,
                                     MiloPetFactsKinds.None,
                                 },
                             },

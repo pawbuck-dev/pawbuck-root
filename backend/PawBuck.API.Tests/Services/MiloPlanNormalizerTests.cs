@@ -12,11 +12,11 @@ public class MiloPlanNormalizerTests
     private readonly ILogger _log = NullLogger.Instance;
 
     [Fact]
-    public void NormalizeDataNeeded_HealthSummary_ReturnsOnlySummary()
+    public void NormalizeDataNeeded_HealthSummary_ReturnsSummaryThenJournal()
     {
         var list = new[] { MiloPetFactsKinds.Vaccinations, MiloPetFactsKinds.HealthSummary, MiloPetFactsKinds.Medications };
         var result = MiloPlanNormalizer.NormalizeDataNeeded(list, _log);
-        result.Should().BeEquivalentTo(new[] { MiloPetFactsKinds.HealthSummary }, o => o.WithStrictOrdering());
+        result.Should().Equal(MiloPetFactsKinds.HealthSummary, MiloPetFactsKinds.Journal);
     }
 
     [Fact]

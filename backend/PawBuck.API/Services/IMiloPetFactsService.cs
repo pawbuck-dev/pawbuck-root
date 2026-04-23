@@ -18,6 +18,9 @@ public interface IMiloPetFactsService
 
     Task<string> GetClinicalExamsTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default);
 
+    /// <summary>Recent owner journal notes (up to 5 rows, newest first).</summary>
+    Task<string> GetJournalEntriesTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default);
+
     /// <summary>Concatenates all four sections (vaccinations, medications, lab results, clinical exams).</summary>
     Task<string> GetHealthSummaryTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default);
 }

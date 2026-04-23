@@ -10,7 +10,8 @@ public static class MiloPlanNormalizer
 {
     /// <summary>
     /// Unknown entries are skipped (logged). <c>none</c> is ignored.
-    /// If <see cref="MiloPetFactsKinds.HealthSummary"/> appears, the result is only that kind.
+    /// If <see cref="MiloPetFactsKinds.HealthSummary"/> appears, the result is <c>health_summary</c> then <c>journal</c>
+    /// so normal Milo chat includes recent owner journal notes with the clinical summary.
     /// </summary>
     public static IReadOnlyList<string> NormalizeDataNeeded(
         IReadOnlyList<string>? dataNeeded,
@@ -32,7 +33,7 @@ public static class MiloPlanNormalizer
             if (n == MiloPetFactsKinds.None)
                 continue;
             if (n == MiloPetFactsKinds.HealthSummary)
-                return new[] { MiloPetFactsKinds.HealthSummary };
+                return new[] { MiloPetFactsKinds.HealthSummary, MiloPetFactsKinds.Journal };
             set.Add(n);
         }
 
