@@ -4,6 +4,7 @@ import { supabase } from "@/utils/supabase";
 export type SubscriptionAnalyticsEventType =
   | "paywall_impression"
   | "paywall_subscribe_tap"
+  | "paywall_purchase_success"
   | "paywall_dismiss"
   | "premium_feature_blocked";
 

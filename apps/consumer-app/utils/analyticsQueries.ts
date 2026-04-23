@@ -87,8 +87,8 @@ export const getOnboardingAnalytics = async (): Promise<{
           emailShown.length > 0
             ? emailCompleted.length / emailShown.length
             : 0,
-        lastShown: emailShown[0]?.created_at,
-        lastCompleted: emailCompleted[0]?.created_at,
+        lastShown: emailShown[0]?.created_at ?? undefined,
+        lastCompleted: emailCompleted[0]?.created_at ?? undefined,
       },
       healthRecordsTooltip: {
         shown: tooltipShown.length,
@@ -97,8 +97,8 @@ export const getOnboardingAnalytics = async (): Promise<{
           tooltipShown.length > 0
             ? tooltipCompleted.length / tooltipShown.length
             : 0,
-        lastShown: tooltipShown[0]?.created_at,
-        lastCompleted: tooltipCompleted[0]?.created_at,
+        lastShown: tooltipShown[0]?.created_at ?? undefined,
+        lastCompleted: tooltipCompleted[0]?.created_at ?? undefined,
       },
       totalUsers: uniqueUserIds.size,
       totalEvents: events.length,
@@ -199,6 +199,7 @@ export const getDailyCompletionRates = async (days: number = 30) => {
     > = {};
 
     events.forEach((event) => {
+      if (!event.created_at) return;
       const date = new Date(event.created_at).toISOString().split("T")[0];
       if (!dailyData[date]) {
         dailyData[date] = {
