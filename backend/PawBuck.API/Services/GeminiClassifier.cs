@@ -236,7 +236,7 @@ public class GeminiOptions
 {
     public const string SectionName = "Gemini";
 
-    /// <summary>Used when <see cref="Model"/> is empty — aligned with Supabase Edge (<c>gemini-2.5-flash</c> primary).</summary>
+    /// <summary>Used when <see cref="Model"/> is empty. Use ids returned by ListModels for <c>v1beta</c>; <c>gemini-1.5-*</c> names often 404 on current AI Studio keys.</summary>
     public const string DefaultModelId = "gemini-2.5-flash";
 
     /// <summary>API key (or set GOOGLE_GEMINI_API_KEY env var).</summary>

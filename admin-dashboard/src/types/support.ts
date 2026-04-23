@@ -164,3 +164,25 @@ export interface MiloJournalFeedbackAggregates {
   downCount: number;
   byPromptVersion: MiloJournalFeedbackByVersionRow[];
 }
+
+/** POST /api/support/milo/journal/chat-smoke */
+export interface MiloJournalChatSmokeBody {
+  userId: string;
+  petId: string;
+  message: string;
+  journalMode?: boolean;
+}
+
+/** Matches PawBuck.API MiloChatResponse (camelCase JSON). */
+export interface MiloChatApiResponse {
+  answer: string;
+  usedPetData: boolean;
+  usedRag: boolean;
+  planSummary?: string | null;
+  petName?: string | null;
+  suggestedReplies?: string[];
+  journalSessionComplete?: boolean;
+  responseId?: string | null;
+  promptVersion?: string | null;
+  heuristicTags?: string[];
+}

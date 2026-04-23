@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Polly;
 using PawBuck.API.Security;
 using PawBuck.API.Configuration;
 using PawBuck.API.Models;
@@ -59,7 +61,29 @@ builder.Services.AddHttpClient("DocumentImageDownload");
 
 // HttpClient for Gemini API with retry on throttling (429) and transient errors
 builder.Services.AddHttpClient("Gemini")
-    .AddStandardResilienceHandler();
+    .AddStandardResilienceHandler()
+    .Configure((options, serviceProvider) =>
+    {
+        var logger = serviceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("PawBuck.API.GeminiHttp");
+
+        options.Retry.MaxRetryAttempts = 3;
+        options.Retry.Delay = TimeSpan.FromSeconds(5);
+        options.Retry.BackoffType = DelayBackoffType.Exponential;
+        options.Retry.ShouldRetryAfterHeader = true;
+        options.Retry.UseJitter = true;
+
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+
+        options.Retry.OnRetry = args =>
+        {
+            if (args.Outcome.Result is HttpResponseMessage { StatusCode: HttpStatusCode.TooManyRequests })
+                logger.LogInformation(
+                    "Gemini Rate Limit hit. Backing off for {Seconds} seconds...",
+                    args.RetryDelay.TotalSeconds);
+            return default;
+        };
+    });
 
 // Document classification
 builder.Services.AddSingleton<IMiloPromptProvider, MiloPromptProvider>();

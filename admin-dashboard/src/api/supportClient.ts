@@ -3,6 +3,8 @@ import type {
   MiloClassifyExtractPreviewResponse,
   MiloClassifyPreviewBody,
   MiloClassifyResponse,
+  MiloChatApiResponse,
+  MiloJournalChatSmokeBody,
   MiloJournalConfigSnapshot,
   MiloJournalFeedbackAggregates,
   PatchSubscriptionFeatureGateBody,
@@ -171,5 +173,12 @@ export function createSupportClient(
 
     getMiloJournalFeedbackAggregates: () =>
       request<MiloJournalFeedbackAggregates>("/api/support/milo/journal/feedback-aggregates"),
+
+    /** Same Milo chat pipeline as the consumer app for a verified user/pet (AdminSupport only; no subscription gate). */
+    postMiloJournalChatSmoke: (body: MiloJournalChatSmokeBody) =>
+      request<MiloChatApiResponse>("/api/support/milo/journal/chat-smoke", {
+        method: "POST",
+        json: body,
+      }),
   };
 }

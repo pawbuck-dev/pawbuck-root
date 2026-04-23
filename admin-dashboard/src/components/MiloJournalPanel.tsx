@@ -1,6 +1,7 @@
 import { SupportApiError, createSupportClient } from "@/api/supportClient";
 import type { MiloJournalConfigSnapshot, MiloJournalFeedbackAggregates } from "@/types/support";
 import { useCallback, useEffect, useState } from "react";
+import { MiloJournalChatSmoke } from "@/components/MiloJournalChatSmoke";
 
 type MiloJournalPanelProps = {
   client: ReturnType<typeof createSupportClient>;
@@ -82,6 +83,9 @@ export function MiloJournalPanel({ client }: MiloJournalPanelProps) {
   return (
     <section className="panel">
       <h2 className="panel__title">Milo journal — tuning & feedback</h2>
+
+      <MiloJournalChatSmoke client={client} />
+
       <p className="muted" style={{ marginBottom: "1rem" }}>
         Thresholds and prompt version for contextual journal chat (PawBuck.API). Changes apply within a few minutes on
         API instances (in-memory cache).

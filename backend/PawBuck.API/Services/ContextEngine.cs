@@ -100,6 +100,24 @@ public static class ContextEngine
         return (hints, tags.OrderBy(x => x, StringComparer.Ordinal).ToList());
     }
 
+    /// <summary>
+    /// True if any <see cref="RecentMedicalEvent"/> has a parseable date within the last <paramref name="days"/> calendar days (UTC).
+    /// </summary>
+    public static bool HasMedicalEventWithinLastDays(PetConversationalContextDto ctx, int days, DateTime utcNow)
+    {
+        foreach (var e in ctx.RecentMedicalHistory)
+        {
+            if (!TryParseDate(e.Date, out var d))
+                continue;
+            var eventDate = d.Date;
+            var deltaDays = (utcNow.Date - eventDate).TotalDays;
+            if (deltaDays >= 0 && deltaDays <= days)
+                return true;
+        }
+
+        return false;
+    }
+
     public static string FormatContextForPrompt(PetConversationalContextDto ctx)
     {
         var sb = new StringBuilder();
@@ -140,18 +158,18 @@ public static class ContextEngine
         return sb.ToString().TrimEnd();
     }
 
-    public static string BuildProactiveJournalSystemPrompt(
+    /// <summary>
+    /// System instruction for journal mode: persona and JSON rules only. The first user message in <c>contents</c> carries profile + medical context + date.
+    /// </summary>
+    public static string BuildJournalSystemPersonaPrompt(
         string petDisplayName,
-        string profileBlockFromExisting,
-        PetConversationalContextDto ctx,
         MiloJournalConfigSnapshot config,
         IReadOnlyList<string> heuristicHints,
         IReadOnlyList<string> heuristicTags)
     {
-        var contextBlock = FormatContextForPrompt(ctx);
         var hintsBlock = heuristicHints.Count > 0
             ? string.Join("\n", heuristicHints)
-            : "(No priority hints — still use the context above to stay specific.)";
+            : "(No priority hints — still use the context message in the thread to stay specific.)";
 
         var tagsLine = heuristicTags.Count > 0
             ? string.Join(", ", heuristicTags)
@@ -160,13 +178,15 @@ public static class ContextEngine
         return $"""
             You are Milo, a **Proactive Pet Care Partner** for PawBuck, running a **journal observation** interview for {petDisplayName}.
 
+            The conversation includes a first user message with **session context** (date, profile, recent medical events, instructions). Later messages are chat history and the pet parent’s latest journal input—use all of it.
+
             Persona:
             - Warm, brief, one question at a time unless the user already gave rich detail.
             - Sound human: you may use phrases like “I was thinking about…” or “Since {petDisplayName}…”, but never claim you “analyzed” or “processed” private data.
-            - **Never** open with generic lines like “How can I help?” or empty check-ins. Tie your first question to the user’s message **and** the context below when possible.
+            - **Never** open with generic lines like “How can I help?” or empty check-ins. Tie your first question to the user’s message **and** the context when possible.
             - Prioritize **active** windows: recent vaccine → mild post-vaccine comfort; new medication → how things seem since starting (not dosing); limping → mobility; senior with quiet journal → gentle comfort/energy check.
 
-            Safety (unchanged):
+            Safety:
             - Do NOT diagnose or prescribe. Remind that this is general information, not medical advice; consult a veterinarian when appropriate.
             - For emergency signs (toxins, seizures, collapse, severe bleeding, trouble breathing), tell the user to seek urgent veterinary care immediately.
             - Keep answers under ~120 words. Use 🐕 sparingly.
@@ -175,10 +195,6 @@ public static class ContextEngine
             - answer: your user-facing message only (no JSON inside).
             - suggestedReplies: 2–4 short tap replies for the *next* user message. If journalSessionComplete is true, suggestedReplies MUST be [].
             - journalSessionComplete: true when you have enough to log a meaningful entry (typically after 2–4 turns). When true, answer should confirm logging and monitoring.
-
-            Pet profile (from app):{profileBlockFromExisting}
-
-            {contextBlock}
 
             Priority hints (use these first when they fit the conversation):
             {hintsBlock}

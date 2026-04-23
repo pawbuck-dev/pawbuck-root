@@ -1,6 +1,8 @@
-using System.Net.Http;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -273,17 +275,20 @@ public class MiloReasoningService : IMiloReasoningService
         if (string.IsNullOrEmpty(petName))
             petName = "your pet";
 
-        var journalSystem = ContextEngine.BuildProactiveJournalSystemPrompt(petName, petContextBlock, ctx, config, hints, tags);
+        var systemPersona = ContextEngine.BuildJournalSystemPersonaPrompt(petName, config, hints, tags);
+        var contextBlockText = BuildJournalContextBlock(petName, petContextBlock, ctx, utcNow);
+        var contents = BuildJournalContentsWithContextPrefix(contextBlockText, request.History, userMessage);
 
-        var contents = BuildHistoryContents(request.History, userMessage, isForPlan: false);
+        const double journalTemperature = 0.7;
+        var maxOut = ResolveJournalJsonMaxOutputTokens(config);
         var requestBody = new
         {
-            systemInstruction = new { parts = new[] { new { text = journalSystem } } },
+            systemInstruction = new { parts = new[] { new { text = systemPersona } } },
             contents,
             generationConfig = new
             {
-                temperature = config.JournalTemperature,
-                maxOutputTokens = config.JournalMaxOutputTokens,
+                temperature = journalTemperature,
+                maxOutputTokens = maxOut,
                 response_mime_type = "application/json",
                 response_schema = new
                 {
@@ -303,7 +308,20 @@ public class MiloReasoningService : IMiloReasoningService
             },
         };
 
-        var text = await GeminiGenerateContentTextAsync(apiKey, requestBody, cancellationToken);
+        var callResult = await ExecuteJournalGeminiWithRetriesAsync(apiKey, requestBody, cancellationToken);
+        if (!callResult.Success)
+        {
+            if (string.IsNullOrEmpty(callResult.UserFacingMessage))
+                return null;
+
+            return new MiloChatResponse
+            {
+                Answer = callResult.UserFacingMessage,
+                PetName = request.Pet?.Name,
+            };
+        }
+
+        var text = callResult.Text;
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
@@ -500,6 +518,228 @@ public class MiloReasoningService : IMiloReasoningService
         return list.ToArray();
     }
 
+    /// <summary>
+    /// First user message = structured context; then optional chat history; final user message = current journal input.
+    /// </summary>
+    private static object[] BuildJournalContentsWithContextPrefix(
+        string contextBlockUserText,
+        IReadOnlyList<MiloChatHistoryMessage>? history,
+        string currentUserMessage)
+    {
+        var list = new List<object>
+        {
+            new { role = "user", parts = new[] { new { text = contextBlockUserText } } },
+        };
+        if (history != null)
+        {
+            var slice = history.Count <= 10 ? history : history.Skip(history.Count - 10).ToList();
+            foreach (var h in slice)
+            {
+                var role = (h.Role ?? "").Equals("assistant", StringComparison.OrdinalIgnoreCase) ? "model" : "user";
+                var content = h.Content ?? "";
+                if (string.IsNullOrWhiteSpace(content))
+                    continue;
+                list.Add(new { role, parts = new[] { new { text = content } } });
+            }
+        }
+
+        list.Add(new { role = "user", parts = new[] { new { text = currentUserMessage } } });
+        return list.ToArray();
+    }
+
+    private static string BuildJournalContextBlock(
+        string petName,
+        string petContextBlock,
+        PetConversationalContextDto ctx,
+        DateTime utcNow)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("=== Session context (authorized) ===");
+        sb.AppendLine($"Current date (UTC): {utcNow:yyyy-MM-dd}");
+        sb.AppendLine();
+
+        if (ContextEngine.HasMedicalEventWithinLastDays(ctx, 7, utcNow))
+        {
+            sb.AppendLine(
+                "Instruction: A medical event occurred recently; prioritize checking for side effects or recovery progress.");
+        }
+        else
+        {
+            sb.AppendLine(BuildJournalMobilityFallbackInstruction(petName, ctx.PetProfile));
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Pet profile (from app):");
+        sb.AppendLine(petContextBlock.Trim());
+        sb.AppendLine();
+        sb.AppendLine("Last medical events (up to 3):");
+        var three = ctx.RecentMedicalHistory.Take(3).ToList();
+        if (three.Count == 0)
+            sb.AppendLine("(none in window)");
+        else
+        {
+            foreach (var e in three)
+                sb.Append("- ").Append(e.Type).Append(": ").Append(e.Name).Append(" (").Append(e.Date).AppendLine(")");
+        }
+
+        if (ctx.UpcomingMilestones.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Upcoming milestones:");
+            foreach (var m in ctx.UpcomingMilestones.Take(2))
+                sb.Append("- ").Append(m.Label).Append(" — ").AppendLine(m.DueDate);
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string BuildJournalMobilityFallbackInstruction(string petName, PetProfileSnapshot profile)
+    {
+        var lifeStage = profile.IsSenior ? "a senior companion" : "a younger companion";
+        var age = string.IsNullOrWhiteSpace(profile.AgeDisplay) ? "unknown age" : profile.AgeDisplay;
+        return
+            $"Instruction: {petName} is {lifeStage} ({age}); focus on mobility and activity levels, especially after travel or a change in routine.";
+    }
+
+    /// <summary>
+    /// JSON-mode journal output needs enough tokens; keep a floor even if admin lowers <see cref="MiloJournalConfigSnapshot.JournalMaxOutputTokens"/>.
+    /// </summary>
+    private static int ResolveJournalJsonMaxOutputTokens(MiloJournalConfigSnapshot config)
+    {
+        const int jsonFloor = 512;
+        return Math.Clamp(config.JournalMaxOutputTokens, jsonFloor, 8192);
+    }
+
+    /// <summary>
+    /// Retries 429 (respect Retry-After) and transient 5xx; exhausted attempts yield <see cref="GeminiJournalCallResult.Napping"/>.
+    /// </summary>
+    private async Task<GeminiJournalCallResult> ExecuteJournalGeminiWithRetriesAsync(
+        string apiKey,
+        object requestBody,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 4;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                var text = await SendJournalGeminiSingleRequestAsync(apiKey, requestBody, cancellationToken);
+                return GeminiJournalCallResult.Ok(text);
+            }
+            catch (GeminiRateLimitException ex)
+            {
+                if (attempt == maxAttempts - 1)
+                {
+                    _logger.LogWarning(ex, "Gemini journal: rate limit retries exhausted");
+                    return GeminiJournalCallResult.Napping();
+                }
+
+                var delay = ex.RetryAfter ?? TimeSpan.FromSeconds(2);
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (attempt == maxAttempts - 1)
+                {
+                    _logger.LogWarning(ex, "Gemini journal: transient HTTP retries exhausted");
+                    return GeminiJournalCallResult.Napping();
+                }
+
+                var backoffMs = 250 * (1 << attempt);
+                await Task.Delay(TimeSpan.FromMilliseconds(backoffMs), cancellationToken);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Gemini journal: non-retryable response");
+                return new GeminiJournalCallResult(false, null, null);
+            }
+        }
+
+        return GeminiJournalCallResult.Napping();
+    }
+
+    private async Task<string> SendJournalGeminiSingleRequestAsync(
+        string apiKey,
+        object requestBody,
+        CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient("Gemini");
+        var model = ResolveGenerateModel();
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        request.SetGeminiApiKey(apiKey);
+
+        using var httpResponse = await client.SendAsync(request, cancellationToken);
+        var body = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+
+        if (httpResponse.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            var retryAfter = TryParseRetryAfterHeader(httpResponse);
+            throw new GeminiRateLimitException("Gemini rate limited (429).", retryAfter);
+        }
+
+        if ((int)httpResponse.StatusCode >= 500 && (int)httpResponse.StatusCode <= 599)
+            throw new HttpRequestException($"Gemini returned {(int)httpResponse.StatusCode}: {body[..Math.Min(200, body.Length)]}");
+
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Gemini journal generateContent returned {StatusCode}: {Body}", httpResponse.StatusCode, body);
+            throw new InvalidOperationException($"Gemini journal error {(int)httpResponse.StatusCode}");
+        }
+
+        if (!TryExtractGeminiCandidateText(body, out var text) || string.IsNullOrWhiteSpace(text))
+        {
+            _logger.LogWarning("Gemini journal: missing candidate text in response");
+            throw new InvalidOperationException("Gemini journal: empty candidate text");
+        }
+
+        return text;
+    }
+
+    private static TimeSpan? TryParseRetryAfterHeader(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Retry-After", out var values))
+            return null;
+        var raw = values.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds))
+            return TimeSpan.FromSeconds(seconds);
+        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var retryAt))
+        {
+            var delay = retryAt.ToUniversalTime() - DateTime.UtcNow;
+            return delay > TimeSpan.Zero ? delay : TimeSpan.FromSeconds(1);
+        }
+
+        return null;
+    }
+
+    private static bool TryExtractGeminiCandidateText(string json, [NotNullWhen(true)] out string? text)
+    {
+        text = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                return false;
+            var candidate = candidates[0];
+            if (!candidate.TryGetProperty("content", out var contentEl))
+                return false;
+            if (!contentEl.TryGetProperty("parts", out var parts) || parts.GetArrayLength() == 0)
+                return false;
+            if (!parts[0].TryGetProperty("text", out var textEl))
+                return false;
+            text = textEl.GetString();
+            return !string.IsNullOrWhiteSpace(text);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task<string> RunAnswerStepAsync(
         string apiKey,
         string userMessage,
@@ -575,18 +815,12 @@ public class MiloReasoningService : IMiloReasoningService
         }
 
         var json = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-        try
+        if (!TryExtractGeminiCandidateText(json, out var text))
         {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var candidate = root.GetProperty("candidates")[0];
-            var parts = candidate.GetProperty("content").GetProperty("parts");
-            return parts[0].GetProperty("text").GetString();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse Gemini response JSON");
+            _logger.LogWarning("Failed to parse Gemini response JSON or empty candidate text");
             return null;
         }
+
+        return text;
     }
 }

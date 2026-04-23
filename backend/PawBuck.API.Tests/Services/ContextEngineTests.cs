@@ -53,6 +53,38 @@ public class ContextEngineTests
     }
 
     [Fact]
+    public void HasMedicalEventWithinLastDays_WhenEventThreeDaysAgo_ReturnsTrue()
+    {
+        var utc = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace" },
+            RecentMedicalHistory =
+            {
+                new RecentMedicalEvent { Type = "clinical_exam", Name = "Checkup", Date = "2025-06-07" },
+            },
+        };
+
+        ContextEngine.HasMedicalEventWithinLastDays(ctx, 7, utc).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasMedicalEventWithinLastDays_WhenOldestEventOutsideWindow_ReturnsFalse()
+    {
+        var utc = new DateTime(2025, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace" },
+            RecentMedicalHistory =
+            {
+                new RecentMedicalEvent { Type = "vaccination", Name = "Rabies", Date = "2025-05-01" },
+            },
+        };
+
+        ContextEngine.HasMedicalEventWithinLastDays(ctx, 7, utc).Should().BeFalse();
+    }
+
+    [Fact]
     public void EvaluateHeuristicGuidance_SeniorQuietJournal_AddsTag()
     {
         var config = MiloJournalConfigSnapshot.Defaults();

@@ -11,10 +11,23 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@pawbuck/milo": ["./packages/milo-core/src"],
-      "@pawbuck/milo/*": ["./packages/milo-core/src/*"]
+      "@pawbuck/milo": [
+        "./packages/milo-core/src"
+      ],
+      "@pawbuck/milo/*": [
+        "./packages/milo-core/src/*"
+      ]
     }
   },
-  "include": ["packages/milo-core/src"],
-  "exclude": ["node_modules", "apps", "admin-dashboard", "backend", "supabase"]
+  "include": [
+    "packages/milo-core/src"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps",
+    "admin-dashboard",
+    "backend",
+    "supabase"
+  ],
+  "extends": "expo/tsconfig.base"
 }
