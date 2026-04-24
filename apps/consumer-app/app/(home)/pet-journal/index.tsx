@@ -1,5 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
+import { JournalNoteText } from "@/components/journal/JournalNoteText";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
 import {
@@ -364,9 +365,7 @@ export default function PetJournalScreen() {
                       {e.severity}
                     </Text>
                   </View>
-                  {e.note ? (
-                    <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>{e.note}</Text>
-                  ) : null}
+                  {e.note ? <JournalNoteText text={e.note} /> : null}
                 </View>
               );
             }
@@ -423,11 +422,7 @@ export default function PetJournalScreen() {
                     <Text style={{ fontSize: 11, fontWeight: "600", color: "#C2410C" }}>Vet</Text>
                   </View>
                 )}
-                {journal.note ? (
-                  <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>
-                    {journal.note}
-                  </Text>
-                ) : null}
+                {journal.note ? <JournalNoteText text={journal.note} /> : null}
               </View>
             );
           }}

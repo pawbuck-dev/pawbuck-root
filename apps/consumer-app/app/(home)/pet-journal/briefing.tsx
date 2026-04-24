@@ -1,4 +1,5 @@
 import PrivateImage from "@/components/common/PrivateImage";
+import { JournalNoteText } from "@/components/journal/JournalNoteText";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import { usePets } from "@/context/petsContext";
@@ -377,9 +378,9 @@ export default function HealthBriefingScreen() {
                     <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
                       <Ionicons name="flag-outline" size={20} color="#D97706" />
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, color: theme.foreground, lineHeight: 22 }}>
-                          {j.note || subtypeLabel(j.domain as JournalDomain, j.subtype)}
-                        </Text>
+                        <JournalNoteText
+                          text={j.note || subtypeLabel(j.domain as JournalDomain, j.subtype)}
+                        />
                         <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 6 }}>
                           {j.entry_date} · {j.domain}
                         </Text>

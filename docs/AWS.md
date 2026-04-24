@@ -93,6 +93,12 @@ For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
 - Do **not** set unversioned **`gemini-1.5-flash`** or **`gemini-1.5-pro`** for the Generative Language API with typical **AI Studio** keys — they often return **404 NOT_FOUND** for `generateContent` on `v1beta`. Prefer **removing** those env vars so the default applies, or set an id that **ListModels** shows for your key.
 - At startup, the API **remaps** a few legacy short names (`gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-1.5-flash-8b`) to **`gemini-2.5-flash`** and logs a warning — you should still fix the task definition to avoid confusion.
 
+**Journal / Milo (“paid tier” quality on this stack)**
+
+- Milo journal mode uses the same **`Gemini:Model`** as the rest of the API (`generateContent` on **Google AI Studio** / Generative Language API). There is **no separate** journal-only model id in code today.
+- For best results and fewer 404s, run **`gemini-2.5-flash`** (repo default) or another id your key supports per **ListModels**. Unversioned **`gemini-1.5-pro`** in ECS is **remapped** to `gemini-2.5-flash` at startup; use a **versioned** model id only if you have confirmed it works for your project and endpoint.
+- **Vertex AI** or other Google Cloud endpoints are not configured in this repo’s PawBuck.API client; changing “paid tier” there would be a separate integration.
+
 **4. Deploy script / GitHub Actions**
 
 [scripts/deploy/ecs-merge-pawbuck-api-env.sh](../scripts/deploy/ecs-merge-pawbuck-api-env.sh) can merge this for you on each API deploy when **`SUPABASE_JWT_SECRET`** is set (same condition as today’s JWT merge):

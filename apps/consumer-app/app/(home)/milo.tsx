@@ -151,15 +151,17 @@ export default function MiloJournalChatScreen() {
   );
 
   const persistJournalEntry = useCallback(
-    async (userTurns: string[]) => {
+    async (userTurns: string[], journalSummary?: string | null) => {
       if (!pet || !user) return;
       const combined = userTurns.join("\n");
+      const finalNote = journalSummary?.trim() || combined;
       const entry = extractPetLogEntry(
-        combined,
+        finalNote,
         pet.id,
         user.id,
         journalDomain,
-        triageCtx
+        triageCtx,
+        combined
       );
       await appendPetLog(user.id, entry);
       try {
@@ -212,7 +214,7 @@ export default function MiloJournalChatScreen() {
         });
 
         if (result.journalSessionComplete) {
-          await persistJournalEntry(userTurns);
+          await persistJournalEntry(userTurns, result.journalSummary);
         }
       } catch (e) {
         if (e instanceof SubscriptionRequiredError) {
@@ -228,7 +230,7 @@ export default function MiloJournalChatScreen() {
           offlineFallback: true,
         });
         if (offline.journalSessionComplete) {
-          await persistJournalEntry(userTurns);
+          await persistJournalEntry(userTurns, null);
         }
       } finally {
         setBusy(false);

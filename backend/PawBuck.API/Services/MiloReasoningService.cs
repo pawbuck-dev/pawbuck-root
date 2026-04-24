@@ -260,6 +260,10 @@ public class MiloReasoningService : IMiloReasoningService
         return $"{years} year(s) old";
     }
 
+    /// <summary>
+    /// Journal-mode Gemini: system persona and <c>summary</c> scribe rules live in
+    /// <see cref="ContextEngine.BuildJournalSystemPersonaPrompt"/>—edit prompts there, not here.
+    /// </summary>
     private async Task<MiloChatResponse?> RunJournalInterviewAsync(
         string apiKey,
         MiloChatRequest request,

@@ -186,28 +186,45 @@ function extractTags(text: string): string[] {
   return tags;
 }
 
+/** True if persisted journal note is labeled for triage (Milo clinical summary prefix). */
+export function noteHasClinicalTriagePrefix(note: string): boolean {
+  const t = note.trim();
+  const head = t.slice(0, 32).toUpperCase();
+  return head.startsWith("[URGENT]") || head.startsWith("[CRITICAL]");
+}
+
+/**
+ * @param note Text stored in the journal (e.g. API `journalSummary`, or raw user lines as fallback).
+ * @param triageSourceText Optional. When set, severity/domain/subtype/tags are derived from this (typically owner chat lines), not from `note`.
+ */
 export function extractPetLogEntry(
-  userText: string,
+  note: string,
   petId: string,
   userId: string,
   tabDomain: JournalDomain,
-  ctx?: TriageContext
+  ctx?: TriageContext,
+  triageSourceText?: string
 ): PetLogEntry {
-  const severity = mapSeverity(userText, ctx);
-  const domain = inferDomain(userText, tabDomain);
-  const subtype = inferSubtype(domain, userText);
-  const vet_flag = severity === "high" || severity === "urgent";
+  const triage = (triageSourceText ?? note).trim();
+  const displayNote = note.trim();
+  const severity = mapSeverity(triage, ctx);
+  const domain = inferDomain(triage, tabDomain);
+  const subtype = inferSubtype(domain, triage);
+  const vet_flag =
+    severity === "high" ||
+    severity === "urgent" ||
+    noteHasClinicalTriagePrefix(displayNote);
 
   return {
     id: `milo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     pet_id: petId,
     user_id: userId,
-    note: userText.trim(),
+    note: displayNote,
     created_at: new Date().toISOString(),
     severity,
     domain,
     subtype,
-    tags: extractTags(userText),
+    tags: extractTags(triage),
     vet_flag,
     source: "milo",
   };

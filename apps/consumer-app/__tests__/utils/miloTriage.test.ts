@@ -4,6 +4,7 @@ import {
   extractPetLogEntry,
   mapSeverity,
   maxSeverity,
+  noteHasClinicalTriagePrefix,
   severityFromConversationText,
 } from "@/utils/miloTriage";
 
@@ -66,6 +67,43 @@ describe("extractPetLogEntry", () => {
   it("respects behavioral tab", () => {
     const e = extractPetLogEntry("barking at guests", "p1", "u1", "behavioral");
     expect(e.domain).toBe("behavioral");
+  });
+
+  it("stores clinical summary in note but triages from owner lines", () => {
+    const summary =
+      "The dog demonstrates **Lethargy** and reduced food intake consistent with anorexia.";
+    const owner = "won't eat\nvery tired all day";
+    const e = extractPetLogEntry(summary, "p1", "u1", "health", undefined, owner);
+    expect(e.note).toBe(summary);
+    expect(e.severity).toBe("high");
+    expect(e.tags).toContain("diet");
+  });
+
+  it("sets vet_flag from clinical prefix when severity is medium", () => {
+    const e = extractPetLogEntry(
+      "[URGENT] **Lethargy** noted.",
+      "p1",
+      "u1",
+      "health",
+      undefined,
+      "a bit quiet today"
+    );
+    expect(e.vet_flag).toBe(true);
+    expect(e.severity).toBe("medium");
+  });
+});
+
+describe("noteHasClinicalTriagePrefix", () => {
+  it("detects URGENT prefix", () => {
+    expect(noteHasClinicalTriagePrefix("[URGENT] Dog is weak.")).toBe(true);
+  });
+
+  it("detects CRITICAL case-insensitively", () => {
+    expect(noteHasClinicalTriagePrefix("[critical] Respiratory distress.")).toBe(true);
+  });
+
+  it("returns false without prefix", () => {
+    expect(noteHasClinicalTriagePrefix("Normal day.")).toBe(false);
   });
 });
 

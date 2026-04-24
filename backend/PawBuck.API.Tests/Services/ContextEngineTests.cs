@@ -111,6 +111,24 @@ public class ContextEngineTests
     }
 
     [Fact]
+    public void BuildJournalSystemPersonaPrompt_ContainsSeniorScribeClinicalAbstractRules()
+    {
+        var prompt = ContextEngine.BuildJournalSystemPersonaPrompt(
+            "Rex",
+            MiloJournalConfigSnapshot.Defaults(),
+            [],
+            [],
+            userTurnNumber: 1);
+
+        prompt.Should().Contain("Senior Veterinary Scribe");
+        prompt.Should().Contain("Clinical Abstract");
+        prompt.Should().Contain("Adipsia");
+        prompt.Should().Contain("[URGENT]");
+        prompt.Should().Contain("[CRITICAL]");
+        prompt.Should().Contain("no bullet points");
+    }
+
+    [Fact]
     public void MiloJournalConfigSnapshot_Merge_RespectsOverrides()
     {
         var merged = MiloJournalConfigSnapshot.Merge(new MiloJournalConfigSnapshot
