@@ -1,3 +1,4 @@
+import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { FailedEmail } from "@/services/failedEmails";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,11 +15,13 @@ export default function FailedEmailListItem({
   failedEmail,
   onPress,
 }: FailedEmailListItemProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const chrome = healthListCardChrome(theme, isDark);
 
-  // Error color scheme
-  const accentColor = "#EF4444";
-  const accentBgColor = "rgba(239, 68, 68, 0.15)";
+  const accentColor = theme.warning;
+  const accentBgColor =
+    isDark ? "rgba(245, 158, 11, 0.18)" : "rgba(245, 158, 11, 0.12)";
 
   // Get sender display name (try to get proper name from email)
   const getSenderName = (): string => {
@@ -65,7 +68,7 @@ export default function FailedEmailListItem({
   // Extract primary issue and confidence from error message
   const getFailurePreview = (): { primaryIssue: string; confidence: number | null } => {
     const reason = failedEmail.failure_reason;
-    if (!reason) return { primaryIssue: "Processing failed", confidence: null };
+    if (!reason) return { primaryIssue: "Needs a quick look", confidence: null };
 
     // Extract confidence
     const confidenceMatch = reason.match(/Overall confidence: (\d+)%/);
@@ -123,20 +126,22 @@ export default function FailedEmailListItem({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      className="mx-4 mb-3 rounded-2xl p-4"
       style={{
-        backgroundColor: theme.card,
-        borderWidth: 1,
-        borderColor: theme.border,
+        marginHorizontal: HEALTH_LAYOUT.screenPaddingX,
+        marginBottom: HEALTH_LAYOUT.cardGap,
+        borderRadius: HEALTH_LAYOUT.cardRadius,
+        padding: HEALTH_LAYOUT.cardPadding,
+        backgroundColor: chrome.cardBg,
+        borderWidth: chrome.borderWidth,
+        borderColor: chrome.borderColor,
       }}
     >
       <View className="flex-row items-start">
-        {/* Error Icon */}
         <View
           className="w-10 h-10 rounded-full items-center justify-center mr-3"
           style={{ backgroundColor: accentBgColor }}
         >
-          <Ionicons name="close-circle" size={20} color={accentColor} />
+          <Ionicons name="sparkles" size={20} color={accentColor} />
         </View>
 
         {/* Content */}
@@ -164,7 +169,7 @@ export default function FailedEmailListItem({
           {/* Failure Reason Preview */}
           <View className="flex-row items-center">
             <Ionicons
-              name="alert-circle"
+              name="information-circle-outline"
               size={14}
               color={accentColor}
               style={{ marginRight: 4 }}
@@ -227,12 +232,13 @@ export default function FailedEmailListItem({
             </View>
           )}
 
-          {/* Failed Badge */}
           <View
             className="px-2 py-1 rounded-full"
             style={{ backgroundColor: accentColor }}
           >
-            <Text className="text-xs font-bold text-white">Failed</Text>
+            <Text className="text-xs font-bold" style={{ color: "#0F1419" }}>
+              Needs review
+            </Text>
           </View>
         </View>
       </View>

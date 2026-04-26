@@ -16,6 +16,7 @@ import {
   fetchMiloChat,
   submitMiloJournalFeedback,
   SubscriptionRequiredError,
+  type MiloChatFileAttachment,
 } from "@/utils/miloChatApi";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
@@ -118,6 +119,7 @@ export default function MiloJournalChatScreen() {
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
         responseId?: string;
+        fileAttachments?: MiloChatFileAttachment[];
       }
     ) => {
       const m: Row = {
@@ -130,6 +132,7 @@ export default function MiloJournalChatScreen() {
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
         responseId: extras?.responseId,
+        fileAttachments: extras?.fileAttachments,
       };
       setMessages((prev) => [...prev, m]);
     },
@@ -211,6 +214,7 @@ export default function MiloJournalChatScreen() {
           suggestedReplies: result.suggestedReplies,
           journalSessionComplete: result.journalSessionComplete,
           responseId: result.responseId,
+          fileAttachments: result.fileAttachments,
         });
 
         if (result.journalSessionComplete) {

@@ -30,4 +30,5 @@ export const lightTheme: Theme = {
   dashedCard: "#E4ECEC",
 
   error: "#EF4444",
+  warning: "#D97706",
 };

@@ -200,6 +200,12 @@ builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetReq
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
+builder.Services.AddHttpClient(nameof(MailInboxResolveService), client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+builder.Services.AddScoped<IMailInboxResolveService, MailInboxResolveService>();
+
 builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection(DocumentSyncOptions.SectionName));
 builder.Services.Configure<ProactivePetHealthOptions>(builder.Configuration.GetSection(ProactivePetHealthOptions.SectionName));
 builder.Services.AddScoped<IPetDocumentClinicalSyncService, PetDocumentClinicalSyncService>();

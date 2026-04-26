@@ -1,13 +1,20 @@
 import { Pet } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
-import { fetchMiloChatAnswer, SubscriptionRequiredError } from "@/utils/miloChatApi";
+import {
+  fetchMiloChat,
+  type MiloChatFileAttachment,
+  SubscriptionRequiredError,
+} from "@/utils/miloChatApi";
 import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
+
+export type { MiloChatFileAttachment };
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  fileAttachments?: MiloChatFileAttachment[];
 }
 
 interface ChatContextType {
@@ -73,7 +80,7 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
         content: msg.content,
       }));
 
-      const answer = await fetchMiloChatAnswer({
+      const result = await fetchMiloChat({
         message,
         pet: selectedPet,
         history,
@@ -84,8 +91,9 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: answer,
+        content: result.answer,
         timestamp: new Date(),
+        fileAttachments: result.fileAttachments,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

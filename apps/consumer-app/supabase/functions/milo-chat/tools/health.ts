@@ -1,8 +1,7 @@
 // Health records tool: vaccinations, medications, lab results, clinical exams
-import { createSupabaseClient } from "../../_shared/supabase-utils.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-async function fetchVaccinations(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchVaccinations(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("vaccinations")
     .select("*")
@@ -13,8 +12,7 @@ async function fetchVaccinations(petId: string) {
   return data || [];
 }
 
-async function fetchMedications(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchMedications(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("medicines")
     .select("*")
@@ -25,8 +23,7 @@ async function fetchMedications(petId: string) {
   return data || [];
 }
 
-async function fetchLabResults(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchLabResults(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("lab_results")
     .select("*")
@@ -37,8 +34,7 @@ async function fetchLabResults(petId: string) {
   return data || [];
 }
 
-async function fetchClinicalExams(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchClinicalExams(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("clinical_exams")
     .select("*")
@@ -153,31 +149,32 @@ export function isHealthTool(name: string): name is (typeof HEALTH_TOOL_NAMES)[n
  */
 export async function executeHealthTool(
   functionName: string,
-  petId: string
+  petId: string,
+  supabase: SupabaseClient
 ): Promise<string> {
   switch (functionName) {
     case "get_pet_vaccinations": {
-      const data = await fetchVaccinations(petId);
+      const data = await fetchVaccinations(supabase, petId);
       return formatVaccinations(data);
     }
     case "get_pet_medications": {
-      const data = await fetchMedications(petId);
+      const data = await fetchMedications(supabase, petId);
       return formatMedications(data);
     }
     case "get_pet_lab_results": {
-      const data = await fetchLabResults(petId);
+      const data = await fetchLabResults(supabase, petId);
       return formatLabResults(data);
     }
     case "get_pet_clinical_exams": {
-      const data = await fetchClinicalExams(petId);
+      const data = await fetchClinicalExams(supabase, petId);
       return formatClinicalExams(data);
     }
     case "get_pet_health_summary": {
       const [vaccinations, medications, labResults, exams] = await Promise.all([
-        fetchVaccinations(petId),
-        fetchMedications(petId),
-        fetchLabResults(petId),
-        fetchClinicalExams(petId),
+        fetchVaccinations(supabase, petId),
+        fetchMedications(supabase, petId),
+        fetchLabResults(supabase, petId),
+        fetchClinicalExams(supabase, petId),
       ]);
       return `=== PET HEALTH SUMMARY ===\n\n${formatVaccinations(vaccinations)}\n\n---\n\n${formatMedications(medications)}\n\n---\n\n${formatLabResults(labResults)}\n\n---\n\n${formatClinicalExams(exams)}`;
     }

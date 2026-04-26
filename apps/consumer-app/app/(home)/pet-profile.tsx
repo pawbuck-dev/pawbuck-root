@@ -1,13 +1,18 @@
 import CountryPicker from "@/components/common/CountryPicker";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PrivateImage from "@/components/common/PrivateImage";
+import { PetActivityFeed } from "@/components/pet/PetActivityFeed";
+import { PetNotificationPrefsSection } from "@/components/pet/PetNotificationPrefsSection";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { getPetTransferHistory } from "@/services/petTransfers";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
+import { formatPetInboundEmail } from "@/utils/petEmail";
 import { getPrivateImageUrl } from "@/utils/image";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -38,6 +43,12 @@ export default function PetProfile() {
 
   // Get current pet from context
   const currentPet = selectedPet || pets[0];
+
+  const { data: transferLog = [] } = useQuery({
+    queryKey: ["pet_transfer_history", currentPet?.id],
+    queryFn: () => getPetTransferHistory(currentPet!.id),
+    enabled: !!currentPet?.id,
+  });
 
   // Load pet image
   useEffect(() => {
@@ -104,7 +115,7 @@ export default function PetProfile() {
 
   const getPetEmail = (pet: typeof currentPet) => {
     if (!pet) return "";
-    return pet.email_id ? `${pet.email_id}@pawbuck.app` : `${pet.name.toLowerCase().replace(/\s+/g, "")}@pawbuck.app`;
+    return formatPetInboundEmail(pet.email_id, pet.name);
   };
 
   const getInitials = (name: string) => {
@@ -336,6 +347,11 @@ export default function PetProfile() {
             <Text className="text-base" style={{ color: theme.secondary }}>
               {getPetEmail(currentPet)}
             </Text>
+            {currentPet.pet_parent_display_name ? (
+              <Text className="text-sm mt-2 text-center px-4" style={{ color: theme.secondary }}>
+                Pet parent: {currentPet.pet_parent_display_name}
+              </Text>
+            ) : null}
           </View>
 
           {/* Download Pet Passport Button */}
@@ -389,6 +405,58 @@ export default function PetProfile() {
                 </>
               )}
             </Pressable>
+          </View>
+
+          {transferLog.length > 0 ? (
+            <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+              <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
+                Transfer history
+              </Text>
+              {transferLog.map((row, idx) => {
+                const label =
+                  row.prior_owner_display_snapshot?.trim() || "Previous owner";
+                const d = row.used_at
+                  ? new Date(row.used_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "";
+                return (
+                  <View
+                    key={row.id}
+                    className="py-3"
+                    style={
+                      idx < transferLog.length - 1
+                        ? { borderBottomWidth: 1, borderBottomColor: theme.border }
+                        : undefined
+                    }
+                  >
+                    <Text style={{ color: theme.foreground }}>
+                      Ownership received from{" "}
+                      <Text className="font-semibold">{label}</Text>
+                    </Text>
+                    <Text className="text-sm mt-1" style={{ color: theme.secondary }}>
+                      {d}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
+              Family activity
+            </Text>
+            <PetActivityFeed petId={currentPet.id} />
+          </View>
+
+          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
+              Notification preferences
+            </Text>
+            <PetNotificationPrefsSection petId={currentPet.id} />
           </View>
 
           {/* Pet Information Section */}

@@ -3,7 +3,8 @@ import { Theme } from "./model";
 /** Figma UI Design (Dark) — e.g. onboarding/sign in 1340:30146, 1340:31106 */
 export const darkTheme: Theme = {
   background: "#0B0F14",
-  backgroundEnd: "#121C1C",
+  /** Kept in sync with `background` so shell + any gradient endpoints stay one color */
+  backgroundEnd: "#0B0F14",
   foreground: "#FFFFFF",
 
   card: "#18222D",
@@ -20,4 +21,5 @@ export const darkTheme: Theme = {
   dashedCard: "#161B22",
 
   error: "#EF4444",
+  warning: "#F59E0B",
 };

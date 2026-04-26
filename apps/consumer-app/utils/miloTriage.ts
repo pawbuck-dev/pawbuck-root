@@ -40,8 +40,16 @@ const HIGH = [
   "hasnt eaten",
   "24h",
   "24 hours",
+  "24 hours without water",
+  "no water for 24",
+  "hasn't drunk",
+  "hasnt drunk",
+  "hasn't had water",
+  "not had water",
+  "no water intake",
   "lethargic",
   "won't drink",
+  "not drinking",
   "bloody stool",
   "blood in",
   "retching",
@@ -186,11 +194,15 @@ function extractTags(text: string): string[] {
   return tags;
 }
 
-/** True if persisted journal note is labeled for triage (Milo clinical summary prefix). */
+const SEVERE_SUMMARY_NOTE =
+  "Note: Severe symptoms detected. Veterinary consultation recommended.";
+
+/** True if persisted journal note is labeled for triage (legacy prefixes or current severe-summary line). */
 export function noteHasClinicalTriagePrefix(note: string): boolean {
   const t = note.trim();
   const head = t.slice(0, 32).toUpperCase();
-  return head.startsWith("[URGENT]") || head.startsWith("[CRITICAL]");
+  if (head.startsWith("[URGENT]") || head.startsWith("[CRITICAL]")) return true;
+  return t.includes(SEVERE_SUMMARY_NOTE);
 }
 
 /**
@@ -234,19 +246,16 @@ export function assistantReplyForSeverity(
   severity: PetLogSeverity,
   petName: string
 ): string {
-  const disclaimer =
-    "This is general information, not a diagnosis. When in doubt, contact your veterinarian.";
-
   switch (severity) {
     case "low":
-      return `Thanks for logging how ${petName} is doing. Sounds routine. ${disclaimer} 🐕`;
+      return `Entry logged for ${petName}.`;
     case "medium":
-      return `I've noted that about ${petName}. Keep an eye on appetite, energy, and whether symptoms change. If anything worsens or new signs appear, contact your vet. ${disclaimer}`;
+      return `Noted for ${petName}. Continue monitoring appetite, energy, and elimination.`;
     case "high":
-      return `${petName}'s symptoms could use a professional opinion soon. Consider messaging your vet with the details below or booking a visit. ${disclaimer}`;
+      return `${SEVERE_SUMMARY_NOTE} (${petName})`;
     case "urgent":
-      return `If ${petName} may be in distress or you see emergency signs, seek immediate veterinary or emergency care. You can also call your nearest emergency clinic. ${disclaimer}`;
+      return `If ${petName} may be in distress or you see emergency signs, seek immediate veterinary or emergency care now. ${SEVERE_SUMMARY_NOTE}`;
     default:
-      return disclaimer;
+      return `Entry logged for ${petName}.`;
   }
 }

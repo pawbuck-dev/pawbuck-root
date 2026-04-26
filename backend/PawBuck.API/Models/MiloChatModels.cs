@@ -58,6 +58,23 @@ public class MiloChatHistoryMessage
     public string Content { get; set; } = "";
 }
 
+/// <summary>Health record file linked to a Milo reply (storage path in Supabase bucket).</summary>
+public class MiloChatFileAttachment
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    /// <summary>One of: vaccination, medicine, lab_result, clinical_exam.</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "";
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = "";
+
+    [JsonPropertyName("storagePath")]
+    public string StoragePath { get; set; } = "";
+}
+
 /// <summary>POST /api/milo/chat response.</summary>
 public class MiloChatResponse
 {
@@ -104,6 +121,10 @@ public class MiloChatResponse
     /// <summary>Heuristic tags applied when generating this response (journal mode).</summary>
     [JsonPropertyName("heuristicTags")]
     public IReadOnlyList<string>? HeuristicTags { get; set; }
+
+    /// <summary>Recent health record documents tied to the facts loaded for this turn (for in-chat file chips).</summary>
+    [JsonPropertyName("fileAttachments")]
+    public IReadOnlyList<MiloChatFileAttachment>? FileAttachments { get; set; }
 }
 
 /// <summary>Gemini plan step (JSON). Property names match API camelCase.</summary>

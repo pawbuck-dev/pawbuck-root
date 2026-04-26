@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
+import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 
 function BriefingCard({
@@ -121,7 +122,7 @@ export default function HealthBriefingScreen() {
     return parts.join("\n\n");
   }, [data, pet]);
 
-  const vetFlagged = data?.journal.filter((j) => j.vet_flagged && j.domain === "health") ?? [];
+  const vetFlagged = data?.journal.filter((j) => journalEntryNeedsTriageAttention(j)) ?? [];
 
   const shareBriefing = async () => {
     if (!pet || !summaryText) return;

@@ -43,7 +43,7 @@ export function getOfflineJournalTurn(
       };
     default:
       return {
-        answer: `All noted for ${petName}. I've added this to your journal so you can track patterns over time. Keep me posted if anything changes. This is general information, not a diagnosis — contact your vet when something is off.`,
+        answer: `All information recorded for ${petName}. This journal entry is saved for your records.`,
         suggestedReplies: [],
         journalSessionComplete: true,
       };

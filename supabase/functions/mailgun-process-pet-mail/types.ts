@@ -30,6 +30,12 @@ export type DocumentType =
   | "travel_certificate"
   | "irrelevant";
 
+/** Review Inbox resolution: force pipeline to treat attachment as this type (skips Gemini classify). */
+export type ForcedDocumentPipelineType = Exclude<
+  DocumentType,
+  "irrelevant" | "billing_invoice" | "travel_certificate"
+>;
+
 export interface DocumentClassification {
   type: DocumentType;
   confidence: number;

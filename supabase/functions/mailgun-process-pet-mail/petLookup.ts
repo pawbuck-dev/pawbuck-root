@@ -70,3 +70,25 @@ export async function findPetByEmail(
   return await findPetByEmailId(emailId);
 }
 
+/**
+ * Load a pet by primary key (e.g. Review Inbox resolution override).
+ */
+export async function findPetById(petId: string): Promise<Pet | null> {
+  const supabase = createSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("pets")
+    .select(
+      "id, name, email_id, user_id, animal_type, breed, microchip_number, date_of_birth, sex"
+    )
+    .eq("id", petId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    console.error("findPetById error:", error);
+    return null;
+  }
+  return data as Pet;
+}
+

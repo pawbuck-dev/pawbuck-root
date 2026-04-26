@@ -7,6 +7,7 @@ import {
   formatHealthBriefingSubtitle,
   type BriefingCategoryKey,
 } from "@/utils/healthBriefingUi";
+import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo } from "react";
@@ -44,7 +45,7 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
         };
 
   const vetFlaggedCount = useMemo(
-    () => data?.journal.filter((j) => j.vet_flagged && j.domain === "health").length ?? 0,
+    () => data?.journal.filter((j) => journalEntryNeedsTriageAttention(j)).length ?? 0,
     [data?.journal]
   );
 

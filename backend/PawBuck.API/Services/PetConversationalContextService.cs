@@ -9,10 +9,12 @@ namespace PawBuck.API.Services;
 public sealed class PetConversationalContextService : IPetConversationalContextService
 {
     private readonly IOptions<SupabaseOptions> _options;
+    private readonly IMiloPetFactsService _petFacts;
 
-    public PetConversationalContextService(IOptions<SupabaseOptions> options)
+    public PetConversationalContextService(IOptions<SupabaseOptions> options, IMiloPetFactsService petFacts)
     {
         _options = options;
+        _petFacts = petFacts;
     }
 
     private NpgsqlConnection CreateConnection()
@@ -30,10 +32,13 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         MiloJournalConfigSnapshot config,
         CancellationToken cancellationToken = default)
     {
+        if (!await _petFacts.VerifyPetAccessAsync(userId, petId, cancellationToken))
+            return null;
+
         await using var conn = CreateConnection();
         await conn.OpenAsync(cancellationToken);
 
-        var profile = await LoadProfileAsync(conn, userId, petId, config, cancellationToken);
+        var profile = await LoadProfileAsync(conn, petId, config, cancellationToken);
         if (profile == null)
             return null;
 
@@ -42,15 +47,15 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var milestoneTo = utcNow.Date.AddDays(config.UpcomingMilestoneWindowDays);
 
         var recentMedical = new List<RecentMedicalEvent>();
-        recentMedical.AddRange(await LoadRecentVaccinationsAsync(conn, userId, petId, medicalFrom, utcNow.Date, cancellationToken));
-        recentMedical.AddRange(await LoadRecentMedicationsAsync(conn, userId, petId, medicalFrom, utcNow.Date, cancellationToken));
-        recentMedical.AddRange(await LoadRecentSurgeriesAsync(conn, userId, petId, medicalFrom, utcNow.Date, config.SurgeryExamTypePatterns, cancellationToken));
+        recentMedical.AddRange(await LoadRecentVaccinationsAsync(conn, petId, medicalFrom, utcNow.Date, cancellationToken));
+        recentMedical.AddRange(await LoadRecentMedicationsAsync(conn, petId, medicalFrom, utcNow.Date, cancellationToken));
+        recentMedical.AddRange(await LoadRecentSurgeriesAsync(conn, petId, medicalFrom, utcNow.Date, config.SurgeryExamTypePatterns, cancellationToken));
 
-        var journalNotes = await LoadJournalNotesAsync(conn, userId, petId, config.RecentJournalNotesCount, cancellationToken);
+        var journalNotes = await LoadJournalNotesAsync(conn, petId, config.RecentJournalNotesCount, cancellationToken);
         var milestones = new List<UpcomingMilestone>();
-        milestones.AddRange(await LoadUpcomingVaccinationsAsync(conn, userId, petId, utcNow.Date, milestoneTo, cancellationToken));
-        milestones.AddRange(await LoadUpcomingExamFollowUpsAsync(conn, userId, petId, utcNow.Date, milestoneTo, cancellationToken));
-        milestones.AddRange(await LoadUpcomingVetBookingsAsync(conn, userId, petId, utcNow, cancellationToken));
+        milestones.AddRange(await LoadUpcomingVaccinationsAsync(conn, petId, utcNow.Date, milestoneTo, cancellationToken));
+        milestones.AddRange(await LoadUpcomingExamFollowUpsAsync(conn, petId, utcNow.Date, milestoneTo, cancellationToken));
+        milestones.AddRange(await LoadUpcomingVetBookingsAsync(conn, petId, utcNow, cancellationToken));
 
         return new PetConversationalContextDto
         {
@@ -63,7 +68,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<PetProfileSnapshot?> LoadProfileAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         MiloJournalConfigSnapshot config,
         CancellationToken cancellationToken)
@@ -71,13 +75,12 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         const string sql = """
             SELECT name, animal_type, breed, date_of_birth, sex, weight_value, weight_unit
             FROM public.pets
-            WHERE id = @petId AND user_id = @userId AND deleted_at IS NULL
+            WHERE id = @petId AND deleted_at IS NULL
             LIMIT 1
             """;
 
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
             return null;
@@ -128,7 +131,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<RecentMedicalEvent>> LoadRecentVaccinationsAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime fromDate,
         DateTime toDate,
@@ -137,14 +139,13 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         const string sql = """
             SELECT name, date, notes, clinic_name
             FROM public.vaccinations
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND date >= @fromDate AND date <= @toDate
             ORDER BY date DESC
             """;
         var list = new List<RecentMedicalEvent>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromDate", fromDate);
         cmd.Parameters.AddWithValue("toDate", toDate);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -174,7 +175,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<RecentMedicalEvent>> LoadRecentMedicationsAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime fromDate,
         DateTime toDate,
@@ -184,7 +184,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
             SELECT name, type, COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) AS start_day,
                    purpose, prescribed_by
             FROM public.medicines
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) >= @fromDate
               AND COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) <= @toDate
             ORDER BY start_day DESC
@@ -192,7 +192,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<RecentMedicalEvent>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromDate", fromDate);
         cmd.Parameters.AddWithValue("toDate", toDate);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -219,7 +218,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<RecentMedicalEvent>> LoadRecentSurgeriesAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime fromDate,
         DateTime toDate,
@@ -240,7 +238,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var sql = $"""
             SELECT COALESCE(exam_type, 'Visit'), exam_date, clinic_name, findings, notes
             FROM public.clinical_exams
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND exam_date >= @fromDate AND exam_date <= @toDate
               AND ({or})
             ORDER BY exam_date DESC
@@ -249,7 +247,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<RecentMedicalEvent>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromDate", fromDate);
         cmd.Parameters.AddWithValue("toDate", toDate);
         for (var i = 0; i < patterns.Count; i++)
@@ -281,7 +278,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<RecentJournalNote>> LoadJournalNotesAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         int limit,
         CancellationToken cancellationToken)
@@ -289,7 +285,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var sql = $"""
             SELECT domain, subtype, note, entry_date, created_at
             FROM public.pet_journal_entries
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
             ORDER BY created_at DESC
             LIMIT {Math.Clamp(limit, 1, 20)}
             """;
@@ -297,7 +293,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<RecentJournalNote>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -317,7 +312,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<UpcomingMilestone>> LoadUpcomingVaccinationsAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime fromDate,
         DateTime toDate,
@@ -326,7 +320,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         const string sql = """
             SELECT name, next_due_date, clinic_name
             FROM public.vaccinations
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND next_due_date IS NOT NULL
               AND next_due_date >= @fromDate AND next_due_date <= @toDate
             ORDER BY next_due_date ASC
@@ -334,7 +328,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<UpcomingMilestone>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromDate", fromDate);
         cmd.Parameters.AddWithValue("toDate", toDate);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -355,7 +348,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<UpcomingMilestone>> LoadUpcomingExamFollowUpsAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime fromDate,
         DateTime toDate,
@@ -364,7 +356,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         const string sql = """
             SELECT COALESCE(exam_type, 'Follow-up'), follow_up_date, clinic_name
             FROM public.clinical_exams
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND follow_up_date IS NOT NULL
               AND follow_up_date >= @fromDate AND follow_up_date <= @toDate
             ORDER BY follow_up_date ASC
@@ -372,7 +364,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<UpcomingMilestone>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromDate", fromDate);
         cmd.Parameters.AddWithValue("toDate", toDate);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -393,7 +384,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 
     private static async Task<List<UpcomingMilestone>> LoadUpcomingVetBookingsAsync(
         NpgsqlConnection conn,
-        Guid userId,
         Guid petId,
         DateTime utcNow,
         CancellationToken cancellationToken)
@@ -403,7 +393,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         const string sql = """
             SELECT COALESCE(service_label, 'Appointment'), start_utc, clinic_name, status
             FROM public.vet_bookings
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
               AND start_utc >= @fromUtc AND start_utc <= @toUtc
               AND lower(coalesce(status, '')) NOT IN ('cancelled', 'canceled')
             ORDER BY start_utc ASC
@@ -411,7 +401,6 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         var list = new List<UpcomingMilestone>();
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("fromUtc", utcNow.Kind == DateTimeKind.Utc ? utcNow : DateTime.SpecifyKind(utcNow, DateTimeKind.Utc));
         cmd.Parameters.AddWithValue("toUtc", toUtc.Kind == DateTimeKind.Utc ? toUtc : DateTime.SpecifyKind(toUtc, DateTimeKind.Utc));
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);

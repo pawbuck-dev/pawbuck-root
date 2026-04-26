@@ -1,8 +1,19 @@
 import { registerForPush } from "@/utils/notification";
 import * as Application from "expo-application";
 import * as Notifications from "expo-notifications";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
+
+function routePetTransferNotification(data: Record<string, unknown> | undefined): void {
+  if (!data || data.type !== "pet_transfer") return;
+  const code = data.transferCode;
+  if (typeof code !== "string" || !code.trim()) return;
+  router.push({
+    pathname: "/transfer-pet/step2",
+    params: { transferCode: code.trim().toUpperCase() },
+  });
+}
 
 export function useNotificationHandlers() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -51,7 +62,9 @@ export function useNotificationHandlers() {
 
     const responseListener =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log("notification response received:", response);
+        const data = response.notification.request.content
+          .data as Record<string, unknown> | undefined;
+        routePetTransferNotification(data);
       });
 
     return () => {

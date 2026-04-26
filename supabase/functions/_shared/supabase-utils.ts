@@ -16,6 +16,27 @@ export function createSupabaseClient() {
 }
 
 /**
+ * Supabase client scoped to the caller JWT (PostgREST + RPC use RLS and auth.uid()).
+ */
+export function createUserSupabaseClient(authHeader: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+
+  const trimmed = authHeader.trim();
+  const bearer = trimmed.toLowerCase().startsWith("bearer ")
+    ? trimmed
+    : `Bearer ${trimmed}`;
+
+  return createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: bearer } },
+  });
+}
+
+/**
  * Download a file from Supabase Storage
  * @param bucket - The storage bucket name
  * @param path - The file path within the bucket

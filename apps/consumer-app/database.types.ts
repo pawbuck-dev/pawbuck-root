@@ -1006,9 +1006,11 @@ export type Database = {
           domain: string
           entry_date: string
           id: string
+          linked_clinical_exam_id: string | null
           note: string | null
           pet_id: string
           subtype: string
+          triage_status: string
           updated_at: string
           user_id: string
           vet_flagged: boolean
@@ -1018,9 +1020,11 @@ export type Database = {
           domain: string
           entry_date?: string
           id?: string
+          linked_clinical_exam_id?: string | null
           note?: string | null
           pet_id: string
           subtype: string
+          triage_status?: string
           updated_at?: string
           user_id: string
           vet_flagged?: boolean
@@ -1030,9 +1034,11 @@ export type Database = {
           domain?: string
           entry_date?: string
           id?: string
+          linked_clinical_exam_id?: string | null
           note?: string | null
           pet_id?: string
           subtype?: string
+          triage_status?: string
           updated_at?: string
           user_id?: string
           vet_flagged?: boolean
@@ -1047,15 +1053,140 @@ export type Database = {
           },
         ]
       }
+      pet_journal_transfer_highlights: {
+        Row: {
+          created_at: string
+          id: string
+          journal_entry_id: string
+          pet_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          journal_entry_id: string
+          pet_id: string
+          sort_order: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          journal_entry_id?: string
+          pet_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_journal_transfer_highlights_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "pet_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_journal_transfer_highlights_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_activity_events: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          kind: string
+          payload: Json
+          pet_id: string
+          ref_id: string | null
+          ref_table: string | null
+          summary: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          pet_id: string
+          ref_id?: string | null
+          ref_table?: string | null
+          summary: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          pet_id?: string
+          ref_id?: string | null
+          ref_table?: string | null
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_activity_events_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_family_notification_prefs: {
+        Row: {
+          care_activity_scope: Database["public"]["Enums"]["pet_care_notification_scope"]
+          care_push_enabled: boolean
+          lifecycle_push_enabled: boolean
+          pet_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          care_activity_scope?: Database["public"]["Enums"]["pet_care_notification_scope"]
+          care_push_enabled?: boolean
+          lifecycle_push_enabled?: boolean
+          pet_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          care_activity_scope?: Database["public"]["Enums"]["pet_care_notification_scope"]
+          care_push_enabled?: boolean
+          lifecycle_push_enabled?: boolean
+          pet_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_family_notification_prefs_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_transfers: {
         Row: {
           code: string
           created_at: string
+          declined_at: string | null
+          declined_by_user_id: string | null
+          excluded_journal_entry_ids: string[]
           expires_at: string | null
           from_user_id: string
           id: string
           is_active: boolean
+          journal_highlight_entry_ids: string[]
           pet_id: string
+          prior_owner_display_snapshot: string | null
+          prior_owner_show_name: boolean
+          recipient_contact: string | null
           to_user_id: string | null
           transfer_reason: string | null
           used_at: string | null
@@ -1063,11 +1194,18 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          declined_at?: string | null
+          declined_by_user_id?: string | null
+          excluded_journal_entry_ids?: string[]
           expires_at?: string | null
           from_user_id: string
           id?: string
           is_active?: boolean
+          journal_highlight_entry_ids?: string[]
           pet_id: string
+          prior_owner_display_snapshot?: string | null
+          prior_owner_show_name?: boolean
+          recipient_contact?: string | null
           to_user_id?: string | null
           transfer_reason?: string | null
           used_at?: string | null
@@ -1075,11 +1213,18 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          declined_at?: string | null
+          declined_by_user_id?: string | null
+          excluded_journal_entry_ids?: string[]
           expires_at?: string | null
           from_user_id?: string
           id?: string
           is_active?: boolean
+          journal_highlight_entry_ids?: string[]
           pet_id?: string
+          prior_owner_display_snapshot?: string | null
+          prior_owner_show_name?: boolean
+          recipient_contact?: string | null
           to_user_id?: string | null
           transfer_reason?: string | null
           used_at?: string | null
@@ -1146,6 +1291,7 @@ export type Database = {
           microchip_number: string | null
           name: string
           passport_number: string | null
+          pet_parent_display_name: string | null
           photo_url: string | null
           sex: string
           target_weight_unit: string | null
@@ -1167,6 +1313,7 @@ export type Database = {
           microchip_number?: string | null
           name: string
           passport_number?: string | null
+          pet_parent_display_name?: string | null
           photo_url?: string | null
           sex: string
           target_weight_unit?: string | null
@@ -1188,6 +1335,7 @@ export type Database = {
           microchip_number?: string | null
           name?: string
           passport_number?: string | null
+          pet_parent_display_name?: string | null
           photo_url?: string | null
           sex?: string
           target_weight_unit?: string | null
@@ -1206,6 +1354,7 @@ export type Database = {
           failure_reason: string | null
           id: string
           pet_id: string | null
+          review_status: "pending" | "resolved" | "dismissed" | null
           s3_key: string
           sender_email: string | null
           started_at: string | null
@@ -1220,6 +1369,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           pet_id?: string | null
+          review_status?: "pending" | "resolved" | "dismissed" | null
           s3_key: string
           sender_email?: string | null
           started_at?: string | null
@@ -1234,6 +1384,7 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           pet_id?: string | null
+          review_status?: "pending" | "resolved" | "dismissed" | null
           s3_key?: string
           sender_email?: string | null
           started_at?: string | null
@@ -1799,8 +1950,15 @@ export type Database = {
         }[]
       }
       user_can_access_pet: { Args: { p_pet_id: string }; Returns: boolean }
+      accept_pet_transfer: {
+        Args: { p_code: string; p_pet_parent_display_name?: string | null }
+        Returns: string
+      }
+      preview_pet_transfer: { Args: { p_code: string }; Returns: Json }
+      decline_pet_transfer: { Args: { p_code: string }; Returns: string }
     }
     Enums: {
+      pet_care_notification_scope: "all" | "meds_only" | "journal_only" | "none",
       pet_document_type:
         | "medications"
         | "lab_results"

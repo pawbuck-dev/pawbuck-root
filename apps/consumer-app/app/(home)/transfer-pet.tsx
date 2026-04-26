@@ -6,8 +6,13 @@ import {
   cancelPetTransfer,
   createPetTransfer,
   getMyPetTransfers,
-  PetTransfer,
+  getTransferPrepSnapshot,
+  PetTransferWithPreview,
 } from "@/services/petTransfers";
+import { notifyPetTransferCreated } from "@/services/petTransferNotify";
+import { fetchAllJournalEntriesForPet } from "@/services/petJournal";
+import { subtypeLabel, type JournalDomain } from "@/constants/petJournal";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,7 +30,9 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -39,9 +46,10 @@ const TRANSFER_REASONS = [
 ] as const;
 
 type TransferReasonId = (typeof TRANSFER_REASONS)[number]["id"];
-type FlowStep = "list" | "reason" | "share";
+type FlowStep = "list" | "reason" | "verify" | "journal" | "share";
 
-const TRANSFER_TTL_MINUTES = 15;
+/** Incoming transfer codes remain valid for 14 days (product spec). */
+const TRANSFER_EXPIRES_IN_DAYS = 14;
 
 /** Figma Button/disable — "Yes, Generate Code" glass pill */
 const MODAL_PRIMARY_GLASS_BG = "rgba(255, 255, 255, 0.1)";
@@ -63,11 +71,35 @@ function formatExpiryRemaining(expiresAt: string | null): string {
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms <= 0) return "Expired";
   const totalSec = Math.floor(ms / 1000);
+  const days = Math.floor(totalSec / 86400);
+  if (days >= 1) {
+    return days === 1 ? "Expires in 1 day" : `Expires in ${days} days`;
+  }
+  const h = Math.floor(totalSec / 3600);
+  if (h >= 1) return `Expires in ${h}h`;
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   if (m <= 0) return `Expires in ${s}s`;
   return `Expires in ${m}m ${s.toString().padStart(2, "0")}s`;
 }
+
+const TRANSFER_INCLUDES = [
+  "Medical records, vaccinations, labs, and visit history",
+  "Pet Passport (breed, DOB, microchip, weight history)",
+  "Behavioral profile and pet journal",
+  "Uploaded documents (labs, certificates, etc.)",
+  "Medication schedules",
+  "Vet invoices and receipts (payment amounts redacted for the new owner)",
+] as const;
+
+const TRANSFER_EXCLUDES = [
+  "Payment and billing history",
+  "Insurance enrollment and policy details on your account",
+  "Family sharing permissions (reset for the new owner)",
+  "Notification preferences",
+  "Milo AI conversation history",
+  "Connected groomer / walker / sitter links",
+] as const;
 
 export default function TransferPet() {
   const router = useRouter();
@@ -76,19 +108,36 @@ export default function TransferPet() {
   const isDark = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
+  const { setSelectedPetId: setGlobalSelectedPetId } = useSelectedPet();
   const queryClient = useQueryClient();
 
   const [flow, setFlow] = useState<FlowStep>("list");
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState<TransferReasonId | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [activeTransfer, setActiveTransfer] = useState<PetTransfer | null>(null);
+  const [activeTransfer, setActiveTransfer] = useState<PetTransferWithPreview | null>(null);
   const [tick, setTick] = useState(0);
+  const [recipientContact, setRecipientContact] = useState("");
+  const [priorOwnerShowName, setPriorOwnerShowName] = useState(true);
+  const [highlightEntryIds, setHighlightEntryIds] = useState<string[]>([]);
+  const [excludedEntryIds, setExcludedEntryIds] = useState<string[]>([]);
 
-  const { data: transfers = [] } = useQuery<PetTransfer[]>({
+  const { data: transfers = [] } = useQuery<PetTransferWithPreview[]>({
     queryKey: ["pet_transfers"],
     queryFn: getMyPetTransfers,
     enabled: !!user,
+  });
+
+  const { data: transferPrep } = useQuery({
+    queryKey: ["pet_transfer_prep", selectedPetId],
+    queryFn: () => getTransferPrepSnapshot(selectedPetId!),
+    enabled: !!user && flow === "verify" && !!selectedPetId,
+  });
+
+  const { data: journalEntriesForTransfer = [], isLoading: journalLoading } = useQuery({
+    queryKey: ["pet_transfer_journal_pick", selectedPetId],
+    queryFn: () => fetchAllJournalEntriesForPet(selectedPetId!),
+    enabled: !!user && flow === "journal" && !!selectedPetId,
   });
 
   const activeForPet = useCallback(
@@ -104,16 +153,39 @@ export default function TransferPet() {
   );
 
   const createTransferMutation = useMutation({
-    mutationFn: async ({ petId, reason }: { petId: string; reason: string }) =>
+    mutationFn: async ({
+      petId,
+      reason,
+      recipientContact: rc,
+      priorOwnerShowName: showName,
+      journalHighlightEntryIds,
+      excludedJournalEntryIds,
+    }: {
+      petId: string;
+      reason: string;
+      recipientContact: string;
+      priorOwnerShowName: boolean;
+      journalHighlightEntryIds: string[];
+      excludedJournalEntryIds: string[];
+    }) =>
       createPetTransfer(petId, {
-        ttlMinutes: TRANSFER_TTL_MINUTES,
+        expiresInDays: TRANSFER_EXPIRES_IN_DAYS,
         transferReason: reason,
+        recipientContact: rc.trim() || undefined,
+        priorOwnerShowName: showName,
+        journalHighlightEntryIds,
+        excludedJournalEntryIds,
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["pet_transfers"] });
       setConfirmVisible(false);
       setActiveTransfer(data);
       setFlow("share");
+      try {
+        await notifyPetTransferCreated(data.id);
+      } catch {
+        /* non-blocking */
+      }
     },
     onError: (error: Error) => {
       setConfirmVisible(false);
@@ -129,6 +201,10 @@ export default function TransferPet() {
       setFlow("list");
       setSelectedPetId(null);
       setSelectedReason(null);
+      setRecipientContact("");
+      setPriorOwnerShowName(true);
+      setHighlightEntryIds([]);
+      setExcludedEntryIds([]);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to cancel transfer");
@@ -161,17 +237,53 @@ export default function TransferPet() {
     }
     setSelectedPetId(petId);
     setSelectedReason("rehoming");
+    setRecipientContact("");
+    setPriorOwnerShowName(true);
+    setHighlightEntryIds([]);
+    setExcludedEntryIds([]);
     setFlow("reason");
   };
 
   const handleContinueReason = () => {
     if (!selectedReason) return;
+    setFlow("verify");
+  };
+
+  const handleContinueVerify = () => {
+    setFlow("journal");
+  };
+
+  const handleContinueJournal = () => {
     setConfirmVisible(true);
+  };
+
+  const toggleJournalHighlight = (entryId: string) => {
+    setExcludedEntryIds((ex) => ex.filter((x) => x !== entryId));
+    setHighlightEntryIds((prev) => {
+      if (prev.includes(entryId)) return prev.filter((x) => x !== entryId);
+      if (prev.length >= 5) return prev;
+      return [...prev, entryId];
+    });
+  };
+
+  const toggleJournalExclude = (entryId: string, vetFlagged: boolean) => {
+    if (vetFlagged) return;
+    setHighlightEntryIds((h) => h.filter((x) => x !== entryId));
+    setExcludedEntryIds((prev) =>
+      prev.includes(entryId) ? prev.filter((x) => x !== entryId) : [...prev, entryId]
+    );
   };
 
   const handleConfirmGenerate = () => {
     if (!selectedPetId || !selectedReason) return;
-    createTransferMutation.mutate({ petId: selectedPetId, reason: selectedReason });
+    createTransferMutation.mutate({
+      petId: selectedPetId,
+      reason: selectedReason,
+      recipientContact,
+      priorOwnerShowName,
+      journalHighlightEntryIds: highlightEntryIds,
+      excludedJournalEntryIds: excludedEntryIds,
+    });
   };
 
   const handleCopyCode = async (code: string) => {
@@ -182,7 +294,7 @@ export default function TransferPet() {
   const handleShareCode = async (code: string) => {
     try {
       await Share.share({
-        message: `PawBuck pet transfer code: ${code}\n\nEnter this code in PawBuck to accept the transfer.`,
+        message: `PawBuck pet transfer code: ${code}\n\nEnter this code in PawBuck within ${TRANSFER_EXPIRES_IN_DAYS} days to accept the transfer.`,
       });
     } catch {
       /* dismissed */
@@ -209,6 +321,10 @@ export default function TransferPet() {
     setFlow("list");
     setSelectedPetId(null);
     setSelectedReason(null);
+    setRecipientContact("");
+    setPriorOwnerShowName(true);
+    setHighlightEntryIds([]);
+    setExcludedEntryIds([]);
   };
 
   const goBackFromShare = () => {
@@ -216,6 +332,18 @@ export default function TransferPet() {
     setActiveTransfer(null);
     setSelectedPetId(null);
     setSelectedReason(null);
+    setRecipientContact("");
+    setPriorOwnerShowName(true);
+    setHighlightEntryIds([]);
+    setExcludedEntryIds([]);
+  };
+
+  const goBackFromVerify = () => {
+    setFlow("reason");
+  };
+
+  const goBackFromJournal = () => {
+    setFlow("verify");
   };
 
   const muted = isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)";
@@ -366,6 +494,234 @@ export default function TransferPet() {
         </>
       )}
 
+      {flow === "verify" && selectedPet && (
+        <>
+          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
+            <Pressable
+              onPress={goBackFromVerify}
+              hitSlop={12}
+              style={[
+                styles.backFab,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                },
+              ]}
+            >
+              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+            </Pressable>
+            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.reasonContent, { paddingBottom: 140 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.heroTitle, { color: theme.foreground }]}>Verify & recipient</Text>
+            <Text style={[styles.heroSub, { color: muted }]}>
+              Confirm health basics are current, optionally note who should receive the code, and choose whether
+              your name appears in transfer history.
+            </Text>
+
+            <Text style={[styles.fieldLabel, { color: theme.foreground }]}>Recipient (optional)</Text>
+            <TextInput
+              value={recipientContact}
+              onChangeText={setRecipientContact}
+              placeholder="Email or @username on PawBuck"
+              placeholderTextColor={muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.textField,
+                {
+                  borderColor: theme.border,
+                  color: theme.foreground,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : theme.card,
+                },
+              ]}
+            />
+            <Text style={[styles.helperHint, { color: muted }]}>
+              This is a reminder for you when sharing the code. The transfer still uses the secure code.
+            </Text>
+
+            <View style={[styles.switchRow, { marginTop: 22 }]}>
+              <Text style={[styles.switchLabel, { color: theme.foreground }]}>
+                Show my name in transfer history to the new owner
+              </Text>
+              <Switch value={priorOwnerShowName} onValueChange={setPriorOwnerShowName} />
+            </View>
+
+            {transferPrep && (
+              <View style={[styles.snapshotCard, { backgroundColor: cardBg }]}>
+                <Text style={[styles.snapshotTitle, { color: theme.foreground }]}>Current status</Text>
+                <Text style={[styles.snapshotLine, { color: theme.secondary }]}>
+                  Weight: {transferPrep.weightLabel}
+                </Text>
+                <Text style={[styles.snapshotLine, { color: theme.secondary, marginTop: 6 }]}>
+                  Active medication courses: {transferPrep.activeMedicationCount}
+                </Text>
+                <Text style={[styles.snapshotLine, { color: theme.secondary, marginTop: 6 }]}>
+                  Last vet visit: {transferPrep.lastVetVisitDate ?? "None on file"}
+                </Text>
+                {transferPrep.vetVisitOlderThan12Months && (
+                  <Text style={[styles.softWarn, { marginTop: 10 }]}>
+                    Last visit was over 12 months ago. Consider updating records before transferring.
+                  </Text>
+                )}
+              </View>
+            )}
+
+            <Pressable
+              onPress={() => {
+                setGlobalSelectedPetId(selectedPet.id);
+                router.push("/(home)/pet-profile");
+              }}
+              style={{ marginTop: 20, paddingVertical: 8 }}
+            >
+              <Text style={[styles.linkText, { color: theme.primary }]}>
+                Update weight or medications in Pet Profile →
+              </Text>
+            </Pressable>
+          </ScrollView>
+
+          <View style={[styles.footer, { bottom: footerLift, paddingBottom: 8 }]}>
+            <Pressable onPress={handleContinueVerify} style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
+              <LinearGradient
+                colors={[theme.primary, theme.ring]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaPrimary}
+              >
+                <Text style={[styles.ctaPrimaryText, { color: theme.primaryForeground }]}>Continue</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      {flow === "journal" && selectedPet && (
+        <>
+          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
+            <Pressable
+              onPress={goBackFromJournal}
+              hitSlop={12}
+              style={[
+                styles.backFab,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                },
+              ]}
+            >
+              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
+            </Pressable>
+            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.reasonContent, { paddingBottom: 140 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.heroTitle, { color: theme.foreground }]}>Journal highlights & exclusions</Text>
+            <Text style={[styles.heroSub, { color: muted }]}>
+              Pin up to 5 journal notes for the new owner. Exclude sensitive entries you do not want to share
+              (vet-flagged records always transfer).
+            </Text>
+            {excludedEntryIds.length > 0 && (
+              <Text style={[styles.excludeCount, { color: theme.secondary }]}>
+                {excludedEntryIds.length} journal entr
+                {excludedEntryIds.length === 1 ? "y" : "ies"} excluded from transfer
+              </Text>
+            )}
+            {journalLoading ? (
+              <ActivityIndicator style={{ marginTop: 24 }} color={theme.primary} />
+            ) : (
+              journalEntriesForTransfer.map((entry) => {
+                const pinned = highlightEntryIds.includes(entry.id);
+                const excluded = excludedEntryIds.includes(entry.id);
+                const vf = Boolean(entry.vet_flagged);
+                return (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.journalRow,
+                      {
+                        backgroundColor: cardBg,
+                        borderColor: pinned ? theme.primary : "transparent",
+                        borderWidth: pinned ? 1 : 0,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.journalMeta, { color: theme.foreground }]}>
+                      {subtypeLabel(entry.domain as JournalDomain, entry.subtype)} · {entry.entry_date}
+                    </Text>
+                    <Text style={[styles.journalNote, { color: theme.secondary }]} numberOfLines={3}>
+                      {entry.note?.trim() ? entry.note : "(No note text)"}
+                    </Text>
+                    {vf ? (
+                      <Text style={[styles.vetFlaggedHint, { color: theme.primary }]}>
+                        Vet-flagged — always included in transfer
+                      </Text>
+                    ) : null}
+                    <View style={styles.journalActions}>
+                      <Pressable
+                        onPress={() => toggleJournalHighlight(entry.id)}
+                        style={[
+                          styles.journalChip,
+                          {
+                            borderColor: pinned ? theme.primary : theme.border,
+                            backgroundColor: pinned ? `${theme.primary}22` : "transparent",
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: theme.foreground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>
+                          {pinned ? "Pinned" : "Pin"} ({highlightEntryIds.length}/5)
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        disabled={vf}
+                        onPress={() => toggleJournalExclude(entry.id, vf)}
+                        style={[
+                          styles.journalChip,
+                          {
+                            borderColor: excluded ? "#FF3B30" : theme.border,
+                            opacity: vf ? 0.35 : 1,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: excluded ? "#FF3B30" : theme.foreground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>
+                          {excluded ? "Excluded" : "Exclude"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+            {!journalLoading && journalEntriesForTransfer.length === 0 && (
+              <Text style={[styles.heroSub, { color: theme.secondary, marginTop: 16 }]}>
+                No journal entries yet. You can continue — this step is optional.
+              </Text>
+            )}
+          </ScrollView>
+
+          <View style={[styles.footer, { bottom: footerLift, paddingBottom: 8 }]}>
+            <Pressable onPress={handleContinueJournal} style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
+              <LinearGradient
+                colors={[theme.primary, theme.ring]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaPrimary}
+              >
+                <Text style={[styles.ctaPrimaryText, { color: theme.primaryForeground }]}>Review summary</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </>
+      )}
+
       {flow === "share" && activeTransfer && (
         <>
           <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
@@ -392,7 +748,8 @@ export default function TransferPet() {
           >
             <Text style={[styles.heroTitle, { color: theme.foreground }]}>Share Transfer Code</Text>
             <Text style={[styles.shareHint, { color: muted }]}>
-              Share this code with the new owner to complete the transfer.
+              Share this code with the new owner. It stays valid for {TRANSFER_EXPIRES_IN_DAYS} days or until
+              you cancel it.
             </Text>
 
             <View style={styles.qrFrame}>
@@ -528,8 +885,43 @@ export default function TransferPet() {
                   { color: isDark ? "rgba(255,255,255,0.55)" : theme.secondary },
                 ]}
               >
-                Are you sure you want to generate a transfer code? This cannot be undone once accepted.
+                Review what travels with this pet. Nothing is transferred until the recipient accepts the
+                code.
               </Text>
+
+              <ScrollView
+                style={styles.modalSummaryScroll}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
+                <Text style={[styles.modalSummaryHeading, { color: theme.foreground }]}>Will transfer</Text>
+                {TRANSFER_INCLUDES.map((line) => (
+                  <Text
+                    key={line}
+                    style={[styles.modalSummaryLine, { color: theme.secondary }]}
+                  >
+                    {"\u2022 "}
+                    {line}
+                  </Text>
+                ))}
+                <Text
+                  style={[
+                    styles.modalSummaryHeading,
+                    { color: theme.foreground, marginTop: 14 },
+                  ]}
+                >
+                  Will not transfer
+                </Text>
+                {TRANSFER_EXCLUDES.map((line) => (
+                  <Text
+                    key={line}
+                    style={[styles.modalSummaryLine, { color: theme.secondary }]}
+                  >
+                    {"\u2022 "}
+                    {line}
+                  </Text>
+                ))}
+              </ScrollView>
 
               {/*
                * Figma: border-radius 100px, background rgba(255,255,255,0.10),
@@ -673,6 +1065,100 @@ const styles = StyleSheet.create({
   petSub: { fontFamily: "Poppins_400Regular", fontSize: 14, marginTop: 2 },
   activePill: { fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 6 },
   reasonContent: { paddingHorizontal: 24, paddingTop: 8 },
+  fieldLabel: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    marginTop: 20,
+  },
+  textField: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === "ios" ? 14 : 10,
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+  },
+  helperHint: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  switchLabel: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 15,
+    flex: 1,
+    lineHeight: 22,
+  },
+  snapshotCard: {
+    marginTop: 22,
+    borderRadius: 16,
+    padding: 16,
+  },
+  snapshotTitle: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  snapshotLine: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  softWarn: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#FF9500",
+  },
+  linkText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 15,
+  },
+  excludeCount: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 13,
+    marginTop: 12,
+  },
+  journalRow: {
+    marginTop: 12,
+    borderRadius: 14,
+    padding: 14,
+  },
+  journalMeta: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+  },
+  journalNote: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  vetFlaggedHint: {
+    fontFamily: "Poppins_500Medium",
+    fontSize: 12,
+    marginTop: 8,
+  },
+  journalActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+  journalChip: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
   heroTitle: {
     fontFamily: "Poppins_700Bold",
     fontSize: 26,
@@ -833,6 +1319,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 340,
+    maxHeight: "88%",
     borderRadius: CONFIRM_MODAL_RADIUS,
     paddingHorizontal: 28,
     paddingTop: 32,
@@ -859,8 +1346,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: "center",
-    marginBottom: 28,
+    marginBottom: 14,
     paddingHorizontal: 4,
+  },
+  modalSummaryScroll: {
+    width: "100%",
+    maxHeight: 240,
+    marginBottom: 20,
+    alignSelf: "stretch",
+  },
+  modalSummaryHeading: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  modalSummaryLine: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 6,
+    paddingRight: 4,
   },
   modalActions: {
     width: "100%",

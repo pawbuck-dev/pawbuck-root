@@ -21,6 +21,7 @@ import {
 import {
   markEmailAsCompleted,
   markEmailAsFailed,
+  resetFailedRowForReprocess,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
 import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
@@ -34,7 +35,7 @@ import {
   retrieveEmailForReprocessing,
 } from "./emailStorage.ts";
 import { storeInboundMessage } from "./messageStorage.ts";
-import { findPetByEmail } from "./petLookup.ts";
+import { findPetByEmail, findPetById } from "./petLookup.ts";
 import { lookupRecipientName } from "./recipientNameLookup.ts";
 import { createThreadFromInboundEmail } from "./threadCreation.ts";
 import { findThreadByRecipientAndPet } from "./threadLookup.ts";
@@ -45,8 +46,32 @@ import type {
   ParsedEmail,
   Pet,
 } from "./types.ts";
+import type { ForcedDocumentPipelineType } from "./types.ts";
+import type { ProcessAttachmentsOptions } from "./handlers/attachmentProcessor.ts";
 
 console.log("mailgun-process-pet-mail function initialized");
+
+/** Map API / app doc type strings to pipeline `DocumentType` (forced classification). */
+function mapDocumentTypeOverride(
+  raw: string | undefined
+): ForcedDocumentPipelineType | undefined {
+  if (!raw) return undefined;
+  const n = raw.trim().toLowerCase().replace(/-/g, "_");
+  const map: Record<string, ForcedDocumentPipelineType> = {
+    vaccinations: "vaccinations",
+    vaccination: "vaccinations",
+    vaccine: "vaccinations",
+    medications: "medications",
+    medication: "medications",
+    lab_results: "lab_results",
+    lab_result: "lab_results",
+    lab: "lab_results",
+    clinical_exams: "clinical_exams",
+    clinical_exam: "clinical_exams",
+    exam: "clinical_exams",
+  };
+  return map[n];
+}
 
 Deno.serve(async (req) => {
   let pet: Pet | null = null;
@@ -55,6 +80,8 @@ Deno.serve(async (req) => {
   let isReprocessing = false;
   let storedEmailPath: string | null = null;
   let parsedEmail: ParsedEmail | null = null;
+  let overridePetId: string | undefined;
+  let documentTypeOverride: string | undefined;
 
   try {
     // Detect request type based on content-type header
@@ -66,7 +93,15 @@ Deno.serve(async (req) => {
       isReprocessing = true;
 
       const body = await req.json();
-      const { fileKey } = body as { bucket?: string; fileKey?: string };
+      const b = body as {
+        bucket?: string;
+        fileKey?: string;
+        overridePetId?: string;
+        documentTypeOverride?: string;
+      };
+      const { fileKey } = b;
+      overridePetId = b.overridePetId;
+      documentTypeOverride = b.documentTypeOverride;
 
       if (!fileKey) {
         return buildValidationErrorResponse(
@@ -74,7 +109,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log(`Re-processing email with fileKey: ${fileKey}`);
+      console.log(
+        `Re-processing email with fileKey: ${fileKey} overridePetId=${overridePetId ?? "none"} docType=${documentTypeOverride ?? "none"}`
+      );
       storedEmailPath = fileKey;
 
       // Retrieve stored email data from Supabase Storage
@@ -128,15 +165,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 5: Find pet by recipient email
+    // Step 5: Find pet (override for Review Inbox resolution, else by recipient email)
     const recipientEmail = parsedEmail.to[0].address;
-    console.log(`Looking up pet by email: ${recipientEmail}`);
 
-    pet = await findPetByEmail(recipientEmail);
-    if (!pet) {
-      return buildNotFoundResponse(
-        `No pet found with email address: ${recipientEmail}`
-      );
+    if (isReprocessing && overridePetId) {
+      console.log(`Using override pet_id from Review Inbox: ${overridePetId}`);
+      pet = await findPetById(overridePetId);
+      if (!pet) {
+        return buildNotFoundResponse(`No pet found for id: ${overridePetId}`);
+      }
+    } else {
+      console.log(`Looking up pet by email: ${recipientEmail}`);
+      pet = await findPetByEmail(recipientEmail);
+      if (!pet) {
+        return buildNotFoundResponse(
+          `No pet found with email address: ${recipientEmail}`
+        );
+      }
     }
 
     console.log(`Found pet: ${pet.name} (ID: ${pet.id})`);
@@ -185,31 +230,71 @@ Deno.serve(async (req) => {
     }
 
     // Step 8: Acquire processing lock (idempotency)
-    // This is done AFTER sender verification so pending approvals don't acquire a lock
-    // allowing reprocessing when user approves the email from the app
-    const lockResult = await tryAcquireProcessingLock(messageId, {
-      senderEmail: senderEmail,
-      subject: parsedEmail.subject,
-    });
-    if (!lockResult.acquired) {
-      const message =
-        lockResult.status === "completed"
-          ? "Email already processed"
-          : "Email is currently being processed";
+    // Re-open failed rows for JSON reprocess (Review Inbox) so we don't hit "already completed"
+    const forcedPipelineType = mapDocumentTypeOverride(documentTypeOverride);
+    const processOptions: ProcessAttachmentsOptions | undefined =
+      forcedPipelineType
+        ? { forcedDocumentType: forcedPipelineType, forcedAttachmentIndexLimit: 1 }
+        : undefined;
 
-      console.log(`${message}: ${messageId} - skipping`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message,
-          status: lockResult.status,
-          messageId,
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
+    if (isReprocessing) {
+      const reopened = await resetFailedRowForReprocess(messageId);
+      if (reopened) {
+        console.log(
+          `Reprocess: reopened failed row for ${messageId}, continuing without new lock`
+        );
+      } else {
+        // Row may already be successful, or only webhook path (no prior row for this key)
+        const lockResult = await tryAcquireProcessingLock(messageId, {
+          senderEmail: senderEmail,
+          subject: parsedEmail.subject,
+        });
+        if (!lockResult.acquired) {
+          const message =
+            lockResult.status === "completed"
+              ? "Email already processed"
+              : "Email is currently being processed";
+
+          console.log(`${message}: ${messageId} - skipping`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message,
+              status: lockResult.status,
+              messageId,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
         }
-      );
+      }
+    } else {
+      const lockResult = await tryAcquireProcessingLock(messageId, {
+        senderEmail: senderEmail,
+        subject: parsedEmail.subject,
+      });
+      if (!lockResult.acquired) {
+        const message =
+          lockResult.status === "completed"
+            ? "Email already processed"
+            : "Email is currently being processed";
+
+        console.log(`${message}: ${messageId} - skipping`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message,
+            status: lockResult.status,
+            messageId,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
     // Step 8.5: Store inbound message if it has text content and we can find a thread
@@ -351,7 +436,8 @@ Deno.serve(async (req) => {
         messageId,
         pet.id,
         0, // no attachments
-        true // success
+        true, // success
+        { reviewStatus: "resolved" }
       );
 
       console.log(
@@ -380,7 +466,8 @@ Deno.serve(async (req) => {
     const processedAttachments = await processAttachments(
       pet,
       parsedEmail.attachments,
-      emailContext
+      emailContext,
+      processOptions
     );
 
     // Step 12: Log summary and return success
@@ -424,6 +511,7 @@ Deno.serve(async (req) => {
         {
           documentType: relevantAttachments[0]?.classification.type,
           failureReason: `Failed to process ${failedAttachments.length} document(s): ${failureReasons.join("; ")}`,
+          reviewStatus: "pending",
         }
       );
 
@@ -458,12 +546,13 @@ Deno.serve(async (req) => {
       `[MONITORING] Marking email as completed (attachments: ${processedAttachments.length}, successful: ${successfulInserts.length}, message stored: ${messageStored})`
     );
 
-    await markEmailAsCompleted(
-      messageId,
-      pet.id,
-      processedAttachments.length,
-      true
-    );
+      await markEmailAsCompleted(
+        messageId,
+        pet.id,
+        processedAttachments.length,
+        true,
+        { reviewStatus: "resolved" }
+      );
 
     console.log(`[MONITORING] ✅ Email processing completed successfully`);
 

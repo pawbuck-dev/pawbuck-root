@@ -12,4 +12,6 @@ export type Theme = {
   ring: string;
   dashedCard: string;
   error: string;
+  /** Amber / attention — needs review, not critical error */
+  warning: string;
 };

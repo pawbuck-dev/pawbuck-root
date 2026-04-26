@@ -17,7 +17,7 @@ public class MiloReasoningServiceGuardTests
             ReasoningBrief = "test",
         };
 
-        MiloReasoningService.ApplyNoPetGuard(plan, petOwned: false);
+        MiloReasoningService.ApplyNoPetGuard(plan, petHasVerifiedAccess: false);
 
         plan.DataNeeded.Should().BeEquivalentTo(new[] { MiloPetFactsKinds.None });
     }
@@ -32,7 +32,7 @@ public class MiloReasoningServiceGuardTests
             ReasoningBrief = "test",
         };
 
-        MiloReasoningService.ApplyNoPetGuard(plan, petOwned: true);
+        MiloReasoningService.ApplyNoPetGuard(plan, petHasVerifiedAccess: true);
 
         plan.DataNeeded.Should().BeEquivalentTo(new[] { MiloPetFactsKinds.Vaccinations });
     }

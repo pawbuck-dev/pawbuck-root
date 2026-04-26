@@ -1,3 +1,4 @@
+import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { MessageThread } from "@/services/messages";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,7 +19,9 @@ export default function ThreadListItem({
   onAddToCareTeam,
   showAddButton = false,
 }: ThreadListItemProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const chrome = healthListCardChrome(theme, isDark);
 
   // Get recipient display name
   const recipientName =
@@ -58,11 +61,14 @@ export default function ThreadListItem({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      className="px-4 py-3"
       style={{
-        backgroundColor: theme.card,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.border,
+        marginHorizontal: HEALTH_LAYOUT.screenPaddingX,
+        marginBottom: HEALTH_LAYOUT.cardGap,
+        borderRadius: HEALTH_LAYOUT.cardRadius,
+        padding: HEALTH_LAYOUT.cardPadding,
+        backgroundColor: chrome.cardBg,
+        borderWidth: chrome.borderWidth,
+        borderColor: chrome.borderColor,
       }}
     >
       <View className="flex-row items-start">

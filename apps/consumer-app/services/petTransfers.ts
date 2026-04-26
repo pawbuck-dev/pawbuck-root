@@ -1,5 +1,64 @@
 import { supabase } from "@/utils/supabase";
 
+/** Minimal pet fields returned when verifying a code (preview before accept). */
+export type PetTransferPreviewPet = {
+  name: string;
+  breed: string | null;
+  photo_url: string | null;
+  animal_type: string | null;
+  date_of_birth: string;
+  /** Present once DB migration with email in verify select is applied. */
+  email_id?: string | null;
+};
+
+export type PetTransferPreviewHighlight = {
+  id: string;
+  entry_date: string;
+  domain: string;
+  subtype: string;
+  note_preview: string;
+};
+
+export type PetTransferPreviewSummary = {
+  vaccination_count: number;
+  active_medication_count: number;
+  clinical_exam_count: number;
+  document_count: number;
+};
+
+/** Full recipient preview for a valid code (US-PT-006). */
+export type PetTransferPreviewPayload = {
+  pet: PetTransferPreviewPet;
+  highlights: PetTransferPreviewHighlight[];
+  summary: PetTransferPreviewSummary;
+};
+
+export async function fetchPetTransferPreview(
+  code: string
+): Promise<PetTransferPreviewPayload | null> {
+  const { data, error } = await supabase.rpc("preview_pet_transfer", {
+    p_code: code.trim().toUpperCase(),
+  });
+  if (error) throw error;
+  if (data == null || typeof data !== "object") return null;
+  const raw = data as Record<string, unknown>;
+  if (!raw.pet || typeof raw.pet !== "object") return null;
+  return {
+    pet: raw.pet as PetTransferPreviewPet,
+    highlights: Array.isArray(raw.highlights)
+      ? (raw.highlights as PetTransferPreviewHighlight[])
+      : [],
+    summary: {
+      vaccination_count: Number((raw.summary as Record<string, unknown>)?.vaccination_count ?? 0),
+      active_medication_count: Number(
+        (raw.summary as Record<string, unknown>)?.active_medication_count ?? 0
+      ),
+      clinical_exam_count: Number((raw.summary as Record<string, unknown>)?.clinical_exam_count ?? 0),
+      document_count: Number((raw.summary as Record<string, unknown>)?.document_count ?? 0),
+    },
+  };
+}
+
 export interface PetTransfer {
   id: string;
   code: string;
@@ -11,7 +70,18 @@ export interface PetTransfer {
   to_user_id: string | null;
   is_active: boolean;
   transfer_reason?: string | null;
+  declined_at?: string | null;
+  declined_by_user_id?: string | null;
+  recipient_contact?: string | null;
+  prior_owner_show_name?: boolean;
+  journal_highlight_entry_ids?: string[];
+  excluded_journal_entry_ids?: string[];
+  prior_owner_display_snapshot?: string | null;
 }
+
+export type PetTransferWithPreview = PetTransfer & {
+  pets?: PetTransferPreviewPet | null;
+};
 
 export type CreatePetTransferOptions = {
   /** Default 30 days if neither ttl nor days set */
@@ -19,6 +89,34 @@ export type CreatePetTransferOptions = {
   /** Takes precedence over expiresInDays when set (e.g. 15 for Figma “expires in 15 minutes”) */
   ttlMinutes?: number;
   transferReason?: string | null;
+  /** Optional recipient email or @username (informational; US-PT-001). */
+  recipientContact?: string | null;
+  /** When false, transfer history shows “Previous owner” (US-PT-013). */
+  priorOwnerShowName?: boolean;
+  /** Up to 5 journal entry ids to highlight for the new owner (US-PT-003). */
+  journalHighlightEntryIds?: string[];
+  /** Journal entries to remove for the new owner; vet-flagged cannot be listed (US-PT-004). */
+  excludedJournalEntryIds?: string[];
+};
+
+export type TransferPrepSnapshot = {
+  weightValue: number;
+  weightUnit: string;
+  weightLabel: string;
+  activeMedicationCount: number;
+  lastVetVisitDate: string | null;
+  /** Approximate whole days since last vet visit (null if unknown). */
+  lastVetVisitDaysAgo: number | null;
+  /** True when last visit was more than 12 months ago (US-PT-005). */
+  vetVisitOlderThan12Months: boolean;
+};
+
+export type PetTransferHistoryRow = {
+  id: string;
+  used_at: string;
+  from_user_id: string;
+  to_user_id: string | null;
+  prior_owner_display_snapshot: string | null;
 };
 
 /**
@@ -40,7 +138,7 @@ function generateTransferCode(petName?: string): string {
 export async function createPetTransfer(
   petId: string,
   options?: number | CreatePetTransferOptions
-): Promise<PetTransfer> {
+): Promise<PetTransferWithPreview> {
   const opts: CreatePetTransferOptions =
     typeof options === "number" ? { expiresInDays: options } : options ?? {};
   const {
@@ -102,6 +200,13 @@ export async function createPetTransfer(
     expiresAt.setDate(expiresAt.getDate() + days);
   }
 
+  const highlightIds = (opts.journalHighlightEntryIds ?? []).filter(Boolean).slice(0, 5);
+  const excludedIds = (opts.excludedJournalEntryIds ?? []).filter(Boolean);
+  const intersection = highlightIds.filter((id) => excludedIds.includes(id));
+  if (intersection.length > 0) {
+    throw new Error("A journal entry cannot be both highlighted and excluded");
+  }
+
   const { data, error } = await supabase
     .from("pet_transfers")
     .insert({
@@ -110,6 +215,10 @@ export async function createPetTransfer(
       from_user_id: user.id,
       expires_at: expiresAt.toISOString(),
       is_active: true,
+      recipient_contact: opts.recipientContact?.trim() || null,
+      prior_owner_show_name: opts.priorOwnerShowName !== false,
+      journal_highlight_entry_ids: highlightIds,
+      excluded_journal_entry_ids: excludedIds,
       ...(opts.transferReason != null && opts.transferReason !== ""
         ? { transfer_reason: opts.transferReason }
         : {}),
@@ -121,13 +230,13 @@ export async function createPetTransfer(
     throw error;
   }
 
-  return data;
+  return data as PetTransferWithPreview;
 }
 
 /**
  * Get active transfers created by the current user
  */
-export async function getMyPetTransfers(): Promise<PetTransfer[]> {
+export async function getMyPetTransfers(): Promise<PetTransferWithPreview[]> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -146,18 +255,20 @@ export async function getMyPetTransfers(): Promise<PetTransfer[]> {
     throw error;
   }
 
-  return data || [];
+  return (data || []) as PetTransferWithPreview[];
 }
 
 /**
- * Verify a transfer code and get transfer details
+ * Verify a transfer code and get transfer details (limited pet fields for preview).
  */
 export async function verifyTransferCode(
   code: string
-): Promise<PetTransfer | null> {
+): Promise<PetTransferWithPreview | null> {
   const { data, error } = await supabase
     .from("pet_transfers")
-    .select("*, pets(*)")
+    .select(
+      "id, code, pet_id, from_user_id, created_at, expires_at, used_at, to_user_id, is_active, transfer_reason, declined_at, declined_by_user_id, pets(name, breed, photo_url, animal_type, date_of_birth, email_id)"
+    )
     .eq("code", code.toUpperCase().trim())
     .eq("is_active", true)
     .single();
@@ -180,13 +291,13 @@ export async function verifyTransferCode(
     return null;
   }
 
-  return data;
+  return data as PetTransferWithPreview;
 }
 
 /**
- * Use a transfer code to transfer pet ownership
+ * Recipient declines an incoming transfer (deactivates code; owner can create a new one).
  */
-export async function useTransferCode(code: string): Promise<void> {
+export async function declinePetTransfer(code: string): Promise<void> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -195,59 +306,118 @@ export async function useTransferCode(code: string): Promise<void> {
     throw new Error("User must be authenticated");
   }
 
-  // Verify the code
-  const transfer = await verifyTransferCode(code);
-  if (!transfer) {
-    throw new Error("Invalid or expired transfer code");
+  const { error } = await supabase.rpc("decline_pet_transfer", {
+    p_code: code.trim().toUpperCase(),
+  });
+
+  if (error) {
+    throw new Error(error.message || "Could not decline this transfer");
+  }
+}
+
+/**
+ * Use a transfer code to transfer pet ownership (server-side RPC; RLS blocks direct recipient UPDATE).
+ */
+export async function useTransferCode(
+  code: string,
+  petParentDisplayName?: string | null
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User must be authenticated");
   }
 
-  // Check if user is trying to transfer to themselves
-  if (transfer.from_user_id === user.id) {
-    throw new Error("You cannot transfer a pet to yourself");
+  const { error } = await supabase.rpc("accept_pet_transfer", {
+    p_code: code.trim().toUpperCase(),
+    p_pet_parent_display_name: petParentDisplayName ?? null,
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to complete transfer");
   }
+}
 
-  // Start transaction-like operation
-  // Mark transfer as used
-  const { error: updateError } = await supabase
-    .from("pet_transfers")
-    .update({
-      used_at: new Date().toISOString(),
-      to_user_id: user.id,
-      is_active: false,
-    })
-    .eq("id", transfer.id);
+function formatWeightLabel(weightValue: number, weightUnit: string): string {
+  const u = weightUnit.toLowerCase();
+  return `${weightValue} ${u === "kg" || u === "lbs" ? u : weightUnit}`;
+}
 
-  if (updateError) {
-    throw updateError;
-  }
+/**
+ * Weight, medications, and last vet visit for the “verify current status” step (US-PT-005).
+ */
+export async function getTransferPrepSnapshot(petId: string): Promise<TransferPrepSnapshot> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("User must be authenticated");
 
-  // Transfer pet ownership
-  const { error: petUpdateError } = await supabase
+  const { data: pet, error: petErr } = await supabase
     .from("pets")
-    .update({
-      user_id: user.id,
-    })
-    .eq("id", transfer.pet_id);
+    .select("id, weight_value, weight_unit")
+    .eq("id", petId)
+    .eq("user_id", user.id)
+    .single();
 
-  if (petUpdateError) {
-    // Rollback: reactivate the transfer
-    const { error: rollbackError } = await supabase
-      .from("pet_transfers")
-      .update({
-        used_at: null,
-        to_user_id: null,
-        is_active: true,
-      })
-      .eq("id", transfer.id);
-    
-    if (rollbackError) {
-      console.error("Critical: Failed to rollback pet transfer", rollbackError);
-      // Log to error tracking service if available
-      // This is a critical error that could leave data inconsistent
-    }
-    
-    throw petUpdateError;
+  if (petErr || !pet) {
+    throw new Error("Pet not found or you don't have permission");
   }
+
+  const { data: meds, error: medErr } = await supabase
+    .from("medicines")
+    .select("id, end_date")
+    .eq("pet_id", petId);
+
+  if (medErr) throw medErr;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const activeMedicationCount = (meds ?? []).filter((m) => {
+    if (!m.end_date) return true;
+    return m.end_date >= today;
+  }).length;
+
+  const { data: exams, error: exErr } = await supabase
+    .from("clinical_exams")
+    .select("exam_date")
+    .eq("pet_id", petId)
+    .order("exam_date", { ascending: false })
+    .limit(1);
+
+  if (exErr) throw exErr;
+
+  const lastVetVisitDate = exams?.[0]?.exam_date ?? null;
+  let lastVetVisitDaysAgo: number | null = null;
+  let vetVisitOlderThan12Months = false;
+  if (lastVetVisitDate) {
+    const d0 = new Date(`${lastVetVisitDate}T12:00:00Z`).getTime();
+    lastVetVisitDaysAgo = Math.floor((Date.now() - d0) / 86400000);
+    vetVisitOlderThan12Months = Date.now() - d0 > 365.25 * 86400000;
+  }
+
+  return {
+    weightValue: Number(pet.weight_value),
+    weightUnit: pet.weight_unit,
+    weightLabel: formatWeightLabel(Number(pet.weight_value), pet.weight_unit),
+    activeMedicationCount,
+    lastVetVisitDate,
+    lastVetVisitDaysAgo,
+    vetVisitOlderThan12Months,
+  };
+}
+
+/** Completed transfers for this pet (current owner; US-PT-013). */
+export async function getPetTransferHistory(petId: string): Promise<PetTransferHistoryRow[]> {
+  const { data, error } = await supabase
+    .from("pet_transfers")
+    .select("id, used_at, from_user_id, to_user_id, prior_owner_display_snapshot")
+    .eq("pet_id", petId)
+    .not("used_at", "is", null)
+    .order("used_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as PetTransferHistoryRow[];
 }
 
 /**

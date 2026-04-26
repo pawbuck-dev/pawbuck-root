@@ -1,7 +1,12 @@
+import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { useMiloSpeechToText } from "@/hooks/useMiloSpeechToText";
+import { buildMiloSuggestedPrompts } from "@/services/miloSuggestedPrompts";
+import { fetchJournalEntries } from "@/services/petJournal";
+import { getVaccinationsByPetId } from "@/services/vaccinations";
+import { useQuery } from "@tanstack/react-query";
 import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -92,16 +97,6 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 const MILO_CHAT_BG_LIGHT = require("@/assets/icons/Milo-Light.png");
 const MILO_CHAT_BG_DARK = require("@/assets/icons/Milo-Dark.png");
-
-/** Starter prompts — general wellness; medical questions belong with a vet (see menu disclaimer). */
-const MILO_SUGGESTED_QUESTIONS_GENERAL = [
-  "What should I bring to a routine vet visit?",
-  "How can I help my pet stay calm during loud noises?",
-  "What human foods are unsafe for pets?",
-  "How do I read a pet food label for basics like protein?",
-  "What are signs my pet might need more exercise?",
-  "How can I make travel less stressful for my pet?",
-] as const;
 
 /** Full-screen chat backdrop: `Milo-Light.png` / `Milo-Dark.png` in `assets/icons`. */
 const MiloChatBackdrop: React.FC<{ mode: "light" | "dark" }> = ({ mode }) => (
@@ -221,16 +216,40 @@ export const MiloChatModal: React.FC = () => {
     await sendMessage(message);
   };
 
+  const { data: suggestedPromptData } = useQuery({
+    queryKey: ["miloSuggestedPrompts", selectedPet?.id],
+    enabled: Boolean(isChatOpen && selectedPet?.id),
+    queryFn: async () => {
+      const petId = selectedPet!.id;
+      const [vaccinations, journalEntries] = await Promise.all([
+        getVaccinationsByPetId(petId),
+        fetchJournalEntries(petId, "health"),
+      ]);
+      return { vaccinations, journalEntries };
+    },
+  });
+
   const suggestedQuestions = useMemo(() => {
-    const name = selectedPet?.name?.trim();
-    if (name) {
-      return [
-        `Give me everyday wellness tips for ${name}.`,
-        ...MILO_SUGGESTED_QUESTIONS_GENERAL,
-      ].slice(0, 6);
+    if (!selectedPet?.id) {
+      return buildMiloSuggestedPrompts({
+        petName: null,
+        vaccinations: [],
+        journalEntries: [],
+        maxCount: 6,
+      });
     }
-    return [...MILO_SUGGESTED_QUESTIONS_GENERAL].slice(0, 6);
-  }, [selectedPet?.name]);
+    return buildMiloSuggestedPrompts({
+      petName: selectedPet.name,
+      vaccinations: suggestedPromptData?.vaccinations ?? [],
+      journalEntries: suggestedPromptData?.journalEntries ?? [],
+      maxCount: 6,
+    });
+  }, [
+    selectedPet?.id,
+    selectedPet?.name,
+    suggestedPromptData?.vaccinations,
+    suggestedPromptData?.journalEntries,
+  ]);
 
   const handleSuggestedQuestion = useCallback(
     async (question: string) => {
@@ -249,6 +268,7 @@ export const MiloChatModal: React.FC = () => {
 
   const tokens = getMiloChatTokens(theme, mode === "dark");
   const miloBg = tokens.screenBg;
+  const listCardChrome = healthListCardChrome(theme, mode === "dark");
 
   return (
     <Modal
@@ -338,7 +358,12 @@ export const MiloChatModal: React.FC = () => {
 
           {/* Loading indicator with typing dots */}
           {isLoading && (
-            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <View
+              style={{
+                paddingHorizontal: HEALTH_LAYOUT.screenPaddingX,
+                paddingBottom: 8,
+              }}
+            >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <View
                   style={{
@@ -360,11 +385,12 @@ export const MiloChatModal: React.FC = () => {
                 </View>
                 <View
                   style={{
-                    backgroundColor: theme.card,
-                    borderRadius: 16,
-                    borderTopLeftRadius: 4,
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
+                    backgroundColor: listCardChrome.cardBg,
+                    borderRadius: HEALTH_LAYOUT.cardRadius,
+                    borderWidth: listCardChrome.borderWidth,
+                    borderColor: listCardChrome.borderColor,
+                    paddingHorizontal: HEALTH_LAYOUT.cardPadding,
+                    paddingVertical: 12,
                   }}
                 >
                   <TypingDots color={theme.primary} />

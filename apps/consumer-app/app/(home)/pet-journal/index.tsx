@@ -13,8 +13,9 @@ import { usePets } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import type { PetJournalEntry } from "@/services/petJournal";
-import { fetchJournalEntries } from "@/services/petJournal";
+import { fetchJournalEntries, fetchTransferHighlightEntries } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
+import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { loadPetLogsForPet } from "@/utils/miloJournalStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -80,6 +81,12 @@ export default function PetJournalScreen() {
     queryKey: ["pet_journal", selectedPetId, domain],
     queryFn: () => fetchJournalEntries(selectedPetId!, domain),
     enabled: !!selectedPetId,
+  });
+
+  const { data: transferHighlights = [] } = useQuery({
+    queryKey: ["pet_journal_transfer_highlights", selectedPetId],
+    queryFn: () => fetchTransferHighlightEntries(selectedPetId!),
+    enabled: !!selectedPetId && canUseJournal,
   });
 
   const onRefresh = useCallback(() => {
@@ -288,6 +295,44 @@ export default function PetJournalScreen() {
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={theme.primary} />
           }
+          ListHeaderComponent={
+            transferHighlights.length === 0 ? null : (
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: theme.foreground,
+                    marginBottom: 8,
+                  }}
+                >
+                  Highlighted by previous owner
+                </Text>
+                {transferHighlights.map(({ entry, sort_order }) => (
+                  <Pressable
+                    key={entry.id}
+                    onPress={() => {
+                      setDomain(entry.domain as JournalDomain);
+                    }}
+                    style={{
+                      backgroundColor: isDark ? theme.card : "#FFFFFF",
+                      borderRadius: 14,
+                      padding: 12,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: theme.secondary, marginBottom: 4 }}>
+                      #{sort_order} · {JOURNAL_DOMAIN_LABEL[entry.domain as JournalDomain]} ·{" "}
+                      {subtypeLabel(entry.domain as JournalDomain, entry.subtype)}
+                    </Text>
+                    {entry.note ? <JournalNoteText text={entry.note} /> : null}
+                  </Pressable>
+                ))}
+              </View>
+            )
+          }
           ListEmptyComponent={
             isLoading ? (
               <ActivityIndicator style={{ marginTop: 24 }} color={theme.primary} />
@@ -408,7 +453,7 @@ export default function PetJournalScreen() {
                   </View>
                   <Text style={{ fontSize: 12, color: theme.secondary }}>{journal.entry_date}</Text>
                 </View>
-                {journal.vet_flagged && (
+                {journalEntryNeedsTriageAttention(journal) && (
                   <View
                     style={{
                       alignSelf: "flex-start",

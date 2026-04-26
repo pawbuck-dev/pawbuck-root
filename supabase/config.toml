@@ -409,3 +409,27 @@ entrypoint = "./functions/mailgun-process-pet-mail/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/mailgun-process-pet-mail/*.html" ]
+
+[functions.pet-transfer-notify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/pet-transfer-notify/deno.json"
+entrypoint = "./functions/pet-transfer-notify/index.ts"
+
+[functions.send-family-invite]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-family-invite/deno.json"
+entrypoint = "./functions/send-family-invite/index.ts"
+
+[functions.process-invite-token]
+enabled = true
+verify_jwt = true
+import_map = "./functions/process-invite-token/deno.json"
+entrypoint = "./functions/process-invite-token/index.ts"
+
+[functions.pet-family-activity-notify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/pet-family-activity-notify/deno.json"
+entrypoint = "./functions/pet-family-activity-notify/index.ts"

@@ -31,6 +31,7 @@ Push to **ECR** and use the image in an ECS task definition:
 Set the same values you use locally (`appsettings`), via task definition env or secrets injection:
 
 - `Supabase__ConnectionString`, `Supabase__Url`, `Supabase__JwtSecret` (or `SUPABASE_JWT_SECRET`)
+- `Supabase__ServiceRoleKey` (or `SUPABASE_SERVICE_ROLE_KEY`) — used server-side to invoke Edge Functions such as `mailgun-process-pet-mail` for **Review Inbox** reprocessing (`POST /api/mail/resolve`); must not be exposed to clients
 - `Gemini__ApiKey` or `GOOGLE_GEMINI_API_KEY`
 - Optional: `Admin__RequiredAppMetadataRole` (default `admin`), `Admin__AllowAnonymousSupportInDevelopment` (must be **false** in Production)
 - Scheduling / vendor keys as needed

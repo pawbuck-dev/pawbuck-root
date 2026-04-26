@@ -1,7 +1,9 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import FailedEmailDetailView from "@/components/messages/FailedEmailDetailView";
 import FailedEmailListItem from "@/components/messages/FailedEmailListItem";
+import ReviewInboxResolutionModal from "@/components/messages/ReviewInboxResolutionModal";
 import GroupedThreadList from "@/components/messages/GroupedThreadList";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import PendingEmailDetailView from "@/components/messages/PendingEmailDetailView";
@@ -12,12 +14,9 @@ import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { FailedEmail, getFailedEmails } from "@/services/failedEmails";
-import {
-  fetchMessageThreads,
-  fetchTrashThreads,
-  MessageThread,
-} from "@/services/messages";
+import { FailedEmail, getReviewInbox } from "@/services/failedEmails";
+import { fetchMessageThreads, MessageThread } from "@/services/messages";
+import type { CareTeamMemberType } from "@/services/careTeamMembers";
 import {
   GroupedThreads,
   groupThreadsByPet,
@@ -26,7 +25,7 @@ import {
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { hasSeenMessagesOnboarding } from "@/utils/onboardingStorage";
 import { supabase } from "@/utils/supabase";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -43,8 +42,27 @@ import {
   View,
 } from "react-native";
 
+/** Inbox list filter: all care types, or a single `GroupedThreads` bucket */
+type MessageCareTeamFilter = "all" | CareTeamMemberType;
+
+const MESSAGE_CARE_TEAM_FILTERS: {
+  id: MessageCareTeamFilter;
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+}[] = [
+  { id: "all", label: "All", icon: "view-grid-outline" },
+  { id: "veterinarian", label: "Vet", icon: "stethoscope" },
+  { id: "dog_walker", label: "Walker", icon: "walk" },
+  { id: "boarding", label: "Boarder", icon: "home-city-outline" },
+  { id: "groomer", label: "Groomer", icon: "content-cut" },
+  { id: "pet_sitter", label: "Sitter", icon: "heart-outline" },
+  { id: "unknown", label: "Other", icon: "email-outline" },
+];
+
 export default function MessagesScreen() {
   const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const pageBg = healthRecordTabCanvas(theme, isDark);
   const queryClient = useQueryClient();
   const { pets } = usePets();
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
@@ -70,7 +88,9 @@ export default function MessagesScreen() {
     useState<FailedEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showMessagesOnboarding, setShowMessagesOnboarding] = useState(false);
-  const [showTrash, setShowTrash] = useState(false);
+  const [careTeamFilter, setCareTeamFilter] =
+    useState<MessageCareTeamFilter>("all");
+  const [resolutionEmail, setResolutionEmail] = useState<FailedEmail | null>(null);
 
   // Fetch message threads
   const {
@@ -82,31 +102,25 @@ export default function MessagesScreen() {
     queryFn: () => fetchMessageThreads(),
   });
 
-  // Fetch failed emails
+  // Review Inbox (processed_emails need manual sort)
   const {
     data: failedEmails = [],
     refetch: refetchFailedEmails,
   } = useQuery({
-    queryKey: ["failedEmails"],
-    queryFn: () => getFailedEmails(),
-  });
-
-  // Fetch trash threads (soft-deleted)
-  const {
-    data: trashThreads = [],
-    isLoading: loadingTrash,
-    refetch: refetchTrashThreads,
-  } = useQuery({
-    queryKey: ["trashThreads", selectedPetId ?? undefined],
-    queryFn: () => fetchTrashThreads(selectedPetId ?? undefined),
-    enabled: showTrash,
+    queryKey: ["reviewInbox"],
+    queryFn: () => getReviewInbox(),
   });
 
   // Check if messages onboarding should be shown
   useEffect(() => {
     const checkOnboarding = async () => {
       // Only show if no thread, pending approval, or failed email is selected
-      if (!selectedThread && !selectedPendingApproval && !selectedFailedEmail) {
+      if (
+        !selectedThread &&
+        !selectedPendingApproval &&
+        !selectedFailedEmail &&
+        !resolutionEmail
+      ) {
         const hasSeen = await hasSeenMessagesOnboarding();
         if (!hasSeen) {
           // Show after a short delay to let the screen render
@@ -117,7 +131,7 @@ export default function MessagesScreen() {
       }
     };
     checkOnboarding();
-  }, [selectedThread, selectedPendingApproval, selectedFailedEmail]);
+  }, [selectedThread, selectedPendingApproval, selectedFailedEmail, resolutionEmail]);
 
   // Handle route params to open new message modal with pre-filled email
   React.useEffect(() => {
@@ -151,7 +165,6 @@ export default function MessagesScreen() {
       refetchThreads(),
       refreshPendingApprovals(),
       refetchFailedEmails(),
-      refetchTrashThreads(),
     ]);
     setRefreshing(false);
   };
@@ -305,9 +318,9 @@ export default function MessagesScreen() {
     setSelectedPendingApproval(null);
   };
 
-  // Handle failed email press
+  // Open Review Inbox resolution modal (reprocess with pet + doc type)
   const handleFailedEmailPress = (failedEmail: FailedEmail) => {
-    setSelectedFailedEmail(failedEmail);
+    setResolutionEmail(failedEmail);
   };
 
   // Handle back from failed email detail view
@@ -337,12 +350,20 @@ export default function MessagesScreen() {
     pendingForDisplay.length > 0 ||
     failedForDisplay.length > 0;
 
+  const showThreadGroup = (bucket: keyof GroupedThreads) =>
+    careTeamFilter === "all" || careTeamFilter === bucket;
+
+  const filteredInboxThreadCount =
+    careTeamFilter === "all"
+      ? threadsToGroup.length
+      : filteredGroupedThreads[careTeamFilter].length;
+
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+    <View className="flex-1" style={{ backgroundColor: pageBg }}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 16 }}>
+      <View style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 6 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           {/* Left: Back or Title */}
           {selectedThread || selectedPendingApproval || selectedFailedEmail ? (
@@ -383,9 +404,9 @@ export default function MessagesScreen() {
                   borderRadius: 22,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
                   borderWidth: 1,
-                  borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
                 }}
               >
                 <Ionicons name="add" size={22} color={theme.foreground} />
@@ -398,9 +419,9 @@ export default function MessagesScreen() {
                   borderRadius: 22,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
                   borderWidth: 1,
-                  borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
                 }}
               >
                 <Ionicons name="search-outline" size={20} color={theme.foreground} />
@@ -434,71 +455,71 @@ export default function MessagesScreen() {
           thread={selectedThread}
           onBack={() => setSelectedThread(null)}
           hideHeader
-          isTrash={showTrash}
+          isTrash={false}
           onRestore={() => {
-            refetchTrashThreads();
             refetchThreads();
           }}
           onDeleted={() => {
             refetchThreads();
-            refetchTrashThreads();
           }}
         />
       ) : (
         <>
-          {/* Inbox / Trash toggle - only when there are messages */}
-          {hasMessages && (
-          <View className="flex-row px-4 pb-3 gap-2">
-            <Pressable
-              onPress={() => setShowTrash(false)}
-              className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
-              style={{
-                backgroundColor: !showTrash ? theme.primary : theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
+          {/* Care team filter — only when there are threads to filter */}
+          {threadsToGroup.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0, flexShrink: 0 }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingVertical: 4,
+                flexDirection: "row",
+                alignItems: "center",
               }}
             >
-              <Ionicons
-                name="mail-open-outline"
-                size={20}
-                color={!showTrash ? "white" : theme.secondary}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                className="text-sm font-semibold"
-                style={{ color: !showTrash ? "white" : theme.foreground }}
-              >
-                Inbox
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setShowTrash(true)}
-              className="flex-1 py-3 rounded-xl flex-row items-center justify-center"
-              style={{
-                backgroundColor: showTrash ? theme.primary : theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-            >
-              <Ionicons
-                name="trash-outline"
-                size={20}
-                color={showTrash ? "white" : theme.secondary}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                className="text-sm font-semibold"
-                style={{ color: showTrash ? "white" : theme.foreground }}
-              >
-                Trash
-              </Text>
-            </Pressable>
-          </View>
+              {MESSAGE_CARE_TEAM_FILTERS.map((f, index) => {
+                const selected = careTeamFilter === f.id;
+                return (
+                  <Pressable
+                    key={f.id}
+                    onPress={() => setCareTeamFilter(f.id)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: selected ? theme.primary : theme.card,
+                      marginRight: index < MESSAGE_CARE_TEAM_FILTERS.length - 1 ? 8 : 0,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name={f.icon}
+                      size={18}
+                      color={selected ? "#FFFFFF" : theme.secondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: selected ? "#FFFFFF" : theme.foreground,
+                      }}
+                    >
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           )}
 
-          {/* Search Bar - only when Inbox and has messages */}
-          {!showTrash && hasMessages && (
-          <View className="px-4 pb-4">
+          {/* Search Bar - only when there are messages */}
+          {hasMessages && (
+          <View className="px-4" style={{ paddingTop: 4, paddingBottom: 10 }}>
             <View
               className="flex-row items-center px-4 py-3 rounded-2xl"
               style={{
@@ -540,63 +561,22 @@ export default function MessagesScreen() {
           {/* Messages List */}
           <ScrollView
             className="flex-1"
+            style={{ flex: 1, backgroundColor: pageBg }}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: 100 }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
+                tintColor={theme.primary}
+                colors={[theme.primary]}
               />
             }
           >
-            {loadingThreads || (showTrash && loadingTrash) ? (
+            {loadingThreads ? (
               <View className="flex-1 items-center justify-center py-20">
                 <ActivityIndicator size="large" color={theme.primary} />
               </View>
-            ) : showTrash ? (
-              <>
-                <View className="px-4 pb-2">
-                  <Text
-                    className="text-sm"
-                    style={{ color: theme.secondary }}
-                  >
-                    Deleted conversations are permanently removed after 30 days.
-                    Health records already added are kept.
-                  </Text>
-                </View>
-                {trashThreads.length === 0 ? (
-                  <View className="flex-1 items-center justify-center py-20 px-4">
-                    <Ionicons
-                      name="trash-outline"
-                      size={48}
-                      color={theme.secondary}
-                      style={{ opacity: 0.5, marginBottom: 12 }}
-                    />
-                    <Text
-                      className="text-base font-semibold text-center"
-                      style={{ color: theme.foreground }}
-                    >
-                      Trash is empty
-                    </Text>
-                    <Text
-                      className="text-sm text-center mt-1"
-                      style={{ color: theme.secondary }}
-                    >
-                      Conversations you delete will appear here
-                    </Text>
-                  </View>
-                ) : (
-                  <GroupedThreadList
-                    threads={trashThreads}
-                    category="unknown"
-                    title="Trash"
-                    icon="trash-outline"
-                    iconType="ionicons"
-                    color={theme.secondary}
-                    onThreadPress={handleThreadPress}
-                  />
-                )}
-              </>
             ) : (
               <>
                 {/* Pending Emails Section */}
@@ -639,101 +619,145 @@ export default function MessagesScreen() {
                   </View>
                 )}
 
-                {/* Grouped Thread Sections (by care team type; data is for selected pet when multi-pet) */}
-                <GroupedThreadList
-                  threads={filteredGroupedThreads.veterinarian}
-                  category="veterinarian"
-                  title="Veterinarians"
-                  icon="stethoscope"
-                  iconType="material"
-                  color="#60A5FA"
-                  onThreadPress={handleThreadPress}
-                />
-                <GroupedThreadList
-                  threads={filteredGroupedThreads.dog_walker}
-                  category="dog_walker"
-                  title="Dog Walkers"
-                  icon="paw"
-                  iconType="material"
-                  color="#4ADE80"
-                  onThreadPress={handleThreadPress}
-                />
-                <GroupedThreadList
-                  threads={filteredGroupedThreads.groomer}
-                  category="groomer"
-                  title="Groomers"
-                  icon="content-cut"
-                  iconType="material"
-                  color="#A78BFA"
-                  onThreadPress={handleThreadPress}
-                />
-                <GroupedThreadList
-                  threads={filteredGroupedThreads.pet_sitter}
-                  category="pet_sitter"
-                  title="Pet Sitters"
-                  icon="heart"
-                  iconType="material"
-                  color="#F472B6"
-                  onThreadPress={handleThreadPress}
-                />
-                <GroupedThreadList
-                  threads={filteredGroupedThreads.boarding}
-                  category="boarding"
-                  title="Boarding"
-                  icon="home"
-                  iconType="material"
-                  color="#D97706"
-                  onThreadPress={handleThreadPress}
-                />
-                {filteredGroupedThreads.unknown.length > 0 && (
+                {/* Grouped thread sections — gated by care team filter */}
+                {showThreadGroup("veterinarian") && (
                   <GroupedThreadList
-                    threads={filteredGroupedThreads.unknown}
+                    threads={filteredGroupedThreads.veterinarian}
                     category="veterinarian"
-                    title="Other"
-                    icon="mail-outline"
-                    iconType="ionicons"
-                    color="#9CA3AF"
+                    title="Veterinarians"
+                    icon="stethoscope"
+                    iconType="material"
+                    color="#60A5FA"
                     onThreadPress={handleThreadPress}
                   />
                 )}
+                {showThreadGroup("dog_walker") && (
+                  <GroupedThreadList
+                    threads={filteredGroupedThreads.dog_walker}
+                    category="dog_walker"
+                    title="Dog Walkers"
+                    icon="paw"
+                    iconType="material"
+                    color="#4ADE80"
+                    onThreadPress={handleThreadPress}
+                  />
+                )}
+                {showThreadGroup("groomer") && (
+                  <GroupedThreadList
+                    threads={filteredGroupedThreads.groomer}
+                    category="groomer"
+                    title="Groomers"
+                    icon="content-cut"
+                    iconType="material"
+                    color="#A78BFA"
+                    onThreadPress={handleThreadPress}
+                  />
+                )}
+                {showThreadGroup("pet_sitter") && (
+                  <GroupedThreadList
+                    threads={filteredGroupedThreads.pet_sitter}
+                    category="pet_sitter"
+                    title="Pet Sitters"
+                    icon="heart"
+                    iconType="material"
+                    color="#F472B6"
+                    onThreadPress={handleThreadPress}
+                  />
+                )}
+                {showThreadGroup("boarding") && (
+                  <GroupedThreadList
+                    threads={filteredGroupedThreads.boarding}
+                    category="boarding"
+                    title="Boarding"
+                    icon="home"
+                    iconType="material"
+                    color="#D97706"
+                    onThreadPress={handleThreadPress}
+                  />
+                )}
+                {showThreadGroup("unknown") &&
+                  filteredGroupedThreads.unknown.length > 0 && (
+                    <GroupedThreadList
+                      threads={filteredGroupedThreads.unknown}
+                      category="veterinarian"
+                      title="Other"
+                      icon="mail-outline"
+                      iconType="ionicons"
+                      color="#9CA3AF"
+                      onThreadPress={handleThreadPress}
+                    />
+                  )}
 
-                {/* Failed Emails Section - shown at the bottom */}
-                {failedForDisplay.length > 0 && (
+                {threadsToGroup.length > 0 &&
+                  careTeamFilter !== "all" &&
+                  filteredInboxThreadCount === 0 && (
+                    <View className="px-4 py-8 items-center">
+                      <Text
+                        className="text-base text-center font-semibold"
+                        style={{ color: theme.foreground }}
+                      >
+                        No conversations in this category
+                      </Text>
+                      <Text
+                        className="text-sm text-center mt-2"
+                        style={{ color: theme.secondary, maxWidth: 300 }}
+                      >
+                        Try &quot;All&quot; to see every care team thread, or pick another
+                        filter.
+                      </Text>
+                    </View>
+                  )}
+
+                {/* Review Inbox — needs manual sort to health records */}
+                {hasMessages && (
                   <View className="mb-6">
                     <View className="flex-row items-center justify-between mb-3 px-4">
                       <View className="flex-row items-center flex-1">
                         <Ionicons
-                          name="close-circle"
+                          name="file-tray-full-outline"
                           size={20}
-                          color="#EF4444"
+                          color={theme.warning}
                           style={{ marginRight: 8 }}
                         />
                         <Text
                           className="text-base font-bold"
                           style={{ color: theme.foreground }}
                         >
-                          Failed Emails
+                          Review Inbox
                         </Text>
-                        <View
-                          className="ml-2 px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: "#EF4444" }}
-                        >
-                          <Text className="text-xs font-bold text-white">
-                            {failedForDisplay.length}
-                          </Text>
-                        </View>
+                        {failedForDisplay.length > 0 ? (
+                          <View
+                            className="ml-2 px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: theme.warning }}
+                          >
+                            <Text className="text-xs font-bold" style={{ color: "#0F1419" }}>
+                              {failedForDisplay.length}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
 
-                    <View>
-                      {failedForDisplay.map((failedEmail) => (
-                        <FailedEmailListItem
-                          key={failedEmail.id}
-                          failedEmail={failedEmail}
-                          onPress={() => handleFailedEmailPress(failedEmail)}
-                        />
-                      ))}
-                    </View>
+                    {failedForDisplay.length > 0 ? (
+                      <View>
+                        {failedForDisplay.map((failedEmail) => (
+                          <FailedEmailListItem
+                            key={failedEmail.id}
+                            failedEmail={failedEmail}
+                            onPress={() => handleFailedEmailPress(failedEmail)}
+                          />
+                        ))}
+                      </View>
+                    ) : (
+                      <View className="px-4 pb-2">
+                        <Text
+                          className="text-sm text-center"
+                          style={{ color: theme.secondary, lineHeight: 20 }}
+                        >
+                          All caught up! Your pet records are organized.
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -829,6 +853,23 @@ export default function MessagesScreen() {
       <MessagesOnboardingModal
         visible={showMessagesOnboarding}
         onClose={() => setShowMessagesOnboarding(false)}
+      />
+
+      <ReviewInboxResolutionModal
+        visible={resolutionEmail != null}
+        item={resolutionEmail}
+        onClose={() => setResolutionEmail(null)}
+        onViewDetails={() => {
+          if (resolutionEmail) {
+            setSelectedFailedEmail(resolutionEmail);
+            setResolutionEmail(null);
+          }
+        }}
+        onResolved={(petName, docLabel) => {
+          Alert.alert("Record filed!", `${petName}'s ${docLabel} has been updated.`);
+          void queryClient.invalidateQueries({ queryKey: ["reviewInbox"] });
+          void queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+        }}
       />
     </View>
   );

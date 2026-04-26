@@ -1,3 +1,4 @@
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
@@ -24,7 +25,8 @@ export default function PendingEmailDetailView({
   onBack,
   hideHeader = false,
 }: PendingEmailDetailViewProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const pageBg = healthRecordTabCanvas(theme, mode === "dark");
   const { handleApprove, handleApproveAnyway, handleReject, refreshPendingApprovals } =
     useEmailApproval();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -175,7 +177,7 @@ export default function PendingEmailDetailView({
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: pageBg }}>
       {/* Header - conditionally shown */}
       {!hideHeader && (
         <View
@@ -234,6 +236,7 @@ export default function PendingEmailDetailView({
       {/* Content */}
       <ScrollView
         className="flex-1"
+        style={{ flex: 1, backgroundColor: pageBg }}
         contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
       >

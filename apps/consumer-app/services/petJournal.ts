@@ -22,6 +22,58 @@ export async function fetchJournalEntries(
   return data ?? [];
 }
 
+const ALL_DOMAINS: JournalDomain[] = ["health", "behavioral", "environmental"];
+
+/** All journal entries for a pet (used in transfer flow: pins & exclusions). */
+export async function fetchAllJournalEntriesForPet(petId: string): Promise<PetJournalEntry[]> {
+  const chunks = await Promise.all(ALL_DOMAINS.map((d) => fetchJournalEntries(petId, d)));
+  const byId = new Map<string, PetJournalEntry>();
+  for (const c of chunks) {
+    for (const e of c) {
+      byId.set(e.id, e);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    const ta = `${a.entry_date}T${a.created_at?.slice(11) ?? "00:00:00"}`;
+    const tb = `${b.entry_date}T${b.created_at?.slice(11) ?? "00:00:00"}`;
+    return tb.localeCompare(ta);
+  });
+}
+
+export type TransferHighlightRow = {
+  sort_order: number;
+  entry: PetJournalEntry;
+};
+
+/** Journal entries the previous owner highlighted at transfer (US-PT-003). */
+export async function fetchTransferHighlightEntries(petId: string): Promise<TransferHighlightRow[]> {
+  const { data: rows, error: hErr } = await supabase
+    .from("pet_journal_transfer_highlights")
+    .select("journal_entry_id, sort_order")
+    .eq("pet_id", petId)
+    .order("sort_order", { ascending: true });
+
+  if (hErr) throw hErr;
+  if (!rows?.length) return [];
+
+  const ids = rows.map((r) => r.journal_entry_id);
+  const { data: entries, error: eErr } = await supabase
+    .from("pet_journal_entries")
+    .select("*")
+    .in("id", ids);
+
+  if (eErr) throw eErr;
+  const entryById = new Map((entries ?? []).map((e) => [e.id, e as PetJournalEntry]));
+
+  return rows
+    .map((r) => {
+      const entry = entryById.get(r.journal_entry_id);
+      if (!entry) return null;
+      return { sort_order: r.sort_order, entry };
+    })
+    .filter((x): x is TransferHighlightRow => x != null);
+}
+
 export async function createJournalEntry(
   row: Omit<TablesInsert<"pet_journal_entries">, "user_id"> & { user_id?: string }
 ): Promise<PetJournalEntry> {
@@ -52,7 +104,13 @@ export async function updateJournalEntry(
   id: string,
   patch: Pick<
     TablesUpdate<"pet_journal_entries">,
-    "note" | "vet_flagged" | "subtype" | "entry_date" | "domain"
+    | "note"
+    | "vet_flagged"
+    | "subtype"
+    | "entry_date"
+    | "domain"
+    | "linked_clinical_exam_id"
+    | "triage_status"
   >
 ): Promise<void> {
   const { error } = await supabase
@@ -63,6 +121,14 @@ export async function updateJournalEntry(
     })
     .eq("id", id);
   if (error) throw error;
+}
+
+/** Associate a health journal row with this clinical visit; DB clears active triage flags. */
+export async function linkJournalEntryToClinicalExam(
+  journalEntryId: string,
+  clinicalExamId: string
+): Promise<void> {
+  await updateJournalEntry(journalEntryId, { linked_clinical_exam_id: clinicalExamId });
 }
 
 export async function fetchPetAllergies(petId: string): Promise<Tables<"pet_allergies">[]> {

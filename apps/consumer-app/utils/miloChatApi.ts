@@ -23,6 +23,14 @@ export type MiloChatHistoryItem = {
   content: string;
 };
 
+/** Health document linked to a Milo reply (Supabase `pets` bucket path). */
+export type MiloChatFileAttachment = {
+  id: string;
+  kind: string;
+  title: string;
+  storagePath: string;
+};
+
 export type MiloChatApiResult = {
   answer: string;
   suggestedReplies?: string[];
@@ -33,6 +41,7 @@ export type MiloChatApiResult = {
   responseId?: string;
   promptVersion?: string;
   heuristicTags?: string[];
+  fileAttachments?: MiloChatFileAttachment[];
 };
 
 /** Pet fields sent to POST /api/milo/chat (matches chatContext PetContext). */
@@ -131,11 +140,27 @@ export async function fetchMiloChat(params: {
     heuristicTags?: string[];
     usedPetData?: boolean;
     usedRag?: boolean;
+    fileAttachments?: unknown;
   };
   if (!data?.answer) {
     miloDebug("error: JSON had no answer field", data);
     throw new Error("No response received");
   }
+
+  const rawAttachments = data.fileAttachments;
+  const fileAttachments: MiloChatFileAttachment[] | undefined = Array.isArray(rawAttachments)
+    ? rawAttachments
+        .map((row) => {
+          const r = row as Record<string, unknown>;
+          const id = typeof r.id === "string" ? r.id : "";
+          const kind = typeof r.kind === "string" ? r.kind : "";
+          const title = typeof r.title === "string" ? r.title : "Document";
+          const storagePath = typeof r.storagePath === "string" ? r.storagePath : "";
+          if (!id || !storagePath.trim()) return null;
+          return { id, kind, title, storagePath: storagePath.trim() };
+        })
+        .filter((x): x is MiloChatFileAttachment => x != null)
+    : undefined;
 
   const looksLikeServerTrouble =
     data.answer.includes("Sorry, I'm having trouble") ||
@@ -169,6 +194,7 @@ export async function fetchMiloChat(params: {
     responseId: data.responseId,
     promptVersion: data.promptVersion,
     heuristicTags: data.heuristicTags,
+    fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
   };
 }
 

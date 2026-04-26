@@ -28,10 +28,13 @@ export type DocumentType =
   | "vaccinations"
   | "billing_invoice"
   | "travel_certificate"
-  | "insurance_policy"
-  | "pedigree"
-  | "identity_document"
   | "irrelevant";
+
+/** Review Inbox resolution: force pipeline to treat attachment as this type (skips Gemini classify). */
+export type ForcedDocumentPipelineType = Exclude<
+  DocumentType,
+  "irrelevant" | "billing_invoice" | "travel_certificate"
+>;
 
 export interface DocumentClassification {
   type: DocumentType;

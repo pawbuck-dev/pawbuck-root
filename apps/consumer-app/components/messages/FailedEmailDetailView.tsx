@@ -1,4 +1,5 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import {
@@ -28,7 +29,8 @@ export default function FailedEmailDetailView({
   hideHeader = false,
   onDeleted,
 }: FailedEmailDetailViewProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const pageBg = healthRecordTabCanvas(theme, mode === "dark");
   const { pets } = usePets();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -249,8 +251,8 @@ export default function FailedEmailDetailView({
 
   const handleDelete = () => {
     Alert.alert(
-      "Delete failed email",
-      "This will remove this failed email from your list. Any health records you added manually will not be affected.",
+      "Remove from Review Inbox",
+      "This removes the item from your list. Health records you added manually are not affected.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -260,7 +262,8 @@ export default function FailedEmailDetailView({
             setDeleting(true);
             try {
               await dismissFailedEmail(failedEmail.id);
-              queryClient.invalidateQueries({ queryKey: ["failedEmails"] });
+              queryClient.invalidateQueries({ queryKey: ["reviewInbox"] });
+              queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
               onDeleted?.();
               onBack();
             } catch (e) {
@@ -278,8 +281,7 @@ export default function FailedEmailDetailView({
     );
   };
 
-  // Error color
-  const errorColor = "#EF4444";
+  const attentionColor = theme.warning;
 
   // Get document type display name
   const getDocumentTypeName = (type: string | null | undefined): string => {
@@ -339,7 +341,7 @@ export default function FailedEmailDetailView({
   const formattedTime = getFormattedTime();
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: pageBg }}>
       {/* Header - conditionally shown */}
       {!hideHeader && (
         <View
@@ -362,7 +364,7 @@ export default function FailedEmailDetailView({
               style={{ color: theme.foreground }}
               numberOfLines={1}
             >
-              Failed Email
+              Needs review
             </Text>
           </View>
           <TouchableOpacity
@@ -383,16 +385,16 @@ export default function FailedEmailDetailView({
       {/* Content */}
       <ScrollView
         className="flex-1"
+        style={{ flex: 1, backgroundColor: pageBg }}
         contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
       >
     
-        {/* Processing Failed Title */}
         <Text
           className="text-2xl font-bold text-center mb-2"
-          style={{ color: errorColor }}
+          style={{ color: attentionColor }}
         >
-          Processing Failed
+          Needs your review
         </Text>
 
         {/* Email for Pet • Timestamp */}

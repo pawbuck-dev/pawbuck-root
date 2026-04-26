@@ -1,3 +1,4 @@
+import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,7 +15,9 @@ export default function PendingEmailListItem({
   approval,
   onPress,
 }: PendingEmailListItemProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const chrome = healthListCardChrome(theme, isDark);
   const isIncorrect = approval.validation_status === "incorrect";
   const validationErrors = approval.validation_errors || {};
   const documentType = approval.document_type;
@@ -98,11 +101,14 @@ export default function PendingEmailListItem({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      className="mx-4 mb-3 rounded-2xl p-4"
       style={{
-        backgroundColor: theme.card,
-        borderWidth: 1,
-        borderColor: theme.border,
+        marginHorizontal: HEALTH_LAYOUT.screenPaddingX,
+        marginBottom: HEALTH_LAYOUT.cardGap,
+        borderRadius: HEALTH_LAYOUT.cardRadius,
+        padding: HEALTH_LAYOUT.cardPadding,
+        backgroundColor: chrome.cardBg,
+        borderWidth: chrome.borderWidth,
+        borderColor: chrome.borderColor,
       }}
     >
       <View className="flex-row items-start">

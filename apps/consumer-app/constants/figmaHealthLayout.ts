@@ -5,17 +5,17 @@
  * - Medications list/detail: 1340:33846, 1340:33523
  * - Add Medicine (manual form): 1386:44525 — MedicineForm + MedicineTypePicker + FrequencySelector
  * - Med dropdown menu + rows: 1340:33428 (panel), 362:2122 (context row) — MedicineDropdownModal
- * - Med/vacc list card (dark): 1340:33857 — canvas behind cards uses darker well vs elevated card
+ * - Med/vacc list card (dark): 1340:33857 — list canvas matches app shell (`theme.background`); cards read as elevated surfaces
  * - Vaccines hub / glyph (teal disc + white heart-pulse): 1340:33860
  * - List card overflow (⋯) dark: 1340:33864 — circular control; stronger white tint than card (not 6%)
- * - Dark tokens: theme/dark.ts (#182424, #1C2128, #5FC4C0, #30363D, backgroundEnd #121C1C)
+ * - Dark tokens: theme/dark.ts (shell `background`, cards, borders, primary)
  */
 import type { Theme } from "@/theme/model";
 import { Platform, StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 /**
- * Dashboard `MyCareTeamSection` / `CareTeamMemberContactCard` — elevated card on dark tab canvas.
- * Slightly lighter than `healthRecordTabCanvas` so tiles read as surfaces (4% white + 6% border).
+ * Dashboard `MyCareTeamSection` / `CareTeamMemberContactCard` — elevated card on app shell background.
+ * Glass-style fill so tiles read as surfaces (4% white + 6% border in dark mode).
  */
 export function dashboardCareTeamCardChrome(isDark: boolean): ViewStyle {
   const isAndroid = Platform.OS === "android";
@@ -146,11 +146,11 @@ export function healthDetailScreenBg(theme: Theme, isDark: boolean): string {
 }
 
 /**
- * Health Record tabs (Vaccines/Meds/Exams/Labs): Figma uses a darker canvas behind
- * elevated cards in dark mode — `backgroundEnd` (#121C1C), not the main app shell (#182424).
+ * Health Record hub + tabs list canvas — same as the rest of the app (`theme.background`)
+ * so dark mode matches home/dashboard; cards still use list chrome for elevation.
  */
-export function healthRecordTabCanvas(theme: Theme, isDark: boolean): string {
-  return isDark ? theme.backgroundEnd : theme.background;
+export function healthRecordTabCanvas(theme: Theme, _isDark: boolean): string {
+  return theme.background;
 }
 
 export function healthListCardChrome(theme: Theme, isDark: boolean) {

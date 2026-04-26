@@ -21,6 +21,8 @@ export interface EmailMetadata {
 export interface CompletionOptions {
   documentType?: string;
   failureReason?: string;
+  /** When processing succeeds after user review, mark inbox row resolved */
+  reviewStatus?: "pending" | "resolved" | "dismissed";
 }
 
 /**
@@ -138,6 +140,9 @@ export async function markEmailAsCompleted(
   if (options?.failureReason) {
     updateData.failure_reason = options.failureReason;
   }
+  if (options?.reviewStatus) {
+    updateData.review_status = options.reviewStatus;
+  }
 
   const { error } = await supabase
     .from("processed_emails")
@@ -173,6 +178,7 @@ export async function markEmailAsFailed(
     success: false,
     completed_at: new Date().toISOString(),
     failure_reason: failureReason,
+    review_status: "pending",
   };
 
   if (petId) {
@@ -192,4 +198,36 @@ export async function markEmailAsFailed(
   } else {
     console.log(`Email marked as failed: ${emailKey} - ${failureReason}`);
   }
+}
+
+/**
+ * Re-open a previously failed (success=false) completed run so attachment processing can run again
+ * (Review Inbox resolution / manual reprocess).
+ */
+export async function resetFailedRowForReprocess(
+  emailKey: string
+): Promise<boolean> {
+  const supabase = createSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("processed_emails")
+    .update({
+      status: "processing",
+      success: null,
+      completed_at: null,
+      failure_reason: null,
+    })
+    .eq("s3_key", emailKey)
+    .eq("success", false)
+    .select("id");
+
+  if (error) {
+    console.error("resetFailedRowForReprocess error:", error);
+    return false;
+  }
+  const n = data?.length ?? 0;
+  if (n > 0) {
+    console.log(`Re-opened failed row for reprocess: ${emailKey}`);
+  }
+  return n > 0;
 }

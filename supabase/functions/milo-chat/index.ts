@@ -5,8 +5,12 @@ import {
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
+import type { SupabaseClient } from "supabase";
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
-import { createSupabaseClient } from "../_shared/supabase-utils.ts";
+import {
+  createSupabaseClient,
+  createUserSupabaseClient,
+} from "../_shared/supabase-utils.ts";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -124,6 +128,33 @@ function buildPetContextPrompt(pet: PetContext | null | undefined): string {
 You have access to this pet's health records. Use the available functions to fetch vaccinations, medications, lab results, or clinical exams when the user asks about them.`;
 }
 
+const VIEW_ONLY_MILO_SUFFIX = `
+Access note: The signed-in user has view-only access to this pet. You may call read-only tools (e.g. get_pet_*). Do not call any tool whose purpose is to create, update, or delete records. If the user asks you to add or change a medication or other health record, say clearly that view-only access prevents that and suggest asking someone with full access on the pet profile.`;
+
+/** Names or prefixes that indicate mutating tools (future-proof beyond current get_* tools). */
+function isWriteStyleMiloTool(name: string): boolean {
+  const n = name.toLowerCase();
+  if (
+    n.startsWith("get_") ||
+    n.startsWith("fetch_") ||
+    n.startsWith("search_") ||
+    n.startsWith("list_")
+  ) {
+    return false;
+  }
+  return (
+    n.startsWith("create_") ||
+    n.startsWith("update_") ||
+    n.startsWith("add_") ||
+    n.startsWith("delete_") ||
+    n.startsWith("remove_") ||
+    n.startsWith("save_") ||
+    n.startsWith("set_") ||
+    n.startsWith("insert_") ||
+    n.startsWith("upsert_")
+  );
+}
+
 function calculateAge(dateOfBirth: string): string {
   const birth = new Date(dateOfBirth);
   const now = new Date();
@@ -150,9 +181,8 @@ function buildConversationHistory(history: ChatMessage[] | undefined): any[] {
   }));
 }
 
-// Health data fetching functions
-async function fetchVaccinations(petId: string) {
-  const supabase = createSupabaseClient();
+// Health data fetching functions (RLS enforced via caller-scoped client)
+async function fetchVaccinations(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("vaccinations")
     .select("*")
@@ -163,8 +193,7 @@ async function fetchVaccinations(petId: string) {
   return data || [];
 }
 
-async function fetchMedications(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchMedications(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("medicines")
     .select("*")
@@ -175,8 +204,7 @@ async function fetchMedications(petId: string) {
   return data || [];
 }
 
-async function fetchLabResults(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchLabResults(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("lab_results")
     .select("*")
@@ -187,8 +215,7 @@ async function fetchLabResults(petId: string) {
   return data || [];
 }
 
-async function fetchClinicalExams(petId: string) {
-  const supabase = createSupabaseClient();
+async function fetchClinicalExams(supabase: SupabaseClient, petId: string) {
   const { data, error } = await supabase
     .from("clinical_exams")
     .select("*")
@@ -286,30 +313,38 @@ function formatClinicalExams(exams: any[]): string {
 }
 
 // Execute function call
-async function executeFunctionCall(functionName: string, petId: string): Promise<string> {
+async function executeFunctionCall(
+  functionName: string,
+  petId: string,
+  supabase: SupabaseClient,
+  viewOnly: boolean
+): Promise<string> {
+  if (viewOnly && isWriteStyleMiloTool(functionName)) {
+    return "Tool refused: this account has view-only access to this pet's records. I can't add or change data on your behalf—ask someone with full access on the pet profile if you need updates saved.";
+  }
   switch (functionName) {
     case "get_pet_vaccinations": {
-      const data = await fetchVaccinations(petId);
+      const data = await fetchVaccinations(supabase, petId);
       return formatVaccinations(data);
     }
     case "get_pet_medications": {
-      const data = await fetchMedications(petId);
+      const data = await fetchMedications(supabase, petId);
       return formatMedications(data);
     }
     case "get_pet_lab_results": {
-      const data = await fetchLabResults(petId);
+      const data = await fetchLabResults(supabase, petId);
       return formatLabResults(data);
     }
     case "get_pet_clinical_exams": {
-      const data = await fetchClinicalExams(petId);
+      const data = await fetchClinicalExams(supabase, petId);
       return formatClinicalExams(data);
     }
     case "get_pet_health_summary": {
       const [vaccinations, medications, labResults, exams] = await Promise.all([
-        fetchVaccinations(petId),
-        fetchMedications(petId),
-        fetchLabResults(petId),
-        fetchClinicalExams(petId),
+        fetchVaccinations(supabase, petId),
+        fetchMedications(supabase, petId),
+        fetchLabResults(supabase, petId),
+        fetchClinicalExams(supabase, petId),
       ]);
       return `=== PET HEALTH SUMMARY ===\n\n${formatVaccinations(vaccinations)}\n\n---\n\n${formatMedications(medications)}\n\n---\n\n${formatLabResults(labResults)}\n\n---\n\n${formatClinicalExams(exams)}`;
     }
@@ -331,10 +366,42 @@ Deno.serve(async (req) => {
       throw new Error("Message is required");
     }
 
+    const authHeader = req.headers.get("Authorization") ?? "";
+    let userSupabase: SupabaseClient | null = null;
+    let resolvedPetRole: string | null = null;
+    if (pet?.id) {
+      if (!authHeader.trim()) {
+        return errorResponse("Unauthorized", 401);
+      }
+      try {
+        userSupabase = createUserSupabaseClient(authHeader);
+      } catch {
+        return errorResponse("Server misconfigured", 500);
+      }
+      const { data: roleData, error: petRoleErr } = await userSupabase.rpc(
+        "get_user_pet_role",
+        { p_pet_id: pet.id }
+      );
+      if (petRoleErr) {
+        console.error("[Milo Chat] get_user_pet_role", petRoleErr);
+        return errorResponse("Failed to verify pet access", 500);
+      }
+      if (roleData == null) {
+        return errorResponse("Unauthorized", 403);
+      }
+      resolvedPetRole = typeof roleData === "string" ? roleData : String(roleData);
+    }
+
+    const healthSupabase = userSupabase ?? createSupabaseClient();
+    const viewOnly = resolvedPetRole === "view_only";
+
     console.log(`[Milo Chat] Processing message: "${message.substring(0, 50)}..."`);
 
     // Build the full system prompt with pet context
-    const systemPrompt = MILO_SYSTEM_PROMPT + buildPetContextPrompt(pet);
+    const systemPrompt =
+      MILO_SYSTEM_PROMPT +
+      buildPetContextPrompt(pet) +
+      (viewOnly ? VIEW_ONLY_MILO_SUFFIX : "");
     
     // Build conversation history
     const conversationHistory = buildConversationHistory(history);
@@ -418,7 +485,12 @@ Deno.serve(async (req) => {
       // Execute the function
       let functionResult: string;
       try {
-        functionResult = await executeFunctionCall(functionCall.name, pet.id);
+        functionResult = await executeFunctionCall(
+          functionCall.name,
+          pet.id,
+          healthSupabase,
+          viewOnly
+        );
       } catch (funcError) {
         console.error(`[Milo Chat] Function error:`, funcError);
         functionResult = `Error fetching data: ${funcError instanceof Error ? funcError.message : "Unknown error"}`;

@@ -1,7 +1,10 @@
 // supabase/functions/send-message/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeaders, errorResponse, jsonResponse } from "../_shared/cors.ts";
-import { createSupabaseClient } from "../_shared/supabase-utils.ts";
+import {
+  createSupabaseClient,
+  createUserSupabaseClient,
+} from "../_shared/supabase-utils.ts";
 
 interface SendMessageRequest {
   petId: string;
@@ -265,6 +268,7 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createSupabaseClient();
+    const userSb = createUserSupabaseClient(authHeader);
     const token = authHeader.replace("Bearer ", "");
     console.log(`[${requestId}] Token length: ${token.length}`);
 
@@ -304,18 +308,36 @@ Deno.serve(async (req) => {
       return errorResponse("Missing required fields", 400);
     }
 
-    // Verify pet belongs to user
-    console.log(`[${requestId}] Verifying pet ownership...`);
-    const { data: pet, error: petError } = await supabase
+    // Verify pet access (owner / admin / contributor — not view_only)
+    console.log(`[${requestId}] Verifying pet access (family grants)...`);
+    const { data: petRole, error: roleErr } = await userSb.rpc(
+      "get_user_pet_role",
+      { p_pet_id: petId }
+    );
+    if (roleErr) {
+      console.error(`[${requestId}] get_user_pet_role`, roleErr);
+      return errorResponse("Failed to verify pet access", 500);
+    }
+    const canSend =
+      petRole === "owner" ||
+      petRole === "admin" ||
+      petRole === "contributor";
+    if (!canSend) {
+      console.log(
+        `[${requestId}] ERROR: Pet access denied (role=${petRole ?? "none"})`
+      );
+      return errorResponse("Pet not found or access denied", 404);
+    }
+
+    const { data: pet, error: petError } = await userSb
       .from("pets")
       .select("id, name, user_id, email_id")
       .eq("id", petId)
-      .eq("user_id", user.id)
       .single();
 
     if (petError || !pet) {
       console.log(
-        `[${requestId}] ERROR: Pet verification failed - ${petError?.message || "Pet not found"}`
+        `[${requestId}] ERROR: Pet load failed - ${petError?.message || "Pet not found"}`
       );
       return errorResponse("Pet not found or access denied", 404);
     }

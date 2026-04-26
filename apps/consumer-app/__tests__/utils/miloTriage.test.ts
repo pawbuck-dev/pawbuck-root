@@ -102,15 +102,30 @@ describe("noteHasClinicalTriagePrefix", () => {
     expect(noteHasClinicalTriagePrefix("[critical] Respiratory distress.")).toBe(true);
   });
 
+  it("detects severe-summary line from vet-ready journal output", () => {
+    expect(
+      noteHasClinicalTriagePrefix(
+        "**Observations:** …\nNote: Severe symptoms detected. Veterinary consultation recommended."
+      )
+    ).toBe(true);
+  });
+
   it("returns false without prefix", () => {
     expect(noteHasClinicalTriagePrefix("Normal day.")).toBe(false);
   });
 });
 
 describe("assistantReplyForSeverity", () => {
-  it("includes disclaimer", () => {
+  it("low severity omits routine vet disclaimer", () => {
     const t = assistantReplyForSeverity("low", "Bella");
     expect(t).toContain("Bella");
-    expect(t.toLowerCase()).toContain("not a diagnosis");
+    expect(t.toLowerCase()).not.toContain("not a diagnosis");
+    expect(t.toLowerCase()).not.toContain("veterinarian");
+  });
+
+  it("high severity uses single severe-symptom note line", () => {
+    const t = assistantReplyForSeverity("high", "Bella");
+    expect(t).toContain("Severe symptoms detected");
+    expect(t).toContain("Veterinary consultation recommended");
   });
 });

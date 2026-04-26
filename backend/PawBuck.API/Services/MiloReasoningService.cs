@@ -67,21 +67,25 @@ public class MiloReasoningService : IMiloReasoningService
         if (!string.IsNullOrWhiteSpace(request.Pet?.Id) && Guid.TryParse(request.Pet.Id, out var pid))
             petId = pid;
 
-        var petOwned = petId.HasValue && await _petFacts.VerifyPetOwnershipAsync(userId, petId.Value, cancellationToken);
-        if (petId.HasValue && !petOwned)
+        var petHasAccess = petId.HasValue && await _petFacts.VerifyPetAccessAsync(userId, petId.Value, cancellationToken);
+        string? petRole = null;
+        if (petHasAccess && petId.HasValue)
+            petRole = await _petFacts.GetUserPetRoleAsync(userId, petId.Value, cancellationToken);
+
+        if (petId.HasValue && !petHasAccess)
         {
             return new MiloChatResponse
             {
-                Answer = "I can't access health data for this pet. Please select a pet you own or sign in again.",
+                Answer = "I can't access health data for this pet. Please select a pet you have access to, or sign in again.",
                 PetName = request.Pet?.Name,
             };
         }
 
-        if (request.JournalMode && (!petId.HasValue || !petOwned))
+        if (request.JournalMode && (!petId.HasValue || !petHasAccess))
         {
             return new MiloChatResponse
             {
-                Answer = "Please select a pet you own to use journal chat.",
+                Answer = "Please select a pet you can access to use journal chat.",
                 PetName = request.Pet?.Name,
             };
         }
@@ -97,9 +101,9 @@ public class MiloReasoningService : IMiloReasoningService
             };
         }
 
-        var petContextBlock = BuildPetContextPrompt(request.Pet, petOwned);
+        var petContextBlock = BuildPetContextPrompt(request.Pet, petHasAccess, petRole);
 
-        if (request.JournalMode && petId.HasValue && petOwned)
+        if (request.JournalMode && petId.HasValue && petHasAccess)
         {
             var journalResponse = await RunJournalInterviewAsync(
                 apiKey,
@@ -107,6 +111,7 @@ public class MiloReasoningService : IMiloReasoningService
                 petContextBlock,
                 userId,
                 petId.Value,
+                petRole,
                 cancellationToken);
             if (journalResponse != null)
                 return journalResponse;
@@ -118,7 +123,7 @@ public class MiloReasoningService : IMiloReasoningService
             };
         }
 
-        var plan = await RunPlanStepAsync(apiKey, message, request.History, petContextBlock, petOwned, cancellationToken);
+        var plan = await RunPlanStepAsync(apiKey, message, request.History, petContextBlock, petHasAccess, cancellationToken);
         if (plan == null)
         {
             return new MiloChatResponse
@@ -128,12 +133,12 @@ public class MiloReasoningService : IMiloReasoningService
             };
         }
 
-        ApplyNoPetGuard(plan, petOwned);
+        ApplyNoPetGuard(plan, petHasAccess);
 
         var kinds = MiloPlanNormalizer.NormalizeDataNeeded(plan.DataNeeded, _logger);
         var factsText = "";
         var usedPetData = false;
-        if (petOwned && petId.HasValue && kinds.Count > 0)
+        if (petHasAccess && petId.HasValue && kinds.Count > 0)
         {
             usedPetData = true;
             factsText = await FetchFactsByKindsAsync(userId, petId.Value, kinds, cancellationToken);
@@ -163,6 +168,19 @@ public class MiloReasoningService : IMiloReasoningService
             ragBlock,
             cancellationToken);
 
+        IReadOnlyList<MiloChatFileAttachment>? fileAttachments = null;
+        if (usedPetData && petId.HasValue)
+        {
+            var docs = await _petFacts.GetDocumentAttachmentsForPlanKindsAsync(
+                userId,
+                petId.Value,
+                kinds,
+                maxCount: 5,
+                cancellationToken);
+            if (docs.Count > 0)
+                fileAttachments = docs;
+        }
+
         var exposePlan = _miloOptions.Value.ExposePlanSummary;
         var planSummary = exposePlan
             ? $"{plan.ReasoningBrief ?? ""} | dataNeeded: [{string.Join(", ", plan.DataNeeded ?? new List<string>())}] | rag: {plan.NeedsDocumentationRag}"
@@ -177,6 +195,7 @@ public class MiloReasoningService : IMiloReasoningService
             UsedRag = usedRag,
             PlanSummary = planSummary,
             PetName = request.Pet?.Name,
+            FileAttachments = fileAttachments,
         };
     }
 
@@ -222,18 +241,21 @@ public class MiloReasoningService : IMiloReasoningService
         return sb.ToString().Trim();
     }
 
-    private static string BuildPetContextPrompt(MiloPetContextDto? pet, bool petOwned)
+    private static string BuildPetContextPrompt(MiloPetContextDto? pet, bool petHasAccess, string? petRole = null)
     {
-        if (pet == null || !petOwned)
+        if (pet == null || !petHasAccess)
         {
             return "\n\nNo specific pet is currently selected, or the pet is not verified for this account. Provide general advice only. Do not claim to have read health records.";
         }
 
         var age = CalculateAgeDisplay(pet.DateOfBirth);
+        var viewOnlyNote = string.Equals(petRole, "view_only", StringComparison.OrdinalIgnoreCase)
+            ? "\n\nSession access is view-only: do not tell the user you added, edited, or saved health records; use read-only context only."
+            : "";
         return $"""
 
 
-            Currently selected pet (verified):
+            Currently selected pet (access verified):
             - Name: {pet.Name}
             - Type: {pet.AnimalType}
             - Breed: {pet.Breed}
@@ -241,7 +263,7 @@ public class MiloReasoningService : IMiloReasoningService
             - Sex: {pet.Sex}
             - Weight: {pet.WeightValue} {pet.WeightUnit}
 
-            Pet health facts (when provided below) come only from this pet's authorized records.
+            Pet health facts (when provided below) come only from this pet's authorized records.{viewOnlyNote}
             """;
     }
 
@@ -270,6 +292,7 @@ public class MiloReasoningService : IMiloReasoningService
         string petContextBlock,
         Guid userId,
         Guid petId,
+        string? petRole,
         CancellationToken cancellationToken)
     {
         var userMessage = NormalizeJournalUserMessage(request.Message);
@@ -288,6 +311,15 @@ public class MiloReasoningService : IMiloReasoningService
 
         var userTurnNumber = CountJournalUserTurnsInHistory(request.History) + 1;
         var systemPersona = ContextEngine.BuildJournalSystemPersonaPrompt(petName, config, hints, tags, userTurnNumber);
+        if (string.Equals(petRole, "view_only", StringComparison.OrdinalIgnoreCase))
+        {
+            systemPersona += """
+
+[User access: view-only]
+The user has view-only access to this pet's records in PawBuck. Do not offer to add, edit, save, or log health data; keep the conversation informational only.
+""";
+        }
+
         var contextBlockText = BuildJournalContextBlock(petName, petContextBlock, ctx, utcNow);
         var contents = BuildJournalContentsWithContextPrefix(contextBlockText, request.History, userMessage);
 
@@ -479,6 +511,8 @@ public class MiloReasoningService : IMiloReasoningService
             - Otherwise, choose one or more from the enum: vaccinations, medications, lab_results, clinical_exams, health_summary, journal, none.
             - Use health_summary when a broad overview of all records is needed; prefer specific categories when the question is narrow.
             - For health-related messages (symptoms, appetite, energy, recovery, behavior, how the pet has been doing), include journal when recent owner-written observations would help; you may use journal alone for journal-only questions.
+            - When the user mentions vaccines, boosters, shots, immunizations, titers, or overdue boosters, include vaccinations (or health_summary) in dataNeeded.
+            - When the user mentions symptoms, limping, vomiting, energy, appetite, or "how they've been," include journal (and specific health categories as needed) so Milo can synthesize owner observations.
             - needsDocumentationRag: true when the user asks about the PawBuck app, product help, or general topics not fully covered by pet records.
             - reasoningBrief: one short sentence explaining the plan (internal).
 
@@ -547,9 +581,9 @@ public class MiloReasoningService : IMiloReasoningService
     }
 
     /// <summary>For tests: applies the same post-plan guard as <see cref="ChatAsync"/> when the pet is not verified.</summary>
-    internal static void ApplyNoPetGuard(MiloChatPlanDto? plan, bool petOwned)
+    internal static void ApplyNoPetGuard(MiloChatPlanDto? plan, bool petHasVerifiedAccess)
     {
-        if (plan == null || petOwned)
+        if (plan == null || petHasVerifiedAccess)
             return;
         plan.DataNeeded = new List<string> { MiloPetFactsKinds.None };
     }
@@ -815,15 +849,20 @@ public class MiloReasoningService : IMiloReasoningService
             : ragBlock;
 
         var answerSystem = $"""
-            Role: Milo, PawBuck's AI Pet Care Assistant. Use pet-related expressions sparingly. Sign-off: 🐕.
-            Mission: Provide helpful, evidence-aware pet care guidance. Use ONLY the facts and documentation below when answering; do not invent records.
+            Role: Milo, PawBuck's clinical scribe. Use pet-related expressions sparingly. Sign-off: 🐕.
+
+            PRIMARY JOB: Synthesize this pet's data from the facts below. Always prioritize summarizing and organizing existing records (journal, vaccines, medications, labs, exams) over generic veterinary how-to (e.g. long desensitization protocols, training plans, or step-by-step behavior articles not tied to this pet's rows). When facts are thin, add only brief neutral context—do not replace record synthesis with generic advice.
+
+            Use ONLY the facts and documentation below for factual claims; do not invent records.
 
             Operational rules:
-            - DATA-FIRST when facts are provided: ground answers in them.
+            - OPENING: The FIRST line of your reply MUST be exactly the Markdown header `### Summary` (level 3). The paragraph(s) immediately under it must be grounded ONLY in retrieved pet facts (pet name, dates, statuses from the facts block). Use **bold** for important clinical labels (vaccines, meds, labs, findings). After Summary you may use additional `###` sections and bullets.
+            - AMBER (needs review / critical): Use a single line starting with `> **Needs review:**` for overdue vaccines, mismatches, or concerning trends that should be double-checked with a vet. Use `> **Critical symptom:**` for urgent or worsening signs described in the journal or facts. These lines must mirror the facts block only.
+            - TEAL (completed / confirmed): Use a line starting with `> **Completed record:**` when stating something clearly documented as done, current, or neutral from the facts (e.g. a logged vaccine on file). Legacy prefix `> **From your records:**` is also acceptable for neutral confirmations.
             - NO diagnosis or prescription: explain symptoms generally; never name a disease or dose a medication.
             - Vet disclaimer: For health-related replies, include: "Please consult your veterinarian for a professional diagnosis and before making changes to your pet's medical care."
-            - EMERGENCY: For acute symptoms (poisoning, trauma, seizures), lead with urgent veterinary care.
-            - Markdown headers and bullets when helpful. Max ~250 words unless the user needs step-by-step detail.
+            - EMERGENCY: For acute symptoms (poisoning, trauma, seizures), lead with urgent veterinary care inside Summary or the first lines.
+            - Max ~250 words unless the user explicitly needs more detail tied to their records.
 
             {petContextBlock}
 

@@ -5,12 +5,21 @@ import { formatValidationResult, validatePetFromDocument } from "../petValidator
 import { uploadAttachment } from "../storageUploader.ts";
 import type {
   DocumentClassification,
+  DocumentType,
   EmailContext,
+  ForcedDocumentPipelineType,
   ParsedAttachment,
   Pet,
   PetValidationResult,
   ProcessedAttachment
 } from "../types.ts";
+
+export type ProcessAttachmentsOptions = {
+  /** When set, first relevant attachment(s) use this type instead of Gemini (Review Inbox resolve). */
+  forcedDocumentType?: ForcedDocumentPipelineType;
+  /** Only the first N attachments get the forced type (default 1) */
+  forcedAttachmentIndexLimit?: number;
+};
 
 /**
  * Process all attachments for a pet
@@ -18,14 +27,29 @@ import type {
 export async function processAttachments(
   pet: Pet,
   attachments: ParsedAttachment[],
-  emailContext: EmailContext
+  emailContext: EmailContext,
+  options?: ProcessAttachmentsOptions
 ): Promise<ProcessedAttachment[]> {
   const processedAttachments: ProcessedAttachment[] = [];
 
-  for (const attachment of attachments) {
+  for (let i = 0; i < attachments.length; i++) {
+    const attachment = attachments[i];
     console.log(`\n=== Processing attachment: ${attachment.filename} ===`);
 
-    const processed = await processSingleAttachment(pet, attachment, emailContext);
+    const forced: ForcedDocumentPipelineType | undefined =
+      options?.forcedDocumentType &&
+      (options.forcedAttachmentIndexLimit == null
+        ? i < 1
+        : i < options.forcedAttachmentIndexLimit)
+        ? options.forcedDocumentType
+        : undefined;
+
+    const processed = await processSingleAttachment(
+      pet,
+      attachment,
+      emailContext,
+      forced
+    );
     processedAttachments.push(processed);
   }
 
@@ -39,18 +63,25 @@ export async function processAttachments(
 async function processSingleAttachment(
   pet: Pet,
   attachment: ParsedAttachment,
-  emailContext: EmailContext
+  emailContext: EmailContext,
+  forcedDocumentType?: ForcedDocumentPipelineType
 ): Promise<ProcessedAttachment> {
   try {
-    // Step 1: Classify attachment with Gemini AI
-    const classification = await classifyAttachment(
-      attachment,
-      emailContext.subject,
-      emailContext.textBody
-    );
+    // Step 1: Classify attachment with Gemini AI (or use user override from Review Inbox)
+    const classification: DocumentClassification = forcedDocumentType
+      ? {
+          type: forcedDocumentType as DocumentType,
+          confidence: 1,
+          reasoning: "User-confirmed document type (Review Inbox resolution)",
+        }
+      : await classifyAttachment(
+          attachment,
+          emailContext.subject,
+          emailContext.textBody
+        );
 
     console.log(
-      `Classification result: ${classification.type} (confidence: ${classification.confidence})`
+      `Classification result: ${classification.type} (confidence: ${classification.confidence})${forcedDocumentType ? " [forced]" : ""}`
     );
 
     // Step 2: Skip irrelevant attachments

@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -25,14 +28,26 @@ public class MiloPetFactsService : IMiloPetFactsService
     }
 
     /// <inheritdoc />
-    public async Task<bool> VerifyPetOwnershipAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
+    public Task<bool> VerifyPetOwnershipAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default) =>
+        VerifyPetAccessAsync(userId, petId, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> VerifyPetAccessAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT 1
-            FROM public.pets
-            WHERE id = @petId
-              AND user_id = @userId
-              AND deleted_at IS NULL
+            FROM public.pets p
+            WHERE p.id = @petId
+              AND p.deleted_at IS NULL
+              AND (
+                p.user_id = @userId
+                OR EXISTS (
+                  SELECT 1
+                  FROM public.pet_family_grants g
+                  WHERE g.pet_id = p.id
+                    AND g.grantee_id = @userId
+                )
+              )
             LIMIT 1
             """;
 
@@ -46,13 +61,20 @@ public class MiloPetFactsService : IMiloPetFactsService
     }
 
     /// <inheritdoc />
-    public async Task<string> GetVaccinationsTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
+    public async Task<string?> GetUserPetRoleAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT name, date, next_due_date, clinic_name, notes
-            FROM public.vaccinations
-            WHERE pet_id = @petId AND user_id = @userId
-            ORDER BY date DESC
+            SELECT CASE
+              WHEN p.user_id = @userId THEN 'owner'
+              ELSE (
+                SELECT g.role::text
+                FROM public.pet_family_grants g
+                WHERE g.pet_id = p.id AND g.grantee_id = @userId
+                LIMIT 1
+              )
+            END
+            FROM public.pets p
+            WHERE p.id = @petId AND p.deleted_at IS NULL
             """;
 
         await using var conn = CreateConnection();
@@ -60,8 +82,29 @@ public class MiloPetFactsService : IMiloPetFactsService
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
         cmd.Parameters.AddWithValue("userId", userId);
+        var o = await cmd.ExecuteScalarAsync(cancellationToken);
+        if (o is null || o is DBNull)
+            return null;
+        var s = Convert.ToString(o, CultureInfo.InvariantCulture);
+        return string.IsNullOrWhiteSpace(s) ? null : s;
+    }
+
+    /// <inheritdoc />
+    public async Task<string> GetVaccinationsTextAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT name, date, next_due_date, clinic_name, notes, document_url
+            FROM public.vaccinations
+            WHERE pet_id = @petId
+            ORDER BY date DESC
+            """;
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        var rows = new List<(string Name, DateTime Date, DateTime? NextDue, string? Clinic, string? Notes)>();
+        var rows = new List<(string Name, DateTime Date, DateTime? NextDue, string? Clinic, string? Notes, string? DocumentUrl)>();
         while (await reader.ReadAsync(cancellationToken))
         {
             rows.Add((
@@ -69,7 +112,8 @@ public class MiloPetFactsService : IMiloPetFactsService
                 reader.GetDateTime(1),
                 reader.IsDBNull(2) ? null : reader.GetDateTime(2),
                 reader.IsDBNull(3) ? null : reader.GetString(3),
-                reader.IsDBNull(4) ? null : reader.GetString(4)));
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
         }
 
         return FormatVaccinations(rows);
@@ -81,7 +125,7 @@ public class MiloPetFactsService : IMiloPetFactsService
         const string sql = """
             SELECT name, type, dosage, frequency, start_date, end_date, prescribed_by, purpose, next_due_date
             FROM public.medicines
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
             ORDER BY created_at DESC
             """;
 
@@ -89,7 +133,6 @@ public class MiloPetFactsService : IMiloPetFactsService
         await conn.OpenAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var rows = new List<MedicineRow>();
         while (await reader.ReadAsync(cancellationToken))
@@ -115,7 +158,7 @@ public class MiloPetFactsService : IMiloPetFactsService
         const string sql = """
             SELECT test_type, lab_name, test_date, ordered_by, results
             FROM public.lab_results
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
             ORDER BY test_date DESC NULLS LAST
             """;
 
@@ -123,7 +166,6 @@ public class MiloPetFactsService : IMiloPetFactsService
         await conn.OpenAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var rows = new List<LabRow>();
         while (await reader.ReadAsync(cancellationToken))
@@ -148,7 +190,7 @@ public class MiloPetFactsService : IMiloPetFactsService
         const string sql = """
             SELECT exam_type, exam_date, clinic_name, vet_name, weight_value, weight_unit, temperature, heart_rate, respiratory_rate, findings, notes, follow_up_date
             FROM public.clinical_exams
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
             ORDER BY exam_date DESC
             """;
 
@@ -156,7 +198,6 @@ public class MiloPetFactsService : IMiloPetFactsService
         await conn.OpenAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var rows = new List<ExamRow>();
         while (await reader.ReadAsync(cancellationToken))
@@ -185,7 +226,7 @@ public class MiloPetFactsService : IMiloPetFactsService
         const string sql = """
             SELECT domain, subtype, note, entry_date, created_at
             FROM public.pet_journal_entries
-            WHERE pet_id = @petId AND user_id = @userId
+            WHERE pet_id = @petId
             ORDER BY created_at DESC
             LIMIT 5
             """;
@@ -194,7 +235,6 @@ public class MiloPetFactsService : IMiloPetFactsService
         await conn.OpenAsync(cancellationToken);
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("petId", petId);
-        cmd.Parameters.AddWithValue("userId", userId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var rows = new List<(string Domain, string Subtype, string? Note, DateTime EntryDate)>();
         while (await reader.ReadAsync(cancellationToken))
@@ -235,8 +275,169 @@ public class MiloPetFactsService : IMiloPetFactsService
             """;
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<MiloChatFileAttachment>> GetDocumentAttachmentsForPlanKindsAsync(
+        Guid userId,
+        Guid petId,
+        IReadOnlyList<string> kinds,
+        int maxCount,
+        CancellationToken cancellationToken = default)
+    {
+        _ = userId;
+        if (maxCount <= 0)
+            return Array.Empty<MiloChatFileAttachment>();
+
+        var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in kinds ?? Array.Empty<string>())
+        {
+            if (MiloPetFactsKinds.Normalize(raw) is { } n)
+                normalized.Add(n);
+        }
+
+        if (normalized.Count == 0 || normalized.Contains(MiloPetFactsKinds.None))
+            return Array.Empty<MiloChatFileAttachment>();
+
+        var wantVac = normalized.Contains(MiloPetFactsKinds.Vaccinations) || normalized.Contains(MiloPetFactsKinds.HealthSummary);
+        var wantMed = normalized.Contains(MiloPetFactsKinds.Medications) || normalized.Contains(MiloPetFactsKinds.HealthSummary);
+        var wantLab = normalized.Contains(MiloPetFactsKinds.LabResults) || normalized.Contains(MiloPetFactsKinds.HealthSummary);
+        var wantExam = normalized.Contains(MiloPetFactsKinds.ClinicalExams) || normalized.Contains(MiloPetFactsKinds.HealthSummary);
+
+        var candidates = new List<(DateTime Sort, MiloChatFileAttachment Attachment)>();
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        if (wantVac)
+        {
+            const string sql = """
+                SELECT id, name, document_url, date
+                FROM public.vaccinations
+                WHERE pet_id = @petId
+                  AND document_url IS NOT NULL
+                  AND length(trim(document_url)) > 0
+                ORDER BY date DESC
+                LIMIT 5
+                """;
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("petId", petId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var path = reader.GetString(2).Trim();
+                candidates.Add((
+                    reader.GetDateTime(3),
+                    new MiloChatFileAttachment
+                    {
+                        Id = reader.GetGuid(0).ToString("D"),
+                        Kind = "vaccination",
+                        Title = reader.GetString(1),
+                        StoragePath = path,
+                    }));
+            }
+        }
+
+        if (wantMed)
+        {
+            const string sql = """
+                SELECT id, name, document_url, created_at
+                FROM public.medicines
+                WHERE pet_id = @petId
+                  AND document_url IS NOT NULL
+                  AND length(trim(document_url)) > 0
+                ORDER BY created_at DESC
+                LIMIT 5
+                """;
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("petId", petId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var path = reader.GetString(2).Trim();
+                var sort = reader.GetDateTime(3);
+                candidates.Add((
+                    sort,
+                    new MiloChatFileAttachment
+                    {
+                        Id = reader.GetGuid(0).ToString("D"),
+                        Kind = "medicine",
+                        Title = reader.GetString(1),
+                        StoragePath = path,
+                    }));
+            }
+        }
+
+        if (wantLab)
+        {
+            const string sql = """
+                SELECT id, test_type, document_url, coalesce(test_date, (created_at AT TIME ZONE 'UTC')::date)
+                FROM public.lab_results
+                WHERE pet_id = @petId
+                  AND document_url IS NOT NULL
+                  AND length(trim(document_url)) > 0
+                ORDER BY coalesce(test_date, created_at::date) DESC NULLS LAST
+                LIMIT 5
+                """;
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("petId", petId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var path = reader.GetString(2).Trim();
+                var sort = reader.GetDateTime(3);
+                candidates.Add((
+                    sort,
+                    new MiloChatFileAttachment
+                    {
+                        Id = reader.GetGuid(0).ToString("D"),
+                        Kind = "lab_result",
+                        Title = reader.GetString(1),
+                        StoragePath = path,
+                    }));
+            }
+        }
+
+        if (wantExam)
+        {
+            const string sql = """
+                SELECT id, coalesce(exam_type, 'Exam'), document_url, exam_date
+                FROM public.clinical_exams
+                WHERE pet_id = @petId
+                  AND document_url IS NOT NULL
+                  AND length(trim(document_url)) > 0
+                ORDER BY exam_date DESC
+                LIMIT 5
+                """;
+            await using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("petId", petId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var path = reader.GetString(2).Trim();
+                candidates.Add((
+                    reader.GetDateTime(3),
+                    new MiloChatFileAttachment
+                    {
+                        Id = reader.GetGuid(0).ToString("D"),
+                        Kind = "clinical_exam",
+                        Title = reader.GetString(1),
+                        StoragePath = path,
+                    }));
+            }
+        }
+
+        var seenPaths = new HashSet<string>(StringComparer.Ordinal);
+        var ordered = candidates
+            .OrderByDescending(x => x.Sort)
+            .Select(x => x.Attachment)
+            .Where(a => seenPaths.Add(a.StoragePath))
+            .Take(maxCount)
+            .ToList();
+
+        return ordered;
+    }
+
     private static string FormatVaccinations(
-        IReadOnlyList<(string Name, DateTime Date, DateTime? NextDue, string? Clinic, string? Notes)> rows)
+        IReadOnlyList<(string Name, DateTime Date, DateTime? NextDue, string? Clinic, string? Notes, string? DocumentUrl)> rows)
     {
         if (rows.Count == 0)
             return "No vaccination records found for this pet.";
@@ -253,6 +454,8 @@ public class MiloPetFactsService : IMiloPetFactsService
                 sb.Append("  Clinic: ").AppendLine(v.Clinic);
             if (!string.IsNullOrWhiteSpace(v.Notes))
                 sb.Append("  Notes: ").AppendLine(v.Notes);
+            if (!string.IsNullOrWhiteSpace(v.DocumentUrl))
+                sb.Append("  Document path: ").AppendLine(v.DocumentUrl.Trim());
             sb.AppendLine();
         }
 

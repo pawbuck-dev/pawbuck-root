@@ -8,8 +8,11 @@ import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
 import { FIGMA_HEALTH_EXAMS_ICON_BG } from "@/constants/figmaHealthLayout";
+import { fetchJournalEntries, linkJournalEntryToClinicalExam } from "@/services/petJournal";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
+import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -25,6 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function ExamDetailScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const {
     clinicalExams,
     updateClinicalExamMutation,
@@ -43,6 +47,31 @@ export default function ExamDetailScreen() {
     () => clinicalExams.find((e) => e.id === examId),
     [clinicalExams, examId]
   );
+
+  const { data: linkCandidates = [] } = useQuery({
+    queryKey: ["journal_exam_link", exam?.pet_id, examId],
+    queryFn: async () => {
+      if (!exam) return [];
+      const rows = await fetchJournalEntries(exam.pet_id, "health");
+      return rows.filter(
+        (j) => journalEntryNeedsTriageAttention(j) && !j.linked_clinical_exam_id
+      );
+    },
+    enabled: !!exam?.pet_id && !!examId,
+  });
+
+  const linkJournalMutation = useMutation({
+    mutationFn: async (journalEntryId: string) => {
+      if (!exam) throw new Error("Missing exam");
+      await linkJournalEntryToClinicalExam(journalEntryId, exam.id);
+    },
+    onSuccess: async () => {
+      if (!exam) return;
+      await queryClient.invalidateQueries({ queryKey: ["journal_exam_link", exam.pet_id, examId] });
+      await queryClient.invalidateQueries({ queryKey: ["health_briefing", exam.pet_id] });
+      await queryClient.invalidateQueries({ queryKey: ["pet_journal"] });
+    },
+  });
 
   const hasDocument = !!exam?.document_url;
 
@@ -343,6 +372,57 @@ export default function ExamDetailScreen() {
               </Text>
             </TouchableOpacity>
           )}
+
+          {linkCandidates.length > 0 ? (
+            <View
+              className="mt-5 pt-4"
+              style={{ borderTopWidth: 1, borderTopColor: "rgba(127,127,127,0.22)" }}
+            >
+              <Text className="text-xs font-semibold mb-1" style={{ color: theme.primary }}>
+                JOURNAL FLAGS
+              </Text>
+              <Text className="text-sm mb-3" style={{ color: theme.secondary }}>
+                Link a flagged health journal entry to this visit to mark it resolved and remove it from active briefing
+                flags.
+              </Text>
+              {linkCandidates.map((j) => {
+                const preview = (j.note ?? "").trim();
+                const short =
+                  preview.length > 100 ? `${preview.slice(0, 97).trimEnd()}…` : preview || "(no note text)";
+                return (
+                  <TouchableOpacity
+                    key={j.id}
+                    disabled={linkJournalMutation.isPending}
+                    onPress={() => {
+                      Alert.alert(
+                        "Link to this visit?",
+                        short,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Link",
+                            onPress: () => linkJournalMutation.mutate(j.id),
+                          },
+                        ]
+                      );
+                    }}
+                    className="mb-2 py-3 px-3 rounded-xl flex-row items-center justify-between"
+                    style={{ backgroundColor: theme.background }}
+                  >
+                    <View className="flex-1 pr-2">
+                      <Text className="text-xs" style={{ color: theme.secondary }}>
+                        {j.entry_date}
+                      </Text>
+                      <Text className="text-sm mt-0.5" style={{ color: theme.foreground }} numberOfLines={2}>
+                        {short}
+                      </Text>
+                    </View>
+                    <Ionicons name="link" size={20} color={theme.primary} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 

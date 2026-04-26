@@ -65,7 +65,8 @@ public class MiloReasoningServiceJournalTests
         string geminiApiKey = "test-api-key")
     {
         var petFacts = new Mock<IMiloPetFactsService>();
-        petFacts.Setup(p => p.VerifyPetOwnershipAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        petFacts.Setup(p => p.VerifyPetAccessAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        petFacts.Setup(p => p.GetUserPetRoleAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync("owner");
         petFacts.Setup(p => p.GetVaccinationsTextAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("");
         petFacts.Setup(p => p.GetMedicationsTextAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -212,7 +213,8 @@ public class MiloReasoningServiceJournalTests
         factoryNeverUsed.Setup(f => f.CreateClient("Gemini")).Throws(new InvalidOperationException("Gemini HTTP must not be called"));
 
         var petFacts = new Mock<IMiloPetFactsService>();
-        petFacts.Setup(p => p.VerifyPetOwnershipAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        petFacts.Setup(p => p.VerifyPetAccessAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        petFacts.Setup(p => p.GetUserPetRoleAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync("owner");
         petFacts.Setup(p => p.GetVaccinationsTextAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("");
         petFacts.Setup(p => p.GetMedicationsTextAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))

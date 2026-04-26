@@ -1,7 +1,8 @@
 import { supabase } from "@/utils/supabase";
 
 /**
- * Represents a failed email record with pet information
+ * Review Inbox item (unmatchable or failed automatic processing; same row as `processed_emails`).
+ * @deprecated Prefer {@link ReviewInboxItem} naming in new code
  */
 export interface FailedEmail {
   id: string;
@@ -13,17 +14,19 @@ export interface FailedEmail {
   failure_reason: string | null;
   completed_at: string | null;
   started_at: string | null;
+  review_status: "pending" | "resolved" | "dismissed" | null;
   pets?: {
     name: string;
     breed: string | null;
   } | null;
 }
 
+export type ReviewInboxItem = FailedEmail;
+
 /**
- * Fetch all failed emails for the current user's pets
- * Returns emails where success = false and status = 'completed'
+ * Fetch all Review Inbox items for the current user's pets (success = false, not dismissed).
  */
-export const getFailedEmails = async (): Promise<FailedEmail[]> => {
+export const getReviewInbox = async (): Promise<ReviewInboxItem[]> => {
   // First get the user's pets
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) {
@@ -42,7 +45,7 @@ export const getFailedEmails = async (): Promise<FailedEmail[]> => {
 
   const petIds = pets.map((p) => p.id);
 
-  // Fetch failed emails for these pets
+  // Fetch review inbox for these pets
   const { data, error } = await supabase
     .from("processed_emails")
     .select(
@@ -56,6 +59,7 @@ export const getFailedEmails = async (): Promise<FailedEmail[]> => {
       failure_reason,
       completed_at,
       started_at,
+      review_status,
       pets (
         name,
         breed
@@ -68,15 +72,18 @@ export const getFailedEmails = async (): Promise<FailedEmail[]> => {
     .order("completed_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching failed emails:", error);
+    console.error("Error fetching review inbox:", error);
     throw error;
   }
 
-  const petNames = pets.map((p) => p.name);
-  console.log("Failed emails:", data, petNames);
-
-  return (data as FailedEmail[]) ?? [];
+  const rows = (data as ReviewInboxItem[]) ?? [];
+  return rows.filter(
+    (r) => r.review_status == null || r.review_status === "pending"
+  );
 };
+
+/** @deprecated use {@link getReviewInbox} */
+export const getFailedEmails = getReviewInbox;
 
 /**
  * Get a single failed email by ID
@@ -97,6 +104,7 @@ export const getFailedEmailById = async (
       failure_reason,
       completed_at,
       started_at,
+      review_status,
       pets (
         name,
         breed

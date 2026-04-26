@@ -2,6 +2,7 @@ import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
@@ -61,7 +62,9 @@ export default function ThreadDetailView({
   onRestore,
   onDeleted,
 }: ThreadDetailViewProps) {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  const isDark = mode === "dark";
+  const pageBg = healthRecordTabCanvas(theme, isDark);
   const queryClient = useQueryClient();
   const { pets } = usePets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -371,7 +374,7 @@ export default function ThreadDetailView({
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+    <View className="flex-1" style={{ backgroundColor: pageBg }}>
       {/* Header - conditionally shown */}
       {!hideHeader && (
         <View
@@ -532,6 +535,7 @@ export default function ThreadDetailView({
         <ScrollView
           ref={scrollViewRef}
           className="flex-1"
+          style={{ flex: 1, backgroundColor: pageBg }}
           contentContainerStyle={{ paddingVertical: 8 }}
           onContentSizeChange={() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });

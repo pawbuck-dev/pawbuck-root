@@ -120,12 +120,13 @@ public class ContextEngineTests
             [],
             userTurnNumber: 1);
 
-        prompt.Should().Contain("Senior Veterinary Scribe");
-        prompt.Should().Contain("Clinical Abstract");
+        prompt.Should().Contain("veterinary EMR");
+        prompt.Should().Contain("**Observations:**");
+        prompt.Should().Contain("**Frequency/Duration:**");
+        prompt.Should().Contain("**Associated Symptoms:**");
         prompt.Should().Contain("Adipsia");
-        prompt.Should().Contain("[URGENT]");
-        prompt.Should().Contain("[CRITICAL]");
-        prompt.Should().Contain("no bullet points");
+        prompt.Should().Contain("Note: Severe symptoms detected.");
+        prompt.Should().Contain("Do **not** use legacy prefixes like [URGENT]");
     }
 
     [Fact]

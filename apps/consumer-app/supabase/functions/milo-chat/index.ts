@@ -1,12 +1,16 @@
 // Milo Chat - AI Pet Assistant powered by Gemini with Function Calling (modular agentic)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   errorResponse,
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
-import { createSupabaseClient } from "../_shared/supabase-utils.ts";
+import {
+  createSupabaseClient,
+  createUserSupabaseClient,
+} from "../_shared/supabase-utils.ts";
 import { executeHealthTool, isHealthTool } from "./tools/health.ts";
 import { get_county_vaccines } from "./tools/vaccines.ts";
 import { get_curated_pet_guidance } from "./tools/curatedGuidance.ts";
@@ -63,8 +67,8 @@ Safety & Constraints:
 - Vet Disclaimer: Mandatory for health replies: "Please consult your veterinarian for a professional diagnosis and before making changes to your pet's medical care."
 - Response Style: Use Markdown headers and bullet points. Max 250 words. 🐕`;
 
-function buildMiloSystemPrompt(opts: { petContext: string }): string {
-  return MILO_BASE_PROMPT + opts.petContext;
+function buildMiloSystemPrompt(opts: { petContext: string; viewOnly: boolean }): string {
+  return MILO_BASE_PROMPT + opts.petContext + (opts.viewOnly ? VIEW_ONLY_MILO_SUFFIX : "");
 }
 
 // FAQ and vaccine tools (always available)
@@ -171,6 +175,32 @@ function buildPetContextPrompt(pet: PetContext | null | undefined): string {
 You have access to this pet's health records. Use the available functions to fetch vaccinations, medications, lab results, or clinical exams when the user asks about them.`;
 }
 
+const VIEW_ONLY_MILO_SUFFIX = `
+Access note: The signed-in user has view-only access to this pet. You may call read-only tools (e.g. get_pet_*). Do not call tools that create or update records. If the user asks you to add or change a medication or other health record, explain that view-only access prevents that.`;
+
+function isWriteStyleMiloTool(name: string): boolean {
+  const n = name.toLowerCase();
+  if (
+    n.startsWith("get_") ||
+    n.startsWith("fetch_") ||
+    n.startsWith("search_") ||
+    n.startsWith("list_")
+  ) {
+    return false;
+  }
+  return (
+    n.startsWith("create_") ||
+    n.startsWith("update_") ||
+    n.startsWith("add_") ||
+    n.startsWith("delete_") ||
+    n.startsWith("remove_") ||
+    n.startsWith("save_") ||
+    n.startsWith("set_") ||
+    n.startsWith("insert_") ||
+    n.startsWith("upsert_")
+  );
+}
+
 function calculateAge(dateOfBirth: string): string {
   const birth = new Date(dateOfBirth);
   const now = new Date();
@@ -197,10 +227,12 @@ function buildConversationHistory(history: ChatMessage[] | undefined): unknown[]
 }
 
 /** Fetch latest pet profile from DB; fall back to payload pet or null. */
-async function resolvePet(petFromBody: PetContext | null | undefined): Promise<PetContext | null> {
+async function resolvePet(
+  petFromBody: PetContext | null | undefined,
+  supabase: SupabaseClient
+): Promise<PetContext | null> {
   if (!petFromBody?.id) return petFromBody ?? null;
 
-  const supabase = createSupabaseClient();
   const { data, error } = await supabase
     .from("pets")
     .select("id, name, animal_type, breed, date_of_birth, sex, weight_value, weight_unit, country")
@@ -240,11 +272,16 @@ async function executeTool(
   name: string,
   args: Record<string, unknown>,
   petId: string | undefined,
-  resolvedPet: PetContext | null
+  resolvedPet: PetContext | null,
+  healthSupabase: SupabaseClient,
+  viewOnly: boolean
 ): Promise<string> {
+  if (viewOnly && isWriteStyleMiloTool(name)) {
+    return "Tool refused: this account has view-only access to this pet's records. I can't add or change data on your behalf—ask someone with full access on the pet profile if you need updates saved.";
+  }
   if (isHealthTool(name)) {
     if (!petId) return "No pet selected. Please select a pet to view health records.";
-    return executeHealthTool(name, petId);
+    return executeHealthTool(name, petId, healthSupabase);
   }
   if (name === "search_faqs") {
     const query = typeof args.query === "string" ? args.query : String(args?.query ?? "");
@@ -298,9 +335,38 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[Milo Chat] Processing message: "${message.substring(0, 50)}..."`);
 
-    const resolvedPet = await resolvePet(petFromBody);
+    const authHeader = req.headers.get("Authorization") ?? "";
+    let userSupabase: SupabaseClient | null = null;
+    let resolvedPetRole: string | null = null;
+    if (petFromBody?.id) {
+      if (!authHeader.trim()) {
+        return errorResponse("Unauthorized", 401);
+      }
+      try {
+        userSupabase = createUserSupabaseClient(authHeader);
+      } catch {
+        return errorResponse("Server misconfigured", 500);
+      }
+      const { data: roleData, error: petRoleErr } = await userSupabase.rpc("get_user_pet_role", {
+        p_pet_id: petFromBody.id,
+      });
+      if (petRoleErr) {
+        console.error("[Milo Chat] get_user_pet_role", petRoleErr);
+        return errorResponse("Failed to verify pet access", 500);
+      }
+      if (roleData == null) {
+        return errorResponse("Unauthorized", 403);
+      }
+      resolvedPetRole = typeof roleData === "string" ? roleData : String(roleData);
+    }
+
+    const healthSupabase = userSupabase ?? createSupabaseClient();
+    const viewOnly = resolvedPetRole === "view_only";
+
+    const resolvedPet = await resolvePet(petFromBody, healthSupabase);
     const systemPrompt = buildMiloSystemPrompt({
       petContext: buildPetContextPrompt(resolvedPet),
+      viewOnly,
     });
 
     const conversationHistory = buildConversationHistory(history);
@@ -350,7 +416,14 @@ Deno.serve(async (req: Request) => {
 
       let functionResult: string;
       try {
-        functionResult = await executeTool(fnName, fnArgs, resolvedPet?.id, resolvedPet);
+        functionResult = await executeTool(
+          fnName,
+          fnArgs,
+          resolvedPet?.id,
+          resolvedPet,
+          healthSupabase,
+          viewOnly
+        );
       } catch (funcError) {
         console.error(`[Milo Chat] Function error:`, funcError);
         functionResult =
