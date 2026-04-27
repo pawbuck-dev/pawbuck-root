@@ -1,0 +1,33 @@
+---
+description: Keep Milo product-help RAG and starter chips aligned when consumer UX or help docs change
+globs:
+  - apps/consumer-app/app/**/*
+  - docs/pawbuck-product-help/**/*
+  - apps/consumer-app/constants/productHelpStarters.ts
+alwaysApply: false
+---
+
+# Milo product help (RAG) — keep in sync with the app
+
+When you add or materially change **owner-visible** consumer behavior (new routes, renamed Settings items, new flows such as transfers, family access, messages, health uploads, booking, journal, etc.), treat **Milo’s documentation RAG** as part of the same change unless the work is purely internal/refactor with no user-facing difference.
+
+## Do this as part of the feature PR
+
+1. **`docs/pawbuck-product-help/`** — Add or edit the Markdown article(s) for the flow (steps, screen names, limitations). Keep [`docs/pawbuck-product-help/INVENTORY.md`](../../docs/pawbuck-product-help/INVENTORY.md) in sync so coverage stays auditable.
+2. **Starter chips** — If users should discover the feature from Milo’s suggested prompts, add or reorder a line in [`apps/consumer-app/constants/productHelpStarters.ts`](../../apps/consumer-app/constants/productHelpStarters.ts) (short “How do I …?” strings).
+3. **Re-embed** — After merging copy changes, run the seed script so `public.documentation` matches (staging/prod per your process). See [`docs/MILO_RAG.md`](../../docs/MILO_RAG.md):
+
+   `cd apps/consumer-app && npx tsx scripts/seed-documentation-rag.ts --env-file .env.local`
+
+4. **Tests** — If you change prompt-building logic, extend [`apps/consumer-app/__tests__/services/miloSuggestedPrompts.test.ts`](../../apps/consumer-app/__tests__/services/miloSuggestedPrompts.test.ts) (or relevant API tests).
+
+## When you can skip
+
+- Pure copy/theme tweaks that do not change **where** or **how** users do something.
+- Provider app–only or backend-only changes with **no** consumer navigation or Milo-facing behavior change.
+
+## Canonical references
+
+- Corpus layout: [`docs/pawbuck-product-help/README.md`](../../docs/pawbuck-product-help/README.md)
+- RAG + dimensions + seeding: [`docs/MILO_RAG.md`](../../docs/MILO_RAG.md)
+- Consumer patterns (includes this checklist in prose): `.cursor/rules/consumer-persona.mdc`

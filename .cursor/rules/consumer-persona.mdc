@@ -34,6 +34,10 @@ The consumer app is a React Native application built with Expo Router, designed 
 ## Testing
 - Follow `.cursor/rules/testing-requirements.mdc`: add tests for new behavior and run `pnpm --filter pawbuck test` (or `pnpm run test:all` when shared code changes). See `docs/TESTING.md`.
 
+## Milo product help (RAG) — update with new owner-facing features
+
+Help content for **how the consumer app works** lives in **`docs/pawbuck-product-help/`** and is embedded into **`public.documentation`** for **`POST /api/milo/chat`**. When you ship a user-visible flow or rename important navigation, **update the corpus (and [`INVENTORY.md`](../../docs/pawbuck-product-help/INVENTORY.md)) in the same PR** when practical, add a **starter** in [`constants/productHelpStarters.ts`](../../apps/consumer-app/constants/productHelpStarters.ts) if it should appear as a chip, and plan a **re-seed** for each environment per [`docs/MILO_RAG.md`](../../docs/MILO_RAG.md). Detailed checklist: **`.cursor/rules/milo-product-help.mdc`**.
+
 ## Conventions (strict layout)
 - **Screens** — `app/` (Expo Router only)
 - **React components** — under `components/` by feature: `components/home/`, `components/common/` (shared pickers, `PrivateImage`, `NetworkImage`), `components/layout/` (e.g. `Header`, `SplashScreen`), `components/onboarding/` (welcome flows), `components/icons/` (SVG icon components — **not** static PNG/SVG assets)

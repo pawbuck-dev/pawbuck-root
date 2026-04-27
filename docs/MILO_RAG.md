@@ -21,6 +21,22 @@ We run **two vector indexes** on purpose until a consolidation project merges th
    - **API:** PawBuck.API embeds with Gemini `text-embedding-004` at **768** dims ([`GeminiEmbeddingService`](../backend/PawBuck.API/Services/GeminiEmbeddingService.cs)).  
    - **Use:** FAQ RAG for **`POST /api/milo/ask`** and optional RAG inside **`POST /api/milo/chat`** when the plan requests documentation.
 
+### Product help corpus (consumer FAQ + how-tos)
+
+- **Authoritative Markdown:** [`docs/pawbuck-product-help/`](../docs/pawbuck-product-help/) — feature how-tos and general FAQ, indexed for Milo. See [`INVENTORY.md`](../docs/pawbuck-product-help/INVENTORY.md) for coverage vs app routes.
+- **Seed script:** from `apps/consumer-app` (with `.env.local` containing `EXPO_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GEMINI_API_KEY`):
+
+  ```bash
+  cd apps/consumer-app
+  npx tsx scripts/seed-documentation-rag.ts
+  ```
+
+  The script loads env from **repo root** or **`apps/consumer-app`** `.env` / `.env.local` (merged; later files override). You can also pass `--env-file path/to/.env.local`. Required: `EXPO_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GEMINI_API_KEY` (see `apps/consumer-app/.env.example` comments).
+
+  Optional: `npx tsx scripts/seed-documentation-rag.ts --dry-run` parses and chunks only (no Supabase writes; uses zero vectors).
+
+- **Embeddings:** the script uses **`outputDimensionality: 768`** on `text-embedding-004`, matching `match_documentation` and [`KnowledgeBaseService`](../backend/PawBuck.API/Services/KnowledgeBaseService.cs).
+
 **Do not** assume the two RPCs are interchangeable: dimensions and tables differ.
 
 ## Curated snippets (grounding without vectors)

@@ -1,4 +1,7 @@
 /**
+ * Deprecated for PawBuck.API Milo chat: canonical RAG is `public.documentation` (768d).
+ * Use `scripts/seed-documentation-rag.ts` instead. This script remains for Edge `milo-chat` / faq_documents only.
+ *
  * Seed FAQ documents into faq_documents with embeddings for Milo chat vector search.
  *
  * Usage:

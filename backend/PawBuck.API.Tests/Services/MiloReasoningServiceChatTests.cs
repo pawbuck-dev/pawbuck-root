@@ -141,4 +141,101 @@ public class MiloReasoningServiceChatTests
         files[0].StoragePath.Should().Be("pet-123/vaccines/rabies.pdf");
         response.UsedPetData.Should().BeTrue();
     }
+
+    private sealed class PlanProductHelpThenAnswerHandler : HttpMessageHandler
+    {
+        public bool SawProductGuidePrompt { get; private set; }
+        public bool SawClinicalScribePrompt { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var raw = await request.Content!.ReadAsStringAsync(cancellationToken);
+            if (raw.Contains("planning module", StringComparison.Ordinal))
+            {
+                var planJson = JsonSerializer.Serialize(new MiloChatPlanDto
+                {
+                    DataNeeded = new List<string> { MiloPetFactsKinds.None },
+                    NeedsDocumentationRag = true,
+                    ReasoningBrief = "product how-to",
+                });
+                return GeminiOk(planJson);
+            }
+
+            if (raw.Contains("PawBuck product guide", StringComparison.Ordinal))
+                SawProductGuidePrompt = true;
+            if (raw.Contains("clinical scribe", StringComparison.Ordinal) && raw.Contains("PRIMARY JOB", StringComparison.Ordinal))
+                SawClinicalScribePrompt = true;
+
+            return GeminiOk("### Steps\n\n1. Open Profile.\n2. Choose Manage Access.\n\n🐕");
+        }
+
+        private static HttpResponseMessage GeminiOk(string innerText)
+        {
+            var json = JsonSerializer.Serialize(new
+            {
+                candidates = new[]
+                {
+                    new
+                    {
+                        content = new { parts = new[] { new { text = innerText } } },
+                    },
+                },
+            });
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+
+    [Fact]
+    public async Task ChatAsync_ProductHelpWithRag_UsesProductGuidePromptNotClinicalScribe()
+    {
+        var handler = new PlanProductHelpThenAnswerHandler();
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient("Gemini")).Returns(() => new HttpClient(handler, disposeHandler: true));
+
+        var petFacts = new Mock<IMiloPetFactsService>();
+        var kb = new Mock<IKnowledgeBaseService>();
+        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DocumentationChunk>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Content = "Family sharing: open Profile, Manage Access, invite by email.",
+                    MetadataJson = "{}",
+                    Similarity = 0.9,
+                },
+            });
+
+        var journalConfig = new Mock<IMiloJournalConfigProvider>();
+        var context = new Mock<IPetConversationalContextService>();
+        var turns = new Mock<IMiloJournalTurnService>();
+
+        var sut = new MiloReasoningService(
+            petFacts.Object,
+            context.Object,
+            journalConfig.Object,
+            turns.Object,
+            kb.Object,
+            factory.Object,
+            Options.Create(new GeminiOptions { ApiKey = "k", Model = "gemini-2.5-flash" }),
+            Options.Create(new MiloOptions()),
+            NullLogger<MiloReasoningService>.Instance);
+
+        var response = await sut.ChatAsync(UserId, new MiloChatRequest
+        {
+            Message = "How do I set up family sharing?",
+            Pet = null,
+            History = null,
+            JournalMode = false,
+        }, CancellationToken.None);
+
+        handler.SawProductGuidePrompt.Should().BeTrue();
+        handler.SawClinicalScribePrompt.Should().BeFalse();
+        response.UsedRag.Should().BeTrue();
+        response.UsedPetData.Should().BeFalse();
+        response.Answer.Should().Contain("Profile");
+    }
 }

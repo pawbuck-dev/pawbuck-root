@@ -17,6 +17,7 @@ import {
 import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
+import { useChat } from "@/context/chatContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -31,6 +32,7 @@ import { ActivityIndicator, Alert, Linking, ScrollView, Text, TouchableOpacity, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
+  const { openChat } = useChat();
   const { theme, mode, toggleTheme } = useTheme();
   const { top } = useSafeAreaInsets();
   const isDarkMode = mode === "dark";
@@ -116,7 +118,7 @@ export default function Profile() {
   const openPrivacyInfo = () => {
     Alert.alert(
       "Privacy & security",
-      "Your pet health data is protected by industry-standard security. For questions about data use, see our FAQ or contact support."
+      "Your pet health data is protected by industry-standard security. For questions about data use, open Help & how-tos (Milo) or contact support."
     );
   };
 
@@ -127,7 +129,7 @@ export default function Profile() {
   };
 
   const helpRowHandlers: Record<ProfileHelpRowId, () => void> = {
-    faq: () => router.push("/(home)/faq"),
+    milo_help: () => openChat(),
     contact: () => router.push("/(home)/contact"),
   };
 

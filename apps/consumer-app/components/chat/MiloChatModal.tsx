@@ -1,4 +1,5 @@
 import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
+import { useAuth } from "@/context/authContext";
 import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -145,6 +146,7 @@ const GeneratingIcon: React.FC = () => (
 
 export const MiloChatModal: React.FC = () => {
   const { theme, mode } = useTheme();
+  const { user } = useAuth();
   const { pets } = usePets();
   const {
     messages,
@@ -229,6 +231,8 @@ export const MiloChatModal: React.FC = () => {
     },
   });
 
+  const rotationSeed = `${user?.id ?? ""}|${selectedPet?.id ?? ""}`;
+
   const suggestedQuestions = useMemo(() => {
     if (!selectedPet?.id) {
       return buildMiloSuggestedPrompts({
@@ -236,6 +240,7 @@ export const MiloChatModal: React.FC = () => {
         vaccinations: [],
         journalEntries: [],
         maxCount: 6,
+        rotationSeed,
       });
     }
     return buildMiloSuggestedPrompts({
@@ -243,8 +248,10 @@ export const MiloChatModal: React.FC = () => {
       vaccinations: suggestedPromptData?.vaccinations ?? [],
       journalEntries: suggestedPromptData?.journalEntries ?? [],
       maxCount: 6,
+      rotationSeed,
     });
   }, [
+    rotationSeed,
     selectedPet?.id,
     selectedPet?.name,
     suggestedPromptData?.vaccinations,

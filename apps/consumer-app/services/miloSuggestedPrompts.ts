@@ -1,4 +1,5 @@
 import type { Tables } from "@/database.types";
+import { PRODUCT_HELP_STARTERS } from "@/constants/productHelpStarters";
 import { JOURNAL_HEALTH_SUBTYPES } from "@/constants/petJournal";
 import moment from "moment";
 import { getOverdueVaccinations } from "@/utils/vaccinationHelpers";
@@ -83,7 +84,28 @@ export type MiloSuggestedPromptsInput = {
   /** Max chips to return (default 6). */
   maxCount?: number;
   now?: Date;
+  /**
+   * Stable seed (e.g. user id + pet id) for rotating product-how-to chips with calendar day.
+   * When omitted, only calendar day is used (anonymous daily rotation).
+   */
+  rotationSeed?: string | null;
+  /** Max product-how-to starters (default 2). Set 0 to skip. */
+  maxProductPrompts?: number;
 };
+
+/** Deterministic rotation of product help prompts for Milo chips. */
+export function pickRotatedProductHelpPrompts(seed: string, maxCount: number): string[] {
+  const all = PRODUCT_HELP_STARTERS.map((s) => s.prompt);
+  if (maxCount <= 0 || all.length === 0) return [];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  const start = Math.abs(h) % all.length;
+  const out: string[] = [];
+  for (let i = 0; i < Math.min(maxCount, all.length); i++) {
+    out.push(all[(start + i) % all.length]);
+  }
+  return out;
+}
 
 /**
  * Builds contextual Milo starter prompts from vaccines + health journal,
@@ -124,6 +146,16 @@ export function buildMiloSuggestedPrompts(input: MiloSuggestedPromptsInput): str
 
   if (name) {
     push(`Give me everyday wellness tips for ${name}.`);
+  }
+
+  const dayKey = moment(now).format("YYYY-MM-DD");
+  const rotSeed = `${input.rotationSeed ?? "anon"}|${dayKey}`;
+  const productMax = Math.min(
+    PRODUCT_HELP_STARTERS.length,
+    Math.max(0, input.maxProductPrompts ?? 2)
+  );
+  for (const p of pickRotatedProductHelpPrompts(rotSeed, productMax)) {
+    push(p);
   }
 
   for (const g of MILO_SUGGESTED_QUESTIONS_GENERAL) {

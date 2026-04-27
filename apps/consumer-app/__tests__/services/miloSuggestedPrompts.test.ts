@@ -4,6 +4,7 @@ import {
   deriveJournalPromptTopic,
   filterJournalEntriesRecent,
   journalRecentMentionsLimping,
+  pickRotatedProductHelpPrompts,
 } from "@/services/miloSuggestedPrompts";
 
 const vac = (overrides: Partial<Tables<"vaccinations">>): Tables<"vaccinations"> =>
@@ -147,15 +148,44 @@ describe("buildMiloSuggestedPrompts", () => {
     expect(prompts[1]).toBe(`List Benji's overdue vaccines.`);
   });
 
-  it("works without pet name — general list only", () => {
+  it("works without pet name — product starters then general wellness", () => {
     const prompts = buildMiloSuggestedPrompts({
       petName: null,
       vaccinations: [],
       journalEntries: [],
       maxCount: 4,
       now,
+      rotationSeed: "test-seed",
     });
     expect(prompts.length).toBe(4);
+    expect(prompts.some((p) => /family sharing|PawBuck email|vaccination records/i.test(p))).toBe(true);
+    expect(prompts.some((p) => /vet visit|unsafe|exercise/i.test(p))).toBe(true);
+  });
+
+  it("skips product starters when maxProductPrompts is 0", () => {
+    const prompts = buildMiloSuggestedPrompts({
+      petName: null,
+      vaccinations: [],
+      journalEntries: [],
+      maxCount: 4,
+      now,
+      maxProductPrompts: 0,
+    });
+    expect(prompts.some((p) => p.includes("family sharing"))).toBe(false);
     expect(prompts[0]).toMatch(/vet visit|unsafe|exercise/i);
+  });
+});
+
+describe("pickRotatedProductHelpPrompts", () => {
+  it("is stable for the same seed", () => {
+    const a = pickRotatedProductHelpPrompts("user-1|2026-04-26", 4);
+    const b = pickRotatedProductHelpPrompts("user-1|2026-04-26", 4);
+    expect(a).toEqual(b);
+  });
+
+  it("rotates starting prompt by seed", () => {
+    const firstA = pickRotatedProductHelpPrompts("aaaaa|2026-04-26", 1)[0];
+    const firstB = pickRotatedProductHelpPrompts("zzzzz|2026-04-26", 1)[0];
+    expect(firstA).not.toBe(firstB);
   });
 });

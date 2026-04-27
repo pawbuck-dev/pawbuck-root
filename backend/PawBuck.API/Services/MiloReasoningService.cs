@@ -135,6 +135,11 @@ public class MiloReasoningService : IMiloReasoningService
 
         ApplyNoPetGuard(plan, petHasAccess);
 
+        var needsDocumentationRag =
+            plan.NeedsDocumentationRag || MiloDocumentationRagHeuristic.ShouldForceDocumentationRag(message);
+        if (needsDocumentationRag && !plan.NeedsDocumentationRag)
+            _logger.LogDebug("Using documentation RAG: planner omitted flag; message matched FAQ/product heuristic.");
+
         var kinds = MiloPlanNormalizer.NormalizeDataNeeded(plan.DataNeeded, _logger);
         var factsText = "";
         var usedPetData = false;
@@ -146,7 +151,7 @@ public class MiloReasoningService : IMiloReasoningService
 
         var usedRag = false;
         string? ragBlock = null;
-        if (plan.NeedsDocumentationRag)
+        if (needsDocumentationRag)
         {
             var chunks = await _knowledgeBase.GetContextAsync(message, 5, cancellationToken);
             if (chunks.Count > 0)
@@ -157,8 +162,14 @@ public class MiloReasoningService : IMiloReasoningService
                     sb.AppendLine($"[Doc {i + 1}] {chunks[i].Content}");
                 ragBlock = sb.ToString();
             }
+            else
+            {
+                _logger.LogInformation(
+                    "Milo documentation RAG requested but match_documentation returned no rows (empty documentation table or embedding mismatch).");
+            }
         }
 
+        var productHelpFocus = usedRag && !usedPetData;
         var answer = await RunAnswerStepAsync(
             apiKey,
             message,
@@ -166,6 +177,7 @@ public class MiloReasoningService : IMiloReasoningService
             petContextBlock,
             factsText,
             ragBlock,
+            productHelpFocus,
             cancellationToken);
 
         IReadOnlyList<MiloChatFileAttachment>? fileAttachments = null;
@@ -183,7 +195,7 @@ public class MiloReasoningService : IMiloReasoningService
 
         var exposePlan = _miloOptions.Value.ExposePlanSummary;
         var planSummary = exposePlan
-            ? $"{plan.ReasoningBrief ?? ""} | dataNeeded: [{string.Join(", ", plan.DataNeeded ?? new List<string>())}] | rag: {plan.NeedsDocumentationRag}"
+            ? $"{plan.ReasoningBrief ?? ""} | dataNeeded: [{string.Join(", ", plan.DataNeeded ?? new List<string>())}] | ragPlan: {plan.NeedsDocumentationRag} | ragEffective: {needsDocumentationRag}"
             : null;
 
         return new MiloChatResponse
@@ -513,7 +525,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             - For health-related messages (symptoms, appetite, energy, recovery, behavior, how the pet has been doing), include journal when recent owner-written observations would help; you may use journal alone for journal-only questions.
             - When the user mentions vaccines, boosters, shots, immunizations, titers, or overdue boosters, include vaccinations (or health_summary) in dataNeeded.
             - When the user mentions symptoms, limping, vomiting, energy, appetite, or "how they've been," include journal (and specific health categories as needed) so Milo can synthesize owner observations.
-            - needsDocumentationRag: true when the user asks about the PawBuck app, product help, or general topics not fully covered by pet records.
+            - needsDocumentationRag: true when the user asks about the PawBuck app, product help, how-to / where in the app, family sharing, invites, pet transfer, pet email, Messages inbox, Settings, notifications, Pawthon walks, vet booking, journal usage, Milo itself, account deletion, or any topic not answered solely from structured pet rows.
+            - For pure product how-to ("How do I…", "Where do I…"), prefer dataNeeded ["none"] only unless they also ask to inspect existing records (e.g. "list my overdue vaccines" needs vaccinations).
             - reasoningBrief: one short sentence explaining the plan (internal).
 
             Pet context:{petContextBlock}
@@ -838,6 +851,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         string petContextBlock,
         string factsText,
         string? ragBlock,
+        bool productHelpFocus,
         CancellationToken cancellationToken)
     {
         var factsSection = string.IsNullOrWhiteSpace(factsText)
@@ -848,34 +862,59 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             ? "(No FAQ documentation context was retrieved.)"
             : ragBlock;
 
-        var answerSystem = $"""
-            Role: Milo, PawBuck's clinical scribe. Use pet-related expressions sparingly. Sign-off: 🐕.
+        var answerSystem = productHelpFocus
+            ? $"""
+                Role: Milo, PawBuck product guide. Sign-off: 🐕.
 
-            PRIMARY JOB: Synthesize this pet's data from the facts below. Always prioritize summarizing and organizing existing records (journal, vaccines, medications, labs, exams) over generic veterinary how-to (e.g. long desensitization protocols, training plans, or step-by-step behavior articles not tied to this pet's rows). When facts are thin, add only brief neutral context—do not replace record synthesis with generic advice.
+                Task: Answer the user's question using ONLY the FAQ / product documentation below. Do not invent app screens, menu labels, or policies that are not supported by the documentation text.
 
-            Use ONLY the facts and documentation below for factual claims; do not invent records.
+                Rules:
+                - Use Markdown: `###` headings when helpful, numbered steps for navigation ("1.", "2.", …).
+                - If documentation is insufficient, say so in one sentence and suggest **Contact Us** (Settings or Profile) for account-specific help.
+                - Do not fabricate pet health records; the facts block is usually empty for product questions—ignore it unless it clearly adds context.
+                - For urgent medical emergencies, briefly advise contacting a veterinarian immediately (no diagnosis).
+                - Max ~320 words.
 
-            Operational rules:
-            - OPENING: The FIRST line of your reply MUST be exactly the Markdown header `### Summary` (level 3). The paragraph(s) immediately under it must be grounded ONLY in retrieved pet facts (pet name, dates, statuses from the facts block). Use **bold** for important clinical labels (vaccines, meds, labs, findings). After Summary you may use additional `###` sections and bullets.
-            - AMBER (needs review / critical): Use a single line starting with `> **Needs review:**` for overdue vaccines, mismatches, or concerning trends that should be double-checked with a vet. Use `> **Critical symptom:**` for urgent or worsening signs described in the journal or facts. These lines must mirror the facts block only.
-            - TEAL (completed / confirmed): Use a line starting with `> **Completed record:**` when stating something clearly documented as done, current, or neutral from the facts (e.g. a logged vaccine on file). Legacy prefix `> **From your records:**` is also acceptable for neutral confirmations.
-            - NO diagnosis or prescription: explain symptoms generally; never name a disease or dose a medication.
-            - Vet disclaimer: For health-related replies, include: "Please consult your veterinarian for a professional diagnosis and before making changes to your pet's medical care."
-            - EMERGENCY: For acute symptoms (poisoning, trauma, seizures), lead with urgent veterinary care inside Summary or the first lines.
-            - Max ~250 words unless the user explicitly needs more detail tied to their records.
+                {petContextBlock}
 
-            {petContextBlock}
+                FAQ / product documentation (ground truth):
+                ---
+                {ragSection}
+                ---
 
-            Retrieved pet health facts (authorized):
-            ---
-            {factsSection}
-            ---
+                Pet health facts (may be empty):
+                ---
+                {factsSection}
+                ---
+                """
+            : $"""
+                Role: Milo, PawBuck's clinical scribe. Use pet-related expressions sparingly. Sign-off: 🐕.
 
-            FAQ / product documentation context (may be empty):
-            ---
-            {ragSection}
-            ---
-            """;
+                PRIMARY JOB: Synthesize this pet's data from the facts below. Always prioritize summarizing and organizing existing records (journal, vaccines, medications, labs, exams) over generic veterinary how-to (e.g. long desensitization protocols, training plans, or step-by-step behavior articles not tied to this pet's rows). When facts are thin, add only brief neutral context—do not replace record synthesis with generic advice.
+
+                Use ONLY the facts and documentation below for factual claims; do not invent records.
+
+                Operational rules:
+                - OPENING: The FIRST line of your reply MUST be exactly the Markdown header `### Summary` (level 3). The paragraph(s) immediately under it must be grounded ONLY in retrieved pet facts (pet name, dates, statuses from the facts block). Use **bold** for important clinical labels (vaccines, meds, labs, findings). After Summary you may use additional `###` sections and bullets.
+                - AMBER (needs review / critical): Use a single line starting with `> **Needs review:**` for overdue vaccines, mismatches, or concerning trends that should be double-checked with a vet. Use `> **Critical symptom:**` for urgent or worsening signs described in the journal or facts. These lines must mirror the facts block only.
+                - TEAL (completed / confirmed): Use a line starting with `> **Completed record:**` when stating something clearly documented as done, current, or neutral from the facts (e.g. a logged vaccine on file). Legacy prefix `> **From your records:**` is also acceptable for neutral confirmations.
+                - NO diagnosis or prescription: explain symptoms generally; never name a disease or dose a medication.
+                - Vet disclaimer: For health-related replies, include: "Please consult your veterinarian for a professional diagnosis and before making changes to your pet's medical care."
+                - EMERGENCY: For acute symptoms (poisoning, trauma, seizures), lead with urgent veterinary care inside Summary or the first lines.
+                - Max ~250 words unless the user explicitly needs more detail tied to their records.
+
+                {petContextBlock}
+
+                Retrieved pet health facts (authorized):
+                ---
+                {factsSection}
+                ---
+
+                FAQ / product documentation context (may be empty):
+                ---
+                {ragSection}
+                ---
+                """;
 
         var contents = BuildHistoryContents(history, userMessage, isForPlan: false);
         var requestBody = new

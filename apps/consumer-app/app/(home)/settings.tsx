@@ -2,6 +2,7 @@ import BottomNavBar from "@/components/home/BottomNavBar";
 import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboardingModal";
 import { useAuth } from "@/context/authContext";
+import { useChat } from "@/context/chatContext";
 import { useTheme } from "@/context/themeContext";
 import { hasSeenPetPassportOnboarding, resetOnboardingFlags } from "@/utils/onboardingStorage";
 import { trackOnboardingEvent } from "@/utils/analytics";
@@ -24,6 +25,7 @@ import {
 
 export default function Settings() {
   const router = useRouter();
+  const { openChat } = useChat();
   const { theme, mode, toggleTheme } = useTheme();
   const { signOut, user } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -315,14 +317,14 @@ export default function Settings() {
             }}
           />
 
-          {/* FAQ */}
+          {/* Help & how-tos (Milo) */}
           <SettingsOption
-            icon="help-circle-outline"
-            title="FAQ"
-            subtitle="Frequently asked questions"
+            icon="chatbubbles-outline"
+            title="Help & how-tos"
+            subtitle="Ask Milo about PawBuck"
             iconColor="#3BD0D2"
             onPress={() => {
-              router.push("/(home)/faq");
+              openChat();
             }}
           />
 

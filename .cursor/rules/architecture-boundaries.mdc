@@ -47,3 +47,4 @@ When changing **account deletion**, **exports**, **Pawthon/location**, **health 
 1. Boundary matches [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) (who owns the concern).
 2. Migrations only under root `supabase/migrations/` + mitigation if destructive (see database-migrations rule).
 3. Tests added/updated; `pnpm run test:all` (or scoped suites) green when feasible.
+4. **Consumer UX / Milo:** If the change adds or renames owner-visible flows in `apps/consumer-app`, keep Milo accurate: update `docs/pawbuck-product-help/`, `INVENTORY.md`, and `productHelpStarters.ts` when needed; re-seed `documentation` per `docs/MILO_RAG.md`. See `.cursor/rules/milo-product-help.mdc`.

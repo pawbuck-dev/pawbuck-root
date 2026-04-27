@@ -70,10 +70,10 @@ export type ProfileSettingsRowId = (typeof PROFILE_SETTINGS_ROWS)[number]["id"];
 
 export const PROFILE_HELP_ROWS = [
   {
-    id: "faq",
-    icon: "help-circle-outline",
-    title: "FAQ",
-    subtitle: "Frequently asked questions",
+    id: "milo_help",
+    icon: "chatbubbles-outline",
+    title: "Help & how-tos",
+    subtitle: "Ask Milo about PawBuck",
   },
   {
     id: "contact",
