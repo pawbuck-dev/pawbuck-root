@@ -13,12 +13,12 @@ The Edge function **`milo-chat`** is **deprecated** for the app (kept for legacy
 We run **two vector indexes** on purpose until a consolidation project merges them:
 
 1. **`faq_documents` + `match_documents` (1536-dim)**  
-   - **Legacy Edge:** embeds with Gemini `text-embedding-004` at **1536** output dimensionality ([`milo-chat/tools/knowledge.ts`](../apps/consumer-app/supabase/functions/milo-chat/tools/knowledge.ts)).  
+   - **Legacy Edge:** embeds with Gemini `gemini-embedding-2` at **1536** output dimensionality ([`milo-chat/tools/knowledge.ts`](../apps/consumer-app/supabase/functions/milo-chat/tools/knowledge.ts)). Re-sync `faq_documents` after changing embed model.  
    - **Use:** Short FAQ / product-help when using **deprecated** Edge `milo-chat` tools.  
    - **Ingest:** `faq_source` sync → `faq_documents` (see `apps/consumer-app/supabase/migrations/` for FAQ tables; canonical DB may mirror via root migrations).
 
 2. **`documentation` + `match_documentation` (768-dim)**  
-   - **API:** PawBuck.API embeds with Gemini `text-embedding-004` at **768** dims ([`GeminiEmbeddingService`](../backend/PawBuck.API/Services/GeminiEmbeddingService.cs)).  
+   - **API:** PawBuck.API embeds with Gemini `gemini-embedding-2` at **768** dims ([`GeminiEmbeddingService`](../backend/PawBuck.API/Services/GeminiEmbeddingService.cs)). Google retired `text-embedding-004` on the v1beta embed API; re-seed `documentation` after upgrading.  
    - **Use:** FAQ RAG for **`POST /api/milo/ask`** and optional RAG inside **`POST /api/milo/chat`** when the plan requests documentation.
 
 ### Product help corpus (consumer FAQ + how-tos)
@@ -33,9 +33,11 @@ We run **two vector indexes** on purpose until a consolidation project merges th
 
   The script loads env from **repo root** or **`apps/consumer-app`** `.env` / `.env.local` (merged; later files override). You can also pass `--env-file path/to/.env.local`. Required: `EXPO_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_GEMINI_API_KEY` (see `apps/consumer-app/.env.example` comments).
 
+**Manual SQL (no Gemini):** If you only need rows present for testing, run [`supabase/manual-seeds/documentation_manual_placeholder.sql`](../supabase/manual-seeds/documentation_manual_placeholder.sql) in the SQL Editor, then replace with the TS seed when you have API keys. Regenerate that file after editing help Markdown: `node apps/consumer-app/scripts/generate-documentation-manual-sql.mjs`. See [`supabase/manual-seeds/README.md`](../supabase/manual-seeds/README.md).
+
   Optional: `npx tsx scripts/seed-documentation-rag.ts --dry-run` parses and chunks only (no Supabase writes; uses zero vectors).
 
-- **Embeddings:** the script uses **`outputDimensionality: 768`** on `text-embedding-004`, matching `match_documentation` and [`KnowledgeBaseService`](../backend/PawBuck.API/Services/KnowledgeBaseService.cs).
+- **Embeddings:** the script uses **`output_dimensionality: 768`** on `gemini-embedding-2`, matching `match_documentation` and [`KnowledgeBaseService`](../backend/PawBuck.API/Services/KnowledgeBaseService.cs).
 
 **Do not** assume the two RPCs are interchangeable: dimensions and tables differ.
 

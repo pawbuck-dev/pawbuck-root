@@ -1,7 +1,7 @@
 namespace PawBuck.API.Services;
 
 /// <summary>
-/// Produces vector embeddings for text (e.g. Gemini text-embedding-004, 768 dimensions).
+/// Produces vector embeddings for text (Gemini <c>gemini-embedding-2</c> at 768 dimensions for documentation RAG queries).
 /// </summary>
 public interface IEmbeddingService
 {

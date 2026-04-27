@@ -1,5 +1,5 @@
 /**
- * Seed public.documentation for PawBuck.API Milo chat RAG (768-dim, text-embedding-004).
+ * Seed public.documentation for PawBuck.API Milo chat RAG (768-dim, gemini-embedding-2).
  * Reads Markdown from docs/pawbuck-product-help at monorepo root (resolved from this file).
  *
  * Usage (from apps/consumer-app or repo root):
@@ -11,8 +11,8 @@
  *
  * Requires:
  *   EXPO_PUBLIC_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
- *   GOOGLE_GEMINI_API_KEY
+ *   SUPABASE_SERVICE_ROLE_KEY (not EXPO_* — never ship service role in the app)
+ *   GOOGLE_GEMINI_API_KEY (preferred; not EXPO_PUBLIC_* — Gemini key is a secret)
  *
  * Optional:
  *   --dry-run   Parse and chunk only, no DB writes
@@ -62,10 +62,30 @@ function loadEnvFiles(): void {
 loadEnvFiles();
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+  process.env.EXPO_SUPABASE_SERVICE_ROLE_KEY?.trim();
+if (
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() == null &&
+  process.env.EXPO_SUPABASE_SERVICE_ROLE_KEY?.trim() != null
+) {
+  console.warn(
+    "[seed-documentation-rag] Using EXPO_SUPABASE_SERVICE_ROLE_KEY; rename to SUPABASE_SERVICE_ROLE_KEY in .env.local (service role must not use EXPO_PUBLIC_* or ship to clients)."
+  );
+}
+const GOOGLE_GEMINI_API_KEY =
+  process.env.GOOGLE_GEMINI_API_KEY?.trim() || process.env.EXPO_GOOGLE_GEMINI_API_KEY?.trim();
+if (
+  process.env.GOOGLE_GEMINI_API_KEY?.trim() == null &&
+  process.env.EXPO_GOOGLE_GEMINI_API_KEY?.trim() != null
+) {
+  console.warn(
+    "[seed-documentation-rag] Using EXPO_GOOGLE_GEMINI_API_KEY; rename to GOOGLE_GEMINI_API_KEY in .env.local (avoid EXPO_PUBLIC_* for API keys)."
+  );
+}
 
-const EMBED_MODEL = "text-embedding-004";
+/** Retired on API: text-embedding-004 → use gemini-embedding-2 + output_dimensionality (768). */
+const EMBED_MODEL = "gemini-embedding-2";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const EMBED_DIM = 768;
 
@@ -105,7 +125,7 @@ async function embedText(text: string): Promise<number[]> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: { parts: [{ text }] },
-      outputDimensionality: EMBED_DIM,
+      output_dimensionality: EMBED_DIM,
     }),
   });
   if (!res.ok) {
@@ -133,7 +153,7 @@ async function main() {
       process.exit(1);
     }
     if (!GOOGLE_GEMINI_API_KEY) {
-      console.error("Missing GOOGLE_GEMINI_API_KEY");
+      console.error("Missing GOOGLE_GEMINI_API_KEY (or EXPO_GOOGLE_GEMINI_API_KEY fallback).");
       process.exit(1);
     }
   } else if (!GOOGLE_GEMINI_API_KEY) {

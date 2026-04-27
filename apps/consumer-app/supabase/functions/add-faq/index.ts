@@ -14,7 +14,7 @@ import {
 } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 
-const EMBED_MODEL = "text-embedding-004";
+const EMBED_MODEL = "gemini-embedding-2";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const EMBED_DIM = 1536;
 
@@ -28,7 +28,7 @@ async function embedText(text: string): Promise<number[]> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       content: { parts: [{ text }] },
-      outputDimensionality: EMBED_DIM,
+      output_dimensionality: EMBED_DIM,
     }),
   });
   if (!res.ok) {

@@ -46,7 +46,7 @@ The Supabase Edge function **`milo-chat`** is **deprecated** for the app (same G
 | Store | RPC / access | Embedding | Used by |
 |-------|----------------|-----------|---------|
 | **`faq_documents`** | `match_documents` | 1536-dim (Edge embed) | Legacy Edge `search_faqs` in **`milo-chat`** (deprecated for app) |
-| **`documentation`** | `match_documentation` | 768-dim (Gemini text-embedding-004, .NET) | **PawBuck.API** Milo RAG (`/api/milo/ask` and optional RAG inside **`/api/milo/chat`**) |
+| **`documentation`** | `match_documentation` | 768-dim (Gemini `gemini-embedding-2`, .NET) | **PawBuck.API** Milo RAG (`/api/milo/ask` and optional RAG inside **`/api/milo/chat`**) |
 | **`milo_curated_snippets`** | SQL filter (breed / species / topic) | none (curated rows) | Edge tool + **`GET /api/milo/curated-guidance`** (internal key) |
 
 **How to add a capability**

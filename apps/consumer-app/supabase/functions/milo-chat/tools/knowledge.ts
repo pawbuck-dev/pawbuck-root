@@ -1,7 +1,7 @@
 // FAQ search via pgvector (match_documents RPC). Embeds query with Gemini, then similarity search.
 import { createSupabaseClient } from "../../_shared/supabase-utils.ts";
 
-const EMBED_MODEL = "text-embedding-004";
+const EMBED_MODEL = "gemini-embedding-2";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const EMBED_DIM = 1536;
 
@@ -12,7 +12,7 @@ async function embedQuery(query: string): Promise<number[]> {
   const url = `${GEMINI_API_BASE}/${EMBED_MODEL}:embedContent?key=${key}`;
   const body = {
     content: { parts: [{ text: query }] },
-    outputDimensionality: EMBED_DIM,
+    output_dimensionality: EMBED_DIM,
   };
   const res = await fetch(url, {
     method: "POST",

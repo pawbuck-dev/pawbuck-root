@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.documentation (
   created_at timestamptz DEFAULT now()
 );
 
-COMMENT ON TABLE public.documentation IS 'FAQ and knowledge base chunks for RAG; embedding from Gemini text-embedding-004 (768 dims)';
+COMMENT ON TABLE public.documentation IS 'FAQ and knowledge base chunks for RAG; embedding from Gemini gemini-embedding-2 at 768 dims (Generative Language API)';
 COMMENT ON COLUMN public.documentation.content IS 'Chunk text used for retrieval and context';
 COMMENT ON COLUMN public.documentation.metadata IS 'Optional metadata (source, title, category, etc.)';
 COMMENT ON COLUMN public.documentation.embedding IS 'Vector embedding for cosine similarity search';
