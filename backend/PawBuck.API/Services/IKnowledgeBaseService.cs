@@ -9,7 +9,15 @@ public interface IKnowledgeBaseService
     /// Returns context chunks from the documentation table that match the query (cosine similarity).
     /// Empty when no context is found or when similarity is below threshold.
     /// </summary>
-    Task<IReadOnlyList<DocumentationChunk>> GetContextAsync(string query, int matchCount = 5, CancellationToken cancellationToken = default);
+    /// <param name="boostSourceFiles">
+    /// Optional <c>metadata.source_file</c> values (e.g. <c>06-family-sharing.md</c>) to prepend when the
+    /// question clearly targets those articles—reduces misses when vector similarity ranks unrelated chunks first.
+    /// </param>
+    Task<IReadOnlyList<DocumentationChunk>> GetContextAsync(
+        string query,
+        int matchCount = 5,
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<string>? boostSourceFiles = null);
 }
 
 /// <summary>

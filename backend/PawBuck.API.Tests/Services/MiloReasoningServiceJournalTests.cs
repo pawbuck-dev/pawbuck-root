@@ -82,7 +82,7 @@ public class MiloReasoningServiceJournalTests
         factory.Setup(f => f.CreateClient("Gemini")).Returns(() => new HttpClient(geminiHandler, disposeHandler: true));
 
         var kb = new Mock<IKnowledgeBaseService>();
-        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyList<string>>()))
             .ReturnsAsync(Array.Empty<DocumentationChunk>());
 
         return new MiloReasoningService(

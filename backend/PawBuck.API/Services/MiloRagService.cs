@@ -73,7 +73,12 @@ If you tell me more about what you're trying to do, I can try to point you in th
             };
         }
 
-        var chunks = await _knowledgeBase.GetContextAsync(question, matchCount: 5, cancellationToken);
+        var boost = MiloDocumentationRagHeuristic.GetBoostSourceFiles(question);
+        var chunks = await _knowledgeBase.GetContextAsync(
+            question,
+            matchCount: 5,
+            cancellationToken,
+            boost.Count > 0 ? boost : null);
         var contextText = chunks.Count > 0
             ? string.Join("\n\n", chunks.Select(c => c.Content))
             : null;

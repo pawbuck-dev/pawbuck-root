@@ -153,7 +153,12 @@ public class MiloReasoningService : IMiloReasoningService
         string? ragBlock = null;
         if (needsDocumentationRag)
         {
-            var chunks = await _knowledgeBase.GetContextAsync(message, 5, cancellationToken);
+            var boostFiles = MiloDocumentationRagHeuristic.GetBoostSourceFiles(message);
+            var chunks = await _knowledgeBase.GetContextAsync(
+                message,
+                5,
+                cancellationToken,
+                boostFiles.Count > 0 ? boostFiles : null);
             if (chunks.Count > 0)
             {
                 usedRag = true;

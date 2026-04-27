@@ -96,7 +96,7 @@ public class MiloReasoningServiceChatTests
         factory.Setup(f => f.CreateClient("Gemini")).Returns(() => new HttpClient(handler, disposeHandler: true));
 
         var kb = new Mock<IKnowledgeBaseService>();
-        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyList<string>>()))
             .ReturnsAsync(Array.Empty<DocumentationChunk>());
 
         var journalConfig = new Mock<IMiloJournalConfigProvider>();
@@ -197,7 +197,7 @@ public class MiloReasoningServiceChatTests
 
         var petFacts = new Mock<IMiloPetFactsService>();
         var kb = new Mock<IKnowledgeBaseService>();
-        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyList<string>>()))
             .ReturnsAsync(new List<DocumentationChunk>
             {
                 new()

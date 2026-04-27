@@ -83,4 +83,45 @@ public static class MiloDocumentationRagHeuristic
 
         return false;
     }
+
+    /// <summary>
+    /// Product-help Markdown filenames under <c>docs/pawbuck-product-help</c> to merge into RAG when the
+    /// message clearly references those topics (in addition to vector search).
+    /// </summary>
+    public static IReadOnlyList<string> GetBoostSourceFiles(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return Array.Empty<string>();
+
+        var m = message.Trim().ToLowerInvariant();
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (m.Contains("family sharing", StringComparison.Ordinal) ||
+            m.Contains("family access", StringComparison.Ordinal) ||
+            m.Contains("manage access", StringComparison.Ordinal) ||
+            m.Contains("household", StringComparison.Ordinal) ||
+            m.Contains("join household", StringComparison.Ordinal) ||
+            m.Contains("care team", StringComparison.Ordinal) ||
+            (m.Contains("invite", StringComparison.Ordinal) && m.Contains("family", StringComparison.Ordinal)))
+        {
+            set.Add("06-family-sharing.md");
+        }
+
+        if (m.Contains("transfer pet", StringComparison.Ordinal) ||
+            m.Contains("pet transfer", StringComparison.Ordinal) ||
+            m.Contains("ownership transfer", StringComparison.Ordinal) ||
+            m.Contains("claim a pet", StringComparison.Ordinal) ||
+            (m.Contains("transfer", StringComparison.Ordinal) &&
+                (m.Contains("receive", StringComparison.Ordinal) ||
+                 m.Contains("accept", StringComparison.Ordinal) ||
+                 m.Contains("claim", StringComparison.Ordinal) ||
+                 m.Contains("transferee", StringComparison.Ordinal) ||
+                 m.Contains("new owner", StringComparison.Ordinal) ||
+                 m.Contains("transfer code", StringComparison.Ordinal))))
+        {
+            set.Add("07-pet-transfer.md");
+        }
+
+        return set.Count > 0 ? set.ToList() : Array.Empty<string>();
+    }
 }
