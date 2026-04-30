@@ -1,3 +1,5 @@
+import type { PetLogSeverity } from "@/types/petLog";
+import type { TriageContext } from "@/utils/miloTriage";
 import {
   assistantReplyForSeverity,
   bumpSeverity,
@@ -127,5 +129,93 @@ describe("assistantReplyForSeverity", () => {
     const t = assistantReplyForSeverity("high", "Bella");
     expect(t).toContain("Severe symptoms detected");
     expect(t).toContain("Veterinary consultation recommended");
+  });
+
+  it("urgent severity uses emergency prefix plus severe note", () => {
+    const t = assistantReplyForSeverity("urgent", "Milo");
+    expect(t.toLowerCase()).toContain("seek immediate");
+    expect(t.toLowerCase()).toContain("emergency care");
+    expect(t).toContain("Severe symptoms detected");
+    expect(t).toContain("Veterinary consultation recommended");
+  });
+});
+
+const SEVERITY_MATRIX: {
+  text: string;
+  expected: PetLogSeverity;
+  ctx?: TriageContext;
+}[] = [
+  { text: "Milo is happy and playful", expected: "low" },
+  { text: "played well and ate normally", expected: "low" },
+  { text: "great mood today", expected: "low" },
+  { text: "slept well through the night", expected: "low" },
+  { text: "normal stool this morning", expected: "low" },
+  { text: "scratching a lot behind the ears", expected: "medium" },
+  { text: "sneezing occasionally", expected: "medium" },
+  { text: "soft cough in the evening", expected: "medium" },
+  { text: "limping slightly after the hike", expected: "medium" },
+  { text: "random observation with no keywords", expected: "medium" },
+  { text: "won't eat and seems tired", expected: "high" },
+  { text: "threw up twice since lunch", expected: "high" },
+  { text: "very lethargic all day", expected: "high" },
+  { text: "diarrhea since yesterday evening", expected: "high" },
+  { text: "Milo is bleeding from the gum", expected: "urgent" },
+  { text: "had a seizure this morning", expected: "urgent" },
+  { text: "hit by car — need help", expected: "urgent" },
+  { text: "labored breathing at rest", expected: "urgent" },
+  { text: "not breathing right — gasping", expected: "urgent" },
+  { text: "collapsed in the hallway", expected: "urgent" },
+  {
+    text: "scratching after wheat treat",
+    expected: "high",
+    ctx: { allergies: ["wheat"] },
+  },
+];
+
+function assertAssistantCopy(sev: PetLogSeverity, petName: string) {
+  const t = assistantReplyForSeverity(sev, petName);
+  switch (sev) {
+    case "low":
+      expect(t).toContain(petName);
+      expect(t.toLowerCase()).not.toContain("veterinarian");
+      expect(t.toLowerCase()).not.toContain("seek immediate");
+      break;
+    case "medium":
+      expect(t).toContain(petName);
+      expect(t).toContain("Continue monitoring");
+      expect(t.toLowerCase()).not.toContain("seek immediate");
+      break;
+    case "high":
+      expect(t).toContain("Severe symptoms detected");
+      expect(t).toContain("Veterinary consultation recommended");
+      expect(t.toLowerCase()).not.toContain("seek immediate");
+      expect(t.toLowerCase()).not.toContain("emergency care now");
+      break;
+    case "urgent":
+      expect(t.toLowerCase()).toContain("seek immediate");
+      expect(t.toLowerCase()).toContain("emergency care");
+      expect(t).toContain("Severe symptoms detected");
+      break;
+    default:
+      throw new Error(`unexpected severity ${sev satisfies never}`);
+  }
+}
+
+describe("severity matrix (predictable triage + assistant copy)", () => {
+  it.each(SEVERITY_MATRIX)("mapSeverity → $expected", ({ text, expected, ctx }) => {
+    expect(mapSeverity(text, ctx)).toBe(expected);
+  });
+
+  it("assistantReplyForSeverity matches tier rules for every matrix severity", () => {
+    const tiers = new Set(SEVERITY_MATRIX.map((r) => r.expected));
+    for (const sev of tiers) {
+      assertAssistantCopy(sev, "Milo");
+    }
+  });
+
+  it("combined worst-case: benign then catastrophic still yields urgent assistant copy", () => {
+    const worst = severityFromConversationText(["Milo is happy", "Milo is bleeding and won't eat"]);
+    expect(worst).toBe("urgent");
+    assertAssistantCopy(worst, "Milo");
   });
 });

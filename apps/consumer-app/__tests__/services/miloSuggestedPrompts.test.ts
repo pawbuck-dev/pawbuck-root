@@ -86,6 +86,47 @@ describe("deriveJournalPromptTopic", () => {
   });
 });
 
+describe("limp vs ambiguous mobility wording", () => {
+  it.each([
+    ["stiff in the morning"],
+    ["slow on stairs"],
+    ["moving slowly after rest"],
+  ])("journalRecentMentionsLimping is false for %s (no limp/lame token)", (note) => {
+    expect(journalRecentMentionsLimping([journal({ note, subtype: "symptom" })])).toBe(false);
+  });
+
+  it("deriveJournalPromptTopic: stiff without limp tokens falls through to symptom subtype label", () => {
+    expect(
+      deriveJournalPromptTopic([journal({ note: "stiff in the morning", subtype: "symptom" })])
+    ).toBe("symptom");
+  });
+
+  it("deriveJournalPromptTopic: tired + stiff matches energy pattern before symptom fallback", () => {
+    expect(
+      deriveJournalPromptTopic([journal({ note: "tired and stiff after walk", subtype: "symptom" })])
+    ).toBe("energy");
+  });
+
+  it("deriveJournalPromptTopic: slow without tired/weak/lethargy → symptom fallback (not limping)", () => {
+    expect(
+      deriveJournalPromptTopic([journal({ note: "slow on stairs but playful", subtype: "symptom" })])
+    ).toBe("symptom");
+  });
+
+  it("positive control: lame and limping trigger limp detection and limping topic", () => {
+    expect(journalRecentMentionsLimping([journal({ note: "lame left front leg", subtype: "symptom" })])).toBe(true);
+    expect(
+      deriveJournalPromptTopic([journal({ note: "lame left front leg", subtype: "symptom" })])
+    ).toBe("limping");
+    expect(
+      journalRecentMentionsLimping([journal({ note: "limping after run", subtype: "symptom" })])
+    ).toBe(true);
+    expect(
+      deriveJournalPromptTopic([journal({ note: "limping after run", subtype: "symptom" })])
+    ).toBe("limping");
+  });
+});
+
 describe("buildMiloSuggestedPrompts", () => {
   const now = new Date("2026-04-26T12:00:00Z");
 
