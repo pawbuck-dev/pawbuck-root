@@ -77,7 +77,7 @@ const initialMetrics = {
 
 function renderPickDateTime() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return render(
     <QueryClientProvider client={client}>
@@ -192,6 +192,92 @@ describe("BookVetPickDateTimeScreen", () => {
             source: "api",
           }),
         })
+      );
+    });
+  });
+
+  it("only runs bookAppointment and insertVetBooking once when Continue is pressed rapidly", async () => {
+    mockGetPawbuckApiBaseUrl.mockReturnValue("http://127.0.0.1:5998");
+    mockParams = {
+      vetId: "1",
+      vetName: "Yaletown Pet Hospital",
+      petId: "550e8400-e29b-41d4-a716-446655440001",
+      serviceId: "wellness",
+    };
+
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const targetDay = Math.min(Math.max(now.getDate() + 3, 5), lastDay);
+    const slotStart = new Date(now.getFullYear(), now.getMonth(), targetDay, 14, 30, 0);
+    const slotEnd = new Date(slotStart.getTime() + 3600000);
+    const startUtc = slotStart.toISOString();
+    const endUtc = slotEnd.toISOString();
+
+    mockFetchAvailability.mockResolvedValue({
+      slots: [
+        {
+          startUtc,
+          endUtc,
+          selectionToken: "sel-token-1",
+        },
+      ],
+    });
+
+    let releaseBook!: (value: {
+      id: string;
+      externalAppointmentId: string;
+      startUtc: string;
+      endUtc: string;
+      serviceType: string;
+    }) => void;
+    mockBookAppointment.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseBook = resolve;
+        })
+    );
+
+    renderPickDateTime();
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading availability…")).toBeNull();
+    });
+
+    fireEvent.press(screen.getByText(String(targetDay)));
+    const timeLabel = new Date(startUtc).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    await waitFor(() => {
+      expect(screen.getByText(timeLabel)).toBeTruthy();
+    });
+    fireEvent.press(screen.getByText(timeLabel));
+
+    const continueLabel = screen.getByText("Continue");
+    for (let i = 0; i < 5; i++) {
+      fireEvent.press(continueLabel);
+    }
+
+    await waitFor(() => {
+      expect(mockBookAppointment).toHaveBeenCalledTimes(1);
+    });
+    expect(mockInsertVetBooking).toHaveBeenCalledTimes(0);
+
+    releaseBook({
+      id: "appt-api-1",
+      externalAppointmentId: "ext-appt-1",
+      startUtc,
+      endUtc,
+      serviceType: "Veterinary",
+    });
+
+    await waitFor(() => {
+      expect(mockInsertVetBooking).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.objectContaining({ pathname: "/book-vet-visit/booking-confirmed" })
       );
     });
   });

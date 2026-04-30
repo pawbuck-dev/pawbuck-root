@@ -2,6 +2,7 @@ import { useNotificationHandlers } from "@/hooks/useNotificationHandler";
 import { syncRevenueCatUser } from "@/services/revenuecat";
 import { supabase } from "@/utils/supabase";
 import { User } from "@supabase/supabase-js";
+import { router } from "expo-router";
 import React, {
   createContext,
   ReactNode,
@@ -67,6 +68,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       // Clear loading state when auth state changes
       setLoading(false);
+
+      // Any non-initial transition to "no session" (sign-out, refresh failure, revoked JWT).
+      if (event !== "INITIAL_SESSION" && !session?.user) {
+        router.replace("/login");
+      }
     });
 
     return () => {

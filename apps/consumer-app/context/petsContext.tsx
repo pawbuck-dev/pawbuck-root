@@ -1,12 +1,15 @@
 import { useAuth } from "@/context/authContext";
 import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { createPet, deletePet, getPets, updatePet } from "@/services/pets";
+import { handlePetDataPlaneError } from "@/utils/petAuthAlerts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, {
   createContext,
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
+  useRef,
 } from "react";
 
 // Pet type from database
@@ -48,6 +51,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     data: pets = [],
     isLoading: loading,
     error: queryError,
+    isError: petsQueryIsError,
   } = useQuery({
     queryKey: ["pets", userId],
     queryFn: async () => {
@@ -57,6 +61,23 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
     enabled: !!userId,
   });
+
+  const lastPetsQueryErrorKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!petsQueryIsError || queryError == null) {
+      lastPetsQueryErrorKey.current = null;
+      return;
+    }
+    const key =
+      queryError instanceof Error
+        ? queryError.message
+        : typeof queryError === "object" && queryError && "message" in queryError
+          ? String((queryError as { message: unknown }).message)
+          : String(queryError);
+    if (lastPetsQueryErrorKey.current === key) return;
+    lastPetsQueryErrorKey.current = key;
+    handlePetDataPlaneError(queryError);
+  }, [petsQueryIsError, queryError]);
 
   // Add pet mutation
   const addPetMutation = useMutation({
@@ -72,6 +93,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
     onError: (err) => {
       console.error("Error adding pet:", err);
+      handlePetDataPlaneError(err);
     },
   });
 
@@ -92,6 +114,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
     onError: (err) => {
       console.error("Error updating pet:", err);
+      handlePetDataPlaneError(err);
     },
   });
 
@@ -106,6 +129,7 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     },
     onError: (err) => {
       console.error("Error deleting pet:", err);
+      handlePetDataPlaneError(err);
     },
   });
 

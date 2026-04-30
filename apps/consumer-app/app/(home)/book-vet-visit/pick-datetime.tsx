@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -96,6 +96,8 @@ export default function BookVetPickDateTimeScreen() {
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedApiSlot, setSelectedApiSlot] = useState<ApiSlotPick | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** Synchronous guard: multiple onPress can run before `submitting` re-renders. */
+  const bookingSubmitLockRef = useRef(false);
 
   const { y, m0 } = cursor;
 
@@ -203,6 +205,8 @@ export default function BookVetPickDateTimeScreen() {
 
     if (!selectedApiSlot || !schedulingClinicId) return;
 
+    if (bookingSubmitLockRef.current) return;
+    bookingSubmitLockRef.current = true;
     setSubmitting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -260,6 +264,7 @@ export default function BookVetPickDateTimeScreen() {
       const msg = e instanceof Error ? e.message : "Booking failed";
       Alert.alert("Could not book", msg);
     } finally {
+      bookingSubmitLockRef.current = false;
       setSubmitting(false);
     }
   }, [

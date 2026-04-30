@@ -1,14 +1,28 @@
 import { HomeIndicator } from "@/components/layout/HomeIndicator";
 import { MiloChatModal } from "@/components/chat/MiloChatModal";
+import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { useMessageThreadsRealtime } from "@/hooks/useMessageThreadsRealtime";
-import { Slot } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
+import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeLayout() {
   const { theme } = useTheme();
   const { bottom } = useSafeAreaInsets();
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  // Deep links or stale tabs: keep signed-out users out of the home stack.
+  useEffect(() => {
+    if (loading) return;
+    const inHomeGroup = segments[0] === "(home)";
+    if (inHomeGroup && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [loading, isAuthenticated, segments, router]);
 
   // Refetch message threads when new messages arrive so nav bar unread count updates
   useMessageThreadsRealtime();
