@@ -9,9 +9,16 @@ import { supabase } from "@/utils/supabase";
 export const addMedicine = async (
   medicine: TablesInsert<"medicines">
 ): Promise<Tables<"medicines">> => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("User must be authenticated to add a medication");
+  }
+
   const { error: insertError, data: insertedMedicine } = await supabase
     .from("medicines")
-    .insert(medicine)
+    .insert({ ...medicine, user_id: user.id })
     .select()
     .single();
 

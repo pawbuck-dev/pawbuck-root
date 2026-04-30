@@ -28,9 +28,16 @@ export async function fetchClinicalExams(petId: string): Promise<ClinicalExam[]>
 export async function createClinicalExam(
   examData: TablesInsert<"clinical_exams">
 ): Promise<ClinicalExam> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("User must be authenticated to create a clinical exam");
+  }
+
   const { data, error } = await supabase
     .from("clinical_exams")
-    .insert(examData)
+    .insert({ ...examData, user_id: user.id })
     .select()
     .single();
 

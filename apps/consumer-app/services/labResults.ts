@@ -50,10 +50,18 @@ export async function fetchLabResults(petId: string): Promise<LabResult[]> {
 export async function createLabResult(
   labResult: Omit<LabResult, "id" | "created_at" | "updated_at">
 ): Promise<LabResult> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("User must be authenticated to create a lab result");
+  }
+
   const { data, error } = await supabase
     .from("lab_results")
     .insert({
       ...labResult,
+      user_id: user.id,
       results: labResult.results as unknown as Json,
     })
     .select()

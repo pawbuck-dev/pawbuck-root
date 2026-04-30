@@ -39,9 +39,16 @@ export const getVaccinationsByUserId = async (userId: string) => {
 export const createVaccination = async (
   vaccinationData: TablesInsert<"vaccinations">
 ) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("User must be authenticated to create a vaccination");
+  }
+
   const { data, error } = await supabase
     .from("vaccinations")
-    .insert(vaccinationData)
+    .insert({ ...vaccinationData, user_id: user.id })
     .select()
     .single();
 

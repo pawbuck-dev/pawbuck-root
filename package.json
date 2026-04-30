@@ -9,12 +9,12 @@
     "admin-dashboard"
   ],
   "scripts": {
-    "consumer:start": "cd apps/consumer-app && npm start",
-    "consumer:android": "cd apps/consumer-app && npm run android",
-    "consumer:ios": "cd apps/consumer-app && npm run ios",
-    "consumer:prebuild": "cd apps/consumer-app && npm run prebuild",
-    "consumer:prebuild:clean": "cd apps/consumer-app && npm run prebuild:clean",
-    "consumer:build": "cd apps/consumer-app && npm run build",
+    "consumer:start": "pnpm --filter pawbuck start",
+    "consumer:android": "pnpm --filter pawbuck run android",
+    "consumer:ios": "pnpm --filter pawbuck run ios",
+    "consumer:prebuild": "pnpm --filter pawbuck run prebuild",
+    "consumer:prebuild:clean": "pnpm --filter pawbuck run prebuild:clean",
+    "consumer:build": "pnpm --filter pawbuck run build",
     "consumer:test": "pnpm --filter pawbuck test",
     "consumer:typecheck": "pnpm --filter pawbuck typecheck",
     "ci:consumer-app": "pnpm install --frozen-lockfile && pnpm --filter pawbuck typecheck && pnpm --filter pawbuck run test:ci",
