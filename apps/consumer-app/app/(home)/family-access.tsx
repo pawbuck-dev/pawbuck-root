@@ -7,6 +7,7 @@ import {
 } from "@/components/home/CareTeamMemberModal";
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { useSafeSenders, validateEmail } from "@/hooks/useSafeSenders";
 import { TablesInsert } from "@/database.types";
@@ -89,6 +90,7 @@ export default function FamilyAccess() {
   const isDarkMode = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
+  const { ensurePremium } = useSubscription();
   const queryClient = useQueryClient();
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -156,8 +158,10 @@ export default function FamilyAccess() {
   });
 
   const handleGenerateInvite = () => {
-    setGenerating(true);
-    createInviteMutation.mutate(30);
+    ensurePremium(() => {
+      setGenerating(true);
+      createInviteMutation.mutate(30);
+    }, "family_access_invite");
   };
 
   const handleRemoveMember = (memberId: string) => {

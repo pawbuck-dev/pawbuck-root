@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PawBuck.API.Models;
+using PawBuck.API;
 using PawBuck.API.Services;
 
 namespace PawBuck.API.Controllers;
@@ -67,7 +68,7 @@ public class MiloController : ControllerBase
         if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
             return Unauthorized();
 
-        var gateRequiresPremium = await _featureGates.IsPremiumRequiredForFeatureAsync("milo_chat", cancellationToken);
+        var gateRequiresPremium = await _featureGates.IsPremiumRequiredForFeatureAsync(SubscriptionFeatureKeys.MiloChat, cancellationToken);
         var requirePremiumMilo = _subscriptionOptions.Value.RequirePremiumForMilo || gateRequiresPremium;
         if (requirePremiumMilo)
         {

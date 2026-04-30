@@ -169,25 +169,23 @@ export const MiloChatModal: React.FC = () => {
   const flatListRef = useRef<FlatList>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
-  // Handle keyboard show/hide on iOS for pageSheet modals
+  /** iOS + Android: keep composer above keyboard (modal had iOS-only before; Android hid the field). */
   useEffect(() => {
-    if (Platform.OS === "ios") {
-      const showSubscription = Keyboard.addListener("keyboardWillShow", (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-        // Scroll to bottom when keyboard appears
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      });
-      const hideSubscription = Keyboard.addListener("keyboardWillHide", () => {
-        setKeyboardHeight(0);
-      });
-
-      return () => {
-        showSubscription.remove();
-        hideSubscription.remove();
-      };
-    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
   }, []);
 
   // Scroll to bottom when new messages arrive
@@ -232,6 +230,13 @@ export const MiloChatModal: React.FC = () => {
   });
 
   const rotationSeed = `${user?.id ?? ""}|${selectedPet?.id ?? ""}`;
+
+  const miloGreetingSuffix = useMemo(() => {
+    const meta = user?.user_metadata as { full_name?: string } | undefined;
+    const full = typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
+    const first = full ? full.split(/\s+/)[0] : user?.email?.split("@")[0];
+    return first ? ` ${first}` : "";
+  }, [user]);
 
   const suggestedQuestions = useMemo(() => {
     if (!selectedPet?.id) {
@@ -290,7 +295,6 @@ export const MiloChatModal: React.FC = () => {
           backgroundColor: miloBg,
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
-          overflow: "hidden",
         }}
       >
         <MiloChatBackdrop mode={mode} />
@@ -351,6 +355,7 @@ export const MiloChatModal: React.FC = () => {
           ) : (
             <FlatList
               ref={flatListRef}
+              style={{ flex: 1 }}
               data={messages}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => <ChatMessage message={item} />}
@@ -360,6 +365,7 @@ export const MiloChatModal: React.FC = () => {
               }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
             />
           )}
 
@@ -407,24 +413,33 @@ export const MiloChatModal: React.FC = () => {
           )}
         </View>
 
-        {/* Suggested questions — empty thread only */}
+        {/* Starter prompts — empty thread; vertical pills (readable, tappable) */}
         {messages.length === 0 && !isLoading ? (
-          <View style={{ paddingHorizontal: 16, paddingBottom: 10 }}>
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8, maxHeight: 240 }}>
             <Text
               style={{
-                fontSize: 13,
-                fontWeight: "600",
-                color: tokens.textSecondary,
-                marginBottom: 10,
+                fontSize: 20,
+                fontWeight: "700",
+                color: theme.foreground,
               }}
             >
-              Try asking
+              Hi{miloGreetingSuffix}!
+            </Text>
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: "800",
+                color: theme.foreground,
+                marginTop: 6,
+                marginBottom: 14,
+              }}
+            >
+              Where should we start?
             </Text>
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ flexDirection: "row", flexWrap: "nowrap", gap: 8, paddingRight: 8 }}
+              nestedScrollEnabled
             >
               {suggestedQuestions.map((q) => (
                 <Pressable
@@ -433,23 +448,23 @@ export const MiloChatModal: React.FC = () => {
                     void handleSuggestedQuestion(q);
                   }}
                   style={({ pressed }) => ({
-                    maxWidth: 280,
-                    paddingVertical: 10,
-                    paddingHorizontal: 14,
-                    borderRadius: 18,
+                    width: "100%",
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    borderRadius: 16,
+                    marginBottom: 10,
                     backgroundColor: tokens.chipBg,
                     borderWidth: 1,
                     borderColor: tokens.chipBorder,
-                    opacity: pressed ? 0.85 : 1,
+                    opacity: pressed ? 0.88 : 1,
                   })}
                 >
                   <Text
                     style={{
-                      fontSize: 14,
-                      lineHeight: 20,
+                      fontSize: 15,
+                      lineHeight: 22,
                       color: tokens.textPrimary,
                     }}
-                    numberOfLines={3}
                   >
                     {q}
                   </Text>
@@ -464,8 +479,8 @@ export const MiloChatModal: React.FC = () => {
           style={{
             paddingHorizontal: 16,
             paddingTop: messages.length === 0 && !isLoading ? 0 : 8,
-            paddingBottom: Platform.OS === "ios" ? Math.max(bottom, 12) : 12,
-            transform: Platform.OS === "ios" ? [{ translateY: -keyboardHeight }] : [],
+            paddingBottom: Math.max(bottom, 12),
+            transform: keyboardHeight > 0 ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
           <View

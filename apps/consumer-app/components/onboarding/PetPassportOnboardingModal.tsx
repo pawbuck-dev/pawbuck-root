@@ -4,7 +4,7 @@ import { markPetPassportOnboardingSeen } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
-import { Alert, Modal, Platform, Pressable, Text, View } from "react-native";
+import { Modal, Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PetPassportOnboardingModalProps {
@@ -27,19 +27,30 @@ export default function PetPassportOnboardingModal({
     }
   }, [visible]);
 
-  const handleGotIt = async () => {
-    await markPetPassportOnboardingSeen();
-    await trackOnboardingEvent("pet_passport_onboarding_completed");
-    onClose();
+  const persistPetPassportOnboarding = (extraMeta?: Record<string, unknown>) => {
+    void (async () => {
+      try {
+        await markPetPassportOnboardingSeen();
+      } catch (e) {
+        console.error("[PetPassportOnboardingModal] mark seen", e);
+      }
+      try {
+        await trackOnboardingEvent("pet_passport_onboarding_completed", extraMeta);
+      } catch (e) {
+        console.error("[PetPassportOnboardingModal] analytics", e);
+      }
+    })();
   };
 
-  const handleGoToPetProfile = async () => {
-    await markPetPassportOnboardingSeen();
-    await trackOnboardingEvent("pet_passport_onboarding_completed", {
-      action: "navigated_to_pet_profile",
-    });
+  const handleGotIt = () => {
+    onClose();
+    persistPetPassportOnboarding();
+  };
+
+  const handleGoToPetProfile = () => {
     onClose();
     router.push("/(home)/pet-profile");
+    persistPetPassportOnboarding({ action: "navigated_to_pet_profile" });
   };
 
   return (
@@ -48,6 +59,7 @@ export default function PetPassportOnboardingModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleGotIt}
+      hardwareAccelerated
     >
       <View
         className="flex-1"
@@ -56,6 +68,7 @@ export default function PetPassportOnboardingModal({
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
+        collapsable={false}
       >
         {/* Header */}
         <View
@@ -71,12 +84,21 @@ export default function PetPassportOnboardingModal({
           >
             Share Vaccination Records
           </Text>
-          <Pressable
+          <TouchableOpacity
             onPress={handleGotIt}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              ...(Platform.OS === "android" ? { elevation: 1 } : {}),
+            }}
           >
             <Ionicons name="close" size={24} color={theme.foreground} />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Content */}
@@ -140,37 +162,49 @@ export default function PetPassportOnboardingModal({
             </View>
           </View>
 
-          {/* Action Buttons */}
+          {/* Action Buttons — TouchableOpacity for reliable Android hits */}
           <View className="gap-3">
-            <Pressable
+            <TouchableOpacity
+              activeOpacity={0.88}
               onPress={handleGoToPetProfile}
-              className="w-full py-4 px-6 rounded-2xl items-center active:opacity-80"
-              style={{ backgroundColor: theme.primary }}
+              style={{
+                width: "100%",
+                minHeight: 52,
+                paddingVertical: 16,
+                paddingHorizontal: 24,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.primary,
+                ...(Platform.OS === "android" ? { elevation: 4 } : {}),
+              }}
             >
-              <Text
-                className="text-base font-semibold"
-                style={{ color: "#FFFFFF" }}
-              >
+              <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
                 Go to Pet Profile
               </Text>
-            </Pressable>
+            </TouchableOpacity>
 
-            <Pressable
+            <TouchableOpacity
+              activeOpacity={0.88}
               onPress={handleGotIt}
-              className="w-full py-4 px-6 rounded-2xl items-center active:opacity-80"
               style={{
+                width: "100%",
+                minHeight: 52,
+                paddingVertical: 16,
+                paddingHorizontal: 24,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: "transparent",
                 borderWidth: 1,
                 borderColor: theme.border,
+                ...(Platform.OS === "android" ? { elevation: 2 } : {}),
               }}
             >
-              <Text
-                className="text-base font-semibold"
-                style={{ color: theme.foreground }}
-              >
+              <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
                 Got it!
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

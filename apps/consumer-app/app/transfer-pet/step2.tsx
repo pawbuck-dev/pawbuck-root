@@ -1,5 +1,6 @@
 import PrivateImage from "@/components/common/PrivateImage";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { JOURNAL_DOMAIN_LABEL, subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import {
@@ -47,6 +48,7 @@ export default function TransferPetStep2() {
   const queryClient = useQueryClient();
   const { theme, mode } = useTheme();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { ensurePremium, isLoading: subLoading } = useSubscription();
   const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
   const [transferring, setTransferring] = useState(false);
@@ -176,7 +178,7 @@ export default function TransferPetStep2() {
     );
   };
 
-  const handleTransferPet = async () => {
+  const handleTransferPet = () => {
     if (!isAuthenticated) {
       Alert.alert(
         "Authentication Required",
@@ -190,26 +192,31 @@ export default function TransferPetStep2() {
       return;
     }
 
-    setTransferring(true);
+    if (subLoading) return;
 
-    try {
-      await useTransferCode(transferCode, parentDisplayName.trim() || null);
-      try {
-        await notifyPetTransferAccepted(transferCode);
-      } catch {
-        /* non-blocking */
-      }
-      await queryClient.invalidateQueries({ queryKey: ["pets"] });
-      await queryClient.invalidateQueries({ queryKey: ["pet_transfer_history"] });
-      await queryClient.invalidateQueries({ queryKey: ["pet_journal_transfer_highlights"] });
-      router.replace({
-        pathname: "/transfer-pet/step3",
-        params: { transferCode },
-      });
-    } catch (error: unknown) {
-      Alert.alert("Error", error instanceof Error ? error.message : "Failed to transfer pet");
-      setTransferring(false);
-    }
+    ensurePremium(() => {
+      void (async () => {
+        setTransferring(true);
+        try {
+          await useTransferCode(transferCode, parentDisplayName.trim() || null);
+          try {
+            await notifyPetTransferAccepted(transferCode);
+          } catch {
+            /* non-blocking */
+          }
+          await queryClient.invalidateQueries({ queryKey: ["pets"] });
+          await queryClient.invalidateQueries({ queryKey: ["pet_transfer_history"] });
+          await queryClient.invalidateQueries({ queryKey: ["pet_journal_transfer_highlights"] });
+          router.replace({
+            pathname: "/transfer-pet/step3",
+            params: { transferCode },
+          });
+        } catch (error: unknown) {
+          Alert.alert("Error", error instanceof Error ? error.message : "Failed to transfer pet");
+          setTransferring(false);
+        }
+      })();
+    }, "pet_transfer_accept");
   };
 
   if (authLoading) {

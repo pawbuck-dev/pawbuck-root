@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PawBuck.API.Models;
+using PawBuck.API;
 using PawBuck.API.Services;
 
 namespace PawBuck.API.Controllers;
@@ -22,6 +23,8 @@ public class SubscriptionController : ControllerBase
 
     /// <summary>
     /// Feature gates: which product areas require PawBuck Premium (admin-controlled).
+    /// Rows include <see cref="SubscriptionFeatureKeys.MiloChat"/>, <see cref="SubscriptionFeatureKeys.FamilySharing"/>,
+    /// <see cref="SubscriptionFeatureKeys.PetTransfer"/>, and other keys from <c>public.subscription_feature_gates</c>.
     /// </summary>
     [HttpGet("feature-gates")]
     [ProducesResponseType(typeof(SubscriptionFeatureGatesResponse), StatusCodes.Status200OK)]

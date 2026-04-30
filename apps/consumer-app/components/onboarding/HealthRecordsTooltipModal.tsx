@@ -3,7 +3,7 @@ import { trackOnboardingEvent } from "@/utils/analytics";
 import { markHealthRecordsTooltipSeen } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
-import { Modal, Platform, Pressable, Text, View } from "react-native";
+import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HealthRecordsTooltipModalProps {
@@ -25,10 +25,20 @@ export default function HealthRecordsTooltipModal({
     }
   }, [visible]);
 
-  const handleGotIt = async () => {
-    await markHealthRecordsTooltipSeen();
-    await trackOnboardingEvent("health_records_tooltip_completed");
+  const handleGotIt = () => {
     onClose();
+    void (async () => {
+      try {
+        await markHealthRecordsTooltipSeen();
+      } catch (e) {
+        console.error("[HealthRecordsTooltipModal] mark seen", e);
+      }
+      try {
+        await trackOnboardingEvent("health_records_tooltip_completed");
+      } catch (e) {
+        console.error("[HealthRecordsTooltipModal] analytics", e);
+      }
+    })();
   };
 
   return (
@@ -37,6 +47,7 @@ export default function HealthRecordsTooltipModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleGotIt}
+      hardwareAccelerated
     >
       <View
         className="flex-1"
@@ -45,6 +56,7 @@ export default function HealthRecordsTooltipModal({
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
+        collapsable={false}
       >
         {/* Header */}
         <View
@@ -60,12 +72,21 @@ export default function HealthRecordsTooltipModal({
           >
             Add Health Records
           </Text>
-          <Pressable
+          <TouchableOpacity
             onPress={handleGotIt}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              ...(Platform.OS === "android" ? { elevation: 1 } : {}),
+            }}
           >
             <Ionicons name="close" size={24} color={theme.foreground} />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Content */}
@@ -190,19 +211,27 @@ export default function HealthRecordsTooltipModal({
             </View>
           </View>
 
-          {/* Got It Button */}
-          <Pressable
+          <TouchableOpacity
+            activeOpacity={0.88}
             onPress={handleGotIt}
-            className="w-full py-4 px-6 rounded-2xl items-center active:opacity-80"
-            style={{ backgroundColor: theme.primary }}
+            accessibilityRole="button"
+            accessibilityLabel="Got it"
+            style={{
+              width: "100%",
+              minHeight: 52,
+              paddingVertical: 16,
+              paddingHorizontal: 24,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.primary,
+              ...(Platform.OS === "android" ? { elevation: 4 } : {}),
+            }}
           >
-            <Text
-              className="text-base font-semibold"
-              style={{ color: "#FFFFFF" }}
-            >
+            <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
               Got it!
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

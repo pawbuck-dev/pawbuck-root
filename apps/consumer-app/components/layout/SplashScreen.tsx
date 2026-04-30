@@ -1,13 +1,8 @@
 import { useTheme } from "@/context/themeContext";
-import { useEffect, useRef } from "react";
-import {
-  Animated,
-  Dimensions,
-  Image,
-  StyleSheet,
-  View,
-} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useRef } from "react";
+import { Animated, Image, StyleSheet, View } from "react-native";
 
 /**
  * Splash screen — Figma node 1592:38599 (dark).
@@ -20,7 +15,6 @@ interface SplashScreenProps {
 const OVERLAY_TINT_DARK = "rgba(11,150,150,0.06)";
 const OVERLAY_TINT_LIGHT = "rgba(43,168,158,0.08)";
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const LOGO_SIZE = 199;
 
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
@@ -50,18 +44,24 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
     return () => clearTimeout(timer);
   }, []);
 
+  const gradientColors = isDark
+    ? (["#082226", "#0B181C", theme.background] as const)
+    : (["#E4F2F1", "#EEF6F5", theme.background] as const);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Background glow decoration (Figma "bg" group 1592:38600) */}
-      <Image
-        source={require("@/assets/images/splash-bg.png")}
-        style={styles.bgImage}
-        resizeMode="cover"
+      {/* Code gradient replaces splash-bg.png — that asset shipped with a sharp centered rectangle artifact */}
+      <LinearGradient
+        colors={[...gradientColors]}
+        locations={[0, 0.42, 1]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
       />
 
-      {/* Teal overlay — tuned per theme */}
       <View
         style={[styles.overlay, { backgroundColor: overlayTint }]}
         pointerEvents="none"
@@ -89,11 +89,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  bgImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: SCREEN_W,
-    height: SCREEN_H,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

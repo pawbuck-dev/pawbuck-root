@@ -5,7 +5,7 @@ import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -27,12 +27,21 @@ export default function OnboardingStep4() {
   const isDark = mode === "dark";
 
   const [breed, setBreed] = useState("");
+  const [breedSearchQuery, setBreedSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const petType = (petData?.animal_type || "dog") as "dog" | "cat" | "other";
   const petLabel = petType === "cat" ? "Cat" : "Dog";
   const breeds = petType === "cat" ? CAT_BREEDS : DOG_BREEDS;
+
+  const filteredBreeds = useMemo(
+    () =>
+      breeds.filter((item) =>
+        item.toLowerCase().includes(breedSearchQuery.trim().toLowerCase())
+      ),
+    [breeds, breedSearchQuery]
+  );
 
   const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
   const accentColor = isDark ? "#5FC4C0" : "#2BA89E";
@@ -42,6 +51,8 @@ export default function OnboardingStep4() {
 
   const handleBreedSelect = (selectedBreed: string) => {
     setBreed(selectedBreed);
+    setBreedSearchQuery("");
+    setDropdownOpen(false);
   };
 
   const handleContinue = () => {
@@ -104,7 +115,10 @@ export default function OnboardingStep4() {
 
             {/* Dropdown trigger */}
             <Pressable
-              onPress={() => setDropdownOpen((prev) => !prev)}
+              onPress={() => {
+                setBreedSearchQuery("");
+                setDropdownOpen((prev) => !prev);
+              }}
               style={[
                 styles.dropdownTrigger,
                 {
@@ -126,35 +140,85 @@ export default function OnboardingStep4() {
               />
             </Pressable>
 
-            {/* Inline breed list */}
+            {/* Inline breed list + search (parity with BreedPicker on review screen) */}
             {dropdownOpen && (
-              <View style={[styles.breedList, { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }]}>
-                {breeds.map((item) => {
-                  const isSelected = breed === item;
-                  return (
-                    <Pressable
-                      key={item}
-                      onPress={() => handleBreedSelect(item)}
-                      style={[
-                        styles.breedRow,
-                        isSelected && { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.breedRowText,
-                          { color: theme.foreground },
-                          isSelected && { fontWeight: "600" },
-                        ]}
-                      >
-                        {item}
-                      </Text>
-                      {isSelected && (
-                        <Ionicons name="checkmark-circle" size={22} color={accentColor} />
-                      )}
+              <View
+                style={[
+                  styles.breedList,
+                  {
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.breedSearchRow,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                    },
+                  ]}
+                >
+                  <Ionicons name="search" size={18} color={mutedText} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={[styles.breedSearchInput, { color: theme.foreground }]}
+                    placeholder="Search breeds..."
+                    placeholderTextColor={mutedText}
+                    value={breedSearchQuery}
+                    onChangeText={setBreedSearchQuery}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    returnKeyType="search"
+                    accessibilityLabel="Search breeds"
+                  />
+                  {breedSearchQuery.length > 0 ? (
+                    <Pressable onPress={() => setBreedSearchQuery("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={20} color={mutedText} />
                     </Pressable>
-                  );
-                })}
+                  ) : null}
+                </View>
+
+                <ScrollView
+                  style={styles.breedListScroll}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator
+                >
+                  {filteredBreeds.length > 0 ? (
+                    filteredBreeds.map((item) => {
+                      const isSelected = breed === item;
+                      return (
+                        <Pressable
+                          key={item}
+                          onPress={() => handleBreedSelect(item)}
+                          style={[
+                            styles.breedRow,
+                            isSelected && {
+                              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.breedRowText,
+                              { color: theme.foreground },
+                              isSelected && { fontWeight: "600" },
+                            ]}
+                          >
+                            {item}
+                          </Text>
+                          {isSelected ? (
+                            <Ionicons name="checkmark-circle" size={22} color={accentColor} />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <Text style={[styles.breedEmpty, { color: mutedText }]}>
+                      {`No breeds match "${breedSearchQuery.trim()}"`}
+                    </Text>
+                  )}
+                </ScrollView>
               </View>
             )}
 
@@ -316,6 +380,28 @@ const styles = StyleSheet.create({
   },
   breedList: {
     marginTop: 8,
+  },
+  breedSearchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  breedSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  breedListScroll: {
+    maxHeight: 320,
+  },
+  breedEmpty: {
+    fontSize: 14,
+    paddingVertical: 20,
+    textAlign: "center",
   },
   breedRow: {
     flexDirection: "row",

@@ -4,7 +4,7 @@ import { markEmailOnboardingSeen } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useEffect } from "react";
-import { Alert, Modal, Platform, Pressable, Text, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface EmailOnboardingModalProps {
@@ -40,12 +40,20 @@ export default function EmailOnboardingModal({
     }
   }, [visible, petEmail]);
 
-  const handleGotIt = async () => {
-    await markEmailOnboardingSeen();
-    await trackOnboardingEvent("email_onboarding_completed", {
-      pet_email: petEmail,
-    });
+  const handleGotIt = () => {
     onClose();
+    void (async () => {
+      try {
+        await markEmailOnboardingSeen();
+      } catch (e) {
+        console.error("[EmailOnboardingModal] mark seen", e);
+      }
+      try {
+        await trackOnboardingEvent("email_onboarding_completed", { pet_email: petEmail });
+      } catch (e) {
+        console.error("[EmailOnboardingModal] analytics", e);
+      }
+    })();
   };
 
   return (
@@ -54,6 +62,7 @@ export default function EmailOnboardingModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleGotIt}
+      hardwareAccelerated
     >
       <View
         className="flex-1"
@@ -62,6 +71,7 @@ export default function EmailOnboardingModal({
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
+        collapsable={false}
       >
         {/* Header */}
         <View
@@ -77,12 +87,21 @@ export default function EmailOnboardingModal({
           >
             Your Pet's Email
           </Text>
-          <Pressable
+          <TouchableOpacity
             onPress={handleGotIt}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{
+              width: 40,
+              height: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              ...(Platform.OS === "android" ? { elevation: 1 } : {}),
+            }}
           >
             <Ionicons name="close" size={24} color={theme.foreground} />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Content */}
@@ -188,19 +207,27 @@ export default function EmailOnboardingModal({
             </View>
           </View>
 
-          {/* Got It Button */}
-          <Pressable
+          <TouchableOpacity
+            activeOpacity={0.88}
             onPress={handleGotIt}
-            className="w-full py-4 px-6 rounded-2xl items-center active:opacity-80"
-            style={{ backgroundColor: theme.primary }}
+            accessibilityRole="button"
+            accessibilityLabel="Got it"
+            style={{
+              width: "100%",
+              minHeight: 52,
+              paddingVertical: 16,
+              paddingHorizontal: 24,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.primary,
+              ...(Platform.OS === "android" ? { elevation: 4 } : {}),
+            }}
           >
-            <Text
-              className="text-base font-semibold"
-              style={{ color: "#FFFFFF" }}
-            >
+            <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
               Got it!
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>

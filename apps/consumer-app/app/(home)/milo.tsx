@@ -6,7 +6,11 @@ import { useSubscription } from "@/context/subscriptionContext";
 import { ChatMessage as CM } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { fetchPetAllergies, fetchPetConditions } from "@/services/petJournal";
+import {
+  fetchJournalEntries,
+  fetchPetAllergies,
+  fetchPetConditions,
+} from "@/services/petJournal";
 import type { PetLogSeverity } from "@/types/petLog";
 import {
   appendPetLog,
@@ -24,6 +28,8 @@ import {
   severityFromConversationText,
   type TriageContext,
 } from "@/utils/miloTriage";
+import { buildMiloSuggestedPrompts } from "@/services/miloSuggestedPrompts";
+import { getVaccinationsByPetId } from "@/services/vaccinations";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,7 +41,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Keyboard,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -100,8 +108,57 @@ export default function MiloJournalChatScreen() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [offlineJournalActive, setOfflineJournalActive] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const autoSentRef = useRef(false);
   const listRef = useRef<FlatList>(null);
+
+  const rotationSeed = `${user?.id ?? ""}|${pet?.id ?? ""}`;
+
+  const { data: starterData } = useQuery({
+    queryKey: ["miloJournalStarters", pet?.id],
+    queryFn: async () => {
+      const pid = pet!.id;
+      const [vaccinations, journalEntries] = await Promise.all([
+        getVaccinationsByPetId(pid),
+        fetchJournalEntries(pid, "health"),
+      ]);
+      return { vaccinations, journalEntries };
+    },
+    enabled: !!pet?.id,
+  });
+
+  const suggestedStarters = useMemo(
+    () =>
+      buildMiloSuggestedPrompts({
+        petName: pet?.name ?? null,
+        vaccinations: starterData?.vaccinations ?? [],
+        journalEntries: starterData?.journalEntries ?? [],
+        maxCount: 6,
+        rotationSeed,
+      }),
+    [pet?.name, starterData?.vaccinations, starterData?.journalEntries, rotationSeed]
+  );
+
+  const miloGreetingSuffix = useMemo(() => {
+    const meta = user?.user_metadata as { full_name?: string } | undefined;
+    const full = typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
+    const first = full ? full.split(/\s+/)[0] : user?.email?.split("@")[0];
+    return first ? ` ${first}` : "";
+  }, [user]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const lastMessage = messages[messages.length - 1];
   const showJournalChips =
@@ -691,24 +748,90 @@ export default function MiloJournalChatScreen() {
         </View>
       ) : null}
 
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 16 }}
-        renderItem={({ item, index }) => (
-          <View>
-            <ChatMessage message={item} isNew={index === messages.length - 1} />
-            {renderJournalFeedback(item)}
-            {renderActions(item, index)}
-          </View>
-        )}
-        ListFooterComponent={
-          busy ? (
-            <ActivityIndicator style={{ marginTop: 8 }} color={theme.primary} />
-          ) : null
-        }
-      />
+      <View style={{ flex: 1 }}>
+        <FlatList
+          ref={listRef}
+          style={{ flex: 1 }}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={
+            messages.length === 0 ? { paddingBottom: 16, flexGrow: 1 } : { paddingBottom: 16 }
+          }
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          renderItem={({ item, index }) => (
+            <View>
+              <ChatMessage message={item} isNew={index === messages.length - 1} />
+              {renderJournalFeedback(item)}
+              {renderActions(item, index)}
+            </View>
+          )}
+          ListEmptyComponent={
+            busy ? (
+              <View style={{ paddingTop: 40, alignItems: "center" }}>
+                <ActivityIndicator color={theme.primary} />
+              </View>
+            ) : (
+              <View
+                style={{
+                  paddingHorizontal: 20,
+                  paddingTop: 16,
+                  paddingBottom: 24,
+                }}
+              >
+                <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
+                  Hi{miloGreetingSuffix}!
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: "800",
+                    color: theme.foreground,
+                    marginTop: 6,
+                    marginBottom: 16,
+                  }}
+                >
+                  Where should we start?
+                </Text>
+                {suggestedStarters.map((q) => (
+                  <Pressable
+                    key={q}
+                    onPress={() => {
+                      void handleSend(q);
+                      setInput("");
+                    }}
+                    style={({ pressed }) => ({
+                      width: "100%",
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      borderRadius: 16,
+                      marginBottom: 10,
+                      backgroundColor: tokens.chipBg,
+                      borderWidth: 1,
+                      borderColor: tokens.chipBorder,
+                      opacity: pressed ? 0.88 : 1,
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 22,
+                        color: tokens.textPrimary,
+                      }}
+                    >
+                      {q}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )
+          }
+          ListFooterComponent={
+            messages.length > 0 && busy ? (
+              <ActivityIndicator style={{ marginTop: 8 }} color={theme.primary} />
+            ) : null
+          }
+        />
 
       {showJournalChips && lastMessage?.suggestedReplies ? (
         <ScrollView
@@ -756,42 +879,48 @@ export default function MiloJournalChatScreen() {
         </ScrollView>
       ) : null}
 
-      <View
-        style={{
-          paddingHorizontal: 12,
-          paddingBottom: insets.bottom + 12,
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.9)",
-        }}
-      >
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder={`Tell Milo about ${pet.name}...`}
-          placeholderTextColor={theme.secondary}
+        <View
           style={{
-            flex: 1,
-            minHeight: 44,
-            maxHeight: 120,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderRadius: 22,
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            color: theme.foreground,
+            paddingHorizontal: 12,
+            paddingTop: 8,
+            paddingBottom: Math.max(insets.bottom, 12),
+            flexDirection: "row",
+            alignItems: "flex-end",
+            backgroundColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.9)",
+            transform: keyboardHeight > 0 ? [{ translateY: -keyboardHeight }] : [],
           }}
-          multiline
-        />
-        <Pressable
-          onPress={() => {
-            void handleSend(input);
-            setInput("");
-          }}
-          disabled={busy || !input.trim()}
-          style={{ marginLeft: 8, opacity: input.trim() && !busy ? 1 : 0.4 }}
         >
-          <Ionicons name="send" size={26} color={theme.primary} />
-        </Pressable>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder={`Tell Milo about ${pet.name}...`}
+            placeholderTextColor={theme.secondary}
+            style={{
+              flex: 1,
+              minHeight: 44,
+              maxHeight: 120,
+              paddingHorizontal: 14,
+              paddingVertical: Platform.OS === "ios" ? 10 : 12,
+              borderRadius: 22,
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              color: theme.foreground,
+              fontSize: 16,
+              lineHeight: 22,
+            }}
+            multiline
+            {...(Platform.OS === "android" ? { textAlignVertical: "top" as const } : {})}
+          />
+          <Pressable
+            onPress={() => {
+              void handleSend(input);
+              setInput("");
+            }}
+            disabled={busy || !input.trim()}
+            style={{ marginLeft: 8, marginBottom: 6, opacity: input.trim() && !busy ? 1 : 0.4 }}
+          >
+            <Ionicons name="send" size={26} color={theme.primary} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );

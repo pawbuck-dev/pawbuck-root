@@ -5,6 +5,8 @@ export const FEATURE_GATE_KEYS = [
   "health_briefing",
   "weekly_challenge",
   "book_vet",
+  "family_sharing",
+  "pet_transfer",
 ] as const;
 
 export type FeatureGateKey = (typeof FEATURE_GATE_KEYS)[number];
@@ -27,6 +29,12 @@ export function resolveFeatureGateKey(feature?: string): string | undefined {
     pet_journal_briefing_button: "health_briefing",
     pet_journal_screen: "pet_journal",
     health_briefing_screen: "health_briefing",
+    family_sharing: "family_sharing",
+    family_access_invite: "family_sharing",
+    household_invite: "family_sharing",
+    pet_transfer: "pet_transfer",
+    pet_transfer_create: "pet_transfer",
+    pet_transfer_accept: "pet_transfer",
   };
   if (feature in map) return map[feature];
   if ((FEATURE_GATE_KEYS as readonly string[]).includes(feature)) return feature as FeatureGateKey;

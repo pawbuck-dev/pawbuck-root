@@ -1,5 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { usePets } from "@/context/petsContext";
 import {
@@ -107,6 +108,7 @@ export default function TransferPet() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const { user } = useAuth();
+  const { ensurePremium } = useSubscription();
   const { pets } = usePets();
   const { setSelectedPetId: setGlobalSelectedPetId } = useSelectedPet();
   const queryClient = useQueryClient();
@@ -235,13 +237,15 @@ export default function TransferPet() {
       setFlow("share");
       return;
     }
-    setSelectedPetId(petId);
-    setSelectedReason("rehoming");
-    setRecipientContact("");
-    setPriorOwnerShowName(true);
-    setHighlightEntryIds([]);
-    setExcludedEntryIds([]);
-    setFlow("reason");
+    ensurePremium(() => {
+      setSelectedPetId(petId);
+      setSelectedReason("rehoming");
+      setRecipientContact("");
+      setPriorOwnerShowName(true);
+      setHighlightEntryIds([]);
+      setExcludedEntryIds([]);
+      setFlow("reason");
+    }, "pet_transfer_create");
   };
 
   const handleContinueReason = () => {
@@ -276,14 +280,16 @@ export default function TransferPet() {
 
   const handleConfirmGenerate = () => {
     if (!selectedPetId || !selectedReason) return;
-    createTransferMutation.mutate({
-      petId: selectedPetId,
-      reason: selectedReason,
-      recipientContact,
-      priorOwnerShowName,
-      journalHighlightEntryIds: highlightEntryIds,
-      excludedJournalEntryIds: excludedEntryIds,
-    });
+    ensurePremium(() => {
+      createTransferMutation.mutate({
+        petId: selectedPetId,
+        reason: selectedReason,
+        recipientContact,
+        priorOwnerShowName,
+        journalHighlightEntryIds: highlightEntryIds,
+        excludedJournalEntryIds: excludedEntryIds,
+      });
+    }, "pet_transfer_create");
   };
 
   const handleCopyCode = async (code: string) => {

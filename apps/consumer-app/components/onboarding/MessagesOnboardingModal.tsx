@@ -3,7 +3,7 @@ import { trackOnboardingEvent } from "@/utils/analytics";
 import { markMessagesOnboardingSeen } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
-import { Modal, Platform, Pressable, Text, View } from "react-native";
+import { Modal, Platform, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface MessagesOnboardingModalProps {
@@ -25,18 +25,30 @@ export default function MessagesOnboardingModal({
     }
   }, [visible]);
 
-  const handleGotIt = async () => {
-    await markMessagesOnboardingSeen();
-    await trackOnboardingEvent("messages_onboarding_completed");
+  /** Close UI first — awaiting Supabase analytics on device can hang and feel like a dead tap. */
+  const handleGotIt = () => {
     onClose();
+    void (async () => {
+      try {
+        await markMessagesOnboardingSeen();
+      } catch (e) {
+        console.error("[MessagesOnboardingModal] mark seen", e);
+      }
+      try {
+        await trackOnboardingEvent("messages_onboarding_completed");
+      } catch (e) {
+        console.error("[MessagesOnboardingModal] analytics", e);
+      }
+    })();
   };
 
   return (
     <Modal
       visible={visible}
       animationType="fade"
-      transparent={true}
+      transparent
       onRequestClose={handleGotIt}
+      hardwareAccelerated
     >
       <View
         className="flex-1 items-center justify-center px-6"
@@ -45,10 +57,15 @@ export default function MessagesOnboardingModal({
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
+        collapsable={false}
       >
         <View
           className="rounded-3xl p-6 w-full max-w-md"
-          style={{ backgroundColor: theme.card }}
+          style={{
+            backgroundColor: theme.card,
+            ...(Platform.OS === "android" ? { elevation: 12 } : {}),
+          }}
+          collapsable={false}
         >
           {/* Icon */}
           <View className="items-center mb-4">
@@ -84,19 +101,28 @@ export default function MessagesOnboardingModal({
             </Text>
           </View>
 
-          {/* Got It Button */}
-          <Pressable
+          {/* TouchableOpacity: Android + transparent Modal often drops Pressable hits; avoid awaiting network before close */}
+          <TouchableOpacity
+            activeOpacity={0.88}
             onPress={handleGotIt}
-            className="w-full py-4 px-6 rounded-2xl items-center active:opacity-80"
-            style={{ backgroundColor: theme.primary }}
+            accessibilityRole="button"
+            accessibilityLabel="Got it"
+            style={{
+              width: "100%",
+              minHeight: 52,
+              paddingVertical: 16,
+              paddingHorizontal: 24,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.primary,
+              ...(Platform.OS === "android" ? { elevation: 4 } : {}),
+            }}
           >
-            <Text
-              className="text-base font-semibold"
-              style={{ color: "#FFFFFF" }}
-            >
+            <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
               Got it!
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
