@@ -32,7 +32,7 @@ export const createPet = async (petData: TablesInsert<"pets">) => {
 
   const { data, error } = await supabase
     .from("pets")
-    .insert(petData)
+    .insert({ ...petData, user_id: user.id })
     .select()
     .single();
 

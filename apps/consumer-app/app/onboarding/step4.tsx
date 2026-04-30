@@ -55,6 +55,25 @@ export default function OnboardingStep4() {
     setDropdownOpen(false);
   };
 
+  /** Use typed search as breed when it is not in the catalog (custom / crossbreed). */
+  const applySearchAsCustomBreed = () => {
+    const q = breedSearchQuery.trim();
+    if (!q) return;
+    setBreed(q);
+    setBreedSearchQuery("");
+    setDropdownOpen(false);
+  };
+
+  const openCustomBreedScreen = () => {
+    const q = breedSearchQuery.trim();
+    if (!breed.trim() && q) {
+      setBreed(q);
+    }
+    setBreedSearchQuery("");
+    setDropdownOpen(false);
+    setShowCustomInput(true);
+  };
+
   const handleContinue = () => {
     if (breed.trim()) {
       updatePetData({ breed: breed.trim() });
@@ -214,26 +233,78 @@ export default function OnboardingStep4() {
                       );
                     })
                   ) : (
-                    <Text style={[styles.breedEmpty, { color: mutedText }]}>
-                      {`No breeds match "${breedSearchQuery.trim()}"`}
-                    </Text>
+                    <View style={styles.breedEmptyBlock}>
+                      <Text style={[styles.breedEmpty, { color: mutedText }]}>
+                        {breedSearchQuery.trim()
+                          ? `No breeds match "${breedSearchQuery.trim()}"`
+                          : "Start typing to search, or add a custom breed below."}
+                      </Text>
+                      {breedSearchQuery.trim().length > 0 ? (
+                        <Pressable
+                          onPress={applySearchAsCustomBreed}
+                          style={({ pressed }) => [
+                            styles.useCustomBreedBtn,
+                            {
+                              borderColor: accentColor,
+                              backgroundColor: pressed
+                                ? isDark
+                                  ? "rgba(95,196,192,0.12)"
+                                  : "rgba(43,168,158,0.1)"
+                                : "transparent",
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Use ${breedSearchQuery.trim()} as breed`}
+                        >
+                          <Ionicons name="create-outline" size={20} color={accentColor} />
+                          <Text style={[styles.useCustomBreedBtnText, { color: accentColor }]}>
+                            Use “{breedSearchQuery.trim()}” as breed
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   )}
                 </ScrollView>
+
+                {/* Always visible while dropdown is open — custom / crossbreed */}
+                <Pressable
+                  onPress={openCustomBreedScreen}
+                  style={({ pressed }) => [
+                    styles.customBreedLink,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Enter a custom breed name"
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={accentColor} />
+                  <Text style={[styles.customBreedText, { color: accentColor, fontWeight: "600" }]}>
+                    {"Can't find your breed? Enter custom or crossbreed"}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={accentColor} />
+                </Pressable>
               </View>
             )}
 
-            {/* Can't find breed link */}
-            <Pressable onPress={() => setShowCustomInput(true)} style={styles.customBreedLink}>
-              <Ionicons
-                name="information-circle-outline"
-                size={18}
-                color={theme.foreground}
-                style={{ opacity: 0.6 }}
-              />
-              <Text style={[styles.customBreedText, { color: theme.foreground, opacity: 0.6 }]}>
-                Can't find your breed? Enter custom breed
-              </Text>
-            </Pressable>
+            {/* When dropdown closed — still offer custom breed */}
+            {!dropdownOpen ? (
+              <Pressable
+                onPress={openCustomBreedScreen}
+                style={({ pressed }) => [
+                  styles.customBreedLink,
+                  { marginTop: 16 },
+                  pressed && { opacity: 0.85 },
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="add-circle-outline" size={20} color={accentColor} />
+                <Text style={[styles.customBreedText, { color: accentColor, fontWeight: "600" }]}>
+                  {"Can't find your breed? Enter custom or crossbreed"}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={accentColor} />
+              </Pressable>
+            ) : null}
 
             {/* Continue button inside card */}
             <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
@@ -263,7 +334,7 @@ export default function OnboardingStep4() {
                   color: theme.foreground,
                 },
               ]}
-              placeholder="e.g., Mixed Breed, Labradoodle"
+              placeholder="e.g., Labradoodle, Heinz 57, village mix"
               placeholderTextColor={mutedText}
               value={breed}
               onChangeText={setBreed}
@@ -400,7 +471,29 @@ const styles = StyleSheet.create({
   },
   breedEmpty: {
     fontSize: 14,
-    paddingVertical: 20,
+    paddingVertical: 8,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  breedEmptyBlock: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  useCustomBreedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  useCustomBreedBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    flexShrink: 1,
     textAlign: "center",
   },
   breedRow: {
@@ -419,11 +512,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 4,
-    marginTop: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+    flexWrap: "wrap",
   },
   customBreedText: {
     fontSize: 14,
+    flex: 1,
+    flexShrink: 1,
   },
   ctaWrap: {
     marginTop: "auto",

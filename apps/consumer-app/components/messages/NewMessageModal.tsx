@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -42,6 +43,13 @@ interface WhitelistedContact {
   name: string;
   email: string;
   business?: string;
+}
+
+function contactInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase() || "?";
 }
 
 export const NewMessageModal: React.FC<NewMessageModalProps> = ({
@@ -261,6 +269,11 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     router.push("/(home)/settings");
   };
 
+  /** Match Subject / Message fields and recipient dropdown surface. */
+  const isDark = mode === "dark";
+  const inputBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+  const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+
   const renderContactDropdown = (
     contacts: WhitelistedContact[],
     selectedContact: WhitelistedContact | null,
@@ -290,9 +303,100 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       availableSafeSenders.length > 0 ||
       (supportContact && supportContact.id !== toContact?.id);
 
-    const isDk = mode === "dark";
-    const inBg = isDk ? "rgba(255,255,255,0.04)" : "#FFFFFF";
-    const inBdr = isDk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+    const subtext = isDark ? "rgba(255,255,255,0.68)" : "rgba(0,0,0,0.55)";
+    const caption = isDark ? "rgba(255,255,255,0.42)" : "rgba(0,0,0,0.45)";
+    const avatarBg = isDark ? "rgba(95,196,192,0.18)" : "rgba(95,196,192,0.14)";
+    const SectionHeader = ({ title }: { title: string }) => (
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 14,
+          paddingBottom: 8,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "700",
+            letterSpacing: 0.8,
+            color: caption,
+            textTransform: "uppercase",
+          }}
+        >
+          {title}
+        </Text>
+      </View>
+    );
+
+    const ContactRow = ({
+      contact,
+      onPick,
+      icon,
+    }: {
+      contact: WhitelistedContact;
+      onPick: () => void;
+      icon?: keyof typeof Ionicons.glyphMap;
+    }) => (
+      <TouchableOpacity
+        onPress={onPick}
+        activeOpacity={0.65}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          backgroundColor: inputBg,
+        }}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: avatarBg,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 14,
+          }}
+        >
+          {icon ? (
+            <Ionicons name={icon} size={22} color={theme.primary} />
+          ) : (
+            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.primary }}>
+              {contactInitials(contact.name)}
+            </Text>
+          )}
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{ fontSize: 16, fontWeight: "600", color: theme.foreground, letterSpacing: -0.2 }}
+          >
+            {contact.name}
+          </Text>
+          {!!contact.business && (
+            <Text numberOfLines={1} style={{ fontSize: 13, color: subtext, marginTop: 3 }}>
+              {contact.business}
+            </Text>
+          )}
+          <Text numberOfLines={1} style={{ fontSize: 13, color: subtext, marginTop: contact.business ? 2 : 4 }}>
+            {contact.email}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={caption} style={{ marginLeft: 8 }} />
+      </TouchableOpacity>
+    );
+
+    const InsetDivider = () => (
+      <View
+        style={{
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: inputBorder,
+          marginLeft: 74,
+          marginRight: 16,
+        }}
+      />
+    );
 
     return (
       <View style={{ position: "relative" }}>
@@ -306,15 +410,17 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            backgroundColor: inBg,
+            backgroundColor: inputBg,
             borderWidth: 1,
-            borderColor: inBdr,
+            borderColor: inputBorder,
             borderRadius: 16,
             paddingVertical: 14,
             paddingHorizontal: 16,
           }}
         >
           <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
             style={{
               flex: 1,
               fontSize: 15,
@@ -322,8 +428,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             }}
           >
             {selectedContact
-              ? `${selectedContact.name} <${selectedContact.email}>`
-              : "Select a whitelisted contact..."}
+              ? `${selectedContact.name} · ${selectedContact.email}`
+              : "Choose a recipient…"}
           </Text>
           <Ionicons
             name={showDropdown ? "chevron-up" : "chevron-down"}
@@ -339,170 +445,166 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               top: "100%",
               left: 0,
               right: 0,
-              marginTop: 4,
-              borderRadius: 12,
-              backgroundColor: inBg,
+              marginTop: 6,
+              borderRadius: 16,
+              backgroundColor: inputBg,
               borderWidth: 1,
-              borderColor: inBdr,
-              maxHeight: 200,
+              borderColor: inputBorder,
+              maxHeight: 320,
+              overflow: "hidden",
               shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 8,
-              elevation: 5,
-              zIndex: 50,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.22,
+              shadowRadius: 16,
+              elevation: Platform.OS === "android" ? 18 : 10,
+              zIndex: 100,
             }}
           >
             <ScrollView
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
+              style={{ backgroundColor: inputBg }}
+              contentContainerStyle={{ paddingBottom: 18 }}
             >
+              <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    letterSpacing: 0.6,
+                    color: caption,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Choose recipient
+                </Text>
+              </View>
+
               <TouchableOpacity
                 onPress={() => {
                   onSelect(null);
                   onToggleDropdown();
                 }}
-                className="py-3 px-4 border-b"
-                style={{ borderBottomColor: theme.border + "40" }}
-                activeOpacity={0.7}
+                activeOpacity={0.65}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  backgroundColor: inputBg,
+                }}
               >
-                <Text style={{ color: theme.secondary }}>None</Text>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 14,
+                  }}
+                >
+                  <Ionicons name="close-circle-outline" size={22} color={subtext} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: theme.foreground }}>Clear selection</Text>
+                  <Text style={{ fontSize: 13, color: subtext, marginTop: 4 }}>No recipient for this message</Text>
+                </View>
               </TouchableOpacity>
-              
+
+              <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: inputBorder, marginVertical: 4 }} />
+
               {/* Care Team Section */}
               {availableCareTeam.length > 0 && (
                 <>
-                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
-                    <Text
-                      className="text-xs font-semibold uppercase"
-                      style={{ color: theme.secondary }}
-                    >
-                      Care Team
-                    </Text>
-                  </View>
-                  {availableCareTeam.map((contact) => (
-                    <TouchableOpacity
-                      key={contact.id}
-                      onPress={() => {
-                        onSelect(contact);
-                        onToggleDropdown();
-                      }}
-                      className="py-3 px-4 border-b"
-                      style={{ borderBottomColor: theme.border + "40" }}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        className="font-medium"
-                        style={{ color: theme.foreground }}
-                      >
-                        {contact.name}
-                      </Text>
-                      {contact.business && (
-                        <Text
-                          className="text-sm"
-                          style={{ color: theme.secondary }}
-                        >
-                          {contact.business}
-                        </Text>
-                      )}
-                      <Text className="text-sm" style={{ color: theme.secondary }}>
-                        {contact.email}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </>
-              )}
-              
-              {/* Safe Senders Section */}
-              {availableSafeSenders.length > 0 && (
-                <>
-                  {availableCareTeam.length > 0 && (
-                    <View className="px-4 py-1" style={{ backgroundColor: theme.border + "20" }} />
-                  )}
-                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
-                    <Text
-                      className="text-xs font-semibold uppercase"
-                      style={{ color: theme.secondary }}
-                    >
-                      Safe Senders
-                    </Text>
-                  </View>
-                  {availableSafeSenders.map((contact) => (
-                    <TouchableOpacity
-                      key={contact.id}
-                      onPress={() => {
-                        onSelect(contact);
-                        onToggleDropdown();
-                      }}
-                      className="py-3 px-4 border-b"
-                      style={{ borderBottomColor: theme.border + "40" }}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        className="font-medium"
-                        style={{ color: theme.foreground }}
-                      >
-                        {contact.name}
-                      </Text>
-                      <Text className="text-sm" style={{ color: theme.secondary }}>
-                        {contact.email}
-                      </Text>
-                    </TouchableOpacity>
+                  <SectionHeader title="Care team" />
+                  {availableCareTeam.map((contact, idx) => (
+                    <View key={contact.id}>
+                      <ContactRow
+                        contact={contact}
+                        onPick={() => {
+                          onSelect(contact);
+                          onToggleDropdown();
+                        }}
+                      />
+                      {idx < availableCareTeam.length - 1 ? <InsetDivider /> : null}
+                    </View>
                   ))}
                 </>
               )}
 
-              {/* Support Email Section */}
+              {/* Safe Senders Section */}
+              {availableSafeSenders.length > 0 && (
+                <>
+                  {availableCareTeam.length > 0 ? (
+                    <View
+                      style={{
+                        height: 8,
+                        backgroundColor: isDark ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.04)",
+                        marginTop: 6,
+                        marginBottom: 2,
+                      }}
+                    />
+                  ) : null}
+                  <SectionHeader title="Safe senders" />
+                  {availableSafeSenders.map((contact, idx) => (
+                    <View key={contact.id}>
+                      <ContactRow
+                        contact={contact}
+                        onPick={() => {
+                          onSelect(contact);
+                          onToggleDropdown();
+                        }}
+                      />
+                      {idx < availableSafeSenders.length - 1 ? <InsetDivider /> : null}
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {/* Support */}
               {supportContact && supportContact.id !== toContact?.id && (
                 <>
                   {(availableCareTeam.length > 0 || availableSafeSenders.length > 0) && (
-                    <View className="px-4 py-1" style={{ backgroundColor: theme.border + "20" }} />
+                    <View
+                      style={{
+                        height: 8,
+                        backgroundColor: isDark ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.04)",
+                        marginTop: 6,
+                        marginBottom: 2,
+                      }}
+                    />
                   )}
-                  <View className="px-4 py-2" style={{ backgroundColor: theme.background + "80" }}>
-                    <Text
-                      className="text-xs font-semibold uppercase"
-                      style={{ color: theme.secondary }}
-                    >
-                      Support
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => {
+                  <SectionHeader title="Support" />
+                  <ContactRow
+                    contact={supportContact}
+                    onPick={() => {
                       onSelect(supportContact);
                       onToggleDropdown();
                     }}
-                    className="py-3 px-4 border-b"
-                    style={{ borderBottomColor: theme.border + "40" }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      className="font-medium"
-                      style={{ color: theme.foreground }}
-                    >
-                      {supportContact.name}
-                    </Text>
-                    {supportContact.business && (
-                      <Text
-                        className="text-sm"
-                        style={{ color: theme.secondary }}
-                      >
-                        {supportContact.business}
-                      </Text>
-                    )}
-                    <Text className="text-sm" style={{ color: theme.secondary }}>
-                      {supportContact.email}
-                    </Text>
-                  </TouchableOpacity>
+                    icon="headset-outline"
+                  />
                 </>
               )}
-              
+
               {!hasAvailableContacts && (
-                <View className="py-4 px-4">
+                <View style={{ paddingVertical: 28, paddingHorizontal: 20, alignItems: "center" }}>
+                  <Ionicons name="people-outline" size={36} color={caption} style={{ marginBottom: 10 }} />
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, textAlign: "center" }}>
+                    No contacts yet
+                  </Text>
                   <Text
-                    className="text-sm text-center"
-                    style={{ color: theme.secondary }}
+                    style={{
+                      fontSize: 14,
+                      color: subtext,
+                      textAlign: "center",
+                      marginTop: 6,
+                      lineHeight: 20,
+                      maxWidth: 260,
+                    }}
                   >
-                    No available contacts
+                    Add care team members or safe senders from Settings, then try again.
                   </Text>
                 </View>
               )}
@@ -513,9 +615,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     );
   };
 
-  const isDark = mode === "dark";
-  const inputBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
-  const inputBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
   const canSend = !!toContact && !!subject.trim() && !!message.trim() && !sending;
 
   return (
@@ -569,13 +668,20 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
         </View>
 
         <ScrollView
-          style={{ flex: 1, paddingHorizontal: 20 }}
+          style={{ flex: 1, paddingHorizontal: 20, overflow: "visible" }}
+          contentContainerStyle={{ paddingBottom: 8 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* Pet Selector */}
           {pets.length > 1 && (
-            <View style={{ marginBottom: 20, zIndex: showPetDropdown ? 60 : 1 }}>
+            <View
+            style={{
+              marginBottom: 20,
+              zIndex: showPetDropdown ? 80 : 1,
+              elevation: showPetDropdown && Platform.OS === "android" ? 12 : 0,
+            }}
+          >
               <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
                 Pet
               </Text>
@@ -622,14 +728,18 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       borderRadius: 12,
                       maxHeight: 200,
                       shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 8,
-                      elevation: 5,
-                      zIndex: 60,
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 12,
+                      elevation: Platform.OS === "android" ? 16 : 8,
+                      zIndex: 90,
                     }}
                   >
-                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <ScrollView
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                      style={{ backgroundColor: inputBg }}
+                    >
                       {pets.map((pet) => (
                         <TouchableOpacity
                           key={pet.id}
@@ -644,7 +754,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                             paddingHorizontal: 16,
                             borderBottomWidth: 1,
                             borderBottomColor: inputBorder,
-                            backgroundColor: pet.id === selectedPetId ? `${theme.primary}15` : "transparent",
+                            backgroundColor:
+                              pet.id === selectedPetId ? `${theme.primary}22` : inputBg,
                           }}
                         >
                           <Text
@@ -665,8 +776,14 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             </View>
           )}
 
-          {/* To Field */}
-          <View style={{ marginBottom: 20, zIndex: showToDropdown ? 50 : 3 }}>
+          {/* To Field — high z-index + opaque menu so list is not obscured by Subject/Message below */}
+          <View
+            style={{
+              marginBottom: 20,
+              zIndex: showToDropdown ? 100 : 3,
+              elevation: showToDropdown && Platform.OS === "android" ? 20 : 0,
+            }}
+          >
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
               To
             </Text>

@@ -43,6 +43,12 @@ export default function BreedPicker({
     onClose();
   };
 
+  const handleUseSearchAsCustom = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    handleSelect(q);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -164,13 +170,41 @@ export default function BreedPicker({
                   );
                 })
               ) : (
-                <View className="py-8 items-center">
+                <View className="py-6 px-1">
                   <Text
-                    className="text-start"
-                    style={{ color: theme.foreground, opacity: 0.5 }}
+                    className="text-center text-base mb-4"
+                    style={{ color: theme.foreground, opacity: 0.55 }}
                   >
-                    No breeds found
+                    {searchQuery.trim()
+                      ? `No breeds match "${searchQuery.trim()}"`
+                      : "Type to search the breed list."}
                   </Text>
+                  {searchQuery.trim().length > 0 ? (
+                    <Pressable
+                      onPress={handleUseSearchAsCustom}
+                      className="rounded-xl py-4 px-4 mb-4 active:opacity-80"
+                      style={{
+                        borderWidth: 1.5,
+                        borderColor: theme.primary,
+                        backgroundColor: "transparent",
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Use ${searchQuery.trim()} as breed`}
+                    >
+                      <Text
+                        className="text-center text-base font-semibold"
+                        style={{ color: theme.primary }}
+                      >
+                        {`Use "${searchQuery.trim()}" as breed`}
+                      </Text>
+                      <Text
+                        className="text-center text-sm mt-2"
+                        style={{ color: theme.foreground, opacity: 0.5 }}
+                      >
+                        Custom or crossbreed — not in the list
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               )}
             </ScrollView>
