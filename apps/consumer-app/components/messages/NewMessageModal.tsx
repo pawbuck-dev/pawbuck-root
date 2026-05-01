@@ -266,7 +266,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
 
   const handleManageContacts = () => {
     handleClose();
-    router.push("/(home)/settings");
+    router.push("/(home)/profile");
   };
 
   /** Match Subject / Message fields and recipient dropdown surface. */

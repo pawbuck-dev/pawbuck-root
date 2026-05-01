@@ -2,6 +2,13 @@
 
 export const PROFILE_MY_PETS_LINK_ROWS = [
   {
+    id: "details",
+    icon: "paw-outline",
+    title: "View & edit pet profile",
+    subtitle: "Details, photo, delete pet",
+    href: "/(home)/pet-profile",
+  },
+  {
     id: "add",
     icon: "plus-circle-outline",
     title: "Add New Pet",
@@ -84,3 +91,14 @@ export const PROFILE_HELP_ROWS = [
 ] as const;
 
 export type ProfileHelpRowId = (typeof PROFILE_HELP_ROWS)[number]["id"];
+
+export const PROFILE_ACCOUNT_ROWS = [
+  {
+    id: "reshow_onboarding",
+    icon: "refresh-outline",
+    title: "Re-show onboarding",
+    subtitle: "View onboarding tips again",
+  },
+] as const;
+
+export type ProfileAccountRowId = (typeof PROFILE_ACCOUNT_ROWS)[number]["id"];

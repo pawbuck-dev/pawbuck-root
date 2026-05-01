@@ -154,7 +154,7 @@ export default function PetPassportOnboardingModal({
                 >
                   Go to{" "}
                   <Text style={{ fontWeight: "600", color: theme.foreground }}>
-                    Settings → Pet profile
+                    Profile → View & edit pet profile
                   </Text>{" "}
                   → Download your pet passport and instantly share vaccination records with anyone who needs them.
                 </Text>

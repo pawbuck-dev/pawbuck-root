@@ -1956,6 +1956,10 @@ export type Database = {
       }
       preview_pet_transfer: { Args: { p_code: string }; Returns: Json }
       decline_pet_transfer: { Args: { p_code: string }; Returns: string }
+      insert_pet_for_current_user: {
+        Args: { p_fields: Json }
+        Returns: Json
+      }
     }
     Enums: {
       pet_care_notification_scope: "all" | "meds_only" | "journal_only" | "none",

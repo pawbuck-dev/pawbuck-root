@@ -162,7 +162,7 @@ export default function TransferPetStep2() {
                 /* non-blocking */
               }
               Alert.alert("Transfer declined", "You can close this screen.", [
-                { text: "OK", onPress: () => router.replace("/(home)/settings") },
+                { text: "OK", onPress: () => router.replace("/(home)/profile") },
               ]);
             } catch (e: unknown) {
               Alert.alert(

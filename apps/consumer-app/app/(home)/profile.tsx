@@ -1,5 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PrivateImage from "@/components/common/PrivateImage";
+import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboardingModal";
 import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
@@ -8,9 +9,11 @@ import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
 import { ProfileListCard } from "@/components/profile/ProfileListCard";
 import { ProfilePetPickerModal } from "@/components/profile/ProfilePetPickerModal";
 import {
+  PROFILE_ACCOUNT_ROWS,
   PROFILE_HELP_ROWS,
   PROFILE_MY_PETS_LINK_ROWS,
   PROFILE_SETTINGS_ROWS,
+  type ProfileAccountRowId,
   type ProfileHelpRowId,
   type ProfileSettingsRowId,
 } from "@/components/profile/profileMenuConfig";
@@ -22,13 +25,26 @@ import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { invokeDeleteAccount } from "@/services/accountDeletion";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
+import { trackOnboardingEvent } from "@/utils/analytics";
+import { hasSeenPetPassportOnboarding, resetOnboardingFlags } from "@/utils/onboardingStorage";
+import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
@@ -52,6 +68,8 @@ export default function Profile() {
   const [showLogOutModal, setShowLogOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showPetPassportOnboarding, setShowPetPassportOnboarding] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user_profile"],
@@ -104,6 +122,134 @@ export default function Profile() {
     } finally {
       setIsSigningOut(false);
     }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      const hasSeen = await hasSeenPetPassportOnboarding();
+      if (!hasSeen && !cancelled) {
+        timeoutId = setTimeout(() => {
+          if (!cancelled) setShowPetPassportOnboarding(true);
+        }, 500);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  const performAccountDeletion = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await invokeDeleteAccount(supabase);
+      if (error) throw error;
+      await signOut();
+      router.dismissAll();
+      router.replace("/");
+    } catch (error: unknown) {
+      console.error("Error deleting account:", error);
+      const message = error instanceof Error ? error.message : "Failed to delete account. Please try again.";
+      Alert.alert("Error", message);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const showFinalAccountDeletionConfirmation = () => {
+    Alert.alert(
+      "Final Confirmation",
+      "This action cannot be undone. All your data will be permanently deleted and your pet email addresses will stop working immediately.\n\nAre you absolutely sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete My Account", style: "destructive", onPress: performAccountDeletion },
+      ]
+    );
+  };
+
+  const showFirstAccountDeletionConfirmation = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account?\n\nThis will permanently delete:\n• All your pets and their health records\n• Pet email addresses (they will no longer receive emails)\n• All messages and conversations\n• Your profile and preferences",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Continue", style: "destructive", onPress: showFinalAccountDeletionConfirmation },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setIsDeletingAccount(true);
+    try {
+      const { data: pendingTransfers, error } = await supabase
+        .from("pet_transfers")
+        .select(
+          `
+          id,
+          code,
+          pets!inner(name)
+        `
+        )
+        .eq("from_user_id", user.id)
+        .eq("is_active", true);
+
+      if (error) {
+        throw new Error(error.message || "Failed to check pending transfers");
+      }
+
+      setIsDeletingAccount(false);
+
+      if (pendingTransfers && pendingTransfers.length > 0) {
+        const transfersList = pendingTransfers
+          .map((t) => {
+            const petName =
+              (t as { pets?: { name?: string } }).pets?.name || "Unknown Pet";
+            return `• ${petName} (Code: ${(t as { code?: string }).code})`;
+          })
+          .join("\n");
+
+        Alert.alert(
+          "Pending Pet Transfers",
+          `You have ${pendingTransfers.length} active pet transfer(s) that will be cancelled:\n\n${transfersList}\n\nOnce your account is deleted, these transfer codes will no longer work and the recipients won't be able to claim the pets.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Continue Anyway", style: "destructive", onPress: showFirstAccountDeletionConfirmation },
+          ]
+        );
+      } else {
+        showFirstAccountDeletionConfirmation();
+      }
+    } catch (error: unknown) {
+      setIsDeletingAccount(false);
+      console.error("Error checking pending transfers:", error);
+      showFirstAccountDeletionConfirmation();
+    }
+  };
+
+  const accountRowHandlers: Record<ProfileAccountRowId, () => void> = {
+    reshow_onboarding: () => {
+      Alert.alert(
+        "Re-show Onboarding",
+        "This will reset the onboarding modals so you can see them again. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Reset",
+            onPress: async () => {
+              await resetOnboardingFlags();
+              await trackOnboardingEvent("onboarding_reset");
+              Alert.alert(
+                "Onboarding Reset",
+                "Onboarding modals will appear again when you navigate to the home screen or health records section."
+              );
+            },
+          },
+        ]
+      );
+    },
   };
 
   const openNotificationsSettings = () => {
@@ -166,21 +312,10 @@ export default function Profile() {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
 
-      <View className="px-5 pb-3 flex-row items-center justify-between" style={{ paddingTop: top + 8 }}>
+      <View className="px-5 pb-3" style={{ paddingTop: top + 8 }}>
         <Text className="text-3xl font-bold" style={{ color: theme.foreground }}>
           Profile
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push("/(home)/settings")}
-          className="w-11 h-11 rounded-full items-center justify-center"
-          style={{
-            backgroundColor: screenTokens.profileCardBg,
-            ...screenTokens.profileCardBorderStyle,
-          }}
-          accessibilityLabel="More settings"
-        >
-          <Ionicons name="settings-outline" size={22} color={theme.primary} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -248,6 +383,14 @@ export default function Profile() {
                   router.push(row.href);
                   return;
                 }
+                if (row.id === "details") {
+                  if (pets.length === 0) {
+                    Alert.alert("No pets yet", "Add a pet first to view and edit a pet profile.");
+                    return;
+                  }
+                  router.push("/(home)/pet-profile");
+                  return;
+                }
                 router.push(row.href);
               }}
             />
@@ -280,6 +423,19 @@ export default function Profile() {
           ))}
         </ProfileListCard>
 
+        <ProfileSectionHeading>Account</ProfileSectionHeading>
+        <ProfileListCard>
+          {PROFILE_ACCOUNT_ROWS.map((row) => (
+            <ProfileFigmaRow
+              key={row.id}
+              icon={row.icon}
+              title={row.title}
+              subtitle={row.subtitle}
+              onPress={accountRowHandlers[row.id]}
+            />
+          ))}
+        </ProfileListCard>
+
         <ProfileListCard style={{ marginTop: 24 }}>
           <ProfileFigmaRow
             icon="logout-variant"
@@ -288,6 +444,37 @@ export default function Profile() {
             onPress={handleSignOutPress}
           />
         </ProfileListCard>
+
+        <View className="mt-8 px-1">
+          <Text className="text-sm font-medium mb-3 uppercase tracking-wide" style={{ color: "#EF4444" }}>
+            Danger zone
+          </Text>
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={isDeletingAccount}
+            className="rounded-2xl py-4 px-6 items-center justify-center active:opacity-80"
+            style={{
+              backgroundColor: isDeletingAccount ? "#FCA5A520" : "#EF444420",
+              borderWidth: 1,
+              borderColor: "#EF4444",
+              opacity: isDeletingAccount ? 0.7 : 1,
+            }}
+          >
+            {isDeletingAccount ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <View className="flex-row items-center">
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                <Text className="text-base font-semibold ml-2" style={{ color: "#EF4444" }}>
+                  Delete account
+                </Text>
+              </View>
+            )}
+          </Pressable>
+          <Text className="text-xs mt-2 text-center" style={{ color: theme.foreground, opacity: 0.55 }}>
+            Permanently deletes your account and all associated data.
+          </Text>
+        </View>
       </ScrollView>
 
       <BottomNavBar activeTab="profile" />
@@ -322,6 +509,11 @@ export default function Profile() {
         }}
         onConfirm={handleConfirmSignOut}
         isSigningOut={isSigningOut}
+      />
+
+      <PetPassportOnboardingModal
+        visible={showPetPassportOnboarding}
+        onClose={() => setShowPetPassportOnboarding(false)}
       />
     </View>
   );

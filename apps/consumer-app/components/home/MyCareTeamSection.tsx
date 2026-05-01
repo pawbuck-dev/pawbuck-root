@@ -42,7 +42,7 @@ export default function MyCareTeamSection({
         <TouchableOpacity
           onPress={() => {
             if (readOnly) {
-              router.push("/(home)/settings" as any);
+              router.push("/(home)/profile");
             } else {
               router.push("/(home)/family-access" as any);
             }
@@ -70,7 +70,7 @@ export default function MyCareTeamSection({
           contactCount={careTeamMembers.length}
           onAddTeamPress={() => {
             if (readOnly) {
-              router.push("/(home)/settings" as any);
+              router.push("/(home)/profile");
             } else {
               onAddMember("veterinarian");
             }

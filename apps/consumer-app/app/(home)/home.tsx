@@ -72,8 +72,6 @@ export default function Home() {
     addingPet,
     updatePet,
     updatingPet,
-    deletePet,
-    deletingPet,
   } = usePets();
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();

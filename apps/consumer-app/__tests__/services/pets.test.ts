@@ -1,6 +1,9 @@
 import type { Tables } from "@/database.types";
 
 let mockGetUser: jest.Mock;
+let mockRefreshSession: jest.Mock;
+let mockGetSession: jest.Mock;
+let mockRpc: jest.Mock;
 const mockPetsFrom = {
   select: jest.fn(),
   insert: jest.fn(),
@@ -9,9 +12,20 @@ const mockPetsFrom = {
 
 jest.mock("@/utils/supabase", () => {
   mockGetUser = jest.fn();
+  mockRefreshSession = jest.fn().mockResolvedValue({ data: { session: null }, error: null });
+  mockGetSession = jest.fn().mockResolvedValue({
+    data: { session: { access_token: "t" } },
+    error: null,
+  });
+  mockRpc = jest.fn();
   return {
     supabase: {
-      auth: { getUser: mockGetUser },
+      auth: {
+        getUser: mockGetUser,
+        refreshSession: mockRefreshSession,
+        getSession: mockGetSession,
+      },
+      rpc: mockRpc,
       from: jest.fn((table: string) => {
         if (table === "pets") return mockPetsFrom;
         throw new Error(`unexpected table ${table}`);
@@ -21,14 +35,6 @@ jest.mock("@/utils/supabase", () => {
 });
 
 import { createPet, deletePet, getPets, updatePet } from "@/services/pets";
-
-function mockPetsInsertChain(result: { data: Tables<"pets"> | null; error: Error | null }) {
-  const single = jest.fn().mockResolvedValue(result);
-  const select = jest.fn().mockReturnValue({ single });
-  const insert = jest.fn().mockReturnValue({ select });
-  mockPetsFrom.insert = insert;
-  return { insert, select, single };
-}
 
 function mockPetsSelectList(result: { data: Tables<"pets">[] | null; error: Error | null }) {
   const order = jest.fn().mockResolvedValue(result);
@@ -51,6 +57,11 @@ function mockPetsUpdateChain(result: { data: Tables<"pets"> | null; error: Error
 describe("pets service — auth + RLS-aligned user_id", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRefreshSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: "t" } },
+      error: null,
+    });
   });
 
   describe("getPets", () => {
@@ -76,14 +87,25 @@ describe("pets service — auth + RLS-aligned user_id", () => {
       );
     });
 
-    it("inserts with session user_id so RLS pets_insert_own passes", async () => {
+    it("throws when session has no access token", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+      mockGetSession.mockResolvedValueOnce({
+        data: { session: { access_token: null } },
+        error: null,
+      });
+      await expect(createPet({ name: "Buddy" } as never)).rejects.toThrow(
+        "Session expired — sign in again to create a pet"
+      );
+    });
+
+    it("calls insert_pet_for_current_user RPC with fields (no user_id)", async () => {
       mockGetUser.mockResolvedValue({ data: { user: { id: "session-user" } } });
       const returned = {
         id: "pet-new",
         user_id: "session-user",
         name: "Buddy",
       } as Tables<"pets">;
-      const { insert } = mockPetsInsertChain({ data: returned, error: null });
+      mockRpc.mockResolvedValue({ data: returned, error: null });
 
       const petPayload = {
         name: "Buddy",
@@ -92,37 +114,47 @@ describe("pets service — auth + RLS-aligned user_id", () => {
 
       await expect(createPet(petPayload)).resolves.toEqual(returned);
 
-      expect(insert).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(mockRefreshSession).toHaveBeenCalled();
+      expect(mockGetSession).toHaveBeenCalled();
+      expect(mockRpc).toHaveBeenCalledWith("insert_pet_for_current_user", {
+        p_fields: expect.objectContaining({
           name: "Buddy",
           animal_type: "dog",
-          user_id: "session-user",
-        })
-      );
+        }),
+      });
+      expect(mockRpc.mock.calls[0][1].p_fields).not.toHaveProperty("user_id");
     });
 
-    it("overrides petData.user_id with session user (stale client payload)", async () => {
+    it("RPC payload omits stale user_id and client id", async () => {
       mockGetUser.mockResolvedValue({ data: { user: { id: "correct-owner" } } });
       const returned = { id: "p2", user_id: "correct-owner", name: "Max" } as Tables<"pets">;
-      const { insert } = mockPetsInsertChain({ data: returned, error: null });
+      mockRpc.mockResolvedValue({ data: returned, error: null });
 
       await createPet({
         name: "Max",
         user_id: "someone-else-id",
+        id: "client-id",
       } as never);
 
-      expect(insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: "correct-owner",
-        })
-      );
+      const fields = mockRpc.mock.calls[0][1].p_fields as Record<string, unknown>;
+      expect(fields).toEqual(expect.objectContaining({ name: "Max" }));
+      expect(fields).not.toHaveProperty("user_id");
+      expect(fields).not.toHaveProperty("id");
     });
 
-    it("propagates Supabase insert error", async () => {
+    it("propagates RPC error", async () => {
       mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } });
-      const err = new Error('new row violates row-level security policy for table "pets"');
-      mockPetsInsertChain({ data: null, error: err });
-      await expect(createPet({ name: "X" } as never)).rejects.toThrow(err.message);
+      const err = { message: 'new row violates row-level security policy for table "pets"' };
+      mockRpc.mockResolvedValue({ data: null, error: err });
+      await expect(createPet({ name: "X" } as never)).rejects.toEqual(err);
+    });
+
+    it("throws when RPC returns no row", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+      mockRpc.mockResolvedValue({ data: null, error: null });
+      await expect(createPet({ name: "X" } as never)).rejects.toThrow(
+        "No data returned from insert_pet_for_current_user"
+      );
     });
   });
 

@@ -1,4 +1,4 @@
-import { TablesInsert, TablesUpdate } from "@/database.types";
+import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export const getPets = async () => {
@@ -22,23 +22,41 @@ export const getPets = async () => {
 };
 
 export const createPet = async (petData: TablesInsert<"pets">) => {
+  // Align the REST client's JWT with storage (same identity PostgREST sends to Postgres).
+  await supabase.auth.refreshSession();
+
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
+  if (userError) throw userError;
   if (!user) {
     throw new Error("User must be authenticated to create a pet");
   }
 
-  const { data, error } = await supabase
-    .from("pets")
-    .insert({ ...petData, user_id: user.id })
-    .select()
-    .single();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) {
+    throw new Error("Session expired — sign in again to create a pet");
+  }
+
+  const { user_id: _stale, id: _clientId, ...insertFields } = petData as TablesInsert<"pets"> &
+    Record<string, unknown>;
+
+  const { data, error } = await supabase.rpc("insert_pet_for_current_user", {
+    p_fields: insertFields as Record<string, unknown>,
+  });
 
   if (error) throw error;
+  if (!data) {
+    throw new Error("No data returned from insert_pet_for_current_user");
+  }
 
-  return data;
+  return data as Tables<"pets">;
 };
 
 export const updatePet = async (
