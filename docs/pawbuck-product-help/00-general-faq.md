@@ -36,7 +36,7 @@ Yes. You can upload documents, add notes, update details, or add photos anytime 
 
 ## How do I share my pet's records?
 
-Use **Download Pet Passport** (or equivalent export in the pet profile / health area) to create a shareable summary you can send to vets, boarders, or caregivers. Exact menu labels may vary slightly by app version.
+Use **Download Pet Passport** (or equivalent export in the pet profile / health area) to create a shareable summary you can send to vets, boarders, or caregivers. From the **Health Records** hub you can also tap **Share with vet** to use your device's share sheet with suggested text. Exact menu labels may vary slightly by app version.
 
 ## What if I don't have all my pet's past records?
 
@@ -44,7 +44,7 @@ Start fresh and forward documents from now on. You can request past records from
 
 ## How much does PawBuck cost?
 
-Core health record features described in the app store listing apply; optional premium features may exist—check **Settings** and in-app subscription messaging for current pricing.
+Core health record features described in the app store listing apply; optional premium features may exist—check the store listing, in-app upgrade prompts, and **Profile** for current pricing and entitlements.
 
 ## How do I get started?
 
@@ -52,7 +52,7 @@ Download the PawBuck app, create your account, and complete onboarding to set up
 
 ## Do I need my pet's microchip number?
 
-Not required, but recommended. A microchip helps uniquely identify your pet if they are lost and can match documents to the right pet.
+Not required, but recommended. A microchip helps uniquely identify your pet if they are lost and can match documents to the right pet. You can record it under **Health Records** hub → **Documents & ID** → **Microchip** when you have edit access.
 
 ## Can I manage multiple pets?
 

@@ -80,7 +80,7 @@ function StatCard(props: {
 }
 
 /**
- * Pawthon landing: weekly challenge hero, 3 stat tiles, Start Walk (Figma walker hub).
+ * Pawthon landing: weekly challenge hero, 3 stat tiles, Start a Walk (Figma walker hub).
  */
 export function PawthonHubContent({
   petName,
@@ -297,7 +297,7 @@ export function PawthonHubContent({
           >
             <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
           </View>
-          <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF" }}>Start Walk</Text>
+          <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF" }}>Start a Walk</Text>
         </LinearGradient>
       </Pressable>
     </View>

@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TOTAL_STEPS = 9;
 const CURRENT_STEP = 8;
+const WEIGHT_INPUT_ACCESSORY_ID = "onboardingWeightAccessory";
 
 type WeightUnit = "pounds" | "kilograms";
 
@@ -33,6 +35,7 @@ export default function OnboardingStep8() {
 
   const [weight, setWeight] = useState("");
   const [unit, setUnit] = useState<WeightUnit>("pounds");
+  const [weightFieldFocused, setWeightFieldFocused] = useState(false);
 
   const petName = petData?.name || "your pet";
   const progressPercent = (CURRENT_STEP / TOTAL_STEPS) * 100;
@@ -45,6 +48,7 @@ export default function OnboardingStep8() {
 
   const handleContinue = () => {
     if (isValid) {
+      Keyboard.dismiss();
       updatePetData({
         weight_value: parseFloat(weight),
         weight_unit: unit,
@@ -53,16 +57,50 @@ export default function OnboardingStep8() {
     }
   };
 
+  const handleSkipWeight = () => {
+    Keyboard.dismiss();
+    router.push("/onboarding/step9");
+  };
+
+  const showFooterCta = !weightFieldFocused;
+
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: theme.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      {Platform.OS === "ios" ? (
+        <InputAccessoryView nativeID={WEIGHT_INPUT_ACCESSORY_ID}>
+          <View
+            style={[
+              styles.accessoryBar,
+              {
+                borderTopColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+                backgroundColor: isDark ? "#1a2222" : "#f2f6f6",
+              },
+            ]}
+          >
+            <Pressable onPress={() => Keyboard.dismiss()} hitSlop={12}>
+              <Text style={{ fontSize: 16, fontWeight: "600", color: accentColor }}>Done</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (isValid) handleContinue();
+              }}
+              disabled={!isValid}
+              style={{ opacity: isValid ? 1 : 0.45 }}
+              hitSlop={12}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Continue</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
+
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.root}>
           <StatusBar style={isDark ? "light" : "dark"} />
 
-          {/* Header: back arrow + progress bar */}
           <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
             <Pressable
               onPress={() => router.back()}
@@ -78,13 +116,13 @@ export default function OnboardingStep8() {
             </View>
           </View>
 
-          {/* Heading + Subtitle (fixed above ScrollView) */}
           <View style={styles.headingWrap}>
             <Text style={[styles.heading, { color: theme.foreground }]}>
-              {petName}'s Current Weight?
+              {petName}
+              {"'"}s current weight?
             </Text>
             <Text style={[styles.subtitle, { color: mutedText }]}>
-              Helps track health changes
+              Helps track health changes. You can update this anytime in your pet's profile.
             </Text>
           </View>
 
@@ -109,7 +147,6 @@ export default function OnboardingStep8() {
                 },
               ]}
             >
-              {/* Unit Toggle */}
               <View style={styles.unitToggleWrap}>
                 <View
                   style={[
@@ -122,10 +159,7 @@ export default function OnboardingStep8() {
                 >
                   <Pressable
                     onPress={() => setUnit("pounds")}
-                    style={[
-                      styles.unitBtn,
-                      unit === "pounds" && { backgroundColor: accentColor },
-                    ]}
+                    style={[styles.unitBtn, unit === "pounds" && { backgroundColor: accentColor }]}
                   >
                     <Text
                       style={[
@@ -139,10 +173,7 @@ export default function OnboardingStep8() {
 
                   <Pressable
                     onPress={() => setUnit("kilograms")}
-                    style={[
-                      styles.unitBtn,
-                      unit === "kilograms" && { backgroundColor: accentColor },
-                    ]}
+                    style={[styles.unitBtn, unit === "kilograms" && { backgroundColor: accentColor }]}
                   >
                     <Text
                       style={[
@@ -156,12 +187,8 @@ export default function OnboardingStep8() {
                 </View>
               </View>
 
-              {/* Weight Label */}
-              <Text style={[styles.label, { color: theme.foreground }]}>
-                Weight in {unit}
-              </Text>
+              <Text style={[styles.label, { color: theme.foreground }]}>Weight in {unit}</Text>
 
-              {/* Weight Input */}
               <TextInput
                 style={[
                   styles.input,
@@ -177,21 +204,40 @@ export default function OnboardingStep8() {
                 onChangeText={setWeight}
                 keyboardType="decimal-pad"
                 returnKeyType="done"
-                onSubmitEditing={handleContinue}
+                inputAccessoryViewID={
+                  Platform.OS === "ios" ? WEIGHT_INPUT_ACCESSORY_ID : undefined
+                }
+                onFocus={() => setWeightFieldFocused(true)}
+                onBlur={() => setWeightFieldFocused(false)}
               />
 
-              {/* CTA */}
-              <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
-                <CTA
-                  label="Continue"
-                  size="LG"
-                  style="Solid"
-                  state={isValid ? "Default" : "Disable"}
-                  onPress={handleContinue}
-                  disabled={!isValid}
-                  containerStyle={styles.continueBtn}
-                />
-              </View>
+              {weightFieldFocused && Platform.OS === "android" ? (
+                <Pressable
+                  onPress={() => Keyboard.dismiss()}
+                  style={{ alignSelf: "flex-end", marginTop: 8, paddingVertical: 8 }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: accentColor }}>Done</Text>
+                </Pressable>
+              ) : null}
+
+              {showFooterCta ? (
+                <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
+                  <CTA
+                    label="Continue"
+                    size="LG"
+                    style="Solid"
+                    state={isValid ? "Default" : "Disable"}
+                    onPress={handleContinue}
+                    disabled={!isValid}
+                    containerStyle={styles.continueBtn}
+                  />
+                  <Pressable onPress={handleSkipWeight} style={{ marginTop: 12, paddingVertical: 12 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: mutedText, textAlign: "center" }}>
+                      Skip for now
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           </ScrollView>
         </View>
@@ -201,8 +247,14 @@ export default function OnboardingStep8() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
+  root: { flex: 1 },
+  accessoryBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   header: {
     flexDirection: "row",
@@ -218,81 +270,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  progressBarWrap: {
-    flex: 1,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingTop: 0,
-    paddingBottom: 0,
-    flexGrow: 1,
-  },
-  headingWrap: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  card: {
-    flex: 1,
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  unitToggleWrap: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  unitToggle: {
-    flexDirection: "row",
-    borderRadius: 100,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  unitBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 100,
-  },
-  unitBtnText: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 10,
-  },
-  input: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    borderWidth: 1,
-  },
-  ctaWrap: {
-    marginTop: "auto",
-    paddingTop: 16,
-  },
-  continueBtn: {
-    width: "100%",
-    alignSelf: "stretch",
-  },
+  progressBarWrap: { flex: 1 },
+  progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingTop: 0, paddingBottom: 0, flexGrow: 1 },
+  headingWrap: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
+  card: { flex: 1 },
+  heading: { fontSize: 28, fontWeight: "700", marginBottom: 8 },
+  subtitle: { fontSize: 15, lineHeight: 22, marginBottom: 32 },
+  unitToggleWrap: { alignItems: "center", marginBottom: 24 },
+  unitToggle: { flexDirection: "row", borderRadius: 100, borderWidth: 1, overflow: "hidden" },
+  unitBtn: { paddingVertical: 12, paddingHorizontal: 28, borderRadius: 100 },
+  unitBtnText: { fontSize: 15, fontWeight: "600" },
+  label: { fontSize: 15, fontWeight: "600", marginBottom: 10 },
+  input: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, fontSize: 15, borderWidth: 1 },
+  ctaWrap: { marginTop: "auto", paddingTop: 16 },
+  continueBtn: { width: "100%", alignSelf: "stretch" },
 });

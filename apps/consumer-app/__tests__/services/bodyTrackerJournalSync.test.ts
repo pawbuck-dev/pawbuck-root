@@ -15,7 +15,7 @@ describe("bodyTrackerJournalSync note formatting", () => {
       },
       ""
     );
-    expect(note).toContain("stool observation");
+    expect(note).toContain("Bathroom check — stool");
     expect(note).toContain("2/6");
     expect(note).toContain("Mucus");
     expect(note).toContain("Notes: Loose.");
@@ -48,7 +48,7 @@ describe("bodyTrackerJournalSync note formatting", () => {
       },
       ""
     );
-    expect(note).toContain("urine observation");
+    expect(note).toContain("Bathroom check");
     expect(note).toContain("3/6");
     expect(note).toContain("Unusual color");
     expect(note).toContain("Photo: none");

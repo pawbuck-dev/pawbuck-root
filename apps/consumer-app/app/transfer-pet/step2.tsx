@@ -31,7 +31,8 @@ import {
   View,
 } from "react-native";
 
-function approximateAgeLabel(dob: string): string {
+function approximateAgeLabel(dob: string | null): string {
+  if (!dob) return "";
   const birth = new Date(`${dob}T12:00:00Z`);
   if (Number.isNaN(birth.getTime())) return "";
   const diff = Date.now() - birth.getTime();

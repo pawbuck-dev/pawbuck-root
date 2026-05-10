@@ -1,4 +1,5 @@
 import DocumentCard from "@/components/health/DocumentCard";
+import FinancialInvoicesSection from "@/components/health/FinancialInvoicesSection";
 import { dashboardCareTeamCardChrome } from "@/constants/figmaHealthLayout";
 import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -9,7 +10,7 @@ import { formatMicrochipDisplay } from "@/utils/microchipDisplay";
 import { pickImageFromLibrary } from "@/utils/imagePicker";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,44 +27,12 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-/** Placeholder until `pets` / insurance table supports these fields — replace with API data. */
-const INSURANCE_DEMO = {
-  policyNumber: "PP-2024-8821",
-  provider: "PetPlan Gold",
-  coverage: "$15,000/yr",
-  deductible: "$250",
-  expiresDisplay: "May 15, 2026",
-  monthlyPremium: "$48.50",
-  /** Header subtitle: plan · renewal month */
-  headerSubtitle: "PetPlan Gold · May 2026",
-  documentTitle: "PetPlan Gold Policy",
-};
-
-/** Placeholder until pedigree columns exist — `breed` comes from `pet` when set. */
-const PEDIGREE_DEMO = {
-  registry: "AKC",
-  regNumber: "DN-78432109",
-  breedFallback: "Golden Retriever",
-  documentTitle: "AKC Registration",
-  documentDate: "Jun 10, 2024",
-};
-
-/** Placeholder until certificates are stored — replace with API data. */
-const CERTIFICATES_DEMO = {
-  spayNeuter: "Aug 3, 2025 · Dr. Johnson",
-  cgcCertNumber: "CGC-2026-11290",
-  documents: [
-    { title: "Spay/Neuter Certificate", date: "Aug 3, 2025" },
-    { title: "Canine Good Citizen", date: "Feb 20, 2026", subtitle: "AKC Certification" },
-  ],
-};
-
 type Props = {
   pet: Pet | undefined;
 };
 
 /**
- * Health Records hub — Documents & ID (microchip + insurance in one card), Legal & Registration (pedigree, certificates, travel).
+ * Health Records hub — Documents & ID (microchip + insurance in one card), Legal & Registration (pedigree, certificates, travel), Financial (invoices via FinancialInvoicesSection).
  */
 export default function DocumentsAndIdSection({ pet }: Props) {
   const { theme, mode } = useTheme();
@@ -71,6 +40,30 @@ export default function DocumentsAndIdSection({ pet }: Props) {
   const queryClient = useQueryClient();
   const { data: vaultDocs = [], isLoading: loadingVault } = usePetDocuments(pet?.id);
   const { uploadAndAnalyze, status: miloUploadStatus } = useMiloUpload();
+
+  const insuranceDocs = useMemo(
+    () => vaultDocs.filter((d) => d.document_type === "insurance_policy"),
+    [vaultDocs]
+  );
+  const pedigreeDocs = useMemo(
+    () => vaultDocs.filter((d) => d.document_type === "pedigree"),
+    [vaultDocs]
+  );
+  const travelDocs = useMemo(
+    () => vaultDocs.filter((d) => d.document_type === "travel_certificate"),
+    [vaultDocs]
+  );
+  /** Vault rows shown at top (subsections list insurance / pedigree / travel separately). */
+  const otherVaultDocs = useMemo(
+    () =>
+      vaultDocs.filter(
+        (d) =>
+          !["insurance_policy", "pedigree", "travel_certificate", "billing_invoice"].includes(
+            d.document_type
+          )
+      ),
+    [vaultDocs]
+  );
 
   const handleAddDocument = () => {
     if (!pet?.id) {
@@ -117,8 +110,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
   const [insuranceExpanded, setInsuranceExpanded] = useState(false);
   const [pedigreeExpanded, setPedigreeExpanded] = useState(false);
   const [certificatesExpanded, setCertificatesExpanded] = useState(false);
-
-  const warnOrange = isDark ? "#FB923C" : "#EA580C";
+  const [travelExpanded, setTravelExpanded] = useState(false);
 
   const microchip = pet?.microchip_number?.trim();
   const registered = !!microchip;
@@ -143,8 +135,13 @@ export default function DocumentsAndIdSection({ pet }: Props) {
     setCertificatesExpanded((e) => !e);
   };
 
-  const breedDisplay = pet?.breed?.trim() || PEDIGREE_DEMO.breedFallback;
-  const pedigreeRegistered = !!(PEDIGREE_DEMO.registry && PEDIGREE_DEMO.regNumber);
+  const toggleTravel = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setTravelExpanded((e) => !e);
+  };
+
+  const breedDisplay = pet?.breed?.trim() || "—";
+  const pedigreeRegistered = pedigreeDocs.length > 0;
 
   const surface = {
     ...dashboardCareTeamCardChrome(isDark),
@@ -200,7 +197,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             </Text>
           </View>
         ) : null}
-        {vaultDocs.length > 0 ? (
+        {otherVaultDocs.length > 0 ? (
           <View style={{ marginBottom: 16 }}>
             <Text
               style={{
@@ -212,7 +209,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             >
               Saved documents
             </Text>
-            {vaultDocs.map((d) => (
+            {otherVaultDocs.map((d) => (
               <DocumentCard key={d.id} row={d} />
             ))}
           </View>
@@ -335,12 +332,27 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Insurance</Text>
               <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
-                {INSURANCE_DEMO.headerSubtitle}
+                {insuranceDocs.length > 0
+                  ? `${insuranceDocs.length} polic${insuranceDocs.length === 1 ? "y" : "ies"} on file`
+                  : "No policy on file"}
               </Text>
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: warnOrange }}>Expiring Soon</Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color:
+                  insuranceDocs.length > 0
+                    ? isDark
+                      ? "#4ADE80"
+                      : "#15803D"
+                    : theme.secondary,
+              }}
+            >
+              {insuranceDocs.length > 0 ? "On file" : "None"}
+            </Text>
             <Ionicons
               name={insuranceExpanded ? "chevron-up" : "chevron-down"}
               size={22}
@@ -351,58 +363,13 @@ export default function DocumentsAndIdSection({ pet }: Props) {
 
         {insuranceExpanded ? (
           <View style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>POLICY #</Text>
-                <Text style={valueStyle}>{INSURANCE_DEMO.policyNumber}</Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>PROVIDER</Text>
-                <Text style={valueStyle}>{INSURANCE_DEMO.provider}</Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>COVERAGE</Text>
-                <Text style={valueStyle}>{INSURANCE_DEMO.coverage}</Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>DEDUCTIBLE</Text>
-                <Text style={valueStyle}>{INSURANCE_DEMO.deductible}</Text>
-              </View>
-              <View
-                style={[
-                  fieldBox,
-                  {
-                    borderWidth: 1,
-                    borderColor: warnOrange,
-                    backgroundColor: isDark ? "rgba(251,146,60,0.08)" : "rgba(234,88,12,0.06)",
-                  },
-                ]}
-              >
-                <Text style={labelStyle}>EXPIRES</Text>
-                <Text style={[valueStyle, { color: warnOrange }]}>{INSURANCE_DEMO.expiresDisplay}</Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>MONTHLY PREMIUM</Text>
-                <Text style={valueStyle}>{INSURANCE_DEMO.monthlyPremium}</Text>
-              </View>
-            </View>
-
-            <View style={[innerWell, { marginTop: 12 }]}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Ionicons name="document-text-outline" size={22} color={theme.secondary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
-                    {INSURANCE_DEMO.documentTitle}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 4 }}>
-                    Expires {INSURANCE_DEMO.expiresDisplay}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
-                    Policy #{INSURANCE_DEMO.policyNumber}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            {insuranceDocs.length > 0 ? (
+              insuranceDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+            ) : (
+              <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
+                Upload an insurance policy document. Milo will extract details and save it here.
+              </Text>
+            )}
 
             <TouchableOpacity
               onPress={handleAddDocument}
@@ -450,6 +417,11 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Pedigree</Text>
+              <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
+                {pedigreeDocs.length > 0
+                  ? `${pedigreeDocs.length} registration document${pedigreeDocs.length === 1 ? "" : "s"} on file`
+                  : "No pedigree document on file"}
+              </Text>
             </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -460,7 +432,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
                 color: pedigreeRegistered ? (isDark ? "#4ADE80" : "#15803D") : theme.secondary,
               }}
             >
-              {pedigreeRegistered ? "Registered" : "Not registered"}
+              {pedigreeRegistered ? "On file" : "None"}
             </Text>
             <Ionicons
               name={pedigreeExpanded ? "chevron-up" : "chevron-down"}
@@ -473,36 +445,27 @@ export default function DocumentsAndIdSection({ pet }: Props) {
         {pedigreeExpanded ? (
           <View style={{ marginTop: 14 }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>REGISTRY</Text>
-                <Text style={valueStyle}>{PEDIGREE_DEMO.registry}</Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>REG #</Text>
-                <Text style={valueStyle}>{PEDIGREE_DEMO.regNumber}</Text>
-              </View>
               <View style={[fieldBox, { width: "100%" }]}>
                 <Text style={labelStyle}>BREED</Text>
                 <Text style={valueStyle}>{breedDisplay}</Text>
               </View>
             </View>
 
-            <View style={[innerWell, { marginTop: 12 }]}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Ionicons name="document-text-outline" size={22} color={theme.secondary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
-                    {PEDIGREE_DEMO.documentTitle}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 4 }}>
-                    {PEDIGREE_DEMO.documentDate}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
-                    Reg #{PEDIGREE_DEMO.regNumber} · {breedDisplay}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            {pedigreeDocs.length > 0 ? (
+              pedigreeDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+            ) : (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: theme.secondary,
+                  lineHeight: 20,
+                  marginTop: 12,
+                }}
+              >
+                No pedigree document on file. Upload a registration or pedigree PDF or photo and Milo will save
+                it here.
+              </Text>
+            )}
 
             <TouchableOpacity
               onPress={handleAddDocument}
@@ -543,7 +506,15 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Certificates</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: "600", color: isDark ? "#4ADE80" : "#15803D" }}>Current</Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: theme.secondary,
+              }}
+            >
+              None
+            </Text>
             <Ionicons
               name={certificatesExpanded ? "chevron-up" : "chevron-down"}
               size={22}
@@ -554,41 +525,10 @@ export default function DocumentsAndIdSection({ pet }: Props) {
 
         {certificatesExpanded ? (
           <View style={{ marginTop: 14 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>SPAY/NEUTER</Text>
-                <Text style={valueStyle} numberOfLines={3}>
-                  {CERTIFICATES_DEMO.spayNeuter}
-                </Text>
-              </View>
-              <View style={fieldBox}>
-                <Text style={labelStyle}>CGC CERT #</Text>
-                <Text style={valueStyle}>{CERTIFICATES_DEMO.cgcCertNumber}</Text>
-              </View>
-            </View>
-
-            {CERTIFICATES_DEMO.documents.map((doc, index) => (
-              <View
-                key={`${doc.title}-${index}`}
-                style={[
-                  innerWell,
-                  {
-                    marginTop: index === 0 ? 12 : 8,
-                  },
-                ]}
-              >
-                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-                  <Ionicons name="document-text-outline" size={22} color={theme.secondary} style={{ marginTop: 2 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>{doc.title}</Text>
-                    <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 4 }}>{doc.date}</Text>
-                    {doc.subtitle ? (
-                      <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 4 }}>{doc.subtitle}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              </View>
-            ))}
+            <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
+              Upload certificates or other records with + Add document. Classified files appear under Saved
+              documents above.
+            </Text>
 
             <TouchableOpacity
               onPress={handleAddDocument}
@@ -610,7 +550,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
 
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleAddDocument}
+          onPress={toggleTravel}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
@@ -626,14 +566,55 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             >
               <Ionicons name="airplane-outline" size={22} color={isDark ? "#2DD4BF" : "#0D9488"} />
             </View>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Travel Docs</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Travel Docs</Text>
+              <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
+                {travelDocs.length > 0
+                  ? `${travelDocs.length} travel document${travelDocs.length === 1 ? "" : "s"} on file`
+                  : "No travel certificate on file"}
+              </Text>
+            </View>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ fontSize: 12, fontWeight: "600", color: warnOrange }}>Expiring</Text>
-            <Ionicons name="chevron-forward" size={22} color={theme.secondary} />
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "700",
+                color:
+                  travelDocs.length > 0 ? (isDark ? "#4ADE80" : "#15803D") : theme.secondary,
+              }}
+            >
+              {travelDocs.length > 0 ? "On file" : "None"}
+            </Text>
+            <Ionicons
+              name={travelExpanded ? "chevron-up" : "chevron-down"}
+              size={22}
+              color={theme.secondary}
+            />
           </View>
         </TouchableOpacity>
+
+        {travelExpanded ? (
+          <View style={{ marginTop: 14 }}>
+            {travelDocs.length > 0 ? (
+              travelDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+            ) : (
+              <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
+                Upload a travel certificate when you have one. Milo will classify and store it here.
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={handleAddDocument}
+              activeOpacity={0.85}
+              style={{ marginTop: 12, alignSelf: "flex-start" }}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primary }}>+ Add document</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
+
+      <FinancialInvoicesSection pet={pet} />
     </View>
   );
 }

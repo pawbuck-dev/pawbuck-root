@@ -2,12 +2,14 @@ namespace PawBuck.API.Services;
 
 public interface IMiloJournalTurnService
 {
-    /// <summary>Records a journal assistant turn; returns id for client feedback.</summary>
+    /// <summary>Records an assistant turn (journal or general); returns id for client feedback.</summary>
+    /// <param name="chatKind"><c>journal</c> or <c>general</c>.</param>
     Task<Guid> RegisterTurnAsync(
         Guid userId,
-        Guid petId,
+        Guid? petId,
         string promptVersion,
         IReadOnlyList<string> heuristicTags,
+        string chatKind,
         CancellationToken cancellationToken = default);
 
     Task<bool> TrySubmitFeedbackAsync(

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useState } from "react";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import {
   getProfileHeroTokens,
@@ -22,6 +22,12 @@ import {
 type ProfileHeroCardProps = {
   profile: UserProfile;
   displayName: string;
+  /** When true, hide the “Locked” chip next to the name (e.g. Sign in with Apple name not yet captured). */
+  hideNameLockedBadge?: boolean;
+  /** Primary email line (may be a privacy label for Apple relay). */
+  emailDisplayPrimary: string;
+  /** Full relay address shown only after “Show details”. */
+  emailRelayRaw?: string | null;
   rawAvatar?: string;
   showAvatarPhoto: boolean;
   onAvatarError: () => void;
@@ -62,6 +68,9 @@ function FrostLine({
 export function ProfileHeroCard({
   profile,
   displayName,
+  hideNameLockedBadge = false,
+  emailDisplayPrimary,
+  emailRelayRaw,
   rawAvatar,
   showAvatarPhoto,
   onAvatarError,
@@ -71,6 +80,7 @@ export function ProfileHeroCard({
   const isDarkMode = mode === "dark";
   const t = getProfileScreenTokens(theme, isDarkMode);
   const hero = getProfileHeroTokens(theme, isDarkMode);
+  const [emailDetailsOpen, setEmailDetailsOpen] = useState(false);
 
   const valueColor = t.profileListTitleColor;
 
@@ -99,21 +109,58 @@ export function ProfileHeroCard({
             {displayName}
           </Text>
         </View>
-        <View
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 100,
-            backgroundColor: hero.lockedBadgeBg,
-            borderWidth: isDarkMode ? 0 : 1,
-            borderColor: isDarkMode ? "transparent" : t.cardBorder,
-            marginTop: 2,
-          }}
-        >
-          <Text style={{ fontSize: 11, fontWeight: "600", color: hero.lockedBadgeText }}>Locked</Text>
-        </View>
+        {!hideNameLockedBadge ? (
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 100,
+              backgroundColor: hero.lockedBadgeBg,
+              borderWidth: isDarkMode ? 0 : 1,
+              borderColor: isDarkMode ? "transparent" : t.cardBorder,
+              marginTop: 2,
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: "600", color: hero.lockedBadgeText }}>Locked</Text>
+          </View>
+        ) : null}
       </View>
-      <FrostLine label="Email" value={profile.email} muted={t.muted} valueColor={valueColor} />
+      <View style={{ marginBottom: PROFILE_HERO_SECTION_GAP }}>
+        <Text style={{ fontSize: 12, color: t.muted }}>Email</Text>
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: "600",
+            color: valueColor,
+            marginTop: PROFILE_HERO_NAME_LABEL_GAP,
+          }}
+          numberOfLines={3}
+        >
+          {emailDisplayPrimary}
+        </Text>
+        {emailRelayRaw ? (
+          <>
+            <TouchableOpacity onPress={() => setEmailDetailsOpen((o) => !o)} style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>
+                {emailDetailsOpen ? "Hide details" : "Show details"}
+              </Text>
+            </TouchableOpacity>
+            {emailDetailsOpen ? (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: t.muted,
+                  marginTop: 6,
+                  fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+                }}
+                selectable
+              >
+                {emailRelayRaw}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
+      </View>
       <FrostLine label="Phone" value={profile.phone || "Not set"} muted={t.muted} valueColor={valueColor} />
       <FrostLine
         label="Address"

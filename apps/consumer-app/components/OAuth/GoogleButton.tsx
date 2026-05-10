@@ -1,3 +1,7 @@
+import {
+  extractGoogleDisplayName,
+  persistOwnerDisplayNameForSession,
+} from "@/services/authDisplayName";
 import { supabase } from "@/utils/supabase";
 import {
   GoogleSignin,
@@ -34,25 +38,33 @@ const GoogleButton = ({ onSuccess }: GoogleButtonProps) => {
         showPlayServicesUpdateDialog: true,
       });
 
-      // Get user info and tokens from Google
-      const userInfo = await GoogleSignin.signIn();
-
-      if (!userInfo.data?.idToken) {
+      const signInResult = await GoogleSignin.signIn();
+      if (signInResult.type !== "success") {
+        return;
+      }
+      const googlePayload = signInResult.data;
+      if (!googlePayload.idToken) {
         throw new Error("No ID token returned from Google Sign-In");
       }
 
       // Sign in to Supabase with Google ID token
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
-        token: userInfo.data.idToken,
+        token: googlePayload.idToken,
       });
 
       if (error) {
         throw error;
       }
 
-      // Call onSuccess callback to navigate to home
-      await onSuccess(data.user);
+      const googleDisplay = extractGoogleDisplayName(googlePayload.user);
+      if (googleDisplay) {
+        await persistOwnerDisplayNameForSession(googleDisplay);
+      }
+      const {
+        data: { user: freshUser },
+      } = await supabase.auth.getUser();
+      await onSuccess(freshUser ?? data.user);
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         console.error("User cancelled the login flow");

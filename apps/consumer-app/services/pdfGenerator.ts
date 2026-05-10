@@ -17,7 +17,8 @@ interface DocumentInfo {
 }
 
 // Calculate age from date of birth
-const calculateAge = (dateOfBirth: string): number => {
+const calculateAgeYears = (dateOfBirth: string | null): number | null => {
+  if (!dateOfBirth) return null;
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -63,7 +64,12 @@ const generatePDFHTML = (
   petPhotoUrl: string | null,
   documents: DocumentInfo[] = []
 ): string => {
-  const age = calculateAge(pet.date_of_birth);
+  const ageYears = calculateAgeYears(pet.date_of_birth);
+  const ageDisplay = ageYears == null ? "Not set" : `${ageYears} years`;
+  const weightDisplay =
+    pet.weight_value != null && pet.weight_unit != null
+      ? `${pet.weight_value} ${pet.weight_unit}`
+      : "Not set";
   const groupedVaccinations = groupVaccinationsByClinic(vaccinations);
 
   // Vaccination status section
@@ -586,7 +592,7 @@ const generatePDFHTML = (
                 </div>
                 <div class="pet-info-item">
                   <div class="pet-label">AGE</div>
-                  <div class="value">${age} years</div>
+                  <div class="value">${ageDisplay}</div>
                 </div>
                 <div class="pet-info-item">
                   <div class="pet-label">SEX</div>
@@ -594,7 +600,7 @@ const generatePDFHTML = (
                 </div>
                 <div class="pet-info-item">
                   <div class="pet-label">WEIGHT</div>
-                  <div class="value">${pet.weight_value} ${pet.weight_unit}</div>
+                  <div class="value">${weightDisplay}</div>
                 </div>
               </div>
               

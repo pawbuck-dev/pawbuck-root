@@ -93,6 +93,14 @@ describe("extractPetLogEntry", () => {
     expect(e.vet_flag).toBe(true);
     expect(e.severity).toBe("medium");
   });
+
+  it("uses the same milo idempotency key when owner triage text matches but stored note differs", () => {
+    const owner = "vomiting 2x and diarrhea 5x";
+    const a = extractPetLogEntry("5 episodes of diarrhea and 2 episodes of vomiting.", "p1", "u1", "health", undefined, owner);
+    const b = extractPetLogEntry("Vomiting 2x and diarrhea 5x.", "p1", "u1", "health", undefined, owner);
+    expect(a.milo_idempotency_key).toBe(b.milo_idempotency_key);
+    expect(a.subtype).toBe("symptom");
+  });
 });
 
 describe("noteHasClinicalTriagePrefix", () => {

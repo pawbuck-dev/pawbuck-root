@@ -6,7 +6,9 @@ import { useEffect } from "react";
 import { AppState, AppStateStatus } from "react-native";
 
 function invalidateMessageThreads(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+  queueMicrotask(() => {
+    queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+  });
 }
 
 /**
@@ -53,8 +55,10 @@ export function useMessageThreadsRealtime() {
       "change",
       (nextState: AppStateStatus) => {
         if (nextState === "active") {
-          invalidateMessageThreads(queryClient);
-          refreshPendingApprovals();
+          queueMicrotask(() => {
+            queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+            void refreshPendingApprovals();
+          });
         }
       }
     );

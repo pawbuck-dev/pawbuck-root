@@ -1,5 +1,7 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
 import DailyGoalWalkCard from "@/components/home/DailyGoalWalkCard";
+import MiloHomeLeadCard from "@/components/home/MiloHomeLeadCard";
+import PetEmailMoatCard from "@/components/home/PetEmailMoatCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
@@ -9,13 +11,13 @@ import {
 import CatchUpSection from "@/components/home/CatchUpSection";
 import BodyTrackerSection from "@/components/home/BodyTrackerSection";
 import HomeHeader from "@/components/home/HomeHeader";
-import PremiumUpsellCard from "@/components/subscription/PremiumUpsellCard";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useAuth } from "@/context/authContext";
+import { useChat } from "@/context/chatContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -62,6 +64,11 @@ import {
   GestureDetector,
 } from "react-native-gesture-handler";
 
+/** Weekly challenge card (rank line only when cohort ≥ WEEKLY_CHALLENGE_RANK_COPY_MIN_COHORT). */
+const SHOW_WEEKLY_CHALLENGE_ON_HOME = true;
+/** Re-enable vet booking CTA on home when ready */
+const SHOW_VET_BOOKING_ON_HOME = false;
+
 export default function Home() {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
@@ -77,6 +84,7 @@ export default function Home() {
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
   const { ensurePremium } = useSubscription();
+  const { openChat } = useChat();
   const queryClient = useQueryClient();
 
   const [emailCopied, setEmailCopied] = useState(false);
@@ -127,13 +135,13 @@ export default function Home() {
   const { data: pawthonStats } = useQuery({
     queryKey: ["pawthon", selectedPetId],
     queryFn: () => fetchPawthonDashboardStats(selectedPetId!),
-    enabled: !!selectedPetId,
+    enabled: SHOW_WEEKLY_CHALLENGE_ON_HOME && !!selectedPetId,
   });
 
   const { data: weeklyWalkerRank } = useQuery({
     queryKey: ["pawthon", "weeklyWalkerRank"],
     queryFn: fetchMyWeeklyWalkerRank,
-    enabled: !!user,
+    enabled: SHOW_WEEKLY_CHALLENGE_ON_HOME && !!user,
   });
 
   const createCareTeamMemberMutation = useMutation({
@@ -227,9 +235,13 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
-      queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
-      queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
-      queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] }),
+      ...(SHOW_WEEKLY_CHALLENGE_ON_HOME
+        ? [
+            queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
+            queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
+            queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] }),
+          ]
+        : []),
       refreshPendingApprovals(),
     ]);
     setRefreshing(false);
@@ -292,9 +304,11 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
-        queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
-        queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
-        queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
+        if (SHOW_WEEKLY_CHALLENGE_ON_HOME) {
+          queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
+          queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
+          queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
+        }
       }
       refreshPendingApprovals();
     }, [selectedPetId, queryClient, refreshPendingApprovals])
@@ -422,22 +436,16 @@ export default function Home() {
 
           {selectedPet && (
             <View style={{ marginBottom: 20 }}>
-              <PetImage
-                pet={selectedPet}
-                style="hero"
-                onCopyEmail={handleCopyEmail}
-                emailCopied={emailCopied}
-              />
+              <PetImage pet={selectedPet} style="hero" />
             </View>
           )}
 
-          {selectedPet && (
-            <View style={{ paddingHorizontal: 20 }}>
-              <PremiumUpsellCard />
-            </View>
-          )}
+          {/* Lead: Talk to Milo */}
+          <MiloHomeLeadCard
+            onOpenMilo={() => ensurePremium(() => openChat(), "home_milo_lead")}
+          />
 
-          {/* 2. Health Briefing */}
+          {/* Health Briefing + journal continuity */}
           {selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
               <HealthBriefingSummaryCard
@@ -457,7 +465,17 @@ export default function Home() {
             </View>
           )}
 
-          {/* 3. Pet Journal */}
+          {/* Pet email (moat) + share with vet */}
+          {selectedPet?.email_id ? (
+            <PetEmailMoatCard
+              petName={selectedPet.name}
+              emailLocalPart={selectedPet.email_id}
+              onCopy={handleCopyEmail}
+              copied={emailCopied}
+            />
+          ) : null}
+
+          {/* Pet Journal */}
           {selectedPet && (
             <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
               <TouchableOpacity
@@ -523,7 +541,7 @@ export default function Home() {
             </View>
           )}
 
-          {/* 4. Catch up */}
+          {/* Catch up */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
               <CatchUpSection
@@ -535,23 +553,24 @@ export default function Home() {
             </View>
           )}
 
-          {/* 5. Body Tracker */}
+          {/* Body Tracker */}
           {selectedPet && (
             <View style={{ marginBottom: 24 }}>
               <BodyTrackerSection petId={selectedPet.id} />
             </View>
           )}
 
-          {/* 6. Daily walking goal */}
+          {/* Daily walking goal (compact) */}
           {selectedPet && (
             <DailyGoalWalkCard
+              variant="compact"
               petName={selectedPet.name}
               onStartWalk={() => router.push("/pawthon-walk")}
             />
           )}
 
-          {/* 7. Weekly Challenge */}
-          {selectedPet && (
+          {/* Weekly Challenge */}
+          {SHOW_WEEKLY_CHALLENGE_ON_HOME && selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
               <WeeklyChallengeCard
                 petName={selectedPet.name}
@@ -566,8 +585,8 @@ export default function Home() {
             </View>
           )}
 
-          {/* Book a vet visit */}
-          {selectedPet && (
+          {/* Book a vet visit (hidden until re-enabled) */}
+          {SHOW_VET_BOOKING_ON_HOME && selectedPet && (
             <View style={{ marginBottom: 24 }}>
               <BookVetVisitSection
                 petName={selectedPet.name}

@@ -31,6 +31,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
+import "@/tasks/pawthonWalkLocationTask";
 
 SplashScreen.preventAutoHideAsync();
 

@@ -25,8 +25,24 @@ describe("formatWeeklyChallengeFigmaLine", () => {
     expect(formatWeeklyChallengeFigmaLine(null, 0)).toBe("Be the first pet parent this week 👀");
   });
 
-  it("formats ranked pet-parent copy", () => {
+  it("formats ranked pet-parent copy when cohort is large enough", () => {
     expect(formatWeeklyChallengeFigmaLine(6, 247)).toBe("#6 of 247 pet parents are ahead of you 👀");
+    expect(formatWeeklyChallengeFigmaLine(1, 100)).toBe("#1 of 100 pet parents are ahead of you 👀");
+  });
+
+  it("uses non-rank copy when cohort is small to avoid misleading #1 of 1", () => {
+    expect(formatWeeklyChallengeFigmaLine(1, 1)).toBe(
+      "1 pet parent in your area this week · keep walking — rankings unlock when your local group grows 👀"
+    );
+    expect(formatWeeklyChallengeFigmaLine(6, 50)).toBe(
+      "50 pet parents in your area this week · keep walking — rankings unlock when your local group grows 👀"
+    );
+  });
+
+  it("uses unranked copy for large cohort without rank", () => {
+    expect(formatWeeklyChallengeFigmaLine(null, 120)).toBe(
+      "120 pet parents this week · start a walk to rank 👀"
+    );
   });
 });
 

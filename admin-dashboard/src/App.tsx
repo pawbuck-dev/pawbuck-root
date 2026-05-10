@@ -8,6 +8,7 @@ import { MiloJournalPanel } from "@/components/MiloJournalPanel";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
+import { ProcessedEmailsPanel } from "@/components/ProcessedEmailsPanel";
 import { UserDirectoryTable } from "@/components/UserDirectoryTable";
 import { isSupabaseConfigured, supabase } from "@/supabaseClient";
 import type {
@@ -49,7 +50,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [banner, setBanner] = useState<string | null>(null);
-  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support" | "milo" | "gates">("overview");
+  const [tab, setTab] = useState<"overview" | "users" | "pets" | "support" | "mail" | "milo" | "gates">("overview");
 
   useEffect(() => {
     if (!supabase) {
@@ -315,6 +316,13 @@ export function App() {
         </button>
         <button
           type="button"
+          className={tab === "mail" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("mail")}
+        >
+          Mail errors
+        </button>
+        <button
+          type="button"
           className={tab === "milo" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
           onClick={() => setTab("milo")}
         >
@@ -418,6 +426,8 @@ export function App() {
           <PetHealthExplorer client={client} onOpenHealthRecords={(p) => void openPetFromExplorer(p)} />
         </section>
       ) : null}
+
+      {tab === "mail" ? <ProcessedEmailsPanel client={client} /> : null}
 
       {tab === "gates" ? <FeatureGatesPanel client={client} /> : null}
 

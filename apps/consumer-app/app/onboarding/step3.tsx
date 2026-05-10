@@ -1,11 +1,11 @@
 import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PetType = "dog" | "cat";
@@ -56,12 +56,8 @@ export default function OnboardingStep3() {
 
       {/* Heading */}
       <View style={styles.headingWrap}>
-        <Text style={[styles.heading, { color: theme.foreground }]}>
-          What Kind Of Pet?
-        </Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>
-          Select your pet type
-        </Text>
+        <Text style={[styles.heading, { color: theme.foreground }]}>What kind of pet?</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>Select your pet type</Text>
       </View>
 
       <ScrollView
@@ -99,10 +95,11 @@ export default function OnboardingStep3() {
               selectedPet !== "dog" && { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" },
             ]}
           >
-            <Image
-              source={require("@/assets/icons/dog.png")}
-              style={styles.petImage}
-              resizeMode="contain"
+            <MaterialCommunityIcons
+              name="dog"
+              size={72}
+              color={selectedPet === "dog" ? accentColor : theme.foreground}
+              style={styles.petIcon}
             />
             <Text style={[styles.cardLabel, { color: theme.foreground }]}>Dog</Text>
           </Pressable>
@@ -120,14 +117,26 @@ export default function OnboardingStep3() {
               selectedPet !== "cat" && { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" },
             ]}
           >
-            <Image
-              source={require("@/assets/icons/cat.png")}
-              style={styles.petImage}
-              resizeMode="contain"
+            <MaterialCommunityIcons
+              name="cat"
+              size={72}
+              color={selectedPet === "cat" ? accentColor : theme.foreground}
+              style={styles.petIcon}
             />
             <Text style={[styles.cardLabel, { color: theme.foreground }]}>Cat</Text>
           </Pressable>
         </View>
+
+        <Text
+          style={{
+            textAlign: "center",
+            fontSize: 13,
+            marginTop: 8,
+            color: mutedText,
+          }}
+        >
+          More pets coming soon.
+        </Text>
 
           {/* CTA */}
           <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
@@ -212,9 +221,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  petImage: {
-    width: 80,
-    height: 80,
+  petIcon: {
     marginBottom: 12,
   },
   cardLabel: {

@@ -54,6 +54,44 @@ export async function sendProcessedNotification(
 }
 
 /**
+ * Inform the owner that the document microchip differs from the profile.
+ * Non-blocking: processing may still continue when first name + breed match.
+ */
+export async function sendMicrochipMismatchNotification(
+  pet: Pet,
+  validation: PetValidationResult,
+  filename?: string
+): Promise<void> {
+  if (!validation.microchipMismatchNotify) {
+    return;
+  }
+
+  const docChip = validation.microchipDocumentValue ?? validation.extractedInfo.microchip ?? "";
+  const profileChip = validation.microchipProfileValue ?? pet.microchip_number ?? "";
+  const fileHint = filename ? ` (${filename})` : "";
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Microchip mismatch for ${pet.name}`,
+      body:
+        `The document shows a different microchip than ${pet.name}'s profile. ` +
+        `We still processed the email using name and breed verification.${fileHint}`,
+      data: {
+        type: "email_microchip_mismatch",
+        petId: pet.id,
+        petName: pet.name,
+        documentMicrochip: docChip,
+        profileMicrochip: profileChip,
+        filename: filename ?? null,
+      },
+    });
+    console.log(`Microchip mismatch notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send microchip mismatch notification:", notificationError);
+  }
+}
+
+/**
  * Send push notification when email processing fails
  */
 export async function sendFailedNotification(
@@ -146,9 +184,9 @@ export async function sendAttachmentFailureNotification(
     if (att.skippedReason === "no_pet_info") {
       reason = "No pet identification found";
     } else if (att.skippedReason === "microchip_mismatch") {
-      reason = "Microchip mismatch";
+      reason = "Microchip mismatch (legacy)";
     } else if (att.skippedReason === "attributes_mismatch") {
-      reason = "Pet details mismatch";
+      reason = "Pet first name or breed mismatch";
     } else if (att.error) {
       reason = att.error;
     } else if (att.ocrSuccess === false) {
@@ -219,9 +257,9 @@ export function formatSkipReason(
     case "no_pet_info":
       return "No pet identification info found";
     case "microchip_mismatch":
-      return "Microchip number does not match";
+      return "Microchip number does not match (legacy)";
     case "attributes_mismatch":
-      return "Pet details (name/age/breed/gender) do not match";
+      return "Pet first name or breed does not match profile";
     default:
       return "Validation failed";
   }

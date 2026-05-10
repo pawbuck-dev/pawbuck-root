@@ -2,7 +2,7 @@
 
 ## In-app messaging
 
-Open **Contact Us** from **Settings** or **Profile** help section. Send a message describing your issue, device type, and pet name if relevant. Support responds through the same thread when available.
+Open **Contact Us** from **Profile** under **Help & Support**. Send a message describing your issue, device type, and pet name if relevant. Support responds through the same thread when available.
 
 ## When to contact support vs Milo
 

@@ -16,8 +16,6 @@ export default function JoinHouseholdStep3() {
   const { inviteCode } = useLocalSearchParams<{ inviteCode: string }>();
 
   const handleContinue = () => {
-    // Navigate to home screen
-    router.dismissAll();
     router.replace("/(home)/home");
   };
 

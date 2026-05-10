@@ -6,7 +6,7 @@ From **Profile**, use **Log out** and confirm. You will need to sign in again to
 
 ## Deleting your account
 
-If the app offers **Delete account** in Settings or Profile legal sections, follow the confirmation flow. Deletion is permanent for that account's data per product policy. For questions before deleting, use **Contact Us**.
+From **Profile**, scroll to the **Danger zone** and use **Delete account**. Follow the confirmation flow; active pet transfers may be called out before you can proceed. Deletion is permanent for that account's data per product policy. For questions before deleting, use **Contact Us** under Help & Support.
 
 ## Privacy summary
 

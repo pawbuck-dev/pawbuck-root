@@ -174,25 +174,26 @@ export const checkEmailIdAvailable = async (
 export const validateEmailIdFormat = (
   emailId: string
 ): { isValid: boolean; error?: string } => {
-  if (!emailId) {
-    return { isValid: false, error: "Email ID is required" };
+  const trimmed = emailId.trim().toLowerCase();
+  if (!trimmed) {
+    return { isValid: false, error: "Pet email is required" };
   }
 
-  if (emailId.length < 3) {
-    return { isValid: false, error: "Email ID must be at least 3 characters" };
+  if (trimmed.length < 3) {
+    return { isValid: false, error: "Pet email must be at least 3 characters" };
   }
 
-  if (emailId.length > 30) {
-    return { isValid: false, error: "Email ID must be at most 30 characters" };
+  if (trimmed.length > 30) {
+    return { isValid: false, error: "Pet email must be at most 30 characters" };
   }
 
   // Only allow lowercase letters, numbers, dots, hyphens, underscores
   const validPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$|^[a-z0-9]$/;
-  if (!validPattern.test(emailId.toLowerCase())) {
+  if (!validPattern.test(trimmed)) {
     return {
       isValid: false,
       error:
-        "Email ID can only contain letters, numbers, dots, hyphens, and underscores. Cannot start or end with special characters.",
+        "Pet email can only contain letters, numbers, dots, hyphens, and underscores. Cannot start or end with special characters.",
     };
   }
 
@@ -210,8 +211,8 @@ export const validateEmailIdFormat = (
     "hello",
     "pawbuck",
   ];
-  if (reservedWords.includes(emailId.toLowerCase())) {
-    return { isValid: false, error: "This email ID is reserved" };
+  if (reservedWords.includes(trimmed)) {
+    return { isValid: false, error: "This pet email is reserved" };
   }
 
   return { isValid: true };

@@ -27,7 +27,7 @@ export function formatPoopObservationJournalNote(
 ): string {
   const text = noteDraft.trim() || intake.poop_observation_note?.trim() || "";
   const lines: string[] = [
-    "Body tracker — stool observation",
+    "Bathroom check — stool",
     `Logged today: ${intake.poop_count}/${intake.poop_target} bowel movements`,
   ];
   if (intake.poop_tags.length) {
@@ -57,7 +57,7 @@ export function formatPeeObservationJournalNote(
 ): string {
   const text = noteDraft.trim() || intake.pee_observation_note?.trim() || "";
   const lines: string[] = [
-    "Body tracker — urine observation",
+    "Bathroom check",
     `Logged today: ${intake.pee_count}/${intake.pee_target} urinations`,
   ];
   if (intake.pee_tags.length) {

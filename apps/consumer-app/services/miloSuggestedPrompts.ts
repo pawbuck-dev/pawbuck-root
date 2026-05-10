@@ -4,6 +4,12 @@ import { JOURNAL_HEALTH_SUBTYPES } from "@/constants/petJournal";
 import moment from "moment";
 import { getOverdueVaccinations } from "@/utils/vaccinationHelpers";
 
+/** Where the user opened Milo — drives empty-state starter chips (same modal everywhere). */
+export type MiloStarterScreen = "default" | "health_records";
+
+/** Empty-thread starter chips in Milo chat (modal + full-screen). */
+export const MILO_EMPTY_THREAD_PROMPT_COUNT = 4;
+
 export const MILO_SUGGESTED_QUESTIONS_GENERAL = [
   "What should I bring to a routine vet visit?",
   "How can I help my pet stay calm during loud noises?",
@@ -81,7 +87,7 @@ export type MiloSuggestedPromptsInput = {
   petName: string | null | undefined;
   vaccinations: Tables<"vaccinations">[];
   journalEntries: Tables<"pet_journal_entries">[];
-  /** Max chips to return (default 6). */
+  /** Max chips to return (defaults to `MILO_EMPTY_THREAD_PROMPT_COUNT`, currently 4). */
   maxCount?: number;
   now?: Date;
   /**
@@ -112,7 +118,7 @@ export function pickRotatedProductHelpPrompts(seed: string, maxCount: number): s
  * then general wellness lines.
  */
 export function buildMiloSuggestedPrompts(input: MiloSuggestedPromptsInput): string[] {
-  const max = Math.min(12, Math.max(1, input.maxCount ?? 6));
+  const max = Math.min(12, Math.max(1, input.maxCount ?? MILO_EMPTY_THREAD_PROMPT_COUNT));
   const name = input.petName?.trim() || null;
   const now = input.now ?? new Date();
   const out: string[] = [];
@@ -165,3 +171,31 @@ export function buildMiloSuggestedPrompts(input: MiloSuggestedPromptsInput): str
 
   return out.slice(0, max);
 }
+
+/**
+ * Starter prompts for the shared Milo chat modal. Use `health_records` when opening from the Health hub
+ * so chips match the section; otherwise use `default` (pet + journal aware + general wellness).
+ */
+export function buildMiloStarterPrompts(
+  screen: MiloStarterScreen,
+  input: MiloSuggestedPromptsInput
+): string[] {
+  const max = Math.min(12, Math.max(1, input.maxCount ?? MILO_EMPTY_THREAD_PROMPT_COUNT));
+  const name = input.petName?.trim();
+
+  if (screen === "health_records") {
+    const n = name ?? "my pet";
+    const lines = [
+      `What should I upload for ${n}'s vaccination records?`,
+      `How do I add a lab result or blood work for ${n}?`,
+      `Where do I upload insurance, invoices, or ID for ${n} on the Health Records hub?`,
+      `Help me log symptoms for ${n} after a rough day.`,
+      `What's the best way to share ${n}'s health summary with my vet?`,
+      `Review ${n}'s vaccines and what might be due soon.`,
+    ];
+    return lines.slice(0, max);
+  }
+
+  return buildMiloSuggestedPrompts(input);
+}
+

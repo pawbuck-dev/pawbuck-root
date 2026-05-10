@@ -1,4 +1,5 @@
 import { ChatMessage } from "@/components/chat/ChatMessage";
+import { MiloStarterSuggestionPill } from "@/components/chat/MiloStarterSuggestionPill";
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
@@ -7,10 +8,18 @@ import { ChatMessage as CM } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import {
+  MILO_TRIAGE_DISCLAIMER_BODY,
+  MILO_TRIAGE_DISCLAIMER_TITLE,
+} from "@/constants/miloDisclaimers";
+import {
   fetchJournalEntries,
   fetchPetAllergies,
   fetchPetConditions,
 } from "@/services/petJournal";
+import {
+  hasAcceptedMiloTriageDisclaimer,
+  setAcceptedMiloTriageDisclaimer,
+} from "@/services/miloTriageDisclaimer";
 import type { PetLogSeverity } from "@/types/petLog";
 import {
   appendPetLog,
@@ -22,18 +31,21 @@ import {
   SubscriptionRequiredError,
   type MiloChatFileAttachment,
 } from "@/utils/miloChatApi";
+import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
   extractPetLogEntry,
   severityFromConversationText,
   type TriageContext,
 } from "@/utils/miloTriage";
-import { buildMiloSuggestedPrompts } from "@/services/miloSuggestedPrompts";
+import {
+  buildMiloSuggestedPrompts,
+  MILO_EMPTY_THREAD_PROMPT_COUNT,
+} from "@/services/miloSuggestedPrompts";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -42,11 +54,12 @@ import {
   Alert,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -54,15 +67,22 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const MILO_CHAT_BG_LIGHT = require("@/assets/icons/Milo-Light.png");
-const MILO_CHAT_BG_DARK = require("@/assets/icons/Milo-Dark.png");
+type JournalNavTarget = {
+  entryId: string;
+  kind: "server" | "milo";
+  domain: JournalDomain;
+};
 
 type Row = CM & {
   severity?: PetLogSeverity;
   suggestedReplies?: string[];
   journalSessionComplete?: boolean;
+  /** Populated after journal row is saved (local and/or server) so the UI can deep-link to Pet Journal. */
+  journalNavTarget?: JournalNavTarget;
   /** True when answer came from local offline script (API unreachable). */
   offlineFallback?: boolean;
+  turnId?: string;
+  /** @deprecated use turnId */
   responseId?: string;
   feedbackRating?: "up" | "down";
 };
@@ -108,11 +128,35 @@ export default function MiloJournalChatScreen() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [offlineJournalActive, setOfflineJournalActive] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  /** One-time acknowledgment before first journal triage on this device (per user). */
+  const [triageDisclaimerStatus, setTriageDisclaimerStatus] = useState<"loading" | "pending" | "accepted">(
+    "loading"
+  );
   const autoSentRef = useRef(false);
   const listRef = useRef<FlatList>(null);
+  /** Prevents duplicate Milo journal rows when persist runs twice for the same triage fingerprint. */
+  const miloPersistInflightRef = useRef<string | null>(null);
 
   const rotationSeed = `${user?.id ?? ""}|${pet?.id ?? ""}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!user?.id) {
+        if (!cancelled) setTriageDisclaimerStatus("accepted");
+        return;
+      }
+      try {
+        const ok = await hasAcceptedMiloTriageDisclaimer(user.id);
+        if (!cancelled) setTriageDisclaimerStatus(ok ? "accepted" : "pending");
+      } catch {
+        if (!cancelled) setTriageDisclaimerStatus("pending");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const { data: starterData } = useQuery({
     queryKey: ["miloJournalStarters", pet?.id],
@@ -133,31 +177,24 @@ export default function MiloJournalChatScreen() {
         petName: pet?.name ?? null,
         vaccinations: starterData?.vaccinations ?? [],
         journalEntries: starterData?.journalEntries ?? [],
-        maxCount: 6,
+        maxCount: MILO_EMPTY_THREAD_PROMPT_COUNT,
         rotationSeed,
       }),
     [pet?.name, starterData?.vaccinations, starterData?.journalEntries, rotationSeed]
   );
 
-  const miloGreetingSuffix = useMemo(() => {
-    const meta = user?.user_metadata as { full_name?: string } | undefined;
-    const full = typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
-    const first = full ? full.split(/\s+/)[0] : user?.email?.split("@")[0];
-    return first ? ` ${first}` : "";
-  }, [user]);
+  const miloGreetingSuffix = useMemo(() => miloHiGreetingSuffixFromUser(user ?? undefined), [user]);
 
+  // Scroll when keyboard is visible; avoid translating the composer (breaks iOS keyboard on device).
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
+    const scrollEnd = () => {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     };
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardDidShow" : "keyboardDidShow",
+      scrollEnd
+    );
+    return () => showSub.remove();
   }, []);
 
   const lastMessage = messages[messages.length - 1];
@@ -167,6 +204,15 @@ export default function MiloJournalChatScreen() {
     (lastMessage.suggestedReplies?.length ?? 0) > 0 &&
     !lastMessage.journalSessionComplete;
 
+  /** Thumbs-up/down only on the latest journal-complete assistant turn (not on every CONTINUE reply). */
+  const journalFeedbackRowIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const row = messages[i];
+      if (row.role === "assistant" && row.journalSessionComplete) return i;
+    }
+    return -1;
+  }, [messages]);
+
   const pushAssistant = useCallback(
     (
       content: string,
@@ -175,12 +221,15 @@ export default function MiloJournalChatScreen() {
         suggestedReplies?: string[];
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
+        turnId?: string;
         responseId?: string;
         fileAttachments?: MiloChatFileAttachment[];
       }
-    ) => {
+    ): string => {
+      const tid = extras?.turnId ?? extras?.responseId;
+      const id = `${Date.now()}-a`;
       const m: Row = {
-        id: `${Date.now()}-a`,
+        id,
         role: "assistant",
         content,
         timestamp: new Date(),
@@ -188,21 +237,23 @@ export default function MiloJournalChatScreen() {
         suggestedReplies: extras?.suggestedReplies,
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
-        responseId: extras?.responseId,
+        turnId: tid,
+        responseId: tid,
         fileAttachments: extras?.fileAttachments,
       };
       setMessages((prev) => [...prev, m]);
+      return id;
     },
     []
   );
 
   const onJournalFeedback = useCallback(
-    async (messageId: string, responseId: string, rating: "up" | "down") => {
+    async (messageId: string, turnId: string, rating: "up" | "down") => {
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, feedbackRating: rating } : m))
       );
       try {
-        await submitMiloJournalFeedback({ responseId, rating });
+        await submitMiloJournalFeedback({ turnId, rating });
       } catch (e) {
         console.warn("Journal feedback failed:", e);
       }
@@ -211,8 +262,8 @@ export default function MiloJournalChatScreen() {
   );
 
   const persistJournalEntry = useCallback(
-    async (userTurns: string[], journalSummary?: string | null) => {
-      if (!pet || !user) return;
+    async (userTurns: string[], journalSummary?: string | null): Promise<JournalNavTarget | null> => {
+      if (!pet || !user) return null;
       const combined = userTurns.join("\n");
       const finalNote = journalSummary?.trim() || combined;
       const entry = extractPetLogEntry(
@@ -223,13 +274,30 @@ export default function MiloJournalChatScreen() {
         triageCtx,
         combined
       );
-      await appendPetLog(user.id, entry);
-      try {
-        await syncPetLogToServer(entry);
-        await queryClient.invalidateQueries({ queryKey: ["pet_journal"] });
-      } catch (e) {
-        console.warn("Milo journal sync to server failed (offline ok):", e);
+      const idem = entry.milo_idempotency_key;
+      if (idem) {
+        if (miloPersistInflightRef.current === idem) return null;
+        miloPersistInflightRef.current = idem;
       }
+      let nav: JournalNavTarget | null = null;
+      try {
+        await appendPetLog(user.id, entry);
+        try {
+          const serverId = await syncPetLogToServer(entry);
+          await queryClient.invalidateQueries({ queryKey: ["pet_journal"] });
+          nav = serverId
+            ? { entryId: serverId, kind: "server", domain: entry.domain }
+            : { entryId: entry.id, kind: "milo", domain: entry.domain };
+        } catch (e) {
+          console.warn("Milo journal sync to server failed (offline ok):", e);
+          nav = { entryId: entry.id, kind: "milo", domain: entry.domain };
+        }
+      } finally {
+        if (idem && miloPersistInflightRef.current === idem) {
+          miloPersistInflightRef.current = null;
+        }
+      }
+      return nav;
     },
     [pet, user, journalDomain, triageCtx, queryClient]
   );
@@ -238,6 +306,7 @@ export default function MiloJournalChatScreen() {
     async (raw: string) => {
       const text = raw.trim();
       if (!text || !pet || !user) return;
+      if (triageDisclaimerStatus !== "accepted") return;
 
       setBusy(true);
       const history = messages.slice(-10).map((m) => ({
@@ -267,15 +336,20 @@ export default function MiloJournalChatScreen() {
 
         setOfflineJournalActive(false);
 
-        pushAssistant(result.answer, severityForTurn, {
+        const assistantMsgId = pushAssistant(result.answer, severityForTurn, {
           suggestedReplies: result.suggestedReplies,
           journalSessionComplete: result.journalSessionComplete,
-          responseId: result.responseId,
+          turnId: result.turnId ?? result.responseId,
           fileAttachments: result.fileAttachments,
         });
 
         if (result.journalSessionComplete) {
-          await persistJournalEntry(userTurns, result.journalSummary);
+          const nav = await persistJournalEntry(userTurns, result.journalSummary);
+          if (nav) {
+            setMessages((prev) =>
+              prev.map((row) => (row.id === assistantMsgId ? { ...row, journalNavTarget: nav } : row))
+            );
+          }
         }
       } catch (e) {
         if (e instanceof SubscriptionRequiredError) {
@@ -285,23 +359,39 @@ export default function MiloJournalChatScreen() {
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         const offline = getOfflineJournalTurn(priorUserLines.length, pet.name);
-        pushAssistant(offline.answer, severityForTurn, {
+        const assistantMsgId = pushAssistant(offline.answer, severityForTurn, {
           suggestedReplies: offline.suggestedReplies,
           journalSessionComplete: offline.journalSessionComplete,
           offlineFallback: true,
         });
         if (offline.journalSessionComplete) {
-          await persistJournalEntry(userTurns, null);
+          const nav = await persistJournalEntry(userTurns, null);
+          if (nav) {
+            setMessages((prev) =>
+              prev.map((row) => (row.id === assistantMsgId ? { ...row, journalNavTarget: nav } : row))
+            );
+          }
         }
       } finally {
         setBusy(false);
       }
     },
-    [pet, user, journalDomain, triageCtx, pushAssistant, messages, persistJournalEntry, openPaywall]
+    [
+      pet,
+      user,
+      journalDomain,
+      triageCtx,
+      pushAssistant,
+      messages,
+      persistJournalEntry,
+      openPaywall,
+      triageDisclaimerStatus,
+    ]
   );
 
   useEffect(() => {
     if (subLoading || !canUseMilo) return;
+    if (triageDisclaimerStatus !== "accepted") return;
     const ctx = params.context ? String(params.context) : "";
     if (!ctx || !pet || autoSentRef.current) return;
     autoSentRef.current = true;
@@ -312,7 +402,7 @@ export default function MiloJournalChatScreen() {
       /* use raw */
     }
     void handleSend(decoded);
-  }, [params.context, pet, handleSend, subLoading, canUseMilo]);
+  }, [params.context, pet, handleSend, subLoading, canUseMilo, triageDisclaimerStatus]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -330,8 +420,26 @@ export default function MiloJournalChatScreen() {
     } as any);
   };
 
-  const renderJournalFeedback = (m: Row) => {
-    if (m.role !== "assistant" || m.offlineFallback || !m.responseId) return null;
+  const openJournalEntry = useCallback(
+    (nav: JournalNavTarget) => {
+      if (!pet) return;
+      router.push({
+        pathname: "/(home)/pet-journal",
+        params: {
+          petId: pet.id,
+          domain: nav.domain,
+          focusEntryId: nav.entryId,
+          focusKind: nav.kind,
+        },
+      } as any);
+    },
+    [pet, router]
+  );
+
+  const renderJournalFeedback = (m: Row, index: number) => {
+    const tid = m.turnId ?? m.responseId;
+    if (m.role !== "assistant" || m.offlineFallback || !tid) return null;
+    if (index !== journalFeedbackRowIndex) return null;
     const active = m.feedbackRating;
     return (
       <View
@@ -345,7 +453,7 @@ export default function MiloJournalChatScreen() {
       >
         <Text style={{ fontSize: 12, color: theme.secondary }}>Was this helpful?</Text>
         <TouchableOpacity
-          onPress={() => void onJournalFeedback(m.id, m.responseId!, "up")}
+          onPress={() => void onJournalFeedback(m.id, tid, "up")}
           hitSlop={8}
           accessibilityLabel="Thumbs up"
         >
@@ -356,7 +464,7 @@ export default function MiloJournalChatScreen() {
           />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => void onJournalFeedback(m.id, m.responseId!, "down")}
+          onPress={() => void onJournalFeedback(m.id, tid, "down")}
           hitSlop={8}
           accessibilityLabel="Thumbs down"
         >
@@ -406,8 +514,10 @@ export default function MiloJournalChatScreen() {
     }
 
     if (m.journalSessionComplete) {
-      const loggedBadge = (
-        <View
+      const savedToJournalCta = (
+        <TouchableOpacity
+          disabled={!m.journalNavTarget}
+          onPress={() => m.journalNavTarget && openJournalEntry(m.journalNavTarget)}
           style={{
             alignSelf: "flex-start",
             marginLeft: 56,
@@ -417,19 +527,24 @@ export default function MiloJournalChatScreen() {
             paddingVertical: 6,
             borderRadius: 10,
             backgroundColor: "rgba(34,197,94,0.2)",
+            opacity: m.journalNavTarget ? 1 : 0.55,
           }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            m.journalNavTarget ? "Saved to journal, open entry" : "Saving entry to journal"
+          }
         >
-          <Text style={{ fontSize: 12, fontWeight: "700", color: "#15803d" }}>Logged</Text>
-        </View>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#15803d" }}>Saved to Journal →</Text>
+        </TouchableOpacity>
       );
 
       switch (m.severity) {
         case "low":
-          return loggedBadge;
+          return savedToJournalCta;
         case "medium":
           return (
             <View style={{ marginLeft: 56, marginBottom: 8 }}>
-              {loggedBadge}
+              {savedToJournalCta}
               <TouchableOpacity
                 style={{
                   alignSelf: "flex-start",
@@ -456,7 +571,7 @@ export default function MiloJournalChatScreen() {
         case "high":
           return (
             <View style={{ marginLeft: 56, marginBottom: 8 }}>
-              {loggedBadge}
+              {savedToJournalCta}
               <TouchableOpacity
                 style={{
                   alignSelf: "flex-start",
@@ -477,7 +592,7 @@ export default function MiloJournalChatScreen() {
         case "urgent":
           return (
             <View style={{ marginLeft: 56, marginBottom: 12, maxWidth: "92%" }}>
-              {loggedBadge}
+              {savedToJournalCta}
               <View
                 style={{
                   padding: 12,
@@ -521,7 +636,7 @@ export default function MiloJournalChatScreen() {
             </View>
           );
         default:
-          return loggedBadge;
+          return savedToJournalCta;
       }
     }
 
@@ -673,13 +788,6 @@ export default function MiloJournalChatScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Image
-          source={isDark ? MILO_CHAT_BG_DARK : MILO_CHAT_BG_LIGHT}
-          style={{ width: "100%", height: "100%" }}
-          contentFit="cover"
-        />
-      </View>
 
       <View
         style={{
@@ -748,12 +856,17 @@ export default function MiloJournalChatScreen() {
         </View>
       ) : null}
 
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 58 : 0}
+      >
         <FlatList
           ref={listRef}
           style={{ flex: 1 }}
           data={messages}
           keyExtractor={(item) => item.id}
+          removeClippedSubviews={false}
           contentContainerStyle={
             messages.length === 0 ? { paddingBottom: 16, flexGrow: 1 } : { paddingBottom: 16 }
           }
@@ -762,7 +875,7 @@ export default function MiloJournalChatScreen() {
           renderItem={({ item, index }) => (
             <View>
               <ChatMessage message={item} isNew={index === messages.length - 1} />
-              {renderJournalFeedback(item)}
+              {renderJournalFeedback(item, index)}
               {renderActions(item, index)}
             </View>
           )}
@@ -777,6 +890,8 @@ export default function MiloJournalChatScreen() {
                   paddingHorizontal: 20,
                   paddingTop: 16,
                   paddingBottom: 24,
+                  alignSelf: "stretch",
+                  width: "100%",
                 }}
               >
                 <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
@@ -794,34 +909,19 @@ export default function MiloJournalChatScreen() {
                   Where should we start?
                 </Text>
                 {suggestedStarters.map((q) => (
-                  <Pressable
+                  <MiloStarterSuggestionPill
                     key={q}
+                    label={q}
+                    mode={isDark ? "dark" : "light"}
+                    fill={tokens.composerBg}
+                    stroke={tokens.composerBorder}
+                    textColor={tokens.textPrimary}
+                    screenHorizontalPaddingPx={20}
                     onPress={() => {
                       void handleSend(q);
                       setInput("");
                     }}
-                    style={({ pressed }) => ({
-                      width: "100%",
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      borderRadius: 16,
-                      marginBottom: 10,
-                      backgroundColor: tokens.chipBg,
-                      borderWidth: 1,
-                      borderColor: tokens.chipBorder,
-                      opacity: pressed ? 0.88 : 1,
-                    })}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        lineHeight: 22,
-                        color: tokens.textPrimary,
-                      }}
-                    >
-                      {q}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
             )
@@ -856,8 +956,8 @@ export default function MiloJournalChatScreen() {
               }}
               style={({ pressed }) => ({
                 paddingVertical: 10,
-                paddingHorizontal: 14,
-                borderRadius: 18,
+                paddingHorizontal: 16,
+                borderRadius: 9999,
                 backgroundColor: tokens.chipBg,
                 borderWidth: 1,
                 borderColor: tokens.chipBorder,
@@ -887,14 +987,13 @@ export default function MiloJournalChatScreen() {
             flexDirection: "row",
             alignItems: "flex-end",
             backgroundColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.9)",
-            transform: keyboardHeight > 0 ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder={`Tell Milo about ${pet.name}...`}
-            placeholderTextColor={theme.secondary}
+            placeholderTextColor={tokens.placeholder}
             style={{
               flex: 1,
               minHeight: 44,
@@ -902,12 +1001,17 @@ export default function MiloJournalChatScreen() {
               paddingHorizontal: 14,
               paddingVertical: Platform.OS === "ios" ? 10 : 12,
               borderRadius: 22,
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-              color: theme.foreground,
+              borderWidth: 1,
+              borderColor: tokens.composerBorder,
+              backgroundColor: tokens.composerBg,
+              color: tokens.textPrimary,
               fontSize: 16,
               lineHeight: 22,
             }}
             multiline
+            showSoftInputOnFocus
+            editable={triageDisclaimerStatus === "accepted"}
+            keyboardAppearance={isDark ? "dark" : "light"}
             {...(Platform.OS === "android" ? { textAlignVertical: "top" as const } : {})}
           />
           <Pressable
@@ -915,13 +1019,77 @@ export default function MiloJournalChatScreen() {
               void handleSend(input);
               setInput("");
             }}
-            disabled={busy || !input.trim()}
-            style={{ marginLeft: 8, marginBottom: 6, opacity: input.trim() && !busy ? 1 : 0.4 }}
+            disabled={busy || !input.trim() || triageDisclaimerStatus !== "accepted"}
+            style={{
+              marginLeft: 8,
+              marginBottom: 6,
+              opacity: input.trim() && !busy && triageDisclaimerStatus === "accepted" ? 1 : 0.4,
+            }}
           >
             <Ionicons name="send" size={26} color={theme.primary} />
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
+
+      <Modal visible={triageDisclaimerStatus === "pending"} animationType="fade" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            paddingHorizontal: 20,
+            paddingTop: Math.max(insets.top, 24),
+            paddingBottom: Math.max(insets.bottom, 24),
+          }}
+        >
+          <View
+            style={{
+              maxHeight: "88%",
+              borderRadius: 16,
+              backgroundColor: theme.card,
+              padding: 20,
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "800", color: theme.foreground, marginBottom: 12 }}>
+              {MILO_TRIAGE_DISCLAIMER_TITLE}
+            </Text>
+            <ScrollView
+              style={{ maxHeight: 360 }}
+              showsVerticalScrollIndicator
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={{ fontSize: 14, lineHeight: 21, color: theme.foreground }}>{MILO_TRIAGE_DISCLAIMER_BODY}</Text>
+            </ScrollView>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Accept Milo health journal disclaimer"
+              onPress={() => {
+                if (!user?.id) return;
+                void (async () => {
+                  await setAcceptedMiloTriageDisclaimer(user.id);
+                  setTriageDisclaimerStatus("accepted");
+                })();
+              }}
+              style={{
+                marginTop: 18,
+                paddingVertical: 14,
+                borderRadius: 12,
+                backgroundColor: theme.primary,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>I understand and accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12, paddingVertical: 10 }}>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.secondary, textAlign: "center" }}>
+                Go back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

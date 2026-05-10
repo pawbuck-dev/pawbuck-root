@@ -9,7 +9,8 @@ interface PetInformationCardProps {
   onEdit?: () => void;
 }
 
-const formatDate = (dateString: string): string => {
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return "Not set";
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     year: "numeric",
@@ -30,13 +31,27 @@ const formatWeight = (value: number): string => {
   return Math.round(value).toString();
 };
 
+function storageUnitToToggle(u: string | null | undefined): "kg" | "lbs" {
+  if (u === "kilograms" || u === "kg") return "kg";
+  return "lbs";
+}
+
 export default function PetInformationCard({ pet, onEdit }: PetInformationCardProps) {
   const { theme } = useTheme();
-  const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">(pet.weight_unit as "kg" | "lbs" || "kg");
-  
-  const displayWeight = weightUnit === pet.weight_unit 
-    ? pet.weight_value 
-    : convertWeight(pet.weight_value, pet.weight_unit, weightUnit);
+  const hasWeight = pet.weight_value != null && pet.weight_unit != null;
+  const petStorageUnit = storageUnitToToggle(pet.weight_unit);
+  const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">(petStorageUnit);
+
+  const displayWeight =
+    !hasWeight
+      ? null
+      : weightUnit === petStorageUnit
+        ? pet.weight_value!
+        : convertWeight(
+            pet.weight_value!,
+            petStorageUnit === "kg" ? "kg" : "lbs",
+            weightUnit
+          );
 
   const InformationRow = ({
     icon,
@@ -130,44 +145,46 @@ export default function PetInformationCard({ pet, onEdit }: PetInformationCardPr
               Weight
             </Text>
             <Text className="text-base font-medium mt-0.5" style={{ color: theme.foreground }}>
-              {formatWeight(displayWeight)} {weightUnit}
+              {displayWeight == null ? "Not set" : `${formatWeight(displayWeight)} ${weightUnit}`}
             </Text>
           </View>
         </View>
-        <View className="flex-row rounded-full overflow-hidden" style={{ borderWidth: 1, borderColor: theme.border }}>
-          <TouchableOpacity
-            onPress={() => setWeightUnit("kg")}
-            className="px-4 py-2"
-            style={{
-              backgroundColor: weightUnit === "kg" ? theme.primary : "transparent",
-            }}
-          >
-            <Text
-              className="text-sm font-medium"
+        {hasWeight ? (
+          <View className="flex-row rounded-full overflow-hidden" style={{ borderWidth: 1, borderColor: theme.border }}>
+            <TouchableOpacity
+              onPress={() => setWeightUnit("kg")}
+              className="px-4 py-2"
               style={{
-                color: weightUnit === "kg" ? theme.primaryForeground : theme.foreground,
+                backgroundColor: weightUnit === "kg" ? theme.primary : "transparent",
               }}
             >
-              kg
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setWeightUnit("lbs")}
-            className="px-4 py-2"
-            style={{
-              backgroundColor: weightUnit === "lbs" ? theme.primary : "transparent",
-            }}
-          >
-            <Text
-              className="text-sm font-medium"
+              <Text
+                className="text-sm font-medium"
+                style={{
+                  color: weightUnit === "kg" ? theme.primaryForeground : theme.foreground,
+                }}
+              >
+                kg
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setWeightUnit("lbs")}
+              className="px-4 py-2"
               style={{
-                color: weightUnit === "lbs" ? theme.primaryForeground : theme.foreground,
+                backgroundColor: weightUnit === "lbs" ? theme.primary : "transparent",
               }}
             >
-              lbs
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                className="text-sm font-medium"
+                style={{
+                  color: weightUnit === "lbs" ? theme.primaryForeground : theme.foreground,
+                }}
+              >
+                lbs
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
 
       {/* Color */}

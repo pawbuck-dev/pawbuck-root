@@ -7,6 +7,10 @@ public sealed class MiloJournalFeedbackRequest
     [JsonPropertyName("responseId")]
     public Guid ResponseId { get; set; }
 
+    /// <summary>Same as <see cref="ResponseId"/> (optional; preferred by newer clients).</summary>
+    [JsonPropertyName("turnId")]
+    public string? TurnId { get; set; }
+
     /// <summary>"up" or "down"</summary>
     [JsonPropertyName("rating")]
     public string Rating { get; set; } = "";

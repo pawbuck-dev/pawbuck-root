@@ -14,12 +14,13 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import DateTimePicker from "@/components/common/DateTimePicker";
 
@@ -88,6 +89,11 @@ export default function OnboardingReview() {
     setIsEmailAvailable(null);
     setEmailCheckError(null);
 
+    if (!trimmedEmailId) {
+      setEmailValidationError(null);
+      return;
+    }
+
     // If email hasn't changed from the original, mark as available
     if (trimmedEmailId === petData?.email_id?.toLowerCase()) {
       setEmailValidationError(null);
@@ -110,7 +116,7 @@ export default function OnboardingReview() {
         const available = await checkEmailIdAvailable(trimmedEmailId);
         setIsEmailAvailable(available);
         if (!available) {
-          setEmailCheckError("This email ID is already taken");
+          setEmailCheckError("This pet email is already taken");
         }
       } catch {
         setEmailCheckError("Failed to check availability");
@@ -136,7 +142,7 @@ export default function OnboardingReview() {
       }
     } else {
       // Not authenticated → save to context and go directly to signup
-      completeOnboarding();
+      await completeOnboarding();
       router.replace("/signup");
     }
   };
@@ -169,15 +175,20 @@ export default function OnboardingReview() {
     } else if (field === "date_of_birth") {
       updatePetData({ date_of_birth: tempBirthDate.toISOString() });
     } else if (field === "email_id") {
+      const trimmedMail = tempEmailId.trim().toLowerCase();
+      if (!trimmedMail) {
+        Alert.alert("Pet email", "Enter the part before @pawbuck.app.");
+        return;
+      }
       if (
         isEmailAvailable &&
         !emailValidationError &&
         !emailCheckError &&
         !isCheckingEmail
       ) {
-        updatePetData({ email_id: tempEmailId.trim().toLowerCase() });
+        updatePetData({ email_id: trimmedMail });
       } else {
-        return; // Don't save if email is invalid
+        return;
       }
     }
     setEditingField(null);
@@ -430,7 +441,7 @@ export default function OnboardingReview() {
                           className="text-xs mt-1"
                           style={{ color: "#22C55E" }}
                         >
-                          Email ID is available
+                          Pet email is available
                         </Text>
                       )}
                   </View>
@@ -586,7 +597,7 @@ export default function OnboardingReview() {
           />
 
           <ProfileField
-            label="Email ID"
+            label="Pet email"
             value={
               petData?.email_id
                 ? `${petData.email_id}${EMAIL_DOMAIN}`
@@ -616,8 +627,8 @@ export default function OnboardingReview() {
           <ProfileField
             label="Weight"
             value={
-              petData?.weight_value
-                ? `${petData?.weight_value} ${petData?.weight_unit === "pounds" ? "lbs" : "kg"}`
+              petData?.weight_value != null && petData?.weight_unit
+                ? `${petData.weight_value} ${petData.weight_unit === "pounds" ? "lbs" : "kg"}`
                 : "Not set"
             }
             field="weight_value"

@@ -1,3 +1,4 @@
+import { HEALTH_BRIEFING_FOOTER_DISCLAIMER } from "@/constants/miloDisclaimers";
 import PrivateImage from "@/components/common/PrivateImage";
 import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -8,9 +9,12 @@ import {
   type BriefingCategoryKey,
 } from "@/utils/healthBriefingUi";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
+import { formatLastJournalContinuityLine } from "@/utils/journalContinuity";
+import { truncateAtSentenceOrWord } from "@/utils/textTruncate";
+import { formatPetWeightForDisplay } from "@/utils/weightUnits";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from "react-native";
 
 const CATEGORY_LABEL: Record<BriefingCategoryKey, string> = {
@@ -29,6 +33,7 @@ type Props = {
 export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const [subtitleExpanded, setSubtitleExpanded] = useState(false);
 
   const { data, isPending } = useQuery({
     queryKey: ["health_briefing", petId],
@@ -63,6 +68,12 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
     });
   }, [pet, data?.allergies.length, activeConditionsCount]);
 
+  useEffect(() => {
+    setSubtitleExpanded(false);
+  }, [petId, subtitle]);
+
+  const subtitleCollapsed = useMemo(() => truncateAtSentenceOrWord(subtitle, 96), [subtitle]);
+
   const categories = useMemo(() => {
     if (!data) return null;
     return computeBriefingCategorySignals({
@@ -80,12 +91,14 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
 
   const pendingSubtitle = useMemo(() => {
     if (!pet || data) return "";
-    const w =
-      pet.weight_value != null && pet.weight_value > 0
-        ? [String(pet.weight_value), pet.weight_unit?.trim()].filter(Boolean).join(" ")
-        : "";
+    const w = formatPetWeightForDisplay(pet.weight_value, pet.weight_unit);
     return w ? `${pet.name} · ${w}` : pet.name;
   }, [pet, data]);
+
+  const lastJournalLine = useMemo(() => {
+    const latest = data?.journal?.[0];
+    return formatLastJournalContinuityLine(latest);
+  }, [data?.journal]);
 
   if (!pet) return null;
 
@@ -145,9 +158,37 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
             <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>Health Briefing</Text>
             <Ionicons name="sparkles" size={18} color={theme.primary} />
           </View>
-          <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
-            {isPending && !data ? pendingSubtitle : subtitle}
-          </Text>
+          <View style={{ marginTop: 4 }}>
+            <Text style={{ fontSize: 13, color: theme.secondary }}>
+              {isPending && !data
+                ? pendingSubtitle
+                : subtitleExpanded
+                  ? subtitle
+                  : subtitleCollapsed.preview}
+            </Text>
+            {!isPending && data && subtitleCollapsed.truncated && !subtitleExpanded ? (
+              <TouchableOpacity
+                onPress={() => setSubtitleExpanded(true)}
+                hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+                style={{ marginTop: 4 }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "600", color: theme.primary }}>Show more</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {lastJournalLine ? (
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: theme.primary,
+                marginTop: 6,
+                lineHeight: 17,
+              }}
+            >
+              {lastJournalLine}
+            </Text>
+          ) : null}
           <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 6, lineHeight: 17 }}>
             Vet-ready summary from journal notes, allergies, conditions, vaccines & meds.
           </Text>
@@ -237,6 +278,17 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
           ) : null}
         </View>
       )}
+
+      <Text
+        style={{
+          fontSize: 10,
+          lineHeight: 14,
+          color: theme.secondary,
+          marginTop: 12,
+        }}
+      >
+        {HEALTH_BRIEFING_FOOTER_DISCLAIMER}
+      </Text>
     </TouchableOpacity>
   );
 }

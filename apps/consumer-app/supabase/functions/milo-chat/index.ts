@@ -26,10 +26,10 @@ export interface PetContext {
   name: string;
   animal_type: string;
   breed: string;
-  date_of_birth: string;
+  date_of_birth: string | null;
   sex: string;
-  weight_value: number;
-  weight_unit: string;
+  weight_value: number | null;
+  weight_unit: string | null;
   country?: string;
 }
 
@@ -163,6 +163,10 @@ function buildPetContextPrompt(pet: PetContext | null | undefined): string {
   }
 
   const age = calculateAge(pet.date_of_birth);
+  const weightLine =
+    pet.weight_value != null && pet.weight_unit != null
+      ? `${pet.weight_value} ${pet.weight_unit}`
+      : "not set";
 
   return `\n\nCurrently selected pet:
 - Name: ${pet.name}
@@ -170,7 +174,7 @@ function buildPetContextPrompt(pet: PetContext | null | undefined): string {
 - Breed: ${pet.breed}
 - Age: ${age}
 - Sex: ${pet.sex}
-- Weight: ${pet.weight_value} ${pet.weight_unit}${pet.country ? `\n- Country: ${pet.country}` : ""}
+- Weight: ${weightLine}${pet.country ? `\n- Country: ${pet.country}` : ""}
 
 You have access to this pet's health records. Use the available functions to fetch vaccinations, medications, lab results, or clinical exams when the user asks about them.`;
 }
@@ -201,7 +205,8 @@ function isWriteStyleMiloTool(name: string): boolean {
   );
 }
 
-function calculateAge(dateOfBirth: string): string {
+function calculateAge(dateOfBirth: string | null): string {
+  if (!dateOfBirth) return "unknown (date of birth not set)";
   const birth = new Date(dateOfBirth);
   const now = new Date();
   const years = now.getFullYear() - birth.getFullYear();

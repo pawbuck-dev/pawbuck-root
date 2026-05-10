@@ -102,6 +102,15 @@ public class MiloReasoningServiceChatTests
         var journalConfig = new Mock<IMiloJournalConfigProvider>();
         var context = new Mock<IPetConversationalContextService>();
         var turns = new Mock<IMiloJournalTurnService>();
+        var generalTurnId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        turns.Setup(t => t.RegisterTurnAsync(
+                UserId,
+                PetId,
+                "general",
+                It.IsAny<IReadOnlyList<string>>(),
+                "general",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(generalTurnId);
 
         var sut = new MiloReasoningService(
             petFacts.Object,
@@ -132,6 +141,11 @@ public class MiloReasoningServiceChatTests
             JournalMode = false,
         }, CancellationToken.None);
 
+        response.ResponseId.Should().Be(generalTurnId);
+        response.TurnId.Should().Be(generalTurnId.ToString("D"));
+        turns.Verify(
+            t => t.RegisterTurnAsync(UserId, PetId, "general", It.IsAny<IReadOnlyList<string>>(), "general", It.IsAny<CancellationToken>()),
+            Times.Once);
         handler.SawClinicalScribePrompt.Should().BeTrue();
         handler.SawSummaryHeaderRule.Should().BeTrue();
         response.FileAttachments.Should().NotBeNull();
@@ -212,6 +226,15 @@ public class MiloReasoningServiceChatTests
         var journalConfig = new Mock<IMiloJournalConfigProvider>();
         var context = new Mock<IPetConversationalContextService>();
         var turns = new Mock<IMiloJournalTurnService>();
+        var generalTurnId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+        turns.Setup(t => t.RegisterTurnAsync(
+                UserId,
+                null,
+                "general",
+                It.IsAny<IReadOnlyList<string>>(),
+                "general",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(generalTurnId);
 
         var sut = new MiloReasoningService(
             petFacts.Object,
@@ -232,6 +255,11 @@ public class MiloReasoningServiceChatTests
             JournalMode = false,
         }, CancellationToken.None);
 
+        response.ResponseId.Should().Be(generalTurnId);
+        response.TurnId.Should().Be(generalTurnId.ToString("D"));
+        turns.Verify(
+            t => t.RegisterTurnAsync(UserId, null, "general", It.IsAny<IReadOnlyList<string>>(), "general", It.IsAny<CancellationToken>()),
+            Times.Once);
         handler.SawProductGuidePrompt.Should().BeTrue();
         handler.SawClinicalScribePrompt.Should().BeFalse();
         response.UsedRag.Should().BeTrue();

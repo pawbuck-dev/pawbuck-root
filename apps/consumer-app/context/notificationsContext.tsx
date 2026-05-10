@@ -4,6 +4,7 @@ import {
   cancelAllNotifications as cancelAllNotificationsUtil,
   scheduleNotificationsForMedicine,
 } from "@/utils/notifications/medicationNotificationScheduler";
+import { scheduleJournalPromptForPet } from "@/utils/notifications/journalPromptNotificationScheduler";
 import { scheduleNotificationForVaccination } from "@/utils/notifications/vaccinationNotificationScheduler";
 import { useQueries } from "@tanstack/react-query";
 import React, {
@@ -77,8 +78,6 @@ export const NotificationsProvider: React.FC<{
     [vaccinationsDataKey]
   );
 
-  const reminderDays = preferences?.vaccination_reminder_days ?? 14;
-
   /**
    * Schedule notifications for all medicines and vaccinations
    */
@@ -109,20 +108,33 @@ export const NotificationsProvider: React.FC<{
 
         if (vaccinations) {
           for (const vaccination of vaccinations) {
-            await scheduleNotificationForVaccination(
-              vaccination,
-              pet,
-              reminderDays
-            );
+            await scheduleNotificationForVaccination(vaccination, pet);
           }
         }
+      }
+
+      for (let i = 0; i < pets.length; i++) {
+        const pet = pets[i];
+        await scheduleJournalPromptForPet(pet, {
+          enabled: preferences?.journal_prompt_enabled ?? true,
+          hour: preferences?.journal_prompt_hour ?? 20,
+          minute: preferences?.journal_prompt_minute ?? 0,
+        });
       }
     } catch (error) {
       console.error("Error scheduling notifications:", error);
     } finally {
       setIsScheduling(false);
     }
-  }, [user, pets, medicinesData, vaccinationsData, reminderDays]);
+  }, [
+    user,
+    pets,
+    medicinesData,
+    vaccinationsData,
+    preferences?.journal_prompt_enabled,
+    preferences?.journal_prompt_hour,
+    preferences?.journal_prompt_minute,
+  ]);
 
   /**
    * Cancel all scheduled notifications
@@ -130,7 +142,10 @@ export const NotificationsProvider: React.FC<{
   const cancelAllNotifications = useCallback(async () => {
     try {
       await cancelAllNotificationsUtil();
-      console.log("Successfully cancelled all notifications");
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log("Successfully cancelled all notifications");
+      }
     } catch (error) {
       console.error("Error cancelling notifications:", error);
     }

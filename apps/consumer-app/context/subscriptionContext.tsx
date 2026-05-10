@@ -152,9 +152,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
-      queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
-      queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+      // Supabase can invoke this synchronously on subscribe; defer invalidation so
+      // observers (e.g. home stack) are not updated mid-commit / before mount settles.
+      queueMicrotask(() => {
+        queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
+        queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+        queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+      });
     });
     return () => subscription.unsubscribe();
   }, [queryClient]);
@@ -163,7 +167,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => {
     const onChange = (state: AppStateStatus) => {
       if (state === "active" && user && apiConfigured) {
-        void queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+        queueMicrotask(() => {
+          void queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+        });
       }
     };
     const sub = AppState.addEventListener("change", onChange);
@@ -186,7 +192,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => {
     if (Platform.OS === "web") return;
     const onUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+      queueMicrotask(() => {
+        queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+      });
     };
     Purchases.addCustomerInfoUpdateListener(onUpdate);
   }, [queryClient]);

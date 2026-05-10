@@ -1,5 +1,6 @@
 import { useTheme } from "@/context/themeContext";
 import { CareTeamMemberType, VetInformation } from "@/services/vetInformation";
+import { sanitizeCareTeamMemberDisplayName } from "@/utils/userDisplayIdentity";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { Image } from "expo-image";
@@ -65,7 +66,7 @@ export function CareTeamMemberContactCard({
   const type = ((member as { type?: CareTeamMemberType }).type ?? "veterinarian") as CareTeamMemberType;
   const typeLabel = getCareTeamCardTypeLabel(type);
   const typeIcon = getCareTeamCardTypeIcon(type);
-  const displayName = member.vet_name || member.clinic_name || "";
+  const displayName = sanitizeCareTeamMemberDisplayName(member.vet_name, member.clinic_name, typeLabel);
   const clinicName = member.clinic_name;
 
   const handleCall = async (phone?: string) => {

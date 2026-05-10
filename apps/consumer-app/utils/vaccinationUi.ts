@@ -73,6 +73,9 @@ export function categorySubtitle(category: VaccineCategory): string {
  * Body copy when all required vaccines for the pet's region are met (health hub + vaccinations UI).
  */
 export function getRequiredVaccinesCompliantBody(country: string | null | undefined): string {
+  if (country === "Other") {
+    return "Your pet's vaccination record looks complete for what you've logged. We don't apply a country-specific checklist for \"Other\" — ask your vet about local requirements.";
+  }
   if (country === "United States" || country === "USA") {
     return "Your pet meets all vaccination requirements mandated by U.S. state and federal regulations. Keep up the great work protecting your furry friend!";
   }

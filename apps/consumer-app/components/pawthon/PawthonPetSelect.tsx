@@ -212,7 +212,7 @@ export function PawthonPetSelect({
             <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
           </View>
           <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF" }}>
-            Start Walk
+            Start a Walk
           </Text>
         </LinearGradient>
       </Pressable>

@@ -51,6 +51,9 @@ export function formatWeeklyWalkerRankLine(
   return `${t} walkers this week · start a walk to rank`;
 }
 
+/** Minimum cohort size before showing competitive “#n of m … ahead of you” copy (avoids “#1 of 1”). */
+export const WEEKLY_CHALLENGE_RANK_COPY_MIN_COHORT = 100;
+
 /** Light dashboard weekly challenge (Figma) — pet parents + 👀. */
 export function formatWeeklyChallengeFigmaLine(
   rank: number | null | undefined,
@@ -58,6 +61,10 @@ export function formatWeeklyChallengeFigmaLine(
 ): string {
   const t = total ?? 0;
   if (t <= 0) return "Be the first pet parent this week 👀";
+  if (t < WEEKLY_CHALLENGE_RANK_COPY_MIN_COHORT) {
+    const parentLabel = t === 1 ? "pet parent" : "pet parents";
+    return `${t} ${parentLabel} in your area this week · keep walking — rankings unlock when your local group grows 👀`;
+  }
   if (rank != null) return `#${rank} of ${t} pet parents are ahead of you 👀`;
   return `${t} pet parents this week · start a walk to rank 👀`;
 }

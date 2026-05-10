@@ -18,7 +18,7 @@ describe("formatHealthBriefingSubtitle", () => {
         allergiesCount: 2,
         activeConditionsCount: 1,
       })
-    ).toBe("Luna · 78 lbs · 2 allergies · 1 condition");
+    ).toBe("Luna · 78.0 lbs · 2 allergies · 1 condition");
   });
 
   it("omits weight when missing", () => {

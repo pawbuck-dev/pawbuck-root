@@ -26,7 +26,8 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
   const { resetOnboarding } = useOnboarding();
   const router = useRouter();
   const greeting = useMemo(() => getGreeting(), []);
-  const petName = selectedPet?.name ?? "Pet";
+  /** With a selected pet: "{Name}'s Care". With none, avoid the literal "Pet's Care" fallback. */
+  const headline = selectedPet ? `${selectedPet.name}'s Care` : "Home";
 
   const btnStyle = {
     width: 44,
@@ -73,7 +74,7 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
               {greeting}
             </Text>
             <Text style={{ fontSize: 22, fontWeight: "700", color: theme.foreground }}>
-              {petName}'s Care
+              {headline}
             </Text>
           </View>
         </View>

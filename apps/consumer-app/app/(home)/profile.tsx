@@ -4,32 +4,32 @@ import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboa
 import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
-import PremiumUpsellCard from "@/components/subscription/PremiumUpsellCard";
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
 import { ProfileListCard } from "@/components/profile/ProfileListCard";
 import { ProfilePetPickerModal } from "@/components/profile/ProfilePetPickerModal";
+import ProfileJournalReminderSection from "@/components/profile/ProfileJournalReminderSection";
 import {
-  PROFILE_ACCOUNT_ROWS,
   PROFILE_HELP_ROWS,
   PROFILE_MY_PETS_LINK_ROWS,
   PROFILE_SETTINGS_ROWS,
-  type ProfileAccountRowId,
   type ProfileHelpRowId,
   type ProfileSettingsRowId,
 } from "@/components/profile/profileMenuConfig";
 import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
-import { useChat } from "@/context/chatContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { invokeDeleteAccount } from "@/services/accountDeletion";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
-import { trackOnboardingEvent } from "@/utils/analytics";
-import { hasSeenPetPassportOnboarding, resetOnboardingFlags } from "@/utils/onboardingStorage";
+import { hasSeenPetPassportOnboarding } from "@/utils/onboardingStorage";
 import { supabase } from "@/utils/supabase";
+import {
+  profileEmailDisplayForHero,
+  resolveProfileHeroDisplayName,
+} from "@/utils/userDisplayIdentity";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -48,7 +48,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
-  const { openChat } = useChat();
   const { theme, mode, toggleTheme } = useTheme();
   const { top } = useSafeAreaInsets();
   const isDarkMode = mode === "dark";
@@ -147,7 +146,6 @@ export default function Profile() {
       const { error } = await invokeDeleteAccount(supabase);
       if (error) throw error;
       await signOut();
-      router.dismissAll();
       router.replace("/");
     } catch (error: unknown) {
       console.error("Error deleting account:", error);
@@ -229,29 +227,6 @@ export default function Profile() {
     }
   };
 
-  const accountRowHandlers: Record<ProfileAccountRowId, () => void> = {
-    reshow_onboarding: () => {
-      Alert.alert(
-        "Re-show Onboarding",
-        "This will reset the onboarding modals so you can see them again. Continue?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Reset",
-            onPress: async () => {
-              await resetOnboardingFlags();
-              await trackOnboardingEvent("onboarding_reset");
-              Alert.alert(
-                "Onboarding Reset",
-                "Onboarding modals will appear again when you navigate to the home screen or health records section."
-              );
-            },
-          },
-        ]
-      );
-    },
-  };
-
   const openNotificationsSettings = () => {
     Linking.openSettings().catch(() => {
       Alert.alert(
@@ -264,7 +239,7 @@ export default function Profile() {
   const openPrivacyInfo = () => {
     Alert.alert(
       "Privacy & security",
-      "Your pet health data is protected by industry-standard security. For questions about data use, open Help & how-tos (Milo) or contact support."
+      "Your pet health data is protected by industry-standard security. For questions about data use, contact support from Help & Support."
     );
   };
 
@@ -275,7 +250,6 @@ export default function Profile() {
   };
 
   const helpRowHandlers: Record<ProfileHelpRowId, () => void> = {
-    milo_help: () => openChat(),
     contact: () => router.push("/(home)/contact"),
   };
 
@@ -293,8 +267,8 @@ export default function Profile() {
 
   const showAvatarPhoto = !!rawAvatar && !avatarLoadFailed;
   const currentPet = selectedPet ?? pets[0] ?? null;
-  const displayName =
-    profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const heroName = resolveProfileHeroDisplayName(profile?.full_name, user);
+  const emailHero = profileEmailDisplayForHero(profile?.email ?? user?.email ?? null);
 
   if (isLoading) {
     return (
@@ -325,14 +299,15 @@ export default function Profile() {
       >
         <ProfileHeroCard
           profile={profile}
-          displayName={displayName}
+          displayName={heroName.displayName}
+          hideNameLockedBadge={heroName.hideNameLockedBadge}
+          emailDisplayPrimary={emailHero.primary}
+          emailRelayRaw={emailHero.relayAddress}
           rawAvatar={rawAvatar}
           showAvatarPhoto={showAvatarPhoto}
           onAvatarError={() => setAvatarLoadFailed(true)}
           onEditPress={handleEdit}
         />
-
-        <PremiumUpsellCard />
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
         {/* Current pet — own card (Figma / light ref: separate from action rows) */}
@@ -397,6 +372,8 @@ export default function Profile() {
           ))}
         </ProfileListCard>
 
+        <ProfileJournalReminderSection />
+
         <ProfileSectionHeading>Settings</ProfileSectionHeading>
         <ProfileListCard>
           {PROFILE_SETTINGS_ROWS.map((row) => (
@@ -419,19 +396,6 @@ export default function Profile() {
               title={row.title}
               subtitle={row.subtitle}
               onPress={helpRowHandlers[row.id]}
-            />
-          ))}
-        </ProfileListCard>
-
-        <ProfileSectionHeading>Account</ProfileSectionHeading>
-        <ProfileListCard>
-          {PROFILE_ACCOUNT_ROWS.map((row) => (
-            <ProfileFigmaRow
-              key={row.id}
-              icon={row.icon}
-              title={row.title}
-              subtitle={row.subtitle}
-              onPress={accountRowHandlers[row.id]}
             />
           ))}
         </ProfileListCard>

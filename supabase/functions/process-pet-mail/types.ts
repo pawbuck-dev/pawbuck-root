@@ -50,10 +50,10 @@ export interface Pet {
 }
 
 // Pet validation types (defined before ProcessedAttachment which uses them)
-export type SkipReason = 
-  | "no_pet_info"           // No identifiable info found in document
-  | "microchip_mismatch"    // Microchip found but doesn't match pet record
-  | "attributes_mismatch";  // Attributes (name/age/breed/gender) don't match
+export type SkipReason =
+  | "no_pet_info" // No identifiable info, or missing required name+breed on document
+  | "microchip_mismatch"
+  | "attributes_mismatch"; // First name or breed on document does not match profile
 
 export type ValidationMethod = "microchip" | "attributes" | "none";
 
@@ -80,6 +80,9 @@ export interface PetValidationResult {
   extractedInfo: ExtractedPetInfo;
   matchDetails: MatchDetails;
   skipReason?: SkipReason;
+  microchipMismatchNotify?: boolean;
+  microchipDocumentValue?: string | null;
+  microchipProfileValue?: string | null;
 }
 
 export interface ProcessedAttachment {

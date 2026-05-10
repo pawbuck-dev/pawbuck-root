@@ -27,24 +27,30 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
 
     public async Task<Guid> RegisterTurnAsync(
         Guid userId,
-        Guid petId,
+        Guid? petId,
         string promptVersion,
         IReadOnlyList<string> heuristicTags,
+        string chatKind,
         CancellationToken cancellationToken = default)
     {
         var id = Guid.NewGuid();
+        var kind = string.IsNullOrWhiteSpace(chatKind) ? "journal" : chatKind.Trim().ToLowerInvariant();
+        if (kind is not ("journal" or "general"))
+            kind = "journal";
+
         await using var conn = CreateConnection();
         await conn.OpenAsync(cancellationToken);
         const string sql = """
-            INSERT INTO public.milo_journal_chat_turns (id, user_id, pet_id, prompt_version, heuristic_tags, created_at)
-            VALUES (@id, @userId, @petId, @pv, @tags, timezone('utc', now()))
+            INSERT INTO public.milo_journal_chat_turns (id, user_id, pet_id, prompt_version, heuristic_tags, chat_kind, created_at)
+            VALUES (@id, @userId, @petId, @pv, @tags, @chatKind, timezone('utc', now()))
             """;
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("id", id);
         cmd.Parameters.AddWithValue("userId", userId);
-        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("petId", petId.HasValue ? petId.Value : (object)DBNull.Value);
         cmd.Parameters.AddWithValue("pv", promptVersion);
         cmd.Parameters.AddWithValue("tags", heuristicTags.ToArray());
+        cmd.Parameters.AddWithValue("chatKind", kind);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
         return id;
     }

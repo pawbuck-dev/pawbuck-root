@@ -1,53 +1,7 @@
-export const COUNTRY_FLAGS: { [key: string]: string } = {
-    "United States": "🇺🇸",
-    "Canada": "🇨🇦",
-    "United Kingdom": "🇬🇧",
-      // "Argentina": "🇦🇷",
-      // "Australia": "🇦🇺",
-      // "Austria": "🇦🇹",
-      // "Belgium": "🇧🇪",
-      // "Brazil": "🇧🇷",
-      // "Chile": "🇨🇱",
-      // "China": "🇨🇳",
-      // "Colombia": "🇨🇴",
-      // "Denmark": "🇩🇰",
-      // "Egypt": "🇪🇬",
-      // "Finland": "🇫🇮",
-      // "France": "🇫🇷",
-      // "Germany": "🇩🇪",
-      // "Greece": "🇬🇷",
-      // "India": "🇮🇳",
-      // "Indonesia": "🇮🇩",
-      // "Ireland": "🇮🇪",
-      // "Israel": "🇮🇱",
-      // "Italy": "🇮🇹",
-      // "Japan": "🇯🇵",
-      // "Kenya": "🇰🇪",
-      // "Malaysia": "🇲🇾",
-      // "Mexico": "🇲🇽",
-      // "Netherlands": "🇳🇱",
-      // "New Zealand": "🇳🇿",
-      // "Nigeria": "🇳🇬",
-      // "Norway": "🇳🇴",
-      // "Peru": "🇵🇪",
-      // "Philippines": "🇵🇭",
-      // "Poland": "🇵🇱",
-      // "Portugal": "🇵🇹",
-      // "Russia": "🇷🇺",
-      // "Saudi Arabia": "🇸🇦",
-      // "Singapore": "🇸🇬",
-      // "South Africa": "🇿🇦",
-      // "South Korea": "🇰🇷",
-      // "Spain": "🇪🇸",
-      // "Sweden": "🇸🇪",
-      // "Switzerland": "🇨🇭",
-      // "Thailand": "🇹🇭",
-      // "Turkey": "🇹🇷",
-      // "Ukraine": "🇺🇦",
-      // "United Arab Emirates": "🇦🇪",
-      // "Vietnam": "🇻🇳"
-  
-  };
+import { onboardingCountryFlags } from "./onboardingCountries";
+
+/** Country name → flag emoji; aligned with {@link ONBOARDING_COUNTRY_OPTIONS}. */
+export const COUNTRY_FLAGS: Record<string, string> = onboardingCountryFlags();
 
 
   export const CAT_BREEDS = [

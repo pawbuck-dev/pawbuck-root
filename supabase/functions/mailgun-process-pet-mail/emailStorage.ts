@@ -6,6 +6,9 @@ import type { ParsedEmail } from "./types.ts";
  */
 const PENDING_EMAILS_BUCKET = "pending-emails";
 
+/** Stay under typical Storage / gateway limits; PDF base64 can exceed this quickly. */
+const ARCHIVE_JSON_BYTE_SOFT_CAP = 4_500_000;
+
 /**
  * Creates a Supabase client with service role key
  */
@@ -34,6 +37,22 @@ function generateStoragePath(messageId: string): string {
   return `${sanitizedId}.json`;
 }
 
+function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
+
+/** Keeps headers + attachment metadata; drops base64 bodies so archive JSON stays small. */
+function stripAttachmentBodiesForArchive(email: ParsedEmail): ParsedEmail {
+  return {
+    ...email,
+    attachments: email.attachments.map((a) => ({
+      ...a,
+      content: "",
+      contentWasStrippedForArchive: true,
+    })),
+  };
+}
+
 /**
  * Store parsed email data for later re-processing after approval
  * @param messageId - The unique message ID from the email
@@ -49,13 +68,24 @@ export async function storeEmailForApproval(
   const supabase = createSupabaseClient();
   const storagePath = generateStoragePath(messageId);
 
-  // Serialize the email data to JSON
-  const emailJson = JSON.stringify(parsedEmail);
+  let emailToStore: ParsedEmail = parsedEmail;
+  let emailJson = JSON.stringify(emailToStore);
+  let bytes = utf8ByteLength(emailJson);
+  if (bytes > ARCHIVE_JSON_BYTE_SOFT_CAP) {
+    console.warn(
+      `[emailStorage] Archive JSON ${bytes} bytes exceeds soft cap ${ARCHIVE_JSON_BYTE_SOFT_CAP}; storing metadata-only (no attachment bodies) for ${messageId}`,
+    );
+    emailToStore = stripAttachmentBodiesForArchive(parsedEmail);
+    emailJson = JSON.stringify(emailToStore);
+    bytes = utf8ByteLength(emailJson);
+    console.log(`[emailStorage] After strip: ${bytes} bytes`);
+  }
+
   const encoder = new TextEncoder();
   const fileData = encoder.encode(emailJson);
 
   // Upload to pending-emails bucket
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(PENDING_EMAILS_BUCKET)
     .upload(storagePath, fileData, {
       contentType: "application/json",
@@ -63,7 +93,34 @@ export async function storeEmailForApproval(
     });
 
   if (error) {
-    console.error("Error storing email for approval:", error);
+    console.error(
+      `[emailStorage] Upload failed (${bytes} bytes, path ${storagePath}):`,
+      error,
+    );
+    // Retry once with bodies stripped (handles gateways that reject large bodies)
+    if (!emailToStore.attachments.some((a) => a.contentWasStrippedForArchive)) {
+      const stripped = stripAttachmentBodiesForArchive(parsedEmail);
+      const retryJson = JSON.stringify(stripped);
+      const retryBytes = utf8ByteLength(retryJson);
+      console.warn(
+        `[emailStorage] Retrying upload without attachment bodies (${retryBytes} bytes)`,
+      );
+      const retryData = encoder.encode(retryJson);
+      const { error: retryError } = await supabase.storage
+        .from(PENDING_EMAILS_BUCKET)
+        .upload(storagePath, retryData, {
+          contentType: "application/json",
+          upsert: true,
+        });
+      if (retryError) {
+        console.error("[emailStorage] Retry upload also failed:", retryError);
+        throw new Error(
+          `Failed to store email for approval: ${retryError.message}`,
+        );
+      }
+      console.log(`Successfully stored email (metadata-only) at: ${storagePath}`);
+      return storagePath;
+    }
     throw new Error(`Failed to store email for approval: ${error.message}`);
   }
 

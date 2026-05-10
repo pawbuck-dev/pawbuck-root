@@ -6,7 +6,9 @@ The **Pet journal** captures owner observations: health notes, behavior, environ
 
 ## Adding an entry
 
-Open **Pet Journal** from Profile shortcuts or navigation. Tap **new** or **add** to create an entry, pick a domain (for example **health**), subtype, date, and note text. Save the entry.
+From **Home**, use the **Pet Journal** row ("Log health, behavior & environment") or open **Pet Journal** from navigation you already use. The **Health briefing** card on Home opens the **briefing** flow for that pet when available.
+
+Tap **new** or **add** to create an entry, pick a domain (for example **health**), subtype, date, and note text. Save the entry.
 
 ## Allergies and conditions
 

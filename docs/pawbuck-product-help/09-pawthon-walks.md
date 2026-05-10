@@ -2,11 +2,11 @@
 
 ## Starting a walk
 
-From **Home** or the **Pawthon** area, start a **walk** session when prompted. Grant **location** permissions so distance and route metrics can be recorded. Location is used while the walk is active according to system permission prompts.
+From **Home**, use the **daily walk goal** card (compact Pawthon entry) to start a **walk** when shown, or open the full **Pawthon** hub from navigation if your build exposes it. Grant **location** permissions so distance and route metrics can be recorded. Location is used while the walk is active according to system permission prompts.
 
 ## Leaderboard
 
-Open **Leaderboard** from Pawthon-related navigation to compare progress with challenges described in the product. Rankings depend on recorded activity.
+A **weekly challenge** or **leaderboard** entry may appear on **Home** in some versions (often behind premium gating). Rankings depend on recorded activity for the cohort described in-app.
 
 ## Simulator note
 

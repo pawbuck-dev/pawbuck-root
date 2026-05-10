@@ -91,6 +91,7 @@ export default function MessagesScreen() {
   const [careTeamFilter, setCareTeamFilter] =
     useState<MessageCareTeamFilter>("all");
   const [resolutionEmail, setResolutionEmail] = useState<FailedEmail | null>(null);
+  const [processingErrorsExpanded, setProcessingErrorsExpanded] = useState(false);
 
   // Fetch message threads
   const {
@@ -708,37 +709,48 @@ export default function MessagesScreen() {
                     </View>
                   )}
 
-                {/* Review Inbox — needs manual sort to health records */}
-                {hasMessages && (
-                  <View className="mb-6">
-                    <View className="flex-row items-center justify-between mb-3 px-4">
-                      <View className="flex-row items-center flex-1">
+                {/* Document processing failures — secondary, collapsed by default */}
+                {failedForDisplay.length > 0 ? (
+                  <View className="mb-6 px-4">
+                    <Pressable
+                      onPress={() => setProcessingErrorsExpanded((e) => !e)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: processingErrorsExpanded }}
+                      accessibilityLabel={`Processing errors, ${failedForDisplay.length} items. ${
+                        processingErrorsExpanded ? "Collapse" : "Expand"
+                      }`}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingVertical: 10,
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 }}>
                         <Ionicons
-                          name="file-tray-full-outline"
+                          name="alert-circle-outline"
                           size={20}
                           color={theme.warning}
                           style={{ marginRight: 8 }}
                         />
                         <Text
-                          className="text-base font-bold"
-                          style={{ color: theme.foreground }}
+                          className="text-base font-semibold"
+                          style={{ color: theme.foreground, flexShrink: 1 }}
+                          numberOfLines={1}
                         >
-                          Review Inbox
+                          {`Processing errors (${failedForDisplay.length})`}
                         </Text>
-                        {failedForDisplay.length > 0 ? (
-                          <View
-                            className="ml-2 px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: theme.warning }}
-                          >
-                            <Text className="text-xs font-bold" style={{ color: "#0F1419" }}>
-                              {failedForDisplay.length}
-                            </Text>
-                          </View>
-                        ) : null}
                       </View>
-                    </View>
+                      <Ionicons
+                        name={processingErrorsExpanded ? "chevron-up" : "chevron-down"}
+                        size={22}
+                        color={theme.secondary}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </Pressable>
 
-                    {failedForDisplay.length > 0 ? (
+                    {processingErrorsExpanded ? (
                       <View>
                         {failedForDisplay.map((failedEmail) => (
                           <FailedEmailListItem
@@ -748,18 +760,9 @@ export default function MessagesScreen() {
                           />
                         ))}
                       </View>
-                    ) : (
-                      <View className="px-4 pb-2">
-                        <Text
-                          className="text-sm text-center"
-                          style={{ color: theme.secondary, lineHeight: 20 }}
-                        >
-                          All caught up! Your pet records are organized.
-                        </Text>
-                      </View>
-                    )}
+                    ) : null}
                   </View>
-                )}
+                ) : null}
 
                 {/* Empty State */}
                 {!hasMessages && (

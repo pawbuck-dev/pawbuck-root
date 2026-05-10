@@ -6,7 +6,7 @@ export type PetTransferPreviewPet = {
   breed: string | null;
   photo_url: string | null;
   animal_type: string | null;
-  date_of_birth: string;
+  date_of_birth: string | null;
   /** Present once DB migration with email in verify select is applied. */
   email_id?: string | null;
 };

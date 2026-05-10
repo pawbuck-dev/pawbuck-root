@@ -2,6 +2,7 @@ import { saveOCRResults } from "../dbPersistence.ts";
 import { classifyAttachment } from "../geminiClassifier.ts";
 import { triggerOCR } from "../ocrTrigger.ts";
 import { formatValidationResult, validatePetFromDocument } from "../petValidator.ts";
+import { sendMicrochipMismatchNotification } from "./notificationSender.ts";
 import { uploadAttachment } from "../storageUploader.ts";
 import type {
   DocumentClassification,
@@ -98,6 +99,18 @@ async function processSingleAttachment(
     );
 
     console.log(formatValidationResult(petValidation));
+
+    if (petValidation.microchipMismatchNotify) {
+      try {
+        await sendMicrochipMismatchNotification(
+          pet,
+          petValidation,
+          attachment.filename
+        );
+      } catch (notifyErr) {
+        console.error("Microchip mismatch notification error:", notifyErr);
+      }
+    }
 
     // Step 3a: Skip if validation failed
     if (!petValidation.isValid) {

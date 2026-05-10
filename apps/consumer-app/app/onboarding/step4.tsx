@@ -114,7 +114,7 @@ export default function OnboardingStep4() {
       {/* Heading + Subtitle (fixed, not scrollable) */}
       <View style={styles.headingWrap}>
         <Text style={[styles.heading, { color: theme.foreground }]}>
-          What Breed Is Your {petLabel}?
+          What breed is your {petLabel}?
         </Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
           Helps personalize care
@@ -130,7 +130,7 @@ export default function OnboardingStep4() {
         {!showCustomInput ? (
           <View style={[styles.card, { backgroundColor: cardBg }]}>
             {/* Select Breed label */}
-            <Text style={[styles.label, { color: theme.foreground }]}>Select Breed</Text>
+            <Text style={[styles.label, { color: theme.foreground }]}>Select breed</Text>
 
             {/* Dropdown trigger */}
             <Pressable

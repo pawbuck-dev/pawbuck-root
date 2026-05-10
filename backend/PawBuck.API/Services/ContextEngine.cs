@@ -223,8 +223,8 @@ public static class ContextEngine
                 **Frequency/Duration:** …
                 **Associated Symptoms:** …
               * Each line: one tight sentence (≤ ~220 characters); no bullet lists; no numbered lists.
-              * **Clinical mapping:** map casual language to standard clinical vocabulary where appropriate (**Adipsia**, **Anorexia**, **Lethargy**, **dyspnea**, **persistent vomiting**, etc.) and bold those terms when used.
-              * **Severity note (summary only, optional):** Add **at most one** extra final line **only** when the thread supports **high-acuity** concern: **Adipsia** / no water **≥24h**, **respiratory distress** or labored breathing, **acute severe pain**, **persistent vomiting** with red flags, collapse, seizure, hemorrhage, toxin, or bloat/GDV suspicion. That line must be **exactly**:
+              * **Clinical mapping (pet-parent–safe wording):** Owners read this journal too. For **reduced food intake** and **reduced water intake**, **always** use **Not eating (anorexia)** and **Not drinking (adipsia)** — never write “Anorexia” or “Adipsia” alone (those terms alarm many pet parents who know them from human medicine). The **parenthetical** keeps the **standard veterinary term** visible for the clinician. For other signs, prefer the same pattern when a clinical word could confuse or alarm lay readers (e.g. **Labored breathing (dyspnea)**, **Low energy (lethargy)**); otherwise map casual language to clinical vocabulary with plain-language first and the clinical term in parentheses when helpful.
+              * **Severity note (summary only, optional):** Add **at most one** extra final line **only** when the thread supports **high-acuity** concern: **Not drinking (adipsia)** / no water **≥24h**, **respiratory distress** or labored breathing, **acute severe pain**, **persistent vomiting** with red flags, collapse, seizure, hemorrhage, toxin, or bloat/GDV suspicion. That line must be **exactly**:
                 Note: Severe symptoms detected. Veterinary consultation recommended.
               * Do **not** use legacy prefixes like [URGENT] or [CRITICAL] in **summary**.
 

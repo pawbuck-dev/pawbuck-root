@@ -1,9 +1,12 @@
+import { MILO_ASSISTANT_RESPONSE_FOOTER } from "@/constants/miloDisclaimers";
 import { ChatMessage as ChatMessageType } from "@/context/chatContext";
 import { HEALTH_ELEVATION, HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
+import { submitMiloJournalFeedback } from "@/utils/miloChatApi";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import React, { useEffect, useRef } from "react";
-import { Animated, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Text, TouchableOpacity, View } from "react-native";
 import { MiloFileAttachmentChips } from "./MiloFileAttachmentChips";
 import { MiloMessageBody } from "./MiloMessageBody";
 
@@ -12,6 +15,84 @@ const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 interface ChatMessageProps {
   message: ChatMessageType;
   isNew?: boolean;
+}
+
+function MiloTurnFeedbackRow({
+  turnId,
+  primaryColor,
+  mutedColor,
+}: {
+  turnId: string;
+  primaryColor: string;
+  mutedColor: string;
+}) {
+  const [selected, setSelected] = useState<"up" | "down" | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  const disabled = submitting || selected !== null;
+
+  const submit = async (rating: "up" | "down") => {
+    if (disabled) return;
+    setSubmitting(true);
+    try {
+      await submitMiloJournalFeedback({ turnId, rating });
+      setSelected(rating);
+      pulse.setValue(1);
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.2,
+          duration: 140,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 140,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } catch (e) {
+      console.warn("[MiloTurnFeedback]", e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const upActive = selected === "up";
+  const downActive = selected === "down";
+  const upColor = upActive ? primaryColor : mutedColor;
+  const downColor = downActive ? primaryColor : mutedColor;
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <TouchableOpacity
+        disabled={disabled}
+        onPress={() => void submit("up")}
+        hitSlop={10}
+        accessibilityLabel="Thumbs up"
+        activeOpacity={0.7}
+      >
+        <Animated.View style={{ transform: [{ scale: upActive ? pulse : 1 }] }}>
+          <Ionicons name={upActive ? "thumbs-up" : "thumbs-up-outline"} size={18} color={upColor} />
+        </Animated.View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        disabled={disabled}
+        onPress={() => void submit("down")}
+        hitSlop={10}
+        accessibilityLabel="Thumbs down"
+        activeOpacity={0.7}
+      >
+        <Animated.View style={{ transform: [{ scale: downActive ? pulse : 1 }] }}>
+          <Ionicons
+            name={downActive ? "thumbs-down" : "thumbs-down-outline"}
+            size={18}
+            color={downColor}
+          />
+        </Animated.View>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isNew = true }) => {
@@ -104,16 +185,48 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isNew = true 
         {!isUser && message.fileAttachments && message.fileAttachments.length > 0 ? (
           <MiloFileAttachmentChips attachments={message.fileAttachments} />
         ) : null}
-        <Text
+        {!isUser ? (
+          <Text
+            style={{
+              fontSize: 11,
+              lineHeight: 15,
+              color: theme.secondary,
+              marginTop: 10,
+            }}
+            accessibilityRole="text"
+          >
+            {MILO_ASSISTANT_RESPONSE_FOOTER}
+          </Text>
+        ) : null}
+        <View
           style={{
-            color: isUser ? "rgba(255,255,255,0.75)" : theme.secondary,
-            fontSize: 11,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
             marginTop: 8,
-            textAlign: isUser ? "right" : "left",
+            gap: 8,
           }}
         >
-          {formatTime(message.timestamp)}
-        </Text>
+          <Text
+            style={{
+              color: isUser ? "rgba(255,255,255,0.75)" : theme.secondary,
+              fontSize: 11,
+              textAlign: "left",
+              flexShrink: 0,
+            }}
+          >
+            {formatTime(message.timestamp)}
+          </Text>
+          {!isUser && message.turnId ? (
+            <View style={{ flexShrink: 0 }}>
+              <MiloTurnFeedbackRow
+                turnId={message.turnId}
+                primaryColor={theme.primary}
+                mutedColor={theme.secondary}
+              />
+            </View>
+          ) : null}
+        </View>
       </View>
     </Animated.View>
   );

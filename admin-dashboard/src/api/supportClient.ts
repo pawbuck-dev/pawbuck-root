@@ -14,6 +14,11 @@ import type {
   SupportMetrics,
   SupportPetExplorerRow,
   SupportPetRow,
+  SupportProcessedEmailAttachmentsResponse,
+  SupportProcessedEmailDetail,
+  SupportProcessedEmailSignedUrlResponse,
+  SupportProcessedEmailsListResponse,
+  SupportProcessedEmailsSummaryResponse,
   SupportUserDirectoryResponse,
   SupportUserRow,
   SupportVaccinationRow,
@@ -180,5 +185,59 @@ export function createSupportClient(
         method: "POST",
         json: body,
       }),
+
+    listProcessedEmails: (params: {
+      page?: number;
+      pageSize?: number;
+      from?: string;
+      to?: string;
+      documentType?: string;
+      reviewStatus?: string;
+      q?: string;
+      failuresOnly?: boolean;
+    }) => {
+      const p = new URLSearchParams();
+      if (params.page != null) p.set("page", String(params.page));
+      if (params.pageSize != null) p.set("pageSize", String(params.pageSize));
+      if (params.from) p.set("from", params.from);
+      if (params.to) p.set("to", params.to);
+      if (params.documentType != null && params.documentType !== "")
+        p.set("documentType", params.documentType);
+      if (params.reviewStatus != null && params.reviewStatus !== "")
+        p.set("reviewStatus", params.reviewStatus);
+      if (params.q != null && params.q.trim()) p.set("q", params.q.trim());
+      if (params.failuresOnly === false) p.set("failuresOnly", "false");
+      const qs = p.toString();
+      return request<SupportProcessedEmailsListResponse>(
+        `/api/support/processed-emails${qs ? `?${qs}` : ""}`,
+      );
+    },
+
+    getProcessedEmail: (id: string) =>
+      request<SupportProcessedEmailDetail>(`/api/support/processed-emails/${encodeURIComponent(id)}`),
+
+    getProcessedEmailsSummary: (from?: string, to?: string) => {
+      const p = new URLSearchParams();
+      if (from) p.set("from", from);
+      if (to) p.set("to", to);
+      const qs = p.toString();
+      return request<SupportProcessedEmailsSummaryResponse>(
+        `/api/support/processed-emails/summary${qs ? `?${qs}` : ""}`,
+      );
+    },
+
+    listProcessedEmailAttachments: (id: string) =>
+      request<SupportProcessedEmailAttachmentsResponse>(
+        `/api/support/processed-emails/${encodeURIComponent(id)}/attachments`,
+      ),
+
+    getProcessedEmailAttachmentSignedUrl: (id: string, index: number, ttlSeconds?: number) => {
+      const p = new URLSearchParams();
+      if (ttlSeconds != null) p.set("ttlSeconds", String(ttlSeconds));
+      const qs = p.toString();
+      return request<SupportProcessedEmailSignedUrlResponse>(
+        `/api/support/processed-emails/${encodeURIComponent(id)}/attachments/${index}/signed-url${qs ? `?${qs}` : ""}`,
+      );
+    },
   };
 }

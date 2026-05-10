@@ -203,6 +203,23 @@ public class MiloReasoningService : IMiloReasoningService
             ? $"{plan.ReasoningBrief ?? ""} | dataNeeded: [{string.Join(", ", plan.DataNeeded ?? new List<string>())}] | ragPlan: {plan.NeedsDocumentationRag} | ragEffective: {needsDocumentationRag}"
             : null;
 
+        Guid? feedbackTurnId = null;
+        try
+        {
+            var registered = await _journalTurns.RegisterTurnAsync(
+                userId,
+                petId,
+                "general",
+                kinds,
+                "general",
+                cancellationToken);
+            feedbackTurnId = registered == Guid.Empty ? null : registered;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to register general Milo chat turn; continuing without turnId");
+        }
+
         return new MiloChatResponse
         {
             Answer = string.IsNullOrWhiteSpace(answer)
@@ -213,6 +230,8 @@ public class MiloReasoningService : IMiloReasoningService
             PlanSummary = planSummary,
             PetName = request.Pet?.Name,
             FileAttachments = fileAttachments,
+            ResponseId = feedbackTurnId,
+            TurnId = feedbackTurnId.HasValue ? feedbackTurnId.Value.ToString("D") : null,
         };
     }
 
@@ -440,6 +459,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 petId,
                 config.PromptVersion,
                 tags,
+                "journal",
                 cancellationToken);
         }
         catch (Exception ex)
@@ -453,6 +473,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             || ctx.UpcomingMilestones.Count > 0
             || hints.Count > 0;
 
+        var ridJournal = responseId == Guid.Empty ? (Guid?)null : responseId;
         return new MiloChatResponse
         {
             Answer = answer,
@@ -463,7 +484,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             PetName = request.Pet?.Name,
             UsedPetData = usedData,
             UsedRag = false,
-            ResponseId = responseId == Guid.Empty ? null : responseId,
+            ResponseId = ridJournal,
+            TurnId = ridJournal.HasValue ? ridJournal.Value.ToString("D") : null,
             PromptVersion = config.PromptVersion,
             HeuristicTags = tags,
         };

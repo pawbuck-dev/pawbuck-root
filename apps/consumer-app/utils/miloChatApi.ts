@@ -37,12 +37,27 @@ export type MiloChatApiResult = {
   journalSessionComplete?: boolean;
   journalStatus?: string;
   journalSummary?: string;
-  /** Journal mode: server turn id for POST /api/milo/chat/feedback */
+  /** Server turn id for POST /api/milo/chat/feedback (general + journal). */
+  turnId?: string;
+  /** @deprecated Same as turnId when present */
   responseId?: string;
   promptVersion?: string;
   heuristicTags?: string[];
   fileAttachments?: MiloChatFileAttachment[];
 };
+
+function parseTurnIdFromChatJson(data: {
+  turnId?: unknown;
+  responseId?: unknown;
+}): string | undefined {
+  if (typeof data.turnId === "string" && data.turnId.trim()) {
+    return data.turnId.trim();
+  }
+  if (data.responseId != null && String(data.responseId).trim()) {
+    return String(data.responseId).trim();
+  }
+  return undefined;
+}
 
 /** Pet fields sent to POST /api/milo/chat (matches chatContext PetContext). */
 export function petToMiloApiContext(pet: Pet) {
@@ -135,6 +150,7 @@ export async function fetchMiloChat(params: {
     journalSessionComplete?: boolean;
     journalStatus?: string;
     journalSummary?: string;
+    turnId?: string;
     responseId?: string;
     promptVersion?: string;
     heuristicTags?: string[];
@@ -167,19 +183,21 @@ export async function fetchMiloChat(params: {
     data.answer.includes("not quite configured") ||
     data.answer.includes("Woof! Something went wrong");
 
+  const turnId = parseTurnIdFromChatJson(data);
+
   if (looksLikeServerTrouble) {
     miloDebug("warning: API returned 200 but answer looks like a failure path — check PawBuck.API logs / Gemini / DB", {
       answerPreview: data.answer.slice(0, 160),
       journalMode: journalMode ?? false,
       usedPetData: data.usedPetData,
-      responseId: data.responseId,
+      turnId,
       promptVersion: data.promptVersion,
     });
   } else {
     miloDebug("ok", {
       answerLength: data.answer.length,
       usedPetData: data.usedPetData,
-      responseId: data.responseId,
+      turnId,
       promptVersion: data.promptVersion,
       heuristicTags: data.heuristicTags,
     });
@@ -191,16 +209,19 @@ export async function fetchMiloChat(params: {
     journalSessionComplete: data.journalSessionComplete,
     journalStatus: data.journalStatus,
     journalSummary: data.journalSummary,
-    responseId: data.responseId,
+    turnId,
+    responseId: turnId,
     promptVersion: data.promptVersion,
     heuristicTags: data.heuristicTags,
     fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
   };
 }
 
-/** Thumbs up/down for a journal Milo assistant turn. */
+/** Thumbs up/down for a Milo assistant turn (general or journal). */
 export async function submitMiloJournalFeedback(params: {
-  responseId: string;
+  turnId?: string;
+  /** @deprecated use turnId */
+  responseId?: string;
   rating: "up" | "down";
 }): Promise<void> {
   const {
@@ -215,8 +236,13 @@ export async function submitMiloJournalFeedback(params: {
     throw new Error("PawBuck API URL is not configured (EXPO_PUBLIC_PAWBUCK_API_URL).");
   }
 
+  const id = (params.turnId ?? params.responseId ?? "").trim();
+  if (!id) {
+    throw new Error("turnId is required");
+  }
+
   const fbUrl = `${baseUrl}/api/milo/chat/feedback`;
-  miloDebug("POST", fbUrl, { responseId: params.responseId, rating: params.rating });
+  miloDebug("POST", fbUrl, { turnId: id, rating: params.rating });
 
   const res = await fetch(fbUrl, {
     method: "POST",
@@ -225,7 +251,7 @@ export async function submitMiloJournalFeedback(params: {
       Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
-      responseId: params.responseId,
+      turnId: id,
       rating: params.rating,
     }),
   });

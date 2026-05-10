@@ -110,9 +110,13 @@ public class MiloChatResponse
     [JsonPropertyName("journalSummary")]
     public string? JournalSummary { get; set; }
 
-    /// <summary>Server id for this assistant turn; use with POST feedback (journal mode).</summary>
+    /// <summary>Server id for this assistant turn; use with POST <c>/api/milo/chat/feedback</c> body <c>responseId</c> or <c>turnId</c>.</summary>
     [JsonPropertyName("responseId")]
     public Guid? ResponseId { get; set; }
+
+    /// <summary>Same as <see cref="ResponseId"/> as a string (client convenience).</summary>
+    [JsonPropertyName("turnId")]
+    public string? TurnId { get; set; }
 
     /// <summary>Prompt pack version from journal config (journal mode).</summary>
     [JsonPropertyName("promptVersion")]

@@ -16,8 +16,8 @@ Historically some migrations and edge functions lived under the consumer app. Th
 | Location | Status |
 |----------|--------|
 | [`supabase/migrations`](../supabase/migrations/) | **Use this** for all new tables, RLS, and seeds. |
-| [`apps/consumer-app/supabase/migrations`](apps/consumer-app/supabase/migrations) | Legacy; do not add new files here. Sync any still-missing migrations into root when touching related features. |
-| [`apps/consumer-app/supabase/functions`](apps/consumer-app/supabase/functions) | Edge functions may remain here until moved; new functions should mirror deployment docs. |
+| [`apps/consumer-app/supabase/migrations`](apps/consumer-app/supabase/migrations) | Legacy; do not add new files here. **Synced to root (20260528\*):** message-thread soft delete + audit, FAQ pgvector + `faq_source`, service grants. |
+| [`apps/consumer-app/supabase/functions`](apps/consumer-app/supabase/functions) | Legacy; **canonical functions live under repo root** [`supabase/functions/`](../supabase/functions/). `purge-deleted-threads` and `add-faq` were copied to root; root [`supabase/config.toml`](../supabase/config.toml) registers all deployed functions. |
 
 ## Apply order
 
@@ -29,6 +29,15 @@ Historically some migrations and edge functions lived under the consumer app. Th
    ```
 
    (Writes [`apps/consumer-app/database.types.ts`](../apps/consumer-app/database.types.ts).)
+
+## Scheduled Edge: care reminders (5.4)
+
+Edge function [`supabase/functions/scheduled-care-reminders`](../supabase/functions/scheduled-care-reminders/index.ts) sends **document expiry** (insurance + travel `pet_documents`) and **vet appointment** (`vet_bookings`) push reminders. It expects:
+
+- Environment secret **`SCHEDULED_CARE_REMINDERS_SECRET`** on the function.
+- HTTP **`POST`** with header **`x-scheduled-care-reminders-secret: <same secret>`**.
+
+Configure a **scheduled invoke** in the Supabase dashboard (or external cron) every 15–60 minutes so T-24h / T-1h vet windows are not missed. Local: `supabase functions serve scheduled-care-reminders` and call with `curl -H "x-scheduled-care-reminders-secret: ..." -X POST http://127.0.0.1:54321/functions/v1/scheduled-care-reminders`.
 
 ## Tables maintained for PawBuck.API
 

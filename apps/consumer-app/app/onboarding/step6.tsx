@@ -1,11 +1,11 @@
 import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Gender = "male" | "female";
@@ -57,12 +57,8 @@ export default function OnboardingStep6() {
 
       {/* Heading above ScrollView */}
       <View style={styles.headingWrap}>
-        <Text style={[styles.heading, { color: theme.foreground }]}>
-          Your Pet's Gender?
-        </Text>
-        <Text style={[styles.subtitle, { color: mutedText }]}>
-          Tell us about your pet
-        </Text>
+        <Text style={[styles.heading, { color: theme.foreground }]}>{`What's your pet's sex?`}</Text>
+        <Text style={[styles.subtitle, { color: mutedText }]}>Tell us about your pet</Text>
       </View>
 
       {/* ScrollView with card container */}
@@ -86,10 +82,11 @@ export default function OnboardingStep6() {
                 },
               ]}
             >
-              <Image
-                source={require("@/assets/icons/male.png")}
-                style={styles.genderImage}
-                resizeMode="contain"
+              <MaterialCommunityIcons
+                name="gender-male"
+                size={64}
+                color={selectedGender === "male" ? accentColor : theme.foreground}
+                style={styles.genderIcon}
               />
               <Text style={[styles.cardLabel, { color: theme.foreground }]}>Male</Text>
             </Pressable>
@@ -106,10 +103,11 @@ export default function OnboardingStep6() {
                 },
               ]}
             >
-              <Image
-                source={require("@/assets/icons/female.png")}
-                style={styles.genderImage}
-                resizeMode="contain"
+              <MaterialCommunityIcons
+                name="gender-female"
+                size={64}
+                color={selectedGender === "female" ? accentColor : theme.foreground}
+                style={styles.genderIcon}
               />
               <Text style={[styles.cardLabel, { color: theme.foreground }]}>Female</Text>
             </Pressable>
@@ -206,9 +204,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  genderImage: {
-    width: 64,
-    height: 64,
+  genderIcon: {
     marginBottom: 12,
   },
   cardLabel: {

@@ -3,6 +3,7 @@ import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
+import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -89,8 +90,6 @@ function SignUp() {
           params: transferCode ? { transferCode } : { inviteCode },
         });
       } else {
-        // Navigate to home - clear stack first
-        router.dismissAll();
         router.replace("/home");
       }
     } catch (error: any) {
@@ -140,21 +139,31 @@ function SignUp() {
                 onSuccess={async (user) => {
                   try {
                     setIsLoading(true);
-                    // Create or update user preferences (handles existing users seamlessly)
                     await upsertUserPreferences(user.id, {});
 
-                    // Create pet if onboarding data exists (wait for completion before navigating)
+                    const {
+                      data: { user: latest },
+                    } = await supabase.auth.getUser();
+                    if (needsDisplayNamePrompt(latest ?? user)) {
+                      router.replace({
+                        pathname: "/post-auth-confirm",
+                        params: {
+                          returnTo: returnTo ? String(returnTo) : "",
+                          transferCode: transferCode ? String(transferCode) : "",
+                          inviteCode: inviteCode ? String(inviteCode) : "",
+                        },
+                      });
+                      return;
+                    }
+
                     await createPetIfNeeded();
 
-                    // Check if we need to return to transfer or household flow
                     if (returnTo && (transferCode || inviteCode)) {
                       router.replace({
                         pathname: returnTo as any,
                         params: transferCode ? { transferCode } : { inviteCode },
                       });
                     } else {
-                      // Navigate to home - clear stack first
-                      router.dismissAll();
                       router.replace("/home");
                     }
                   } catch (error: any) {

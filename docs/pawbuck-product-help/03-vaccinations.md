@@ -3,7 +3,7 @@
 ## How do I add vaccination records?
 
 1. Select your pet (Home or Profile pet picker).
-2. Open the pet's **Health record**, then the **Vaccinations** tab.
+2. Open the pet's **Health Records** hub, then open the **Vaccinations** tab (from a category card or the tab bar). (Same tab opens if you use a **Home** Catch up shortcut to Vaccinations, or open **Records** in the bottom bar with your pet selected and choose Vaccinations.)
 3. Tap **add** or **upload** (wording may be **Add vaccination** or an upload icon).
 4. Choose a clear photo or PDF of the certificate or clinic summary.
 5. Submit and wait for processing. PawBuck extracts vaccine name, dates, and due dates when possible.

@@ -198,6 +198,7 @@ builder.Services.AddScoped<MiloJournalTurnService>();
 builder.Services.AddScoped<IMiloJournalTurnService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
+builder.Services.AddScoped<IMiloHealthBundleService, MiloHealthBundleService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
 builder.Services.AddHttpClient(nameof(MailInboxResolveService), client =>
@@ -268,6 +269,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<ISupportMetricsService, SupportMetricsService>();
 builder.Services.AddScoped<ISupportDirectoryService, SupportDirectoryService>();
 builder.Services.AddScoped<ISupportVaccinationAdminService, SupportVaccinationAdminService>();
+builder.Services.AddScoped<ISupportProcessedEmailsService, SupportProcessedEmailsService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

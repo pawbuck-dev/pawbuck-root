@@ -18,6 +18,7 @@ jest.mock("@/context/themeContext", () => ({
       primary: "#3BD0D2",
       primaryForeground: "#fff",
     },
+    mode: "light",
   }),
 }));
 
@@ -31,15 +32,15 @@ describe("Onboarding step 1", () => {
     jest.clearAllMocks();
   });
 
-  it("shows pet registration intro", () => {
+  it("shows PawBuck value prop and question count", () => {
     render(<OnboardingStep1 />);
-    expect(screen.getByText("Let's register your pet")).toBeTruthy();
-    expect(screen.getByText(/9 quick questions/)).toBeTruthy();
+    expect(screen.getByText("Welcome to PawBuck")).toBeTruthy();
+    expect(screen.getByText(/nine quick questions/)).toBeTruthy();
   });
 
-  it("navigates to step2 when Let's Go is pressed", () => {
+  it("navigates to step2 when Continue is pressed", () => {
     render(<OnboardingStep1 />);
-    fireEvent.press(screen.getByText("Let's Go"));
+    fireEvent.press(screen.getByText("Continue"));
     expect(mockPush).toHaveBeenCalledWith("/onboarding/step2");
   });
 });

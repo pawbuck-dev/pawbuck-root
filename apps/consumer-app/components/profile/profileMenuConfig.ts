@@ -23,13 +23,6 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     href: "/(home)/transfer-pet",
   },
   {
-    id: "journal",
-    icon: "book-outline",
-    title: "Pet Journal",
-    subtitle: "Health, behavior & environment notes",
-    href: "/(home)/pet-journal",
-  },
-  {
     id: "access",
     icon: "account-cog-outline",
     title: "Manage Access",
@@ -77,12 +70,6 @@ export type ProfileSettingsRowId = (typeof PROFILE_SETTINGS_ROWS)[number]["id"];
 
 export const PROFILE_HELP_ROWS = [
   {
-    id: "milo_help",
-    icon: "chatbubbles-outline",
-    title: "Help & how-tos",
-    subtitle: "Ask Milo about PawBuck",
-  },
-  {
     id: "contact",
     icon: "message-text-outline",
     title: "Contact Us",
@@ -91,14 +78,3 @@ export const PROFILE_HELP_ROWS = [
 ] as const;
 
 export type ProfileHelpRowId = (typeof PROFILE_HELP_ROWS)[number]["id"];
-
-export const PROFILE_ACCOUNT_ROWS = [
-  {
-    id: "reshow_onboarding",
-    icon: "refresh-outline",
-    title: "Re-show onboarding",
-    subtitle: "View onboarding tips again",
-  },
-] as const;
-
-export type ProfileAccountRowId = (typeof PROFILE_ACCOUNT_ROWS)[number]["id"];

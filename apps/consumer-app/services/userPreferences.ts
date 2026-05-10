@@ -1,6 +1,42 @@
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
+/** Build insert/upsert row for `user_preferences` (exported for tests). */
+export function buildUserPreferencesUpsertRow(
+  userId: string,
+  preferences: Partial<TablesInsert<"user_preferences">>
+): TablesInsert<"user_preferences"> {
+  const row: TablesInsert<"user_preferences"> = {
+    user_id: userId,
+    vaccination_reminder_days: preferences.vaccination_reminder_days ?? 14,
+  };
+  if (preferences.full_name !== undefined) {
+    row.full_name = preferences.full_name;
+  }
+  if (preferences.phone !== undefined) {
+    row.phone = preferences.phone;
+  }
+  if (preferences.address !== undefined) {
+    row.address = preferences.address;
+  }
+  if (preferences.journal_prompt_enabled !== undefined) {
+    row.journal_prompt_enabled = preferences.journal_prompt_enabled;
+  }
+  if (preferences.journal_prompt_hour !== undefined) {
+    row.journal_prompt_hour = preferences.journal_prompt_hour;
+  }
+  if (preferences.journal_prompt_minute !== undefined) {
+    row.journal_prompt_minute = preferences.journal_prompt_minute;
+  }
+  if (preferences.document_expiry_push_enabled !== undefined) {
+    row.document_expiry_push_enabled = preferences.document_expiry_push_enabled;
+  }
+  if (preferences.vet_appointment_reminder_push_enabled !== undefined) {
+    row.vet_appointment_reminder_push_enabled = preferences.vet_appointment_reminder_push_enabled;
+  }
+  return row;
+}
+
 /**
  * Get user preferences for the authenticated user
  */
@@ -80,23 +116,22 @@ export const upsertUserPreferences = async (
   } catch (createError) {
     // Ignore errors from the function call - it might fail if the row already exists
     // We'll handle it with the upsert below
-    console.log("create_user_preferences RPC call (non-fatal):", createError);
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log("create_user_preferences RPC call (non-fatal):", createError);
+    }
   }
+
+  const row = buildUserPreferencesUpsertRow(userId, preferences);
 
   // Now try the normal upsert - this will update if the row exists, or create if it doesn't
   // This works if there's a session established. If there's no session, it will fail with RLS,
   // but that's okay because the RPC function above should have created the row.
   const { data, error } = await supabase
     .from("user_preferences")
-    .upsert(
-      {
-        user_id: userId,
-        vaccination_reminder_days: preferences.vaccination_reminder_days ?? 14,
-      },
-      {
-        onConflict: "user_id",
-      }
-    )
+    .upsert(row, {
+      onConflict: "user_id",
+    })
     .select()
     .single();
 
@@ -110,9 +145,12 @@ export const upsertUserPreferences = async (
     ) {
       // RPC function should have created the row, so we can return
       // The user can update preferences later when they have a proper session
-      console.log(
-        "Upsert failed due to RLS (expected during signup), RPC function created row"
-      );
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(
+          "Upsert failed due to RLS (expected during signup), RPC function created row"
+        );
+      }
       return null; // Return null to indicate the row exists but we can't read it without a session
     }
     // Otherwise, throw the error

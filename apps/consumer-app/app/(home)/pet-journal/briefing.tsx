@@ -10,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -21,7 +21,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
+import { HEALTH_BRIEFING_FOOTER_DISCLAIMER } from "@/constants/miloDisclaimers";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
+import { truncateAtSentenceOrWord } from "@/utils/textTruncate";
+import { formatPetWeightForDisplay } from "@/utils/weightUnits";
 import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 
 function BriefingCard({
@@ -76,10 +79,21 @@ export default function HealthBriefingScreen() {
     enabled: !!petId,
   });
 
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+
+  useEffect(() => {
+    setSummaryExpanded(false);
+  }, [petId]);
+
   const summaryText = useMemo(() => {
     if (!data || !pet) return "";
     const parts: string[] = [];
-    parts.push(`${pet.name} (${pet.breed}) — weight ${pet.weight_value} ${pet.weight_unit}.`);
+    const w = formatPetWeightForDisplay(pet.weight_value, pet.weight_unit);
+    parts.push(
+      w
+        ? `${pet.name} (${pet.breed}) — weight ${w}.`
+        : `${pet.name} (${pet.breed}).`
+    );
     if (data.allergies.length > 0) {
       parts.push(`Allergies: ${data.allergies.map((a) => a.label).join(", ")}.`);
     }
@@ -114,13 +128,19 @@ export default function HealthBriefingScreen() {
     if (recent.length > 0) {
       const lines = recent.map((j) => {
         const raw = (j.note || subtypeLabel(j.domain as JournalDomain, j.subtype)).trim();
-        const short = raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
+        const { preview, truncated } = truncateAtSentenceOrWord(raw, 140);
+        const short = truncated ? `${preview}…` : preview;
         return `• ${j.entry_date} (${j.domain}): ${short}`;
       });
       parts.push(`Recent journal (last 3 weeks):\n${lines.join("\n")}`);
     }
     return parts.join("\n\n");
   }, [data, pet]);
+
+  const summaryCollapsed = useMemo(
+    () => truncateAtSentenceOrWord(summaryText, 400),
+    [summaryText]
+  );
 
   const vetFlagged = data?.journal.filter((j) => journalEntryNeedsTriageAttention(j)) ?? [];
 
@@ -235,7 +255,15 @@ export default function HealthBriefingScreen() {
                 SUMMARY
               </Text>
             </View>
-            <Text style={{ fontSize: 15, lineHeight: 22, color: theme.foreground }}>{summaryText}</Text>
+            <JournalNoteText
+              text={summaryExpanded ? summaryText : summaryCollapsed.preview}
+              style={{ fontSize: 15, lineHeight: 22 }}
+            />
+            {summaryCollapsed.truncated && !summaryExpanded ? (
+              <TouchableOpacity onPress={() => setSummaryExpanded(true)} style={{ marginTop: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>Show more</Text>
+              </TouchableOpacity>
+            ) : null}
           </BriefingCard>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
@@ -247,7 +275,7 @@ export default function HealthBriefingScreen() {
                 </View>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: theme.secondary, marginTop: 8 }}>WEIGHT</Text>
                 <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground, marginTop: 4 }}>
-                  {pet.weight_value} {pet.weight_unit}
+                  {formatPetWeightForDisplay(pet.weight_value, pet.weight_unit) ?? "—"}
                 </Text>
               </BriefingCard>
             </View>
@@ -392,6 +420,18 @@ export default function HealthBriefingScreen() {
               </View>
             </>
           )}
+
+          <Text
+            style={{
+              fontSize: 11,
+              lineHeight: 16,
+              color: theme.secondary,
+              marginTop: 20,
+              marginBottom: 8,
+            }}
+          >
+            {HEALTH_BRIEFING_FOOTER_DISCLAIMER}
+          </Text>
         </ScrollView>
       )}
     </View>

@@ -20,16 +20,9 @@ import PrivateImage from "@/components/common/PrivateImage";
 type PetImageProps = {
   pet: Pet;
   style?: "default" | "hero";
-  onCopyEmail?: () => void;
-  emailCopied?: boolean;
 };
 
-export default function PetImage({
-  pet,
-  style = "default",
-  onCopyEmail,
-  emailCopied = false,
-}: PetImageProps) {
+export default function PetImage({ pet, style = "default" }: PetImageProps) {
   const { theme, mode } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -150,33 +143,6 @@ export default function PetImage({
             </View>
           )}
         </TouchableOpacity>
-
-        {/* Email bar overlay at bottom of image card */}
-        {pet.email_id && (
-          <TouchableOpacity
-            onPress={onCopyEmail}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              backgroundColor: isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.6)",
-              gap: 8,
-            }}
-          >
-            <Ionicons name="mail-outline" size={16} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontSize: 13, color: emailCopied ? "#4ADE80" : "rgba(255,255,255,0.9)" }}>
-              {pet.email_id}@pawbuck.com
-            </Text>
-            <Ionicons
-              name={emailCopied ? "checkmark-circle" : "copy-outline"}
-              size={14}
-              color={emailCopied ? "#4ADE80" : "rgba(255,255,255,0.6)"}
-            />
-          </TouchableOpacity>
-        )}
       </View>
     );
   }

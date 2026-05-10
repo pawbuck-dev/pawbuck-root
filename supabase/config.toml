@@ -433,3 +433,57 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/pet-family-activity-notify/deno.json"
 entrypoint = "./functions/pet-family-activity-notify/index.ts"
+
+[functions.scheduled-care-reminders]
+enabled = true
+verify_jwt = false
+import_map = "./functions/scheduled-care-reminders/deno.json"
+entrypoint = "./functions/scheduled-care-reminders/index.ts"
+
+[functions.lab-results-ocr]
+enabled = true
+verify_jwt = true
+import_map = "./functions/lab-results-ocr/deno.json"
+entrypoint = "./functions/lab-results-ocr/index.ts"
+
+[functions.medication-ocr]
+enabled = true
+verify_jwt = true
+import_map = "./functions/medication-ocr/deno.json"
+entrypoint = "./functions/medication-ocr/index.ts"
+
+[functions.get-failed-email-attachment]
+enabled = true
+verify_jwt = true
+import_map = "./functions/get-failed-email-attachment/deno.json"
+entrypoint = "./functions/get-failed-email-attachment/index.ts"
+
+[functions.send-message]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-message/deno.json"
+entrypoint = "./functions/send-message/index.ts"
+
+[functions.delete-account]
+enabled = true
+verify_jwt = true
+import_map = "./functions/delete-account/deno.json"
+entrypoint = "./functions/delete-account/index.ts"
+
+[functions.revenuecat-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/revenuecat-webhook/deno.json"
+entrypoint = "./functions/revenuecat-webhook/index.ts"
+
+[functions.purge-deleted-threads]
+enabled = true
+verify_jwt = false
+import_map = "./functions/purge-deleted-threads/deno.json"
+entrypoint = "./functions/purge-deleted-threads/index.ts"
+
+[functions.add-faq]
+enabled = true
+verify_jwt = false
+import_map = "./functions/add-faq/deno.json"
+entrypoint = "./functions/add-faq/index.ts"

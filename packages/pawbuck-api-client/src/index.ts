@@ -12,3 +12,9 @@ export {
   type AnalyzePetDocumentRequest,
   type PetDocumentVaultRowDto,
 } from "./miloDocumentsApi";
+
+export {
+  submitHealthRecordsBundle,
+  type MiloHealthBundleRequest,
+  type MiloHealthBundleResponse,
+} from "./miloHealthBundleApi";

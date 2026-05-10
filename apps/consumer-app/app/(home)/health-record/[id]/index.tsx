@@ -3,16 +3,17 @@ import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import PetSelector from "@/components/home/PetSelector";
 import DocumentsAndIdSection from "@/components/health/DocumentsAndIdSection";
 import HealthRecordsAttentionBanner from "@/components/health/HealthRecordsAttentionBanner";
+import { useChat } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useHealthAttentionForPet, usePetHealthNotificationCounts } from "@/hooks/useHealthHubAttention";
-import { dashboardCareTeamCardChrome, healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { petPossessiveLabel } from "@/utils/petCopy";
 import { useTheme } from "@/context/themeContext";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
@@ -25,6 +26,7 @@ export default function HealthRecordsHubScreen() {
   const router = useRouter();
   const { pets } = usePets();
   const insets = useSafeAreaInsets();
+  const { openChat, setSelectedPet } = useChat();
 
   const pet = pets.find((p) => p.id === id);
   const petName = pet?.name ?? "your pet";
@@ -81,101 +83,29 @@ export default function HealthRecordsHubScreen() {
             />
           ) : null}
 
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() =>
-                router.push(`/(home)/health-record/${id}/vaccination-upload-modal?upload=library` as any)
-              }
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                paddingVertical: 14,
-                borderRadius: 100,
-                backgroundColor: "transparent",
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-              }}
-            >
-              <Ionicons name="cloud-upload-outline" size={20} color={theme.foreground} />
-              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>Upload</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                Share.share({
-                  message: `${petName}'s health records are in PawBuck. Ask your clinic how they prefer to receive documents or visit summaries.`,
-                  title: "Share with vet",
-                }).catch(() => {});
-              }}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                paddingVertical: 14,
-                borderRadius: 100,
-                backgroundColor: theme.primary,
-              }}
-            >
-              <Ionicons name="share-outline" size={20} color={theme.primaryForeground} />
-              <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
-                Share with vet
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           <TouchableOpacity
-            onPress={() =>
-              router.push({ pathname: "/(home)/pet-journal", params: { petId: id } } as any)
-            }
             activeOpacity={0.85}
+            onPress={() => {
+              Share.share({
+                message: `${petName}'s health records are in PawBuck. Ask your clinic how they prefer to receive documents or visit summaries.`,
+                title: "Share with vet",
+              }).catch(() => {});
+            }}
             style={{
               flexDirection: "row",
-              alignItems: "flex-start",
-              borderRadius: 24,
-              paddingVertical: 16,
-              paddingHorizontal: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 14,
+              borderRadius: 100,
               marginBottom: 14,
-              ...dashboardCareTeamCardChrome(isDark),
+              backgroundColor: theme.primary,
             }}
           >
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 12,
-              }}
-            >
-              <Ionicons name="book-outline" size={22} color={theme.foreground} />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Pet Journal</Text>
-              <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
-                Log symptoms, behavior & environment
-              </Text>
-            </View>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                alignItems: "center",
-                justifyContent: "center",
-                marginLeft: 8,
-              }}
-            >
-              <MaterialCommunityIcons name="arrow-top-right" size={20} color={theme.secondary} />
-            </View>
+            <Ionicons name="share-outline" size={20} color={theme.primaryForeground} />
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
+              Share with vet
+            </Text>
           </TouchableOpacity>
 
           <HealthRecordsSection
@@ -190,6 +120,36 @@ export default function HealthRecordsHubScreen() {
       </ScrollView>
 
       <BottomNavBar activeTab="records" selectedPetId={id} />
+
+      {pet ? (
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedPet(pet);
+            openChat({ starterScreen: "health_records" });
+          }}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Ask Milo about health records"
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 88 + insets.bottom,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.primary,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 6,
+          }}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

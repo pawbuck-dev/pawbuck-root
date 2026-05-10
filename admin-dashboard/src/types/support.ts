@@ -188,3 +188,68 @@ export interface MiloChatApiResponse {
   promptVersion?: string | null;
   heuristicTags?: string[];
 }
+
+/** Inbound mail / processed_emails (support API). */
+export interface SupportProcessedEmailListItem {
+  id: string;
+  s3Key: string;
+  petId: string | null;
+  petName: string | null;
+  ownerEmail: string | null;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  attachmentCount: number | null;
+  success: boolean | null;
+  senderEmail: string | null;
+  subject: string | null;
+  documentType: string | null;
+  failureReason: string | null;
+  failureReasonSnippet: string | null;
+  reviewStatus: string | null;
+}
+
+export type SupportProcessedEmailDetail = SupportProcessedEmailListItem;
+
+export interface SupportProcessedEmailsListResponse {
+  items: SupportProcessedEmailListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SupportProcessedEmailsSummaryBucket {
+  documentType: string;
+  count: number;
+}
+
+export interface SupportProcessedEmailsSummaryResponse {
+  from: string;
+  to: string;
+  totalFailures: number;
+  byDocumentType: SupportProcessedEmailsSummaryBucket[];
+}
+
+export interface SupportProcessedEmailAttachment {
+  index: number;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export interface SupportProcessedEmailAttachmentsResponse {
+  attachments: SupportProcessedEmailAttachment[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  /** When present, attachments list may be metadata-only (no bytes in archive). */
+  warningMessage?: string | null;
+}
+
+export interface SupportProcessedEmailSignedUrlResponse {
+  signedUrl: string | null;
+  filename: string | null;
+  mimeType: string | null;
+  previewPath: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}

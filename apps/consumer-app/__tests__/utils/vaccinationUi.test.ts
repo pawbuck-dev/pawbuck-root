@@ -33,4 +33,10 @@ describe("getRequiredVaccinesCompliantBody", () => {
   it("falls back when country is missing", () => {
     expect(getRequiredVaccinesCompliantBody(undefined)).toContain("your region");
   });
+
+  it("uses neutral copy for Other country", () => {
+    const s = getRequiredVaccinesCompliantBody("Other");
+    expect(s.toLowerCase()).toContain("checklist");
+    expect(s.toLowerCase()).toContain("other");
+  });
 });

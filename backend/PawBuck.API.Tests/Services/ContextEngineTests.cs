@@ -124,7 +124,8 @@ public class ContextEngineTests
         prompt.Should().Contain("**Observations:**");
         prompt.Should().Contain("**Frequency/Duration:**");
         prompt.Should().Contain("**Associated Symptoms:**");
-        prompt.Should().Contain("Adipsia");
+        prompt.Should().Contain("Not eating (anorexia)");
+        prompt.Should().Contain("Not drinking (adipsia)");
         prompt.Should().Contain("Note: Severe symptoms detected.");
         prompt.Should().Contain("Do **not** use legacy prefixes like [URGENT]");
     }

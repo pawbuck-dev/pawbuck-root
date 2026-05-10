@@ -34,7 +34,7 @@ jest.mock("@/utils/supabase", () => {
   };
 });
 
-import { createPet, deletePet, getPets, updatePet } from "@/services/pets";
+import { createPet, deletePet, getPets, updatePet, validateEmailIdFormat } from "@/services/pets";
 
 function mockPetsSelectList(result: { data: Tables<"pets">[] | null; error: Error | null }) {
   const order = jest.fn().mockResolvedValue(result);
@@ -175,6 +175,23 @@ describe("pets service — auth + RLS-aligned user_id", () => {
       expect(update).toHaveBeenCalledWith({ name: "New" });
       expect(eq1).toHaveBeenCalledWith("id", "pid");
       expect(eq2).toHaveBeenCalledWith("user_id", "owner-1");
+    });
+  });
+
+  describe("validateEmailIdFormat", () => {
+    it("rejects empty with Pet email required message", () => {
+      expect(validateEmailIdFormat("")).toEqual({
+        isValid: false,
+        error: "Pet email is required",
+      });
+      expect(validateEmailIdFormat("   ")).toEqual({
+        isValid: false,
+        error: "Pet email is required",
+      });
+    });
+
+    it("accepts a valid local part", () => {
+      expect(validateEmailIdFormat("fluffy_pet.01")).toEqual({ isValid: true });
     });
   });
 

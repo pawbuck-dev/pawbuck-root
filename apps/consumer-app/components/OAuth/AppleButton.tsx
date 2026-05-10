@@ -1,3 +1,7 @@
+import {
+  formatAppleFullName,
+  persistOwnerDisplayNameForSession,
+} from "@/services/authDisplayName";
 import { supabase } from "@/utils/supabase";
 import { User } from "@supabase/supabase-js";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -36,7 +40,14 @@ export default function AppleButton({
             if (error) {
               throw error;
             }
-            onSuccess(data.user);
+            const appleDisplay = formatAppleFullName(credential.fullName);
+            if (appleDisplay) {
+              await persistOwnerDisplayNameForSession(appleDisplay);
+            }
+            const {
+              data: { user: freshUser },
+            } = await supabase.auth.getUser();
+            onSuccess(freshUser ?? data.user);
           } catch (e: any) {
             console.error("Error signing in with Apple:", e);
             Alert.alert("Error", e.message);

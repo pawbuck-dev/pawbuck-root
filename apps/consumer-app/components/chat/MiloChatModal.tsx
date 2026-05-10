@@ -1,21 +1,40 @@
 import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
+import {
+  MILO_GENERAL_CHAT_DISCLAIMER_BODY,
+  MILO_GENERAL_CHAT_DISCLAIMER_TITLE,
+} from "@/constants/miloDisclaimers";
 import { useAuth } from "@/context/authContext";
 import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { useMiloSpeechToText } from "@/hooks/useMiloSpeechToText";
-import { buildMiloSuggestedPrompts } from "@/services/miloSuggestedPrompts";
+import { useMiloUpload } from "@/hooks/useMiloUpload";
+import {
+  buildMiloStarterPrompts,
+  MILO_EMPTY_THREAD_PROMPT_COUNT,
+} from "@/services/miloSuggestedPrompts";
+import { buildDocumentUploadThreadContent } from "@/services/miloDocumentUploadThread";
+import { pickPdfFile } from "@/utils/filePicker";
+import { pickImageFromLibrary } from "@/utils/imagePicker";
 import { fetchJournalEntries } from "@/services/petJournal";
+import {
+  hasAcceptedMiloGeneralChatDisclaimer,
+  setAcceptedMiloGeneralChatDisclaimer,
+} from "@/services/miloGeneralChatDisclaimer";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { DocumentPickerAsset } from "expo-document-picker";
+import type { ImagePickerAsset } from "expo-image-picker";
 import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -28,6 +47,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
+import { MiloStarterSuggestionPill } from "./MiloStarterSuggestionPill";
+import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getMiloChatTokens } from "./miloUiTokens";
 
 // Typing dots animation component
@@ -96,19 +117,6 @@ const TypingDots: React.FC<{ color: string }> = ({ color }) => {
 };
 
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
-const MILO_CHAT_BG_LIGHT = require("@/assets/icons/Milo-Light.png");
-const MILO_CHAT_BG_DARK = require("@/assets/icons/Milo-Dark.png");
-
-/** Full-screen chat backdrop: `Milo-Light.png` / `Milo-Dark.png` in `assets/icons`. */
-const MiloChatBackdrop: React.FC<{ mode: "light" | "dark" }> = ({ mode }) => (
-  <View style={StyleSheet.absoluteFill} pointerEvents="none">
-    <Image
-      source={mode === "light" ? MILO_CHAT_BG_LIGHT : MILO_CHAT_BG_DARK}
-      style={StyleSheet.absoluteFill}
-      contentFit="fill"
-    />
-  </View>
-);
 
 /** Generating state: black outer circle, white ring, black center dot (record/target icon) */
 const GeneratingIcon: React.FC = () => (
@@ -155,9 +163,14 @@ export const MiloChatModal: React.FC = () => {
     setSelectedPet,
     sendMessage,
     isChatOpen,
+    starterScreen,
     closeChat,
     clearMessages,
+    appendLocalMessages,
   } = useChat();
+
+  const queryClient = useQueryClient();
+  const { uploadAndAnalyze, status: uploadStatus, reset: resetUpload } = useMiloUpload();
 
   const [inputText, setInputText] = useState("");
   const { isListening, toggleSpeech, stopSpeech } = useMiloSpeechToText(
@@ -166,26 +179,44 @@ export const MiloChatModal: React.FC = () => {
   );
   const [showPetPicker, setShowPetPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  /** One-time Milo general chat acknowledgment (separate from journal triage). */
+  const [generalDisclaimerStatus, setGeneralDisclaimerStatus] = useState<"loading" | "pending" | "accepted">(
+    "loading"
+  );
   const flatListRef = useRef<FlatList>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { top, bottom } = useSafeAreaInsets();
-  /** iOS + Android: keep composer above keyboard (modal had iOS-only before; Android hid the field). */
+
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSubscription = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    });
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
+    if (!isChatOpen) {
+      setGeneralDisclaimerStatus("loading");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      if (!user?.id) {
+        if (!cancelled) setGeneralDisclaimerStatus("accepted");
+        return;
+      }
+      try {
+        const ok = await hasAcceptedMiloGeneralChatDisclaimer(user.id);
+        if (!cancelled) setGeneralDisclaimerStatus(ok ? "accepted" : "pending");
+      } catch {
+        if (!cancelled) setGeneralDisclaimerStatus("pending");
+      }
+    })();
     return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
+      cancelled = true;
     };
+  }, [isChatOpen, user?.id]);
+  useEffect(() => {
+    const scrollEnd = () => {
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    };
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardDidShow" : "keyboardDidShow",
+      scrollEnd
+    );
+    return () => showSubscription.remove();
   }, []);
 
   // Scroll to bottom when new messages arrive
@@ -207,8 +238,90 @@ export const MiloChatModal: React.FC = () => {
     }
   }, [isChatOpen]);
 
+  useEffect(() => {
+    if (!isChatOpen) {
+      resetUpload();
+    }
+  }, [isChatOpen, resetUpload]);
+
+  const runMiloDocumentUpload = useCallback(
+    async (file: ImagePickerAsset | DocumentPickerAsset) => {
+      if (generalDisclaimerStatus !== "accepted") return;
+      if (!selectedPet) return;
+      try {
+        const row = await uploadAndAnalyze(selectedPet.id, selectedPet.name, file);
+        const { userContent, assistantContent } = buildDocumentUploadThreadContent(
+          { documentType: row.documentType, extractedJson: row.extractedJson },
+          { id: selectedPet.id, name: selectedPet.name },
+          pets.map((p) => ({ id: p.id, name: p.name }))
+        );
+        const t = Date.now();
+        appendLocalMessages([
+          { id: `${t}-u`, role: "user", content: userContent, timestamp: new Date() },
+          { id: `${t}-a`, role: "assistant", content: assistantContent, timestamp: new Date() },
+        ]);
+        await queryClient.invalidateQueries({ queryKey: ["pet_documents", selectedPet.id] });
+      } catch (e) {
+        Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
+      }
+    },
+    [appendLocalMessages, pets, queryClient, selectedPet, uploadAndAnalyze, generalDisclaimerStatus]
+  );
+
+  const handleComposerAddPress = useCallback(() => {
+    if (generalDisclaimerStatus !== "accepted") return;
+    const docBusy = uploadStatus === "uploading" || uploadStatus === "analyzing";
+    if (isLoading || docBusy) return;
+    stopSpeech();
+    if (!selectedPet) {
+      setShowPetPicker(true);
+      return;
+    }
+    Alert.alert(
+      "Add document",
+      "Upload a photo or PDF. Milo will classify it from the file contents.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Photo library",
+          onPress: () => {
+            void (async () => {
+              const img = await pickImageFromLibrary();
+              if (!img) return;
+              await runMiloDocumentUpload(img);
+            })();
+          },
+        },
+        {
+          text: "PDF",
+          onPress: () => {
+            void (async () => {
+              const pdf = await pickPdfFile();
+              if (!pdf) return;
+              await runMiloDocumentUpload(pdf);
+            })();
+          },
+        },
+      ]
+    );
+  }, [isLoading, uploadStatus, selectedPet, stopSpeech, runMiloDocumentUpload, generalDisclaimerStatus]);
+
+  const docPipelineBusy = uploadStatus === "uploading" || uploadStatus === "analyzing";
+  const composerBusy = isLoading || docPipelineBusy || generalDisclaimerStatus !== "accepted";
+  const composerBusyLabel = isLoading
+    ? "Generating..."
+    : uploadStatus === "uploading"
+      ? "Uploading document..."
+      : uploadStatus === "analyzing"
+        ? "Analyzing document..."
+        : generalDisclaimerStatus === "pending"
+          ? "Please accept the disclaimer to continue."
+          : generalDisclaimerStatus === "loading"
+            ? "…"
+            : "";
+
   const handleSend = async () => {
-    if (!inputText.trim() || isLoading) return;
+    if (!inputText.trim() || composerBusy) return;
 
     stopSpeech();
     const message = inputText.trim();
@@ -217,8 +330,8 @@ export const MiloChatModal: React.FC = () => {
   };
 
   const { data: suggestedPromptData } = useQuery({
-    queryKey: ["miloSuggestedPrompts", selectedPet?.id],
-    enabled: Boolean(isChatOpen && selectedPet?.id),
+    queryKey: ["miloSuggestedPrompts", selectedPet?.id, starterScreen],
+    enabled: Boolean(isChatOpen && selectedPet?.id && starterScreen === "default"),
     queryFn: async () => {
       const petId = selectedPet!.id;
       const [vaccinations, journalEntries] = await Promise.all([
@@ -231,31 +344,27 @@ export const MiloChatModal: React.FC = () => {
 
   const rotationSeed = `${user?.id ?? ""}|${selectedPet?.id ?? ""}`;
 
-  const miloGreetingSuffix = useMemo(() => {
-    const meta = user?.user_metadata as { full_name?: string } | undefined;
-    const full = typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
-    const first = full ? full.split(/\s+/)[0] : user?.email?.split("@")[0];
-    return first ? ` ${first}` : "";
-  }, [user]);
+  const miloGreetingSuffix = useMemo(() => miloHiGreetingSuffixFromUser(user ?? undefined), [user]);
 
   const suggestedQuestions = useMemo(() => {
-    if (!selectedPet?.id) {
-      return buildMiloSuggestedPrompts({
-        petName: null,
-        vaccinations: [],
-        journalEntries: [],
-        maxCount: 6,
-        rotationSeed,
-      });
-    }
-    return buildMiloSuggestedPrompts({
-      petName: selectedPet.name,
-      vaccinations: suggestedPromptData?.vaccinations ?? [],
-      journalEntries: suggestedPromptData?.journalEntries ?? [],
-      maxCount: 6,
-      rotationSeed,
-    });
+    const baseInput = !selectedPet?.id
+      ? {
+          petName: null as string | null | undefined,
+          vaccinations: [],
+          journalEntries: [],
+          maxCount: MILO_EMPTY_THREAD_PROMPT_COUNT,
+          rotationSeed,
+        }
+      : {
+          petName: selectedPet.name,
+          vaccinations: suggestedPromptData?.vaccinations ?? [],
+          journalEntries: suggestedPromptData?.journalEntries ?? [],
+          maxCount: MILO_EMPTY_THREAD_PROMPT_COUNT,
+          rotationSeed,
+        };
+    return buildMiloStarterPrompts(starterScreen, baseInput);
   }, [
+    starterScreen,
     rotationSeed,
     selectedPet?.id,
     selectedPet?.name,
@@ -265,12 +374,12 @@ export const MiloChatModal: React.FC = () => {
 
   const handleSuggestedQuestion = useCallback(
     async (question: string) => {
-      if (isLoading) return;
+      if (composerBusy) return;
       stopSpeech();
       setInputText("");
       await sendMessage(question);
     },
-    [isLoading, sendMessage, stopSpeech]
+    [composerBusy, sendMessage, stopSpeech]
   );
 
   const handleSelectPet = (pet: Pet | null) => {
@@ -279,7 +388,6 @@ export const MiloChatModal: React.FC = () => {
   };
 
   const tokens = getMiloChatTokens(theme, mode === "dark");
-  const miloBg = tokens.screenBg;
   const listCardChrome = healthListCardChrome(theme, mode === "dark");
 
   return (
@@ -292,12 +400,11 @@ export const MiloChatModal: React.FC = () => {
       <View
         style={{
           flex: 1,
-          backgroundColor: miloBg,
+          backgroundColor: theme.background,
           paddingTop: Platform.OS === "android" ? top : 0,
           paddingBottom: Platform.OS === "android" ? bottom : 0,
         }}
       >
-        <MiloChatBackdrop mode={mode} />
         {/* Header: back | New Chat | menu — Figma layout */}
         <View
           style={{
@@ -348,10 +455,15 @@ export const MiloChatModal: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? top + 62 : 0}
+        >
         {/* Messages Container */}
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minHeight: 0, flexShrink: 1 }}>
           {messages.length === 0 ? (
-            <View style={{ flex: 1 }} />
+            <View style={{ flex: 1, minHeight: 0, flexShrink: 1 }} />
           ) : (
             <FlatList
               ref={flatListRef}
@@ -413,9 +525,17 @@ export const MiloChatModal: React.FC = () => {
           )}
         </View>
 
-        {/* Starter prompts — empty thread; vertical pills (readable, tappable) */}
-        {messages.length === 0 && !isLoading ? (
-          <View style={{ paddingHorizontal: 16, paddingBottom: 8, maxHeight: 240 }}>
+        {/* Starter prompts — empty thread; capsule pills (readable, tappable) */}
+        {messages.length === 0 && !composerBusy ? (
+          <View
+            style={{
+              width: "100%",
+              alignSelf: "stretch",
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              flexShrink: 0,
+            }}
+          >
             <Text
               style={{
                 fontSize: 20,
@@ -437,38 +557,29 @@ export const MiloChatModal: React.FC = () => {
               Where should we start?
             </Text>
             <ScrollView
+              style={{ alignSelf: "stretch" }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
+              contentContainerStyle={{
+                alignItems: "flex-start",
+                paddingRight: 4,
+                paddingBottom: 4,
+              }}
             >
               {suggestedQuestions.map((q) => (
-                <Pressable
+                <MiloStarterSuggestionPill
                   key={q}
+                  label={q}
+                  mode={mode}
+                  fill={tokens.composerBg}
+                  stroke={tokens.composerBorder}
+                  textColor={tokens.textPrimary}
+                  screenHorizontalPaddingPx={16}
                   onPress={() => {
                     void handleSuggestedQuestion(q);
                   }}
-                  style={({ pressed }) => ({
-                    width: "100%",
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    borderRadius: 16,
-                    marginBottom: 10,
-                    backgroundColor: tokens.chipBg,
-                    borderWidth: 1,
-                    borderColor: tokens.chipBorder,
-                    opacity: pressed ? 0.88 : 1,
-                  })}
-                >
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      lineHeight: 22,
-                      color: tokens.textPrimary,
-                    }}
-                  >
-                    {q}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </ScrollView>
           </View>
@@ -478,9 +589,8 @@ export const MiloChatModal: React.FC = () => {
         <View
           style={{
             paddingHorizontal: 16,
-            paddingTop: messages.length === 0 && !isLoading ? 0 : 8,
+            paddingTop: messages.length === 0 && !composerBusy ? 0 : 8,
             paddingBottom: Math.max(bottom, 12),
-            transform: keyboardHeight > 0 ? [{ translateY: -keyboardHeight }] : [],
           }}
         >
           <View
@@ -500,7 +610,7 @@ export const MiloChatModal: React.FC = () => {
               }),
             }}
           >
-            {isLoading ? (
+            {composerBusy ? (
               <View style={{ flexDirection: "row", alignItems: "center", minHeight: 48 }}>
                 <Text
                   style={{
@@ -509,14 +619,14 @@ export const MiloChatModal: React.FC = () => {
                     color: tokens.placeholder,
                   }}
                 >
-                  Generating...
+                  {composerBusyLabel}
                 </Text>
                 <GeneratingIcon />
               </View>
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <TouchableOpacity
-                  onPress={() => setShowPetPicker(true)}
+                  onPress={handleComposerAddPress}
                   style={{
                     width: 40,
                     height: 40,
@@ -544,7 +654,9 @@ export const MiloChatModal: React.FC = () => {
                   }}
                   multiline
                   maxLength={500}
-                  editable={true}
+                  editable={generalDisclaimerStatus === "accepted"}
+                  showSoftInputOnFocus
+                  keyboardAppearance={mode === "dark" ? "dark" : "light"}
                   onSubmitEditing={handleSend}
                   returnKeyType="send"
                 />
@@ -553,9 +665,9 @@ export const MiloChatModal: React.FC = () => {
                     isListening ? "Stop voice input" : "Voice input"
                   }
                   onPress={() => {
-                    if (!isLoading) toggleSpeech();
+                    if (!composerBusy) toggleSpeech();
                   }}
-                  disabled={isLoading}
+                  disabled={composerBusy}
                   style={{
                     width: 40,
                     height: 40,
@@ -580,7 +692,7 @@ export const MiloChatModal: React.FC = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleSend}
-                  disabled={!inputText.trim()}
+                  disabled={composerBusy || !inputText.trim()}
                   style={{
                     width: 44,
                     height: 44,
@@ -610,6 +722,72 @@ export const MiloChatModal: React.FC = () => {
             )}
           </View>
         </View>
+        </KeyboardAvoidingView>
+
+        {generalDisclaimerStatus === "pending" ? (
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                zIndex: 100,
+                backgroundColor: "rgba(0,0,0,0.45)",
+                justifyContent: "center",
+                paddingHorizontal: 20,
+                paddingTop: Math.max(top, 24),
+                paddingBottom: Math.max(bottom, 24),
+              },
+            ]}
+          >
+            <View
+              style={{
+                maxHeight: "88%",
+                borderRadius: 16,
+                backgroundColor: theme.card,
+                padding: 20,
+                borderWidth: 1,
+                borderColor: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: "800", color: theme.foreground, marginBottom: 12 }}>
+                {MILO_GENERAL_CHAT_DISCLAIMER_TITLE}
+              </Text>
+              <ScrollView
+                style={{ maxHeight: 360 }}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+              >
+                <Text style={{ fontSize: 14, lineHeight: 21, color: theme.foreground }}>
+                  {MILO_GENERAL_CHAT_DISCLAIMER_BODY}
+                </Text>
+              </ScrollView>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Accept Milo general chat disclaimer"
+                onPress={() => {
+                  if (!user?.id) return;
+                  void (async () => {
+                    await setAcceptedMiloGeneralChatDisclaimer(user.id);
+                    setGeneralDisclaimerStatus("accepted");
+                  })();
+                }}
+                style={{
+                  marginTop: 18,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: theme.primary,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>I understand and accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => closeChat()} style={{ marginTop: 12, paddingVertical: 10 }}>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: theme.secondary, textAlign: "center" }}>
+                  Go back
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         {/* Menu Modal — New chat, Select pet */}
         <Modal

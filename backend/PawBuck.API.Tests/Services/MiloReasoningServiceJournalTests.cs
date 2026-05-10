@@ -124,7 +124,7 @@ public class MiloReasoningServiceJournalTests
     private static Mock<IMiloJournalTurnService> TurnMock()
     {
         var m = new Mock<IMiloJournalTurnService>();
-        m.Setup(t => t.RegisterTurnAsync(UserId, PetId, It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+        m.Setup(t => t.RegisterTurnAsync(UserId, PetId, It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), "journal", It.IsAny<CancellationToken>()))
             .ReturnsAsync(RegisteredTurnId);
         return m;
     }
@@ -168,10 +168,11 @@ public class MiloReasoningServiceJournalTests
         response.JournalSummary.Should().BeNull();
         response.PromptVersion.Should().Be("v2-test");
         response.ResponseId.Should().Be(RegisteredTurnId);
+        response.TurnId.Should().Be(RegisteredTurnId.ToString("D"));
         response.PetName.Should().Be("Rex");
         response.UsedRag.Should().BeFalse();
         turns.Verify(
-            t => t.RegisterTurnAsync(UserId, PetId, "v2-test", It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()),
+            t => t.RegisterTurnAsync(UserId, PetId, "v2-test", It.IsAny<IReadOnlyList<string>>(), "journal", It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

@@ -6,15 +6,12 @@ import { Alert } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 let mockReplace: jest.Mock;
-let mockDismissAll: jest.Mock;
 
 jest.mock("expo-router", () => {
   mockReplace = jest.fn();
-  mockDismissAll = jest.fn();
   return {
     useRouter: () => ({
       replace: mockReplace,
-      dismissAll: mockDismissAll,
       back: jest.fn(),
     }),
     useLocalSearchParams: () => ({}),
@@ -142,7 +139,6 @@ describe("SignUp screen", () => {
       expect(upsertUserPreferences).toHaveBeenCalledWith("new-user-1", {});
     });
     await waitFor(() => {
-      expect(mockDismissAll).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith("/home");
     });
   });

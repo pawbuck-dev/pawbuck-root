@@ -15,6 +15,28 @@ function routePetTransferNotification(data: Record<string, unknown> | undefined)
   });
 }
 
+function routeFromPawbuckNotificationData(data: Record<string, unknown> | undefined): void {
+  if (!data) return;
+  if (data.type === "pet_transfer") {
+    routePetTransferNotification(data);
+    return;
+  }
+
+  const kind = typeof data.notificationKind === "string" ? data.notificationKind : "";
+  const petId = typeof data.petId === "string" ? data.petId : undefined;
+  const url = typeof data.url === "string" ? data.url : "";
+
+  if ((kind === "journal_prompt" || url === "/(home)/pet-journal") && petId) {
+    router.push({ pathname: "/(home)/pet-journal", params: { petId } });
+    return;
+  }
+
+  if (url) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Expo Router accepts dynamic health/home paths from notification payloads.
+    router.push(url as any);
+  }
+}
+
 export function useNotificationHandlers() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
@@ -64,7 +86,7 @@ export function useNotificationHandlers() {
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content
           .data as Record<string, unknown> | undefined;
-        routePetTransferNotification(data);
+        routeFromPawbuckNotificationData(data);
       });
 
     return () => {

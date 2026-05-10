@@ -69,9 +69,7 @@ export default function OnboardingStep5() {
 
       {/* Heading + subtitle above ScrollView */}
       <View style={styles.headingWrap}>
-        <Text style={[styles.heading, { color: theme.foreground }]}>
-          What's Your Pet's Name?
-        </Text>
+        <Text style={[styles.heading, { color: theme.foreground }]}>{`What's your pet's name?`}</Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
           Personalize your pet's care experience
         </Text>
@@ -108,7 +106,7 @@ export default function OnboardingStep5() {
           </Pressable>
 
           {/* Pet Name label */}
-          <Text style={[styles.label, { color: theme.foreground }]}>Pet Name</Text>
+          <Text style={[styles.label, { color: theme.foreground }]}>Pet name</Text>
 
           {/* Pet Name input */}
           <TextInput

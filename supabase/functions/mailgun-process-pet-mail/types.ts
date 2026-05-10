@@ -3,6 +3,8 @@ export interface ParsedAttachment {
   mimeType: string;
   size: number;
   content: string; // Base64 encoded
+  /** When true, full JSON exceeded archive size cap; Open/download will not have file bytes. */
+  contentWasStrippedForArchive?: boolean;
 }
 
 export interface ParsedEmail {
@@ -55,10 +57,11 @@ export interface Pet {
 }
 
 // Pet validation types (defined before ProcessedAttachment which uses them)
-export type SkipReason = 
-  | "no_pet_info"           // No identifiable info found in document
-  | "microchip_mismatch"    // Microchip found but doesn't match pet record
-  | "attributes_mismatch";  // Attributes (name/age/breed/gender) don't match
+export type SkipReason =
+  | "no_pet_info" // No identifiable info, or missing required name+breed on document
+  /** Legacy: validator no longer skips for chip alone; kept for old rows / notifications */
+  | "microchip_mismatch"
+  | "attributes_mismatch"; // First name or breed on document does not match profile
 
 export type ValidationMethod = "microchip" | "attributes" | "none";
 
@@ -85,6 +88,10 @@ export interface PetValidationResult {
   extractedInfo: ExtractedPetInfo;
   matchDetails: MatchDetails;
   skipReason?: SkipReason;
+  /** Document microchip differs from profile; processing may still continue (name+breed path). */
+  microchipMismatchNotify?: boolean;
+  microchipDocumentValue?: string | null;
+  microchipProfileValue?: string | null;
 }
 
 export interface ProcessedAttachment {

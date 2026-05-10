@@ -1,11 +1,16 @@
+import { useAuth } from "@/context/authContext";
 import { Pet } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
+import { hasAcceptedMiloGeneralChatDisclaimer } from "@/services/miloGeneralChatDisclaimer";
+import type { MiloStarterScreen } from "@/services/miloSuggestedPrompts";
 import {
   fetchMiloChat,
   type MiloChatFileAttachment,
   SubscriptionRequiredError,
 } from "@/utils/miloChatApi";
 import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
+
+export type { MiloStarterScreen };
 
 export type { MiloChatFileAttachment };
 
@@ -15,6 +20,8 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   fileAttachments?: MiloChatFileAttachment[];
+  /** Present when the server registered this assistant turn (POST /api/milo/chat/feedback). */
+  turnId?: string;
 }
 
 interface ChatContextType {
@@ -23,29 +30,37 @@ interface ChatContextType {
   error: string | null;
   selectedPet: Pet | null;
   isChatOpen: boolean;
+  /** Which section opened Milo — used only for empty-state starter chips (same modal UI). */
+  starterScreen: MiloStarterScreen;
   setSelectedPet: (pet: Pet | null) => void;
   sendMessage: (message: string) => Promise<void>;
+  /** Append turns without calling the chat API (e.g. after document upload + classify). */
+  appendLocalMessages: (messages: ChatMessage[]) => void;
   clearMessages: () => void;
-  openChat: () => void;
+  openChat: (options?: { starterScreen?: MiloStarterScreen }) => void;
   closeChat: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 function ChatProviderInner({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const { openPaywall } = useSubscription();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [starterScreen, setStarterScreen] = useState<MiloStarterScreen>("default");
 
-  const openChat = useCallback(() => {
+  const openChat = useCallback((options?: { starterScreen?: MiloStarterScreen }) => {
+    setStarterScreen(options?.starterScreen ?? "default");
     setIsChatOpen(true);
   }, []);
 
   const closeChat = useCallback(() => {
     setIsChatOpen(false);
+    setStarterScreen("default");
   }, []);
 
   const clearMessages = useCallback(() => {
@@ -53,11 +68,29 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const appendLocalMessages = useCallback((toAppend: ChatMessage[]) => {
+    if (toAppend.length === 0) return;
+    setMessages((prev) => [...prev, ...toAppend]);
+  }, []);
+
   const sendMessage = useCallback(async (message: string) => {
     if (!message.trim()) return;
 
     setError(null);
-    
+
+    if (user?.id) {
+      try {
+        const accepted = await hasAcceptedMiloGeneralChatDisclaimer(user.id);
+        if (!accepted) {
+          setError("Please read and accept the disclaimer in the Milo window to continue.");
+          return;
+        }
+      } catch {
+        setError("Please read and accept the disclaimer in the Milo window to continue.");
+        return;
+      }
+    }
+
     // Add user message using functional update to avoid stale closure
     let currentMessages: ChatMessage[] = [];
     setMessages((prev) => {
@@ -94,6 +127,7 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
         content: result.answer,
         timestamp: new Date(),
         fileAttachments: result.fileAttachments,
+        turnId: result.turnId,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -117,7 +151,7 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPet, openPaywall]);
+  }, [selectedPet, openPaywall, user?.id]);
 
   return (
     <ChatContext.Provider
@@ -127,8 +161,10 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
         error,
         selectedPet,
         isChatOpen,
+        starterScreen,
         setSelectedPet,
         sendMessage,
+        appendLocalMessages,
         clearMessages,
         openChat,
         closeChat,

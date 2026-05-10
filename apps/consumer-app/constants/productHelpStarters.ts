@@ -20,4 +20,8 @@ export const PRODUCT_HELP_STARTERS: readonly { id: string; prompt: string }[] = 
   { id: "contact-support", prompt: "How do I contact PawBuck support?" },
   { id: "faq-cost", prompt: "How much does PawBuck cost?" },
   { id: "faq-passport", prompt: "How do I share my pet's health records?" },
+  { id: "health-hub-overview", prompt: "What is on the Health Records hub screen?" },
+  { id: "documents-invoices", prompt: "How do I upload insurance, invoices, or ID documents for my pet?" },
+  { id: "reminders-profile", prompt: "How do I change journal reminders or vet appointment notifications?" },
+  { id: "bottom-nav-records", prompt: "How do I open health records from the bottom navigation?" },
 ] as const;

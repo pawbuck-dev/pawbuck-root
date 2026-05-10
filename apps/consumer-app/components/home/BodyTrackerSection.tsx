@@ -822,7 +822,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
 
         {showPoopObservation ? (
           <BodyTrackerObservationBlock
-            title="Stool observation"
+            title="Bathroom check — stool"
             note={poopNoteDraft}
             onChangeNote={setPoopNoteDraft}
             onBlurSave={savePoopObservationNote}
@@ -872,7 +872,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
 
         {showPeeObservation ? (
           <BodyTrackerObservationBlock
-            title="Urine observation"
+            title="Bathroom check"
             note={peeNoteDraft}
             onChangeNote={setPeeNoteDraft}
             onBlurSave={savePeeObservationNote}

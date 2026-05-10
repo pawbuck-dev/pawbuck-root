@@ -2,7 +2,7 @@
 
 ## Pet email address
 
-Each pet has a unique **@pawbuck.app** address shown on the pet profile. Anyone who sends health documents to that address triggers ingestion into your pet's record and messaging threads.
+Each pet has a unique **@pawbuck.app** address. It appears on **Home** (pet email card when set up), in **Pet profile**, and wherever the product surfaces "copy email" actions. Anyone who sends health documents to that address triggers ingestion into your pet's record and messaging threads.
 
 ## Messages inbox
 

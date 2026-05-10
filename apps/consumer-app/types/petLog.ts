@@ -18,4 +18,6 @@ export interface PetLogEntry {
   source: "milo" | "manual";
   /** Set after successful createJournalEntry. */
   synced_to_server?: boolean;
+  /** Dedupes duplicate Milo triage completes (matches pet_journal_entries.milo_idempotency_key). */
+  milo_idempotency_key?: string;
 }

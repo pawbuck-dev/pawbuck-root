@@ -4,6 +4,7 @@ export {
   formatSkipReason,
   sendAttachmentFailureNotification,
   sendFailedNotification,
+  sendMicrochipMismatchNotification,
   sendProcessedNotification,
   sendSkippedAttachmentsNotification,
 } from "./notificationSender.ts";

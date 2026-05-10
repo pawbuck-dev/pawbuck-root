@@ -1,5 +1,6 @@
 import type { Tables } from "@/database.types";
 import {
+  buildMiloStarterPrompts,
   buildMiloSuggestedPrompts,
   deriveJournalPromptTopic,
   filterJournalEntriesRecent,
@@ -199,7 +200,14 @@ describe("buildMiloSuggestedPrompts", () => {
       rotationSeed: "test-seed",
     });
     expect(prompts.length).toBe(4);
-    expect(prompts.some((p) => /family sharing|PawBuck email|vaccination records/i.test(p))).toBe(true);
+    // Rotated product-help chips depend on seed + day + corpus size; allow any how-to starter.
+    expect(
+      prompts.some((p) =>
+        /family sharing|PawBuck email|vaccination|lab results|notification|health records|insurance|bottom navigation|journal reminders|medication|messages|transfer|journal entry|support|delete my PawBuck|cost|share my pet/i.test(
+          p
+        )
+      )
+    ).toBe(true);
     expect(prompts.some((p) => /vet visit|unsafe|exercise/i.test(p))).toBe(true);
   });
 
@@ -214,6 +222,37 @@ describe("buildMiloSuggestedPrompts", () => {
     });
     expect(prompts.some((p) => p.includes("family sharing"))).toBe(false);
     expect(prompts[0]).toMatch(/vet visit|unsafe|exercise/i);
+  });
+});
+
+describe("buildMiloStarterPrompts", () => {
+  it("returns health-records–oriented chips when screen is health_records", () => {
+    const prompts = buildMiloStarterPrompts("health_records", {
+      petName: "Rex",
+      vaccinations: [],
+      journalEntries: [],
+      maxCount: 4,
+    });
+    expect(prompts).toHaveLength(4);
+    expect(prompts.every((p) => p.includes("Rex"))).toBe(true);
+    expect(prompts.some((p) => /vaccination|vaccine/i.test(p))).toBe(true);
+    expect(prompts.some((p) => /lab/i.test(p))).toBe(true);
+  });
+
+  it("delegates to buildMiloSuggestedPrompts for default screen", () => {
+    const a = buildMiloStarterPrompts("default", {
+      petName: null,
+      vaccinations: [],
+      journalEntries: [],
+      maxCount: 4,
+    });
+    const b = buildMiloSuggestedPrompts({
+      petName: null,
+      vaccinations: [],
+      journalEntries: [],
+      maxCount: 4,
+    });
+    expect(a).toEqual(b);
   });
 });
 

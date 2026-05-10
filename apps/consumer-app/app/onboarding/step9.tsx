@@ -99,9 +99,7 @@ export default function OnboardingStep9() {
 
           {/* Heading + Subtitle (fixed above ScrollView) */}
           <View style={styles.headingWrap}>
-            <Text style={[styles.heading, { color: theme.foreground }]}>
-              Pet Identification
-            </Text>
+            <Text style={[styles.heading, { color: theme.foreground }]}>Pet identification</Text>
             <Text style={[styles.subtitle, { color: mutedText }]}>
               Optional details to help identify your pet if needed.
             </Text>

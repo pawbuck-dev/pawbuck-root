@@ -1,7 +1,7 @@
 import { Pet } from "@/context/selectedPetContext";
 import { Vaccination } from "@/types/vaccination";
+import { computeVaccineReminderFires } from "@/utils/vaccineReminderDates";
 import * as Notifications from "expo-notifications";
-import moment from "moment";
 import { buildVaccinationNotificationContent } from "./notificationContent";
 import {
   clearNotificationIds,
@@ -10,73 +10,57 @@ import {
 } from "./notificationStorage";
 
 /**
- * Schedule notification for a single vaccination
+ * Schedule up to three local notifications per vaccination (30 days, 7 days, day-of due date at 9:00).
  */
 export const scheduleNotificationForVaccination = async (
   vaccination: Vaccination,
-  pet: Pet,
-  reminderDays: number
-): Promise<string | null> => {
+  pet: Pet
+): Promise<string[]> => {
   try {
-    // Skip if no next_due_date
     if (!vaccination.next_due_date) {
-      return null;
+      return [];
     }
 
-    // Calculate reminder date (X days before due date)
-    const reminderMoment = moment(vaccination.next_due_date).subtract(
-      reminderDays,
-      "days"
-    );
+    await cancelNotificationForVaccination(vaccination.id);
 
-    // Skip if reminder date is in the past
-    if (reminderMoment.startOf("day").isBefore(moment().startOf("day"))) {
-      return null;
+    const now = new Date();
+    const fires = computeVaccineReminderFires(vaccination.next_due_date, now);
+    const notificationIds: string[] = [];
+
+    for (const { offsetDays, fireAt } of fires) {
+      const content = buildVaccinationNotificationContent(vaccination, pet, offsetDays);
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireAt,
+        },
+      });
+      notificationIds.push(notificationId);
     }
 
-    const content = buildVaccinationNotificationContent(vaccination, pet);
+    if (notificationIds.length > 0) {
+      await saveNotificationIds(`vaccination:${vaccination.id}`, notificationIds);
+    }
 
-    // Set time to 9 AM on the reminder date
-    const triggerDate = reminderMoment
-      .hour(9)
-      .minute(0)
-      .second(0)
-      .millisecond(0)
-      .toDate();
-
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content,
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: triggerDate,
-      },
-    });
-
-    // Save notification ID to storage
-    await saveNotificationIds(`vaccination:${vaccination.id}`, [
-      notificationId,
-    ]);
-
-    return notificationId;
+    return notificationIds;
   } catch (error) {
     console.error(
       `Error scheduling notification for vaccination ${vaccination.id}:`,
       error
     );
-    return null;
+    return [];
   }
 };
 
 /**
- * Cancel notification for a specific vaccination
+ * Cancel all scheduled notifications for a specific vaccination
  */
 export const cancelNotificationForVaccination = async (
   vaccinationId: string
 ): Promise<void> => {
   try {
-    const notificationIds = await getNotificationIds(
-      `vaccination:${vaccinationId}`
-    );
+    const notificationIds = await getNotificationIds(`vaccination:${vaccinationId}`);
 
     for (const notificationId of notificationIds) {
       try {

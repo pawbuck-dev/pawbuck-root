@@ -3,14 +3,13 @@ import {
   PAWTHON_MIN_SEGMENT_METERS,
   PAWTHON_MIN_WALK_METERS,
 } from "@/constants/pawthon";
+import { PAWTHON_WARMUP_TARGET_ACCURACY_M, PAWTHON_WARMUP_TIMEOUT_MS } from "@/constants/pawthonWalkTracking";
 import {
   formatDurationWalk,
   formatMiles,
   formatPace,
   metersToMiles,
   paceMinPerMile,
-  PAWTHON_ORANGE_BANNER_BG,
-  PAWTHON_ORANGE_BANNER_TEXT,
   PAWTHON_PEACH_CARD,
   PAWTHON_TEAL,
 } from "@/constants/pawthonUi";
@@ -20,6 +19,24 @@ import type { Pet } from "@/context/petsContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { resetPawthonGapAnchor } from "@/services/pawthonWalkGapFill";
+import {
+  deactivatePawthonWalkSessionBridge,
+  getPawthonWalkSnapshot,
+  resetPawthonWalkSessionBridge,
+  subscribePawthonWalkSession,
+} from "@/services/pawthonWalkSessionBridge";
+import {
+  startPawthonWalkBackgroundTracking,
+  stopPawthonWalkBackgroundTracking,
+} from "@/services/pawthonWalkTracking";
+import {
+  getWalkBackgroundPermissionStatus,
+  hasSeenPawthonAlwaysExplainer,
+  markPawthonAlwaysExplainerSeen,
+  requestWalkBackgroundLocation,
+  requestWalkForegroundLocation,
+} from "@/services/walkLocationPermissions";
 import { fetchPawthonDashboardStats, insertWalkSession, type WalkPoint } from "@/services/walkSessions";
 import { supabase } from "@/utils/supabase";
 import { haversineDistanceMeters } from "@/utils/haversine";
@@ -39,6 +56,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
+  Modal,
   Pressable,
   ScrollView,
   Share,
@@ -49,7 +68,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = { latitude: number; longitude: number };
 
-type Phase = "select" | "active" | "complete";
+type Phase = "select" | "warmup" | "active" | "complete";
 
 type CompletePayload = {
   pet: Pet;
@@ -80,11 +99,18 @@ export default function PawthonWalkScreen() {
 
   const [isWalking, setIsWalking] = useState(false);
   const isWalkingRef = useRef(false);
+  const [isSimulatedWalk, setIsSimulatedWalk] = useState(false);
+  const isSimulatedWalkRef = useRef(false);
+  const [alwaysExplainerOpen, setAlwaysExplainerOpen] = useState(false);
+  const [warmupWeakGps, setWarmupWeakGps] = useState(false);
+  const [warmupElapsedSec, setWarmupElapsedSec] = useState(0);
+  const [warmupAccuracy, setWarmupAccuracy] = useState<number | null>(null);
+  const [sessionSteps, setSessionSteps] = useState(0);
+  const pedometerBaselineRef = useRef<number | null>(null);
   const [pathCoords, setPathCoords] = useState<PawthonMapCoord[]>([]);
   const pathCoordsRef = useRef<PawthonMapCoord[]>([]);
   const [distanceM, setDistanceM] = useState(0);
   const [durationSec, setDurationSec] = useState(0);
-  const [permissionDenied, setPermissionDenied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
   const [complete, setComplete] = useState<CompletePayload | null>(null);
@@ -93,7 +119,8 @@ export default function PawthonWalkScreen() {
   const lastPosRef = useRef<LatLng | null>(null);
   const pointsRef = useRef<WalkPoint[]>([]);
   const distanceMRef = useRef(0);
-  const subscriptionRef = useRef<{ remove: () => void } | null>(null);
+  const warmupSubRef = useRef<{ remove: () => void } | null>(null);
+  const warmupTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   /** __DEV__ simulated GPS playback */
   const simPlaybackRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,6 +139,10 @@ export default function PawthonWalkScreen() {
   useEffect(() => {
     isWalkingRef.current = isWalking;
   }, [isWalking]);
+
+  useEffect(() => {
+    isSimulatedWalkRef.current = isSimulatedWalk;
+  }, [isSimulatedWalk]);
 
   /** One-shot location for select-screen map preview */
   useEffect(() => {
@@ -142,23 +173,75 @@ export default function PawthonWalkScreen() {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
+    if (warmupTickerRef.current) {
+      clearInterval(warmupTickerRef.current);
+      warmupTickerRef.current = null;
+    }
   }, []);
 
-  const stopTracking = useCallback(() => {
-    subscriptionRef.current?.remove();
-    subscriptionRef.current = null;
+  const stopTracking = useCallback(async () => {
+    warmupSubRef.current?.remove();
+    warmupSubRef.current = null;
     if (simPlaybackRef.current) {
       clearInterval(simPlaybackRef.current);
       simPlaybackRef.current = null;
     }
     clearWalkTimers();
+    await stopPawthonWalkBackgroundTracking();
+    deactivatePawthonWalkSessionBridge();
+    resetPawthonGapAnchor();
   }, [clearWalkTimers]);
 
   useEffect(() => {
     return () => {
-      stopTracking();
+      void stopTracking();
     };
   }, [stopTracking]);
+
+  useEffect(() => {
+    if (phase !== "active" || isSimulatedWalk) return;
+    const syncFromBridge = () => {
+      const s = getPawthonWalkSnapshot();
+      pathCoordsRef.current = s.pathCoords;
+      pointsRef.current = s.points;
+      distanceMRef.current = s.distanceM;
+      setPathCoords(s.pathCoords);
+      setDistanceM(s.distanceM);
+    };
+    syncFromBridge();
+    return subscribePawthonWalkSession(syncFromBridge);
+  }, [phase, isSimulatedWalk]);
+
+  useEffect(() => {
+    if (phase !== "active" || isSimulatedWalk) {
+      pedometerBaselineRef.current = null;
+      setSessionSteps(0);
+      return;
+    }
+    let removed = false;
+    let sub: { remove: () => void } | null = null;
+    (async () => {
+      try {
+        const { Pedometer } = await import("expo-sensors");
+        const avail = await Pedometer.isAvailableAsync();
+        if (!avail || removed) return;
+        const perm = await Pedometer.getPermissionsAsync();
+        if (perm.status !== "granted" || removed) return;
+        sub = Pedometer.watchStepCount((ev) => {
+          if (pedometerBaselineRef.current == null) {
+            pedometerBaselineRef.current = ev.steps;
+          }
+          setSessionSteps(Math.max(0, ev.steps - pedometerBaselineRef.current));
+        });
+      } catch {
+        /* pedometer optional */
+      }
+    })();
+    return () => {
+      removed = true;
+      sub?.remove();
+    };
+  }, [phase, isSimulatedWalk]);
 
   const onLocation = useCallback((coords: LatLng) => {
     const t = Date.now();
@@ -194,11 +277,97 @@ export default function PawthonWalkScreen() {
     }
   }, []);
 
+  const startWarmup = useCallback(async (Location: typeof import("expo-location")) => {
+    warmupSubRef.current?.remove();
+    warmupSubRef.current = null;
+    setPhase("warmup");
+    setWarmupWeakGps(false);
+    setWarmupAccuracy(null);
+    setWarmupElapsedSec(0);
+    const warmStart = Date.now();
+    warmupTickerRef.current = setInterval(() => {
+      setWarmupElapsedSec(Math.floor((Date.now() - warmStart) / 1000));
+    }, 400);
+
+    let finished = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finishWarmup = async (weak: boolean) => {
+      if (finished) return;
+      finished = true;
+      if (timeoutId != null) clearTimeout(timeoutId);
+      warmupSubRef.current?.remove();
+      warmupSubRef.current = null;
+      if (warmupTickerRef.current) {
+        clearInterval(warmupTickerRef.current);
+        warmupTickerRef.current = null;
+      }
+      setWarmupWeakGps(weak);
+      resetPawthonGapAnchor();
+      resetPawthonWalkSessionBridge();
+
+      startedAtRef.current = new Date();
+      setIsWalking(true);
+      setPhase("active");
+      tickRef.current = setInterval(() => {
+        if (startedAtRef.current) {
+          setDurationSec(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
+        }
+      }, 1000);
+
+      try {
+        await startPawthonWalkBackgroundTracking();
+      } catch (e) {
+        console.warn("[PawthonWalk] startLocationUpdatesAsync", e);
+        await stopPawthonWalkBackgroundTracking();
+        deactivatePawthonWalkSessionBridge();
+        resetPawthonGapAnchor();
+        if (tickRef.current) {
+          clearInterval(tickRef.current);
+          tickRef.current = null;
+        }
+        setIsWalking(false);
+        setPhase("select");
+        startedAtRef.current = null;
+        Alert.alert(
+          "Location error",
+          "Could not start GPS tracking. Use a development or production build with native location (Expo Go does not support background walk tracking)."
+        );
+      }
+    };
+
+    timeoutId = setTimeout(() => {
+      void finishWarmup(true);
+    }, PAWTHON_WARMUP_TIMEOUT_MS);
+
+    try {
+      const sub = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 800,
+          distanceInterval: 0,
+        },
+        (loc) => {
+          const acc = loc.coords.accuracy ?? 999;
+          setWarmupAccuracy(acc);
+          if (acc > 0 && acc <= PAWTHON_WARMUP_TARGET_ACCURACY_M) {
+            void finishWarmup(false);
+          }
+        }
+      );
+      warmupSubRef.current = sub;
+    } catch (e) {
+      console.warn("[PawthonWalk] warmup watchPositionAsync", e);
+      void finishWarmup(true);
+    }
+  }, []);
+
   const beginWalkFromSelect = useCallback(async () => {
     if (!walkPetId) {
       Alert.alert("Select a pet", "Choose which pet you’re walking.");
       return;
     }
+    setIsSimulatedWalk(false);
     setSelectedPetId(walkPetId);
     setVerificationUri(null);
     setPathCoords([]);
@@ -221,57 +390,85 @@ export default function PawthonWalkScreen() {
       return;
     }
 
-    setPermissionDenied(false);
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      setPermissionDenied(true);
+    const fg = await requestWalkForegroundLocation(Location);
+    if (!fg.granted) {
       Alert.alert(
         "Location needed",
-        "Pawthon uses your location while the app is open to measure walk distance."
+        "Pawthon uses your location to map walks with your pet. You can allow location in Settings when you’re ready."
       );
       return;
     }
 
-    startedAtRef.current = new Date();
-    setIsWalking(true);
-    setPhase("active");
-
-    tickRef.current = setInterval(() => {
-      if (startedAtRef.current) {
-        setDurationSec(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
-      }
-    }, 1000);
-
     try {
-      const sub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Balanced,
-          timeInterval: 2500,
-          distanceInterval: 5,
-        },
-        (loc) => onLocation(loc.coords)
-      );
-      subscriptionRef.current = sub;
-    } catch (e) {
-      console.warn("[PawthonWalk] watchPositionAsync", e);
-      setIsWalking(false);
-      setPhase("select");
-      stopTracking();
-      Alert.alert("Location error", "Could not start GPS updates. Try again.");
+      const { Pedometer } = await import("expo-sensors");
+      const avail = await Pedometer.isAvailableAsync().catch(() => false);
+      if (avail) {
+        await Pedometer.requestPermissionsAsync().catch(() => {});
+      }
+    } catch {
+      /* motion optional */
     }
-  }, [walkPetId, setSelectedPetId, onLocation, stopTracking]);
+
+    const bg = await getWalkBackgroundPermissionStatus(Location);
+    if (bg.granted) {
+      await startWarmup(Location);
+      return;
+    }
+
+    const seen = await hasSeenPawthonAlwaysExplainer();
+    if (!seen) {
+      setAlwaysExplainerOpen(true);
+      return;
+    }
+
+    await startWarmup(Location);
+  }, [walkPetId, setSelectedPetId, startWarmup]);
+
+  const onAlwaysExplainerRequestBackground = useCallback(async () => {
+    setAlwaysExplainerOpen(false);
+    await markPawthonAlwaysExplainerSeen();
+    let Location: typeof import("expo-location");
+    try {
+      Location = await loadExpoLocation();
+    } catch {
+      return;
+    }
+    await requestWalkBackgroundLocation(Location);
+    await startWarmup(Location);
+  }, [startWarmup]);
+
+  const onAlwaysExplainerForegroundOnly = useCallback(async () => {
+    setAlwaysExplainerOpen(false);
+    await markPawthonAlwaysExplainerSeen();
+    let Location: typeof import("expo-location");
+    try {
+      Location = await loadExpoLocation();
+    } catch {
+      return;
+    }
+    Alert.alert(
+      "While using the app",
+      "If you lock the screen or switch apps, the route may pause until you return. For pocket walks, choose “Allow always” in Settings → PawBuck → Location."
+    );
+    await startWarmup(Location);
+  }, [startWarmup]);
 
   const endWalk = useCallback(async () => {
     if (!isWalkingRef.current) return;
-    stopTracking();
-    setIsWalking(false);
 
     const petId = walkPetId;
     const startedAt = startedAtRef.current;
     const endedAt = new Date();
-    const meters = distanceMRef.current;
-    const points = [...pointsRef.current];
-    const pathSnapshot = [...pathCoordsRef.current];
+
+    const sim = isSimulatedWalkRef.current;
+    const snap = sim ? null : getPawthonWalkSnapshot();
+    const meters = sim ? distanceMRef.current : snap!.distanceM;
+    const points = sim ? [...pointsRef.current] : [...snap!.points];
+    const pathSnapshot = sim ? [...pathCoordsRef.current] : [...snap!.pathCoords];
+
+    await stopTracking();
+    setIsWalking(false);
+    setIsSimulatedWalk(false);
 
     startedAtRef.current = null;
     lastPosRef.current = null;
@@ -363,9 +560,10 @@ export default function PawthonWalkScreen() {
       return;
     }
 
+    setIsSimulatedWalk(true);
     setSelectedPetId(walkPetId);
     setVerificationUri(null);
-    stopTracking();
+    void stopTracking();
     setPathCoords([]);
     pathCoordsRef.current = [];
     setDistanceM(0);
@@ -373,8 +571,6 @@ export default function PawthonWalkScreen() {
     distanceMRef.current = 0;
     pointsRef.current = [];
     lastPosRef.current = null;
-    setPermissionDenied(false);
-
     const start = previewCoord ?? PAWTHON_SIM_DEFAULT_START;
     const segmentCount = 25;
     const path = buildSimulatedWalkPath(start, 1000, segmentCount, 72);
@@ -431,7 +627,9 @@ export default function PawthonWalkScreen() {
   }, []);
 
   const milesNow = metersToMiles(distanceM);
-  const paceStr = formatPace(paceMinPerMile(durationSec, milesNow));
+  const paceMin = paceMinPerMile(durationSec, milesNow);
+  const paceStr = formatPace(paceMin);
+  const paceHasData = paceMin > 0 && Number.isFinite(paceMin);
 
   const mapPreview =
     previewCoord ? (
@@ -441,6 +639,13 @@ export default function PawthonWalkScreen() {
   const headerBack = (options?: { confirmIfWalking?: boolean }) => (
     <Pressable
       onPress={() => {
+        if (phase === "warmup") {
+          void stopTracking();
+          setIsWalking(false);
+          startedAtRef.current = null;
+          setPhase("select");
+          return;
+        }
         if (options?.confirmIfWalking && isWalking) {
           Alert.alert("End walk?", "Discard this walk or tap Stop to save.", [
             { text: "Keep walking", style: "cancel" },
@@ -448,7 +653,8 @@ export default function PawthonWalkScreen() {
               text: "Discard",
               style: "destructive",
               onPress: () => {
-                stopTracking();
+                void stopTracking();
+                setIsSimulatedWalk(false);
                 setIsWalking(false);
                 startedAtRef.current = null;
                 lastPosRef.current = null;
@@ -466,7 +672,8 @@ export default function PawthonWalkScreen() {
           setComplete(null);
           router.back();
         } else if (phase === "active") {
-          stopTracking();
+          void stopTracking();
+          setIsSimulatedWalk(false);
           setIsWalking(false);
           startedAtRef.current = null;
           lastPosRef.current = null;
@@ -839,6 +1046,77 @@ export default function PawthonWalkScreen() {
     );
   }
 
+  /* ——— GPS warmup ——— */
+  if (phase === "warmup") {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <StatusBar style="light" />
+        <PawthonWalkMap
+          path={previewCoord ? [previewCoord] : []}
+          style={{ flex: 1 }}
+          showUserLocation
+        />
+        <View
+          style={{
+            position: "absolute",
+            top: insets.top + 8,
+            left: 16,
+            zIndex: 10,
+          }}
+        >
+          {headerBack()}
+        </View>
+        <View
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            bottom: Math.max(insets.bottom, 24) + 24,
+            padding: 20,
+            borderRadius: 20,
+            backgroundColor: "rgba(0,0,0,0.72)",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "Poppins_700Bold",
+              fontSize: 20,
+              color: "#FFF",
+              textAlign: "center",
+              marginBottom: 8,
+            }}
+          >
+            Acquiring GPS…
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_500Medium",
+              fontSize: 14,
+              color: "rgba(255,255,255,0.88)",
+              textAlign: "center",
+              marginBottom: 12,
+            }}
+          >
+            Hold still for a moment. Recording starts after accuracy is good or after{" "}
+            {Math.ceil(PAWTHON_WARMUP_TIMEOUT_MS / 1000)}s.
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_600SemiBold",
+              fontSize: 15,
+              color: PAWTHON_TEAL,
+              textAlign: "center",
+            }}
+          >
+            {warmupAccuracy != null && Number.isFinite(warmupAccuracy)
+              ? `±${Math.round(warmupAccuracy)} m · ${warmupElapsedSec}s`
+              : `${warmupElapsedSec}s`}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   /* ——— Active walk (map + sheet) ——— */
   if (phase === "active") {
     return (
@@ -897,8 +1175,34 @@ export default function PawthonWalkScreen() {
               marginBottom: 16,
             }}
           >
-            Capture in Progress
+            Tracking your walk
           </Text>
+          {warmupWeakGps ? (
+            <Text
+              style={{
+                fontFamily: "Poppins_500Medium",
+                fontSize: 12,
+                color: theme.secondary,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              GPS was weak at start — the first part of the route may be less accurate.
+            </Text>
+          ) : null}
+          {sessionSteps > 0 && !isSimulatedWalk ? (
+            <Text
+              style={{
+                fontFamily: "Poppins_500Medium",
+                fontSize: 12,
+                color: theme.secondary,
+                textAlign: "center",
+                marginBottom: 8,
+              }}
+            >
+              Steps (foreground, approximate): {sessionSteps}
+            </Text>
+          ) : null}
 
           <View style={{ flexDirection: "row", marginBottom: 14 }}>
             <View style={{ flex: 1, alignItems: "center" }}>
@@ -914,7 +1218,7 @@ export default function PawthonWalkScreen() {
                 {paceStr}
               </Text>
               <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: theme.secondary, marginTop: 4 }}>
-                avg pace (min/mi)
+                avg pace{paceHasData ? " (min/mi)" : ""}
               </Text>
             </View>
             <View style={{ flex: 1, alignItems: "center" }}>
@@ -927,29 +1231,6 @@ export default function PawthonWalkScreen() {
               </Text>
             </View>
           </View>
-
-          {permissionDenied ? null : (
-            <View
-              style={{
-                backgroundColor: PAWTHON_ORANGE_BANNER_BG,
-                paddingVertical: 10,
-                paddingHorizontal: 14,
-                borderRadius: 20,
-                marginBottom: 16,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Poppins_600SemiBold",
-                  fontSize: 13,
-                  color: PAWTHON_ORANGE_BANNER_TEXT,
-                  textAlign: "center",
-                }}
-              >
-                Take a live photo to verify & finish walk
-              </Text>
-            </View>
-          )}
 
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Pressable
@@ -1043,9 +1324,113 @@ export default function PawthonWalkScreen() {
             color: theme.foreground,
           }}
         >
-          Start-Walk
+          Start a Walk
         </Text>
       </View>
+      <Modal
+        visible={alwaysExplainerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setAlwaysExplainerOpen(false);
+          void (async () => {
+            await markPawthonAlwaysExplainerSeen();
+            try {
+              const Location = await loadExpoLocation();
+              await startWarmup(Location);
+            } catch {
+              /* handled in beginWalk */
+            }
+          })();
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            paddingHorizontal: 22,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.card,
+              borderRadius: 20,
+              padding: 22,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Poppins_700Bold",
+                fontSize: 18,
+                color: theme.foreground,
+                marginBottom: 10,
+              }}
+            >
+              Pocket and screen-off walks
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Poppins_500Medium",
+                fontSize: 14,
+                color: theme.secondary,
+                marginBottom: 18,
+                lineHeight: 21,
+              }}
+            >
+              For a reliable route while your phone is locked or in your pocket, allow{" "}
+              <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground }}>
+                Always
+              </Text>{" "}
+              (iOS) or{" "}
+              <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground }}>
+                background location
+              </Text>{" "}
+              (Android). Tracking runs only during an active walk. You may see a status indicator or
+              notification while a walk is recording.
+            </Text>
+            <Pressable
+              onPress={() => void onAlwaysExplainerRequestBackground()}
+              style={{
+                backgroundColor: PAWTHON_TEAL,
+                borderRadius: 14,
+                paddingVertical: 14,
+                marginBottom: 10,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 16, color: "#FFF" }}>
+                Allow always / background
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void onAlwaysExplainerForegroundOnly()}
+              style={{
+                borderRadius: 14,
+                paddingVertical: 14,
+                marginBottom: 10,
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 15, color: theme.foreground }}>
+                Continue with “While Using” only
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={{ paddingVertical: 10, alignItems: "center" }}
+            >
+              <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 14, color: theme.primary }}>
+                Open system settings
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <View style={{ flex: 1, paddingHorizontal: 20 }}>
         <PawthonPetSelect
           pets={pets}

@@ -1,5 +1,6 @@
 import type { JournalDomain } from "@/constants/petJournal";
 import type { PetLogEntry, PetLogSeverity } from "@/types/petLog";
+import { computeMiloJournalIdempotencyKey } from "@/utils/miloJournalIdempotency";
 
 const URGENT = [
   "seizure",
@@ -227,6 +228,13 @@ export function extractPetLogEntry(
     severity === "urgent" ||
     noteHasClinicalTriagePrefix(displayNote);
 
+  const milo_idempotency_key = computeMiloJournalIdempotencyKey({
+    petId,
+    domain,
+    subtype,
+    triageSourceText: triage,
+  });
+
   return {
     id: `milo-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     pet_id: petId,
@@ -239,6 +247,7 @@ export function extractPetLogEntry(
     tags: extractTags(triage),
     vet_flag,
     source: "milo",
+    milo_idempotency_key,
   };
 }
 

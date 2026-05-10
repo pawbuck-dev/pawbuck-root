@@ -10,6 +10,9 @@ export interface NotificationContent {
     vaccinationId?: string;
     petId: string;
     url: string;
+    notificationKind?: string;
+    /** Days before due for staged vaccine reminders (30, 7, 0). */
+    vaccineOffsetDays?: number;
   };
 }
 
@@ -32,20 +35,30 @@ export const buildNotificationContent = (
 };
 
 /**
- * Build notification content for a vaccination reminder
+ * Build notification content for a vaccination reminder (multi-stage: 30d, 7d, day-of).
  */
 export const buildVaccinationNotificationContent = (
   vaccination: Vaccination,
-  pet: Pet
+  pet: Pet,
+  offsetDays: 30 | 7 | 0
 ): NotificationContent => {
   const dueDate = new Date(vaccination.next_due_date!).toLocaleDateString();
+  const when =
+    offsetDays === 30
+      ? "in 30 days"
+      : offsetDays === 7
+        ? "in 7 days"
+        : "today";
   return {
-    title: `${pet.name}'s Vaccination Due Soon`,
-    body: `${vaccination.name} is due on ${dueDate}`,
+    title:
+      offsetDays === 0 ? `${pet.name}'s vaccination is due today` : `${pet.name}'s vaccination reminder`,
+    body: `${vaccination.name} is due on ${dueDate} (${when}).`,
     data: {
       vaccinationId: vaccination.id,
       petId: pet.id,
       url: `/health-record/${pet.id}/(tabs)/vaccinations`,
+      notificationKind: "vaccination_reminder",
+      vaccineOffsetDays: offsetDays,
     },
   };
 };

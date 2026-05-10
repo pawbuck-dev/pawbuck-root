@@ -111,8 +111,11 @@ public class MiloController : ControllerBase
         [FromBody] MiloJournalFeedbackRequest? body,
         CancellationToken cancellationToken)
     {
-        if (body == null || body.ResponseId == Guid.Empty)
-            return BadRequest(new { error = "responseId is required" });
+        if (body == null)
+            return BadRequest(new { error = "body is required" });
+        var resolvedTurn = ResolveFeedbackTurnId(body);
+        if (!resolvedTurn.HasValue)
+            return BadRequest(new { error = "responseId or turnId is required" });
         var r = (body.Rating ?? "").Trim().ToLowerInvariant();
         if (r is not ("up" or "down"))
             return BadRequest(new { error = "rating must be 'up' or 'down'" });
@@ -121,11 +124,21 @@ public class MiloController : ControllerBase
         if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
             return Unauthorized();
 
-        var ok = await _journalTurns.TrySubmitFeedbackAsync(userId, body.ResponseId, r, cancellationToken);
+        var ok = await _journalTurns.TrySubmitFeedbackAsync(userId, resolvedTurn.Value, r, cancellationToken);
         if (!ok)
             return NotFound(new { error = "Turn not found, expired, or not yours." });
 
         return Ok(new { ok = true });
+    }
+
+    private static Guid? ResolveFeedbackTurnId(MiloJournalFeedbackRequest body)
+    {
+        if (body.ResponseId != Guid.Empty)
+            return body.ResponseId;
+        var raw = (body.TurnId ?? "").Trim();
+        if (string.IsNullOrEmpty(raw))
+            return null;
+        return Guid.TryParse(raw, out var g) && g != Guid.Empty ? g : null;
     }
 
     /// <summary>

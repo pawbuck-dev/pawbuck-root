@@ -1,6 +1,7 @@
 import type { Tables } from "@/database.types";
 import type { MedicineData } from "@/types/medication";
 import { getNextMedicationDose, isMedicationCompleted } from "@/utils/medication";
+import { formatPetWeightForDisplay } from "@/utils/weightUnits";
 import moment from "moment";
 
 export type BriefingCategoryKey = "weight" | "allergies" | "vaccines" | "meds";
@@ -20,10 +21,8 @@ export function formatHealthBriefingSubtitle(params: {
 }): string {
   const { petName, weightValue, weightUnit, allergiesCount, activeConditionsCount } = params;
   const parts: string[] = [petName];
-  if (weightValue != null && weightValue > 0) {
-    const u = weightUnit?.trim();
-    parts.push(u ? `${weightValue} ${u}` : String(weightValue));
-  }
+  const w = formatPetWeightForDisplay(weightValue, weightUnit);
+  if (w) parts.push(w);
   if (allergiesCount > 0) {
     parts.push(`${allergiesCount} ${allergiesCount === 1 ? "allergy" : "allergies"}`);
   }

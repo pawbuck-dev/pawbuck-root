@@ -4,22 +4,12 @@ import type {
   ParsedAttachment,
   Pet,
   PetValidationResult,
-  SkipReason,
-  ValidationMethod,
 } from "./types.ts";
 
-// Minimum number of attribute matches required when no microchip is available
-const MIN_ATTRIBUTE_MATCH_THRESHOLD = 0.7;
-// Fuzzy match threshold for name and breed matching
 const FUZZY_MATCH_THRESHOLD = 0.7;
-// Age tolerance in years for matching
-const AGE_TOLERANCE_YEARS = 1;
 
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
 
-/**
- * Extract all pet information from a document using Gemini AI
- */
 export async function extractPetInfoFromDocument(
   attachment: ParsedAttachment,
   emailSubject: string
@@ -111,7 +101,6 @@ Provide an overall confidence score (0-100) based on how clearly the information
 
     const result = JSON.parse(apiResult.data.candidates[0].content.parts[0].text);
 
-    // convert all values to null if they are "null" or "undefined"
     result.microchip = result.microchip === "null" || result.microchip === "undefined" ? null : result.microchip;
     result.name = result.name === "null" || result.name === "undefined" ? null : result.name;
     result.age = result.age === "null" || result.age === "undefined" ? null : result.age;
@@ -135,9 +124,6 @@ Provide an overall confidence score (0-100) based on how clearly the information
   }
 }
 
-/**
- * Create an empty extraction result
- */
 function createEmptyExtraction(): ExtractedPetInfo {
   return {
     microchip: null,
@@ -149,9 +135,17 @@ function createEmptyExtraction(): ExtractedPetInfo {
   };
 }
 
-/**
- * Calculate Levenshtein distance between two strings
- */
+function nonEmpty(s: string | null | undefined): boolean {
+  return typeof s === "string" && s.trim().length > 0;
+}
+
+function petFirstName(petName: string): string {
+  const t = petName.trim();
+  if (!t) return "";
+  const parts = t.split(/\s+/);
+  return parts[0] ?? "";
+}
+
 function levenshteinDistance(str1: string, str2: string): number {
   const m = str1.length;
   const n = str2.length;
@@ -180,191 +174,133 @@ function levenshteinDistance(str1: string, str2: string): number {
   return dp[m][n];
 }
 
-/**
- * Calculate similarity ratio between two strings (0-1)
- */
 function similarityRatio(str1: string, str2: string): number {
   const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
   const maxLength = Math.max(str1.length, str2.length);
-  
+
   if (maxLength === 0) return 1;
-  
+
   return 1 - distance / maxLength;
 }
 
-/**
- * Fuzzy match two strings
- */
+function isLikelyNickname(name1: string, name2: string): boolean {
+  const n1 = name1.toLowerCase().trim();
+  const n2 = name2.toLowerCase().trim();
+  const shorter = n1.length < n2.length ? n1 : n2;
+  const longer = n1.length >= n2.length ? n1 : n2;
+
+  if (n1.includes(n2) || n2.includes(n1)) {
+    if (shorter.length >= longer.length * 0.6) {
+      return true;
+    }
+  }
+
+  const nicknamePatterns: Record<string, string[]> = {
+    "maximus": ["max"],
+    "maximilian": ["max"],
+    "alexander": ["alex"],
+    "alexandra": ["alex"],
+    "christopher": ["chris"],
+    "christina": ["chris"],
+    "william": ["will", "bill"],
+    "robert": ["rob", "bob"],
+    "richard": ["rick", "dick"],
+    "jennifer": ["jen", "jenny"],
+    "elizabeth": ["liz", "beth"],
+  };
+
+  const patterns = nicknamePatterns[longer] || [];
+  return patterns.includes(shorter);
+}
+
+function isBreedAbbreviation(breed1: string, breed2: string): boolean {
+  const b1 = breed1.toLowerCase().trim();
+  const b2 = breed2.toLowerCase().trim();
+
+  if (b1.includes(b2) || b2.includes(b1)) {
+    const shorter = b1.length < b2.length ? b1 : b2;
+    const longer = b1.length >= b2.length ? b1 : b2;
+    if (shorter.length >= longer.length * 0.7) {
+      return true;
+    }
+  }
+
+  const words1 = b1.split(/\s+/);
+  const words2 = b2.split(/\s+/);
+
+  const shorter = words1.length < words2.length ? words1 : words2;
+  const longer = words1.length >= words2.length ? words1 : words2;
+
+  return shorter.every((word) => longer.some((lw) => lw.includes(word) || word.includes(lw)));
+}
+
 function fuzzyMatch(
   extracted: string | null,
   expected: string,
-  threshold: number = FUZZY_MATCH_THRESHOLD
-): { similarity: number; matches: boolean } {
+  threshold: number = FUZZY_MATCH_THRESHOLD,
+  fieldType: "name" | "breed" = "name"
+): { similarity: number; matches: boolean; isLikelyVariation?: boolean } {
   if (!extracted) {
     return { similarity: 0, matches: false };
   }
 
   const similarity = similarityRatio(extracted, expected);
-  
+
+  let isLikelyVariation = false;
+  if (fieldType === "name" && similarity >= 0.6 && similarity < threshold) {
+    isLikelyVariation = isLikelyNickname(extracted, expected);
+  } else if (fieldType === "breed" && similarity >= 0.7 && similarity < threshold) {
+    isLikelyVariation = isBreedAbbreviation(extracted, expected);
+  }
+
+  const matches = similarity >= threshold || isLikelyVariation;
+
   console.log(
-    `Fuzzy match: "${extracted}" vs "${expected}" = ${(similarity * 100).toFixed(1)}% (threshold: ${threshold * 100}%)`
+    `Fuzzy match: "${extracted}" vs "${expected}" = ${(similarity * 100).toFixed(1)}% ` +
+      `(threshold: ${threshold * 100}%, matches: ${matches}, variation: ${isLikelyVariation})`
   );
 
   return {
     similarity,
-    matches: similarity >= threshold,
+    matches,
+    isLikelyVariation,
+  };
+}
+
+function matchMicrochip(extractedMicrochip: string | null, expectedMicrochip: string | null): boolean {
+  if (!extractedMicrochip || !expectedMicrochip) return false;
+
+  const cleanExtracted = extractedMicrochip.replace(/\s/g, "");
+  const cleanExpected = expectedMicrochip.replace(/\s/g, "");
+
+  const matches = cleanExtracted === cleanExpected;
+
+  console.log(
+    `Microchip match: "${extractedMicrochip}" vs "${expectedMicrochip}" = ${matches ? "MATCH" : "NO MATCH"}`
+  );
+
+  return matches;
+}
+
+function chipMismatchExtras(
+  extractedInfo: ExtractedPetInfo,
+  pet: Pet
+): Pick<
+  PetValidationResult,
+  "microchipMismatchNotify" | "microchipDocumentValue" | "microchipProfileValue"
+> {
+  return {
+    microchipMismatchNotify: true,
+    microchipDocumentValue: extractedInfo.microchip,
+    microchipProfileValue: pet.microchip_number,
   };
 }
 
 /**
- * Calculate age in years from date of birth
- */
-function calculateAgeInYears(dateOfBirth: string): number {
-  const birth = new Date(dateOfBirth);
-  const now = new Date();
-  
-  let years = now.getFullYear() - birth.getFullYear();
-  const monthDiff = now.getMonth() - birth.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
-    years--;
-  }
-  
-  // Also calculate months for more precision
-  let months = monthDiff;
-  if (months < 0) months += 12;
-  
-  return years + (months / 12);
-}
-
-/**
- * Parse age string to approximate years
- * Handles formats like "3 years", "6 months", "2 years 4 months"
- */
-function parseAgeToYears(ageString: string): number | null {
-  if (!ageString) return null;
-  
-  const lowerAge = ageString.toLowerCase();
-  let totalYears = 0;
-
-  // Match years
-  const yearsMatch = lowerAge.match(/(\d+)\s*(?:years?|yrs?|y)/);
-  if (yearsMatch) {
-    totalYears += parseInt(yearsMatch[1], 10);
-  }
-
-  // Match months
-  const monthsMatch = lowerAge.match(/(\d+)\s*(?:months?|mos?|m(?!\w))/);
-  if (monthsMatch) {
-    totalYears += parseInt(monthsMatch[1], 10) / 12;
-  }
-
-  // Match weeks (convert to years)
-  const weeksMatch = lowerAge.match(/(\d+)\s*(?:weeks?|wks?|w)/);
-  if (weeksMatch) {
-    totalYears += parseInt(weeksMatch[1], 10) / 52;
-  }
-
-  return totalYears > 0 ? totalYears : null;
-}
-
-/**
- * Check if extracted age matches pet's age from date of birth
- */
-function matchAge(
-  extractedAge: string | null,
-  dateOfBirth: string,
-  toleranceYears: number = AGE_TOLERANCE_YEARS
-): boolean {
-  if (!extractedAge) return false;
-
-  const extractedYears = parseAgeToYears(extractedAge);
-  if (extractedYears === null) return false;
-
-  const actualYears = calculateAgeInYears(dateOfBirth);
-  const difference = Math.abs(extractedYears - actualYears);
-
-  const matches = difference <= toleranceYears;
-  
-  console.log(
-    `Age match: extracted "${extractedAge}" (${extractedYears.toFixed(1)} years) vs ` +
-    `DOB ${dateOfBirth} (${actualYears.toFixed(1)} years) = ${matches ? "MATCH" : "NO MATCH"} ` +
-    `(diff: ${difference.toFixed(1)} years, tolerance: ${toleranceYears})`
-  );
-
-  return matches;
-}
-
-/**
- * Normalize gender string for comparison
- */
-function normalizeGender(gender: string | null): string | null {
-  if (!gender) return null;
-  
-  const lower = gender.toLowerCase().trim();
-  
-  // Male variants
-  if (lower === "m" || lower === "male" || lower.includes("male") || lower.includes("intact male")) {
-    return "male";
-  }
-  
-  // Female variants
-  if (lower === "f" || lower === "female" || lower.includes("female") || lower.includes("intact female")) {
-    return "female";
-  }
-  
-  // Neutered/Spayed (still male/female)
-  if (lower.includes("neutered") || lower.includes("castrated")) {
-    return "male";
-  }
-  if (lower.includes("spayed")) {
-    return "female";
-  }
-  
-  return lower;
-}
-
-/**
- * Check if genders match
- */
-function matchGender(extractedGender: string | null, expectedGender: string): boolean {
-  const normalizedExtracted = normalizeGender(extractedGender);
-  const normalizedExpected = normalizeGender(expectedGender);
-  
-  if (!normalizedExtracted || !normalizedExpected) return false;
-  
-  const matches = normalizedExtracted === normalizedExpected;
-  
-  console.log(
-    `Gender match: "${extractedGender}" (${normalizedExtracted}) vs ` +
-    `"${expectedGender}" (${normalizedExpected}) = ${matches ? "MATCH" : "NO MATCH"}`
-  );
-  
-  return matches;
-}
-
-/**
- * Check if microchip numbers match (exact match, ignoring whitespace)
- */
-function matchMicrochip(extractedMicrochip: string | null, expectedMicrochip: string | null): boolean {
-  if (!extractedMicrochip || !expectedMicrochip) return false;
-  
-  // Remove all whitespace and compare
-  const cleanExtracted = extractedMicrochip.replace(/\s/g, "");
-  const cleanExpected = expectedMicrochip.replace(/\s/g, "");
-  
-  const matches = cleanExtracted === cleanExpected;
-  
-  console.log(
-    `Microchip match: "${extractedMicrochip}" vs "${expectedMicrochip}" = ${matches ? "MATCH" : "NO MATCH"}`
-  );
-  
-  return matches;
-}
-
-/**
- * Validate pet from document against expected pet record
- * Uses microchip as primary validator, falls back to attributes combination
+ * Validate pet from document: microchip exact match wins; otherwise require
+ * extracted pet name (vs profile first name) and breed to fuzzy-match.
+ * Microchip mismatch (both sides present) does not block; it only sets
+ * microchipMismatchNotify for a user push.
  */
 export async function validatePetFromDocument(
   attachment: ParsedAttachment,
@@ -372,21 +308,19 @@ export async function validatePetFromDocument(
   pet: Pet
 ): Promise<PetValidationResult> {
   console.log(`\n=== Validating pet: ${pet.name} (ID: ${pet.id}) ===`);
-  
-  // Extract all pet info from document
-  const extractedInfo = await extractPetInfoFromDocument(attachment, emailSubject);
-  
-  // Build match details
-  const matchDetails: MatchDetails = {};
-  let method: ValidationMethod = "none";
-  let isValid = false;
-  let skipReason: SkipReason | undefined;
 
-  // Check if we have any identifiable information
-  const hasAnyInfo = extractedInfo.microchip || extractedInfo.name || 
-                     extractedInfo.age || extractedInfo.breed || extractedInfo.gender;
-  
-  if (!hasAnyInfo) {
+  const extractedInfo = await extractPetInfoFromDocument(attachment, emailSubject);
+  const matchDetails: MatchDetails = {};
+  let microchipMismatchNotify = false;
+
+  const hasAnyRaw =
+    nonEmpty(extractedInfo.microchip) ||
+    nonEmpty(extractedInfo.name) ||
+    nonEmpty(extractedInfo.breed) ||
+    nonEmpty(extractedInfo.age) ||
+    nonEmpty(extractedInfo.gender);
+
+  if (!hasAnyRaw) {
     console.log("No pet identification info found in document");
     return {
       isValid: false,
@@ -397,13 +331,11 @@ export async function validatePetFromDocument(
     };
   }
 
-  // PRIORITY 1: Microchip validation (if microchip found in document)
-  if (extractedInfo.microchip) {
+  if (nonEmpty(extractedInfo.microchip) && nonEmpty(pet.microchip_number)) {
     console.log("\n--- Microchip validation ---");
     const microchipMatches = matchMicrochip(extractedInfo.microchip, pet.microchip_number);
     matchDetails.microchipMatch = microchipMatches;
-    method = "microchip";
-    
+
     if (microchipMatches) {
       console.log("✅ Microchip validated successfully");
       return {
@@ -412,104 +344,124 @@ export async function validatePetFromDocument(
         extractedInfo,
         matchDetails,
       };
-    } else {
-      console.log("❌ Microchip mismatch - document does not belong to this pet");
-      return {
-        isValid: false,
-        method: "microchip",
-        extractedInfo,
-        matchDetails,
-        skipReason: "microchip_mismatch",
-      };
     }
+
+    console.log("⚠️ Microchip mismatch — notify only; checking name and breed");
+    microchipMismatchNotify = true;
+    matchDetails.microchipMatch = false;
   }
 
-  // PRIORITY 2: Attributes validation (name + age + breed + gender)
-  console.log("\n--- Attributes validation (no microchip found) ---");
-  method = "attributes";
-  let matchCount = 0;
-  let availableAttributes = 0;
+  console.log("\n--- Name + breed validation ---");
 
-  // Name match (fuzzy)
-  if (extractedInfo.name) {
-    const nameMatch = fuzzyMatch(extractedInfo.name, pet.name);
-    matchDetails.nameMatch = nameMatch;
-    if (nameMatch.matches) matchCount++;
-    availableAttributes++;
-  } 
-
-  // Age match (with tolerance)
-  if (extractedInfo.age && pet.date_of_birth) {
-    const ageMatches = matchAge(extractedInfo.age, pet.date_of_birth);
-    matchDetails.ageMatch = ageMatches;
-    if (ageMatches) matchCount++;
-    availableAttributes++;
+  if (!nonEmpty(extractedInfo.name) || !nonEmpty(extractedInfo.breed)) {
+    console.log("❌ Document must include both pet name and breed for verification");
+    return {
+      isValid: false,
+      method: microchipMismatchNotify ? "microchip" : "attributes",
+      extractedInfo,
+      matchDetails,
+      skipReason: "no_pet_info",
+      ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
+    };
   }
 
-  // Breed match (fuzzy)
-  if (extractedInfo.breed) {
-    const breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed);
-    matchDetails.breedMatch = breedMatch;
-    if (breedMatch.matches) matchCount++;
-    availableAttributes++;
-  }
+  const first = petFirstName(pet.name);
+  const nameMatch = fuzzyMatch(extractedInfo.name, first, FUZZY_MATCH_THRESHOLD, "name");
+  const breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed ?? "", FUZZY_MATCH_THRESHOLD, "breed");
+  matchDetails.nameMatch = nameMatch;
+  matchDetails.breedMatch = breedMatch;
 
-  // Gender match (normalized)
-  if (extractedInfo.gender) {
-    const genderMatches = matchGender(extractedInfo.gender, pet.sex);
-    matchDetails.genderMatch = genderMatches;
-    if (genderMatches) matchCount++;
-    availableAttributes++;
-  }
+  const isValid = nameMatch.matches && breedMatch.matches;
 
-  const minAttributeMatches = availableAttributes * MIN_ATTRIBUTE_MATCH_THRESHOLD;
-
-  console.log(`\nAttribute matches: ${matchCount}/${minAttributeMatches} required`);
-
-  if (matchCount >= minAttributeMatches) {
-    console.log("✅ Attributes validated successfully");
-    isValid = true;
+  if (isValid) {
+    console.log("✅ First name and breed validated successfully");
   } else {
-    console.log("❌ Insufficient attribute matches - document may not belong to this pet");
-    skipReason = "attributes_mismatch";
+    console.log("❌ First name and/or breed do not match profile");
   }
 
   return {
     isValid,
-    method,
+    method: "attributes",
     extractedInfo,
     matchDetails,
-    skipReason,
+    skipReason: isValid ? undefined : "attributes_mismatch",
+    ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
   };
 }
 
-/**
- * Format validation result for logging
- */
+export function formatDetailedError(
+  result: PetValidationResult,
+  pet: Pet
+): string {
+  const { isValid, extractedInfo, matchDetails, skipReason } = result;
+
+  if (isValid) {
+    return `Validation passed for ${pet.name}`;
+  }
+
+  if (skipReason === "no_pet_info") {
+    const missing: string[] = [];
+    if (!nonEmpty(extractedInfo.name)) missing.push("pet name");
+    if (!nonEmpty(extractedInfo.breed)) missing.push("breed");
+    if (missing.length > 0) {
+      return `Could not verify ${pet.name}: the document must clearly include both pet name and breed (missing: ${missing.join(", ")}).`;
+    }
+    return `No pet identification found in the document for ${pet.name}.`;
+  }
+
+  if (skipReason === "microchip_mismatch") {
+    return `Microchip on document ('${extractedInfo.microchip}') does not match ${pet.name}'s profile ('${pet.microchip_number}').`;
+  }
+
+  if (skipReason === "attributes_mismatch") {
+    const first = petFirstName(pet.name);
+    const parts: string[] = [];
+    if (matchDetails.nameMatch) {
+      if (matchDetails.nameMatch.matches) {
+        parts.push(
+          `first name OK ('${extractedInfo.name}' vs '${first}', ${(matchDetails.nameMatch.similarity * 100).toFixed(0)}%)`
+        );
+      } else {
+        parts.push(
+          `first name mismatch ('${extractedInfo.name}' vs profile first name '${first}', ${(matchDetails.nameMatch.similarity * 100).toFixed(0)}%)`
+        );
+      }
+    }
+    if (matchDetails.breedMatch) {
+      if (matchDetails.breedMatch.matches) {
+        parts.push(
+          `breed OK ('${extractedInfo.breed}' vs '${pet.breed}', ${(matchDetails.breedMatch.similarity * 100).toFixed(0)}%)`
+        );
+      } else {
+        parts.push(
+          `breed mismatch ('${extractedInfo.breed}' vs '${pet.breed}', ${(matchDetails.breedMatch.similarity * 100).toFixed(0)}%)`
+        );
+      }
+    }
+    return `Pet verification failed for ${pet.name}: ${parts.join("; ")}.`;
+  }
+
+  return "Validation failed for unknown reason.";
+}
+
 export function formatValidationResult(result: PetValidationResult): string {
-  const { isValid, method, extractedInfo, matchDetails } = result;
-  
+  const { isValid, method, extractedInfo, matchDetails, microchipMismatchNotify } = result;
+
   let summary = `Validation: ${isValid ? "PASSED" : "FAILED"} (method: ${method})\n`;
-  summary += `Extracted: name="${extractedInfo.name}", age="${extractedInfo.age}", `;
-  summary += `breed="${extractedInfo.breed}", gender="${extractedInfo.gender}", `;
-  summary += `microchip="${extractedInfo.microchip}"\n`;
-  
+  if (microchipMismatchNotify) {
+    summary += `  Microchip mismatch (notify only)\n`;
+  }
+  summary += `Extracted: name="${extractedInfo.name}", breed="${extractedInfo.breed}", microchip="${extractedInfo.microchip}"\n`;
+
   if (matchDetails.microchipMatch !== undefined) {
     summary += `  Microchip: ${matchDetails.microchipMatch ? "✅" : "❌"}\n`;
   }
   if (matchDetails.nameMatch) {
     summary += `  Name: ${matchDetails.nameMatch.matches ? "✅" : "❌"} (${(matchDetails.nameMatch.similarity * 100).toFixed(0)}%)\n`;
   }
-  if (matchDetails.ageMatch !== undefined) {
-    summary += `  Age: ${matchDetails.ageMatch ? "✅" : "❌"}\n`;
-  }
   if (matchDetails.breedMatch) {
     summary += `  Breed: ${matchDetails.breedMatch.matches ? "✅" : "❌"} (${(matchDetails.breedMatch.similarity * 100).toFixed(0)}%)\n`;
   }
-  if (matchDetails.genderMatch !== undefined) {
-    summary += `  Gender: ${matchDetails.genderMatch ? "✅" : "❌"}\n`;
-  }
-  
+
   return summary;
 }
-

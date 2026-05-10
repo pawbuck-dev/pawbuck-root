@@ -1,5 +1,11 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
-import type { EmailInfo, Pet, ProcessedAttachment, SkipReason } from "../types.ts";
+import type {
+  EmailInfo,
+  Pet,
+  PetValidationResult,
+  ProcessedAttachment,
+  SkipReason,
+} from "../types.ts";
 
 /**
  * Send push notification after successful email processing
@@ -53,6 +59,44 @@ export async function sendProcessedNotification(
 }
 
 /**
+ * Inform the owner that the document microchip differs from the profile.
+ * Non-blocking: processing may still continue when first name + breed match.
+ */
+export async function sendMicrochipMismatchNotification(
+  pet: Pet,
+  validation: PetValidationResult,
+  filename?: string
+): Promise<void> {
+  if (!validation.microchipMismatchNotify) {
+    return;
+  }
+
+  const docChip = validation.microchipDocumentValue ?? validation.extractedInfo.microchip ?? "";
+  const profileChip = validation.microchipProfileValue ?? pet.microchip_number ?? "";
+  const fileHint = filename ? ` (${filename})` : "";
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Microchip mismatch for ${pet.name}`,
+      body:
+        `The document shows a different microchip than ${pet.name}'s profile. ` +
+        `We still processed the email using name and breed verification.${fileHint}`,
+      data: {
+        type: "email_microchip_mismatch",
+        petId: pet.id,
+        petName: pet.name,
+        documentMicrochip: docChip,
+        profileMicrochip: profileChip,
+        filename: filename ?? null,
+      },
+    });
+    console.log(`Microchip mismatch notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send microchip mismatch notification:", notificationError);
+  }
+}
+
+/**
  * Send push notification when email processing fails
  */
 export async function sendFailedNotification(
@@ -74,56 +118,6 @@ export async function sendFailedNotification(
   } catch (notificationError) {
     console.error("Failed to send error notification:", notificationError);
     // Continue even if notification fails
-  }
-}
-
-/**
- * Send a single combined notification when both records were added and some attachments were skipped.
- * Prevents the user from getting two separate notifications for one email.
- */
-export async function sendCombinedProcessedAndSkippedNotification(
-  pet: Pet,
-  emailInfo: EmailInfo,
-  processedAttachments: ProcessedAttachment[],
-  skippedAttachments: ProcessedAttachment[]
-): Promise<void> {
-  const successfulRecords = processedAttachments.filter((a) => a.dbInserted);
-  const documentTypes = [
-    ...new Set(
-      successfulRecords.map((a) => formatDocumentType(a.classification.type))
-    ),
-  ];
-  const documentCount = successfulRecords.reduce(
-    (count, a) => count + (a.dbRecordIds?.length || 1),
-    0
-  );
-  const documentTypesText = documentTypes.join(", ");
-  const recordWord = documentCount === 1 ? "record has" : "records have";
-  const skippedCount = skippedAttachments.length;
-  const skippedWord = skippedCount === 1 ? "document was" : "documents were";
-
-  const body =
-    skippedCount > 0
-      ? `${documentCount} new ${documentTypesText} ${recordWord} been added for ${pet.name} from ${emailInfo.from}. ${skippedCount} ${skippedWord} skipped due to validation — check the app for details.`
-      : `${documentCount} new ${documentTypesText} ${recordWord} been added for ${pet.name} from ${emailInfo.from}`;
-
-  try {
-    await sendNotificationToUser(pet.user_id, {
-      title: `New Health Records for ${pet.name}`,
-      body,
-      data: {
-        type: "email_processed",
-        petId: pet.id,
-        petName: pet.name,
-        recordTypes: [
-          ...new Set(successfulRecords.map((a) => a.classification.type)),
-        ],
-        skippedCount,
-      },
-    });
-    console.log(`Combined processed+skipped notification sent to user ${pet.user_id}`);
-  } catch (notificationError) {
-    console.error("Failed to send combined notification:", notificationError);
   }
 }
 
@@ -196,9 +190,9 @@ function formatSkipReason(reason?: SkipReason): string {
     case "no_pet_info":
       return "No pet identification info found";
     case "microchip_mismatch":
-      return "Microchip number does not match";
+      return "Microchip number does not match (legacy)";
     case "attributes_mismatch":
-      return "Pet details (name/age/breed/gender) do not match";
+      return "Pet first name or breed does not match profile";
     default:
       return "Validation failed";
   }

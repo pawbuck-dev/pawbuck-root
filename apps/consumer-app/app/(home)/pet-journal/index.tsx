@@ -21,7 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -54,8 +54,15 @@ export default function PetJournalScreen() {
   const { canAccessFeature, isLoading: subLoading, ensurePremium } = useSubscription();
   const canUseJournal = canAccessFeature("pet_journal");
   const { pets, loadingPets } = usePets();
-  const { petId: petIdParam } = useLocalSearchParams<{ petId?: string }>();
+  const { petId: petIdParam, focusEntryId, focusKind, domain: domainParam } = useLocalSearchParams<{
+    petId?: string;
+    focusEntryId?: string;
+    focusKind?: string;
+    domain?: string;
+  }>();
   const [miloLogs, setMiloLogs] = useState<PetLogEntry[]>([]);
+  const listRef = useRef<FlatList<TimelineRow>>(null);
+  const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
 
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [domain, setDomain] = useState<JournalDomain>("health");
@@ -65,6 +72,12 @@ export default function PetJournalScreen() {
       setSelectedPetId(petIdParam);
     }
   }, [petIdParam, pets]);
+
+  useEffect(() => {
+    if (!domainParam) return;
+    const d = domainParam as JournalDomain;
+    if (DOMAINS.includes(d)) setDomain(d);
+  }, [domainParam]);
 
   useEffect(() => {
     if (!selectedPetId && pets.length > 0) {
@@ -123,6 +136,31 @@ export default function PetJournalScreen() {
     });
     return all;
   }, [entries, miloLogs, domain, selectedPetId]);
+
+  useEffect(() => {
+    if (!focusEntryId || !focusKind) return;
+    const fid = String(focusEntryId);
+    const fk = focusKind === "server" || focusKind === "milo" ? focusKind : null;
+    if (!fk || mergedRows.length === 0) return;
+    const idx = mergedRows.findIndex((row) => {
+      if (fk === "server" && row.kind === "server") return row.entry.id === fid;
+      if (fk === "milo" && row.kind === "milo") return row.entry.id === fid;
+      return false;
+    });
+    if (idx < 0) return;
+    const scrollTimer = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index: idx, viewPosition: 0.12, animated: true });
+      setHighlightEntryId(fid);
+      router.setParams({ focusEntryId: undefined, focusKind: undefined } as Record<string, undefined>);
+    }, 200);
+    return () => clearTimeout(scrollTimer);
+  }, [focusEntryId, focusKind, mergedRows, router]);
+
+  useEffect(() => {
+    if (!highlightEntryId) return;
+    const t = setTimeout(() => setHighlightEntryId(null), 4000);
+    return () => clearTimeout(t);
+  }, [highlightEntryId]);
 
   const openBriefing = () => {
     if (!selectedPetId) return;
@@ -284,10 +322,15 @@ export default function PetJournalScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={mergedRows}
           keyExtractor={(item) =>
             item.kind === "server" ? item.entry.id : `milo-${item.entry.id}`
           }
+          onScrollToIndexFailed={({ averageItemLength, index }) => {
+            const offset = Math.max(0, averageItemLength * index);
+            listRef.current?.scrollToOffset({ offset, animated: true });
+          }}
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 120,
@@ -352,6 +395,7 @@ export default function PetJournalScreen() {
           renderItem={({ item }) => {
             if (item.kind === "milo") {
               const e = item.entry;
+              const isFocused = highlightEntryId != null && e.id === highlightEntryId;
               const sevColor =
                 e.severity === "urgent"
                   ? "#b91c1c"
@@ -367,8 +411,12 @@ export default function PetJournalScreen() {
                     borderRadius: 16,
                     padding: 14,
                     marginBottom: 10,
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    borderWidth: isFocused ? 2 : 1,
+                    borderColor: isFocused
+                      ? theme.primary
+                      : isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(0,0,0,0.06)",
                   }}
                 >
                   <View
@@ -415,6 +463,7 @@ export default function PetJournalScreen() {
               );
             }
             const journal = item.entry;
+            const isFocused = highlightEntryId != null && journal.id === highlightEntryId;
             return (
               <View
                 style={{
@@ -422,8 +471,12 @@ export default function PetJournalScreen() {
                   borderRadius: 16,
                   padding: 14,
                   marginBottom: 10,
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  borderWidth: isFocused ? 2 : 1,
+                  borderColor: isFocused
+                    ? theme.primary
+                    : isDark
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(0,0,0,0.06)",
                 }}
               >
                 <View

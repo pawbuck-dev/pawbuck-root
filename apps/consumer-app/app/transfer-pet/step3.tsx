@@ -16,8 +16,6 @@ export default function TransferPetStep3() {
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
 
   const handleContinue = () => {
-    // Navigate to home screen
-    router.dismissAll();
     router.replace("/(home)/home");
   };
 

@@ -4,7 +4,7 @@
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-pet-transfer-cron-secret",
+    "authorization, x-client-info, apikey, content-type, x-pet-transfer-cron-secret, x-scheduled-care-reminders-secret, x-cron-secret, x-faq-admin-secret",
 };
 
 /**

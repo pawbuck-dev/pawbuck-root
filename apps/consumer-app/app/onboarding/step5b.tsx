@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +47,11 @@ export default function OnboardingStep5b() {
     setIsAvailable(null);
     setCheckError(null);
 
+    if (!trimmedEmailId) {
+      setValidationError(null);
+      return;
+    }
+
     const { isValid, error } = validateEmailIdFormat(trimmedEmailId);
     if (!isValid) {
       setValidationError(error || null);
@@ -59,7 +65,7 @@ export default function OnboardingStep5b() {
         const available = await checkEmailIdAvailable(trimmedEmailId);
         setIsAvailable(available);
         if (!available) {
-          setCheckError("This email ID is already taken");
+          setCheckError("This pet email is already taken");
         }
       } catch {
         setCheckError("Failed to check availability. Please try again.");
@@ -75,11 +81,25 @@ export default function OnboardingStep5b() {
 
   const handleContinue = useCallback(() => {
     const trimmedEmailId = emailId.trim().toLowerCase();
-    if (trimmedEmailId && isAvailable && !validationError) {
-      updatePetData({ email_id: trimmedEmailId });
-      router.push("/onboarding/step6");
+    if (!trimmedEmailId) {
+      Alert.alert("Pet email", "Enter the part before @pawbuck.app to continue.");
+      return;
     }
-  }, [emailId, isAvailable, validationError, updatePetData, router]);
+    if (validationError) {
+      Alert.alert("Pet email", validationError);
+      return;
+    }
+    if (isChecking) {
+      Alert.alert("Pet email", "Still checking availability — try again in a moment.");
+      return;
+    }
+    if (!isAvailable) {
+      Alert.alert("Pet email", checkError || "Choose an available pet email.");
+      return;
+    }
+    updatePetData({ email_id: trimmedEmailId });
+    router.push("/onboarding/step6");
+  }, [emailId, isAvailable, validationError, isChecking, checkError, updatePetData, router]);
 
   const hasError = !!(validationError || checkError);
 
@@ -93,7 +113,7 @@ export default function OnboardingStep5b() {
   const getStatusMessage = () => {
     if (validationError) return validationError;
     if (checkError) return checkError;
-    if (isAvailable) return "This email ID is available!";
+    if (isAvailable) return "This pet email is available!";
     return null;
   };
 
@@ -122,10 +142,11 @@ export default function OnboardingStep5b() {
       {/* Heading + subtitle above ScrollView */}
       <View style={styles.headingWrap}>
         <Text style={[styles.heading, { color: theme.foreground }]}>
-          Choose Email For {petName}
+          Choose pet email for {petName}
         </Text>
         <Text style={[styles.subtitle, { color: mutedText }]}>
-          Vets and other care providers can send updates directly to this email address
+          Records and updates are sent to <Text style={{ fontWeight: "600" }}>@pawbuck.app</Text> (your
+          pet's inbox). Marketing and support may use @pawbuck.com — that's separate from this address.
         </Text>
       </View>
 
@@ -147,8 +168,7 @@ export default function OnboardingStep5b() {
             backgroundColor: cardBg,
           }}
         >
-          {/* Email ID label */}
-          <Text style={[styles.label, { color: theme.foreground }]}>Email ID</Text>
+          <Text style={[styles.label, { color: theme.foreground }]}>Pet email</Text>
 
           {/* Email input row */}
           <View style={[styles.emailRow, { backgroundColor: inputBg, borderColor: getBorderColor() }]}>
@@ -190,10 +210,10 @@ export default function OnboardingStep5b() {
               label="Continue"
               size="LG"
               style="Solid"
-              state={canProceed ? "Default" : "Disable"}
+              state="Default"
               onPress={handleContinue}
-              disabled={!canProceed}
-              containerStyle={styles.continueBtn}
+              disabled={false}
+              containerStyle={[styles.continueBtn, { opacity: canProceed ? 1 : 0.45 }]}
             />
           </View>
         </View>

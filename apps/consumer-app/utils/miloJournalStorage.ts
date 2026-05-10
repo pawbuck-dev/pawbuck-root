@@ -1,5 +1,6 @@
 import { createJournalEntry } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
+import { supabase } from "@/utils/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "pawbuck_milo_journal_v1";
@@ -33,6 +34,10 @@ export async function appendPetLog(userId: string, entry: PetLogEntry): Promise<
   const all = await readAll();
   const k = key(userId, entry.pet_id);
   const list = all[k] ?? [];
+  if (entry.milo_idempotency_key) {
+    const dup = list.some((e) => e.milo_idempotency_key === entry.milo_idempotency_key);
+    if (dup) return;
+  }
   list.unshift(entry);
   all[k] = list.slice(0, 200);
   await writeAll(all);
@@ -49,17 +54,37 @@ async function removePetLogById(userId: string, petId: string, localId: string):
 /**
  * Persist Milo log to Supabase pet_journal_entries (follow-up from plan).
  * Removes local copy after success so the journal list does not duplicate server rows.
+ * @returns Server row id when the entry exists or was created; `null` if sync could not resolve an id.
  */
-export async function syncPetLogToServer(entry: PetLogEntry): Promise<void> {
-  if (entry.synced_to_server) return;
+export async function syncPetLogToServer(entry: PetLogEntry): Promise<string | null> {
+  if (entry.synced_to_server) return null;
   const entryDate = entry.created_at.slice(0, 10);
-  await createJournalEntry({
+  const insertPayload = {
     pet_id: entry.pet_id,
     domain: entry.domain,
     subtype: entry.subtype,
     note: entry.note,
     vet_flagged: entry.vet_flag,
     entry_date: entryDate,
-  });
-  await removePetLogById(entry.user_id, entry.pet_id, entry.id);
+    milo_idempotency_key: entry.milo_idempotency_key,
+  };
+  try {
+    const created = await createJournalEntry(insertPayload);
+    await removePetLogById(entry.user_id, entry.pet_id, entry.id);
+    return created.id;
+  } catch (e: unknown) {
+    const err = e as { code?: string };
+    const idemKey = entry.milo_idempotency_key;
+    const isDup = err?.code === "23505" && !!idemKey;
+    if (!isDup) throw e;
+    const { data: existing, error: selErr } = await supabase
+      .from("pet_journal_entries")
+      .select("id")
+      .eq("pet_id", entry.pet_id)
+      .eq("milo_idempotency_key", idemKey)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    await removePetLogById(entry.user_id, entry.pet_id, entry.id);
+    return existing?.id ?? null;
+  }
 }
