@@ -63,12 +63,14 @@ describe("resolveAuthDisplayName", () => {
     expect(
       resolveAuthDisplayName({
         user_metadata: { full_name: "Full", name: "Nick" },
-      } as User)
+      } as unknown as User)
     ).toBe("Full");
   });
 
   it("uses name when full_name empty", () => {
-    expect(resolveAuthDisplayName({ user_metadata: { name: "Taylor" } } as User)).toBe("Taylor");
+    expect(
+      resolveAuthDisplayName({ user_metadata: { name: "Taylor" } } as unknown as User)
+    ).toBe("Taylor");
   });
 });
 
@@ -90,26 +92,30 @@ describe("isPlausibleDisplayNameForGreeting", () => {
 
 describe("needsDisplayNamePrompt", () => {
   it("true when full_name missing", () => {
-    expect(needsDisplayNamePrompt({ user_metadata: {} } as User)).toBe(true);
+    expect(needsDisplayNamePrompt({ user_metadata: {} } as unknown as User)).toBe(true);
   });
 
   it("false when full_name set", () => {
     expect(
-      needsDisplayNamePrompt({ user_metadata: { full_name: "Ada" } } as User)
+      needsDisplayNamePrompt({ user_metadata: { full_name: "Ada" } } as unknown as User)
     ).toBe(false);
   });
 
   it("true for blank full_name", () => {
-    expect(needsDisplayNamePrompt({ user_metadata: { full_name: "   " } } as User)).toBe(true);
+    expect(
+      needsDisplayNamePrompt({ user_metadata: { full_name: "   " } } as unknown as User)
+    ).toBe(true);
   });
 
   it("false when only OIDC name is set and plausible", () => {
-    expect(needsDisplayNamePrompt({ user_metadata: { name: "Pat Smith" } } as User)).toBe(false);
+    expect(
+      needsDisplayNamePrompt({ user_metadata: { name: "Pat Smith" } } as unknown as User)
+    ).toBe(false);
   });
 
   it("true when full_name is junk handle", () => {
     expect(
-      needsDisplayNamePrompt({ user_metadata: { full_name: "9wqhyq7fh6" } } as User)
+      needsDisplayNamePrompt({ user_metadata: { full_name: "9wqhyq7fh6" } } as unknown as User)
     ).toBe(true);
   });
 });

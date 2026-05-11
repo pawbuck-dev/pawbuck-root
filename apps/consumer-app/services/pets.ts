@@ -1,4 +1,4 @@
-import { Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { Json, Tables, TablesInsert, TablesUpdate } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
 export const getPets = async () => {
@@ -48,7 +48,7 @@ export const createPet = async (petData: TablesInsert<"pets">) => {
     Record<string, unknown>;
 
   const { data, error } = await supabase.rpc("insert_pet_for_current_user", {
-    p_fields: insertFields as Record<string, unknown>,
+    p_fields: insertFields as Json,
   });
 
   if (error) throw error;

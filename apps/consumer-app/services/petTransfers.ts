@@ -332,7 +332,7 @@ export async function useTransferCode(
 
   const { error } = await supabase.rpc("accept_pet_transfer", {
     p_code: code.trim().toUpperCase(),
-    p_pet_parent_display_name: petParentDisplayName ?? null,
+    p_pet_parent_display_name: petParentDisplayName ?? undefined,
   });
 
   if (error) {
