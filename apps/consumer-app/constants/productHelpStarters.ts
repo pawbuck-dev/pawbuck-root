@@ -13,6 +13,7 @@ export const PRODUCT_HELP_STARTERS: readonly { id: string; prompt: string }[] = 
   { id: "pawthon-walk", prompt: "How do I start a Pawthon walk and track distance?" },
   { id: "book-vet", prompt: "How do I book a vet visit in PawBuck?" },
   { id: "pet-journal", prompt: "How do I add a pet journal entry?" },
+  { id: "behavior-baseline", prompt: "How do I set my pet's behavior baseline?" },
   { id: "medications-upload", prompt: "How do I add medication records?" },
   { id: "lab-upload", prompt: "How do I upload lab results?" },
   { id: "notifications", prompt: "How do I manage notification permissions?" },

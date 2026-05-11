@@ -65,12 +65,53 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         milestones.AddRange(await LoadUpcomingExamFollowUpsAsync(conn, petId, utcNow.Date, milestoneTo, cancellationToken));
         milestones.AddRange(await LoadUpcomingVetBookingsAsync(conn, petId, utcNow, cancellationToken));
 
+        var baseline = await LoadBehaviorBaselineAsync(conn, petId, cancellationToken);
+
         return new PetConversationalContextDto
         {
             PetProfile = profile,
             RecentMedicalHistory = recentMedical,
             RecentJournalNotes = journalNotes,
             UpcomingMilestones = milestones,
+            BehaviorBaseline = baseline,
+        };
+    }
+
+    private static async Task<BehaviorBaselineSnapshot?> LoadBehaviorBaselineAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT energy_level_1_to_5, social_disposition, food_motivation,
+                   typical_deep_sleep_hours, sleep_restfulness, sleep_safe_spot,
+                   vocalization_level, vocalization_triggers, stress_triggers
+            FROM public.pet_behavior_baselines
+            WHERE pet_id = @petId
+            LIMIT 1
+            """;
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+
+        return new BehaviorBaselineSnapshot
+        {
+            EnergyLevel1To5 = reader.GetInt16(0),
+            SocialDisposition = reader.GetString(1),
+            FoodMotivation = reader.GetString(2),
+            TypicalDeepSleepHours = reader.IsDBNull(3) ? null : (double)reader.GetDecimal(3),
+            SleepRestfulness = reader.IsDBNull(4) ? null : reader.GetString(4),
+            SleepSafeSpot = reader.IsDBNull(5) ? null : reader.GetString(5),
+            VocalizationLevel = reader.GetString(6),
+            VocalizationTriggers = reader.IsDBNull(7)
+                ? new List<string>()
+                : new List<string>((string[])reader.GetValue(7)),
+            StressTriggers = reader.IsDBNull(8)
+                ? new List<string>()
+                : new List<string>((string[])reader.GetValue(8)),
         };
     }
 

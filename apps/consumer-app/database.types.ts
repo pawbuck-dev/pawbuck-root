@@ -1032,6 +1032,68 @@ export type Database = {
           },
         ]
       }
+      pet_behavior_baselines: {
+        Row: {
+          created_at: string
+          energy_level_1_to_5: number
+          energy_notes: string | null
+          food_motivation: string
+          id: string
+          pet_id: string
+          sleep_restfulness: string | null
+          sleep_safe_spot: string | null
+          social_disposition: string
+          stress_triggers: string[]
+          typical_deep_sleep_hours: number | null
+          updated_at: string
+          user_id: string
+          vocalization_level: string
+          vocalization_triggers: string[]
+        }
+        Insert: {
+          created_at?: string
+          energy_level_1_to_5: number
+          energy_notes?: string | null
+          food_motivation: string
+          id?: string
+          pet_id: string
+          sleep_restfulness?: string | null
+          sleep_safe_spot?: string | null
+          social_disposition: string
+          stress_triggers?: string[]
+          typical_deep_sleep_hours?: number | null
+          updated_at?: string
+          user_id: string
+          vocalization_level: string
+          vocalization_triggers?: string[]
+        }
+        Update: {
+          created_at?: string
+          energy_level_1_to_5?: number
+          energy_notes?: string | null
+          food_motivation?: string
+          id?: string
+          pet_id?: string
+          sleep_restfulness?: string | null
+          sleep_safe_spot?: string | null
+          social_disposition?: string
+          stress_triggers?: string[]
+          typical_deep_sleep_hours?: number | null
+          updated_at?: string
+          user_id?: string
+          vocalization_level?: string
+          vocalization_triggers?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_behavior_baselines_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: true
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pet_care_team_members: {
         Row: {
           care_team_member_id: string
@@ -1535,7 +1597,7 @@ export type Database = {
           color: string | null
           country: string
           created_at: string
-          date_of_birth: string
+          date_of_birth: string | null
           deleted_at: string | null
           email_id: string
           id: string
@@ -1548,8 +1610,8 @@ export type Database = {
           target_weight_unit: string | null
           target_weight_value: number | null
           user_id: string
-          weight_unit: string
-          weight_value: number
+          weight_unit: string | null
+          weight_value: number | null
         }
         Insert: {
           animal_type: string
@@ -1557,7 +1619,7 @@ export type Database = {
           color?: string | null
           country: string
           created_at?: string
-          date_of_birth: string
+          date_of_birth?: string | null
           deleted_at?: string | null
           email_id: string
           id?: string
@@ -1570,8 +1632,8 @@ export type Database = {
           target_weight_unit?: string | null
           target_weight_value?: number | null
           user_id?: string
-          weight_unit: string
-          weight_value: number
+          weight_unit?: string | null
+          weight_value?: number | null
         }
         Update: {
           animal_type?: string
@@ -1579,7 +1641,7 @@ export type Database = {
           color?: string | null
           country?: string
           created_at?: string
-          date_of_birth?: string
+          date_of_birth?: string | null
           deleted_at?: string | null
           email_id?: string
           id?: string
@@ -1592,8 +1654,8 @@ export type Database = {
           target_weight_unit?: string | null
           target_weight_value?: number | null
           user_id?: string
-          weight_unit?: string
-          weight_value?: number
+          weight_unit?: string | null
+          weight_value?: number | null
         }
         Relationships: []
       }
@@ -2264,7 +2326,7 @@ export type Database = {
           color: string | null
           country: string
           created_at: string
-          date_of_birth: string
+          date_of_birth: string | null
           deleted_at: string | null
           email_id: string
           id: string
@@ -2277,8 +2339,8 @@ export type Database = {
           target_weight_unit: string | null
           target_weight_value: number | null
           user_id: string
-          weight_unit: string
-          weight_value: number
+          weight_unit: string | null
+          weight_value: number | null
         }
         SetofOptions: {
           from: "*"

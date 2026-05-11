@@ -18,6 +18,44 @@ public sealed class PetConversationalContextDto
 
     [JsonPropertyName("upcomingMilestones")]
     public List<UpcomingMilestone> UpcomingMilestones { get; set; } = new();
+
+    /// <summary>
+    /// Owner-provided "what is normal for this pet" snapshot. Null when the owner
+    /// has not yet completed the baseline. Surfaced in journal-mode prompts so the
+    /// model can contrast today's free-text entry against stored norms.
+    /// </summary>
+    [JsonPropertyName("behaviorBaseline")]
+    public BehaviorBaselineSnapshot? BehaviorBaseline { get; set; }
+}
+
+public sealed class BehaviorBaselineSnapshot
+{
+    [JsonPropertyName("energyLevel1To5")]
+    public int EnergyLevel1To5 { get; set; }
+
+    [JsonPropertyName("socialDisposition")]
+    public string SocialDisposition { get; set; } = "";
+
+    [JsonPropertyName("foodMotivation")]
+    public string FoodMotivation { get; set; } = "";
+
+    [JsonPropertyName("typicalDeepSleepHours")]
+    public double? TypicalDeepSleepHours { get; set; }
+
+    [JsonPropertyName("sleepRestfulness")]
+    public string? SleepRestfulness { get; set; }
+
+    [JsonPropertyName("sleepSafeSpot")]
+    public string? SleepSafeSpot { get; set; }
+
+    [JsonPropertyName("vocalizationLevel")]
+    public string VocalizationLevel { get; set; } = "";
+
+    [JsonPropertyName("vocalizationTriggers")]
+    public List<string> VocalizationTriggers { get; set; } = new();
+
+    [JsonPropertyName("stressTriggers")]
+    public List<string> StressTriggers { get; set; } = new();
 }
 
 public sealed class PetProfileSnapshot

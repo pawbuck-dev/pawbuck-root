@@ -12,6 +12,10 @@ import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
+import {
+  behaviorBaselineQueryKey,
+  getBaselineContext,
+} from "@/services/behaviorBaseline";
 import type { PetJournalEntry } from "@/services/petJournal";
 import { fetchJournalEntries, fetchTransferHighlightEntries } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
@@ -101,6 +105,20 @@ export default function PetJournalScreen() {
     queryFn: () => fetchTransferHighlightEntries(selectedPetId!),
     enabled: !!selectedPetId && canUseJournal,
   });
+
+  const { data: behaviorBaseline = null } = useQuery({
+    queryKey: behaviorBaselineQueryKey(selectedPetId),
+    queryFn: () => getBaselineContext(selectedPetId!),
+    enabled: !!selectedPetId && canUseJournal,
+  });
+
+  const openBaseline = () => {
+    if (!selectedPetId) return;
+    router.push({
+      pathname: "/(home)/pet-journal/behavior-baseline",
+      params: { petId: selectedPetId },
+    } as any);
+  };
 
   const onRefresh = useCallback(() => {
     void refetch();
@@ -313,6 +331,46 @@ export default function PetJournalScreen() {
 
         {selectedPetId && pets.find((p) => p.id === selectedPetId) && (
           <MiloJournalBar pet={pets.find((p) => p.id === selectedPetId)!} domain={domain} />
+        )}
+
+        {selectedPetId && (
+          <Pressable
+            onPress={openBaseline}
+            accessibilityLabel={
+              behaviorBaseline ? "Edit behavior baseline" : "Set behavior baseline"
+            }
+            style={{
+              marginTop: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: isDark ? theme.card : "#FFFFFF",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              gap: 10,
+            }}
+          >
+            <Ionicons name="pulse-outline" size={18} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "600",
+                  color: theme.foreground,
+                }}
+              >
+                {behaviorBaseline ? "Behavior baseline saved" : "Set behavior baseline"}
+              </Text>
+              <Text style={{ fontSize: 11, color: theme.secondary, marginTop: 2 }}>
+                {behaviorBaseline
+                  ? "Update what's normal for your pet — Milo uses this to spot changes."
+                  : "Tell Milo what's normal so changes vs usual are easier to notice."}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.secondary} />
+          </Pressable>
         )}
       </View>
 

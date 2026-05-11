@@ -162,7 +162,46 @@ public static class ContextEngine
                 sb.Append("- ").Append(m.Type).Append(": ").Append(m.Label).Append(" — ").AppendLine(m.DueDate);
         }
 
+        AppendBehaviorBaseline(sb, ctx.BehaviorBaseline);
+
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Appends the owner's "normal for this pet" baseline so the model can contrast
+    /// today's free-text entry (e.g. skipped meals, unusual vocalization) against
+    /// stated norms. No-op when the owner has not completed the baseline yet.
+    /// </summary>
+    public static void AppendBehaviorBaseline(StringBuilder sb, BehaviorBaselineSnapshot? baseline)
+    {
+        if (baseline is null) return;
+
+        sb.AppendLine();
+        sb.AppendLine("Owner behavior baseline (normal for this pet):");
+        sb.Append("- Energy: ").Append(baseline.EnergyLevel1To5).AppendLine("/5");
+        if (!string.IsNullOrWhiteSpace(baseline.SocialDisposition))
+            sb.Append("- Social: ").AppendLine(baseline.SocialDisposition);
+        if (!string.IsNullOrWhiteSpace(baseline.FoodMotivation))
+            sb.Append("- Food motivation: ").AppendLine(baseline.FoodMotivation);
+        if (baseline.TypicalDeepSleepHours.HasValue
+            || !string.IsNullOrWhiteSpace(baseline.SleepRestfulness)
+            || !string.IsNullOrWhiteSpace(baseline.SleepSafeSpot))
+        {
+            sb.Append("- Sleep:");
+            if (baseline.TypicalDeepSleepHours.HasValue)
+                sb.Append(' ').Append(baseline.TypicalDeepSleepHours.Value.ToString("0.#",
+                    System.Globalization.CultureInfo.InvariantCulture)).Append("h");
+            if (!string.IsNullOrWhiteSpace(baseline.SleepRestfulness))
+                sb.Append(' ').Append(baseline.SleepRestfulness);
+            if (!string.IsNullOrWhiteSpace(baseline.SleepSafeSpot))
+                sb.Append(" (safe spot: ").Append(baseline.SleepSafeSpot).Append(')');
+            sb.AppendLine();
+        }
+
+        if (!string.IsNullOrWhiteSpace(baseline.VocalizationLevel))
+            sb.Append("- Vocalization: ").AppendLine(baseline.VocalizationLevel);
+        if (baseline.StressTriggers.Count > 0)
+            sb.Append("- Top stress triggers: ").AppendLine(string.Join(", ", baseline.StressTriggers));
     }
 
     /// <summary>

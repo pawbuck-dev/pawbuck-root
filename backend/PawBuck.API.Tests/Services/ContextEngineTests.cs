@@ -142,4 +142,49 @@ public class ContextEngineTests
         merged.PromptVersion.Should().Be("v2-test");
         merged.RecentMedicalWindowDays.Should().Be(14);
     }
+
+    [Fact]
+    public void FormatContextForPrompt_OmitsBaselineSection_WhenBaselineNull()
+    {
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace" },
+        };
+
+        var prompt = ContextEngine.FormatContextForPrompt(ctx);
+
+        prompt.Should().NotContain("Owner behavior baseline");
+    }
+
+    [Fact]
+    public void FormatContextForPrompt_IncludesBaselineSection_WhenBaselineProvided()
+    {
+        var ctx = new PetConversationalContextDto
+        {
+            PetProfile = new PetProfileSnapshot { Name = "Ace" },
+            BehaviorBaseline = new BehaviorBaselineSnapshot
+            {
+                EnergyLevel1To5 = 4,
+                SocialDisposition = "selective",
+                FoodMotivation = "high",
+                TypicalDeepSleepHours = 12.5,
+                SleepRestfulness = "restful",
+                SleepSafeSpot = "crate",
+                VocalizationLevel = "occasional_alerts",
+                StressTriggers = { "thunderstorms", "vet_visits" },
+            },
+        };
+
+        var prompt = ContextEngine.FormatContextForPrompt(ctx);
+
+        prompt.Should().Contain("Owner behavior baseline (normal for this pet):");
+        prompt.Should().Contain("Energy: 4/5");
+        prompt.Should().Contain("Social: selective");
+        prompt.Should().Contain("Food motivation: high");
+        prompt.Should().Contain("12.5h");
+        prompt.Should().Contain("restful");
+        prompt.Should().Contain("safe spot: crate");
+        prompt.Should().Contain("Vocalization: occasional_alerts");
+        prompt.Should().Contain("Top stress triggers: thunderstorms, vet_visits");
+    }
 }
