@@ -15,6 +15,10 @@ export type VetNotificationObservation = {
   severity?: string;
   trend?: string;
   onsetContext?: string;
+  /** ISO yyyy-MM-dd when anchored at write time */
+  onsetDate?: string;
+  /** e.g. approximate */
+  onsetPrecision?: string;
   redFlags?: string[];
 };
 

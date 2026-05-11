@@ -6,6 +6,8 @@ Operational guide for FAQ retrieval, curated grounding, and how **Edge** vs **Pa
 
 The **Expo consumer** chat modal calls **`POST /api/milo/chat`** on **PawBuck.API** with a **Supabase user JWT** and optional `pet` + `history`. The server runs **Gemini plan JSON → Npgsql pet facts (owner-scoped) → optional `documentation` RAG → final answer** ([`MiloReasoningService`](../backend/PawBuck.API/Services/MiloReasoningService.cs)). Configure **`EXPO_PUBLIC_PAWBUCK_API_URL`** and **`Supabase:JwtSecret`** (or `SUPABASE_JWT_SECRET`) on the API so tokens validate.
 
+**Journal mode** uses the same endpoint with `journalMode: true` and a verified `pet`: Gemini returns **JSON** (`answer`, `suggestedReplies`, `status`, `summary`, optional `vetNotification`). A **red-flag stop** sets `journalEmergencyStop: true` so the client does not persist a journal row. See [`docs/pawbuck-product-help/11-pet-journal.md`](../docs/pawbuck-product-help/11-pet-journal.md).
+
 The Edge function **`milo-chat`** is **deprecated** for the app (kept for legacy experiments only).
 
 ## Chosen split (vectors)

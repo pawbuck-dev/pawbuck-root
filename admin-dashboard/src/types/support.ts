@@ -184,6 +184,7 @@ export interface MiloChatApiResponse {
   journalSessionComplete?: boolean;
   journalStatus?: string | null;
   journalSummary?: string | null;
+  journalEmergencyStop?: boolean;
   responseId?: string | null;
   promptVersion?: string | null;
   heuristicTags?: string[];

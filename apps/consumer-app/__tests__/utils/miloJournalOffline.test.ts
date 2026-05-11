@@ -5,7 +5,9 @@ describe("getOfflineJournalTurn", () => {
   it("first turn asks duration with chips", () => {
     const r = getOfflineJournalTurn(0, "Benji");
     expect(r.journalSessionComplete).toBe(false);
-    expect(r.suggestedReplies).toHaveLength(4);
+    expect(r.suggestedReplies).toHaveLength(6);
+    expect(r.suggestedReplies).toContain("Not sure");
+    expect(r.suggestedReplies).toContain("+ Add details");
     expect(r.answer).toContain("Benji");
     expect(r.answer).toMatch(/how long/i);
   });
@@ -23,8 +25,8 @@ describe("getOfflineJournalTurn", () => {
   });
 
   it.each([
-    [0, false, 4, /how long/i],
-    [1, false, 4, /anything else/i],
+    [0, false, 6, /how long/i],
+    [1, false, 6, /anything else/i],
     [2, true, 0, /All information recorded/i],
   ] as const)(
     "priorUserLineCount %i → complete=%s, chipCount=%i (matches journalMode shape)",

@@ -419,6 +419,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                                             severity = new { type = "string" },
                                             trend = new { type = "string" },
                                             onsetContext = new { type = "string" },
+                                            onsetDate = new { type = "string" },
+                                            onsetPrecision = new { type = "string" },
                                         },
                                     },
                                 },
@@ -468,13 +470,52 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         if (string.IsNullOrEmpty(answer))
             return null;
 
+        if (string.Equals(answer, ContextEngine.JournalEmergencyRedFlagToken, StringComparison.Ordinal))
+        {
+            Guid emergencyRid;
+            try
+            {
+                emergencyRid = await _journalTurns.RegisterTurnAsync(
+                    userId,
+                    petId,
+                    config.PromptVersion,
+                    tags,
+                    "journal",
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to register journal turn (emergency stop); continuing without responseId");
+                emergencyRid = Guid.Empty;
+            }
+
+            var er = emergencyRid == Guid.Empty ? (Guid?)null : emergencyRid;
+            return new MiloChatResponse
+            {
+                Answer =
+                    "A red flag you selected means this may be an emergency. Please seek immediate in-person veterinary or ER care now. Do not rely on chat or email for urgent help.",
+                JournalSessionComplete = false,
+                JournalStatus = "CONTINUE",
+                JournalSummary = null,
+                SuggestedReplies = Array.Empty<string>(),
+                PetName = request.Pet?.Name,
+                UsedPetData = true,
+                UsedRag = false,
+                ResponseId = er,
+                TurnId = er.HasValue ? er.Value.ToString("D") : null,
+                PromptVersion = config.PromptVersion,
+                HeuristicTags = tags,
+                JournalEmergencyStop = true,
+            };
+        }
+
         var status = (dto.Status ?? "").Trim().Equals("COMPLETE", StringComparison.OrdinalIgnoreCase)
             ? "COMPLETE"
             : "CONTINUE";
         var complete = status == "COMPLETE";
         var summary = (dto.Summary ?? "").Trim();
 
-        if (userTurnNumber >= 7)
+        if (userTurnNumber >= ContextEngine.JournalInterviewMaxUserTurns)
         {
             complete = true;
             status = "COMPLETE";
@@ -489,7 +530,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         var replies = (dto.SuggestedReplies ?? new List<string>())
             .Where(static s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim())
-            .Take(4)
+            .Take(6)
             .ToList();
         if (complete)
             replies = [];
@@ -537,6 +578,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             HeuristicTags = tags,
             VetNotification = complete ? dto.VetNotification : null,
             VetMedicalContext = vetMed,
+            JournalEmergencyStop = false,
         };
     }
 
@@ -772,6 +814,10 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             foreach (var m in ctx.UpcomingMilestones.Take(2))
                 sb.Append("- ").Append(m.Label).Append(" — ").AppendLine(m.DueDate);
         }
+
+        ContextEngine.AppendJournalPhaseThreeContextualScan(sb, ctx, utcNow);
+        sb.AppendLine();
+        sb.AppendLine(ContextEngine.FormatContextForPrompt(ctx));
 
         return sb.ToString().TrimEnd();
     }

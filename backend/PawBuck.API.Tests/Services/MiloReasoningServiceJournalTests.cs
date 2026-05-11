@@ -337,10 +337,10 @@ public class MiloReasoningServiceJournalTests
     }
 
     [Fact]
-    public async Task ChatAsync_JournalMode_OnSeventhUserTurn_ForcesCompleteEvenWhenModelSaysContinue()
+    public async Task ChatAsync_JournalMode_OnEighthUserTurn_ForcesCompleteEvenWhenModelSaysContinue()
     {
         var history = new List<MiloChatHistoryMessage>();
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < 7; i++)
         {
             history.Add(new MiloChatHistoryMessage { Role = "user", Content = $"msg{i}" });
             history.Add(new MiloChatHistoryMessage { Role = "assistant", Content = $"ack{i}" });
@@ -356,7 +356,7 @@ public class MiloReasoningServiceJournalTests
         var handler = new GeminiTestHandler { InnerTextPart = inner };
         var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
 
-        var request = JournalRequest("seventh user line");
+        var request = JournalRequest("eighth user line");
         request.History = history;
 
         var response = await sut.ChatAsync(UserId, request, CancellationToken.None);
@@ -365,5 +365,27 @@ public class MiloReasoningServiceJournalTests
         response.JournalStatus.Should().Be("COMPLETE");
         response.SuggestedReplies.Should().BeEmpty();
         response.JournalSummary.Should().Be("One more check?");
+    }
+
+    [Fact]
+    public async Task ChatAsync_JournalMode_WhenAnswerIsEmergencyRedFlag_ReturnsEmergencyStopWithoutComplete()
+    {
+        var inner = JsonSerializer.Serialize(new
+        {
+            answer = ContextEngine.JournalEmergencyRedFlagToken,
+            suggestedReplies = Array.Empty<string>(),
+            status = "CONTINUE",
+            summary = "",
+        });
+        var handler = new GeminiTestHandler { InnerTextPart = inner };
+        var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
+
+        var response = await sut.ChatAsync(UserId, JournalRequest("yes seizure"), CancellationToken.None);
+
+        response.JournalEmergencyStop.Should().BeTrue();
+        response.JournalSessionComplete.Should().BeFalse();
+        response.JournalSummary.Should().BeNull();
+        response.SuggestedReplies.Should().BeEmpty();
+        response.Answer.Should().Contain("emergency");
     }
 }

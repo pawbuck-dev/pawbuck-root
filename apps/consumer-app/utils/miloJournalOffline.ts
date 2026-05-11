@@ -1,6 +1,7 @@
 /**
  * When PawBuck.API is unreachable, drive a short journal interview locally
  * (same shape as journalMode API: answer + chips + completion).
+ * Chips mirror server rules: include "Not sure" and "+ Add details" on each step.
  */
 
 export type OfflineJournalTurnResult = {
@@ -21,12 +22,14 @@ export function getOfflineJournalTurn(
   switch (step) {
     case 0:
       return {
-        answer: `Thanks for the update on ${petName}. One quick question so I can log this well: How long has this been going on?`,
+        answer: `Thanks for the update on ${petName}. PawBuck's journal helper needs one detail: how long has this been going on?`,
         suggestedReplies: [
           "Just started today",
           "A couple of days",
           "About a week",
           "On and off",
+          "Not sure",
+          "+ Add details",
         ],
         journalSessionComplete: false,
       };
@@ -38,6 +41,8 @@ export function getOfflineJournalTurn(
           "More tired",
           "Acting normal otherwise",
           "A few other things",
+          "Not sure",
+          "+ Add details",
         ],
         journalSessionComplete: false,
       };

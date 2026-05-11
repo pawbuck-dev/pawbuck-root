@@ -38,6 +38,8 @@ export type MiloChatApiResult = {
   journalSessionComplete?: boolean;
   journalStatus?: string;
   journalSummary?: string;
+  /** Phase 4 red-flag: do not persist journal entry. */
+  journalEmergencyStop?: boolean;
   /** Structured vet-notification payload when journal completes (API). */
   vetNotification?: VetNotificationPayload | null;
   /** Record-backed medical lines for vet compose (API). */
@@ -186,6 +188,7 @@ export async function fetchMiloChat(params: {
     journalSessionComplete?: boolean;
     journalStatus?: string;
     journalSummary?: string;
+    journalEmergencyStop?: boolean;
     vetNotification?: unknown;
     vetMedicalContext?: unknown;
     turnId?: string;
@@ -247,6 +250,7 @@ export async function fetchMiloChat(params: {
     journalSessionComplete: data.journalSessionComplete,
     journalStatus: data.journalStatus,
     journalSummary: data.journalSummary,
+    journalEmergencyStop: Boolean(data.journalEmergencyStop),
     vetNotification: parseVetNotificationPayload(data.vetNotification),
     vetMedicalContext: parseVetMedicalContext(data.vetMedicalContext),
     turnId,

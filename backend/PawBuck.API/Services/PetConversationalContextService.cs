@@ -50,6 +50,14 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         recentMedical.AddRange(await LoadRecentVaccinationsAsync(conn, petId, medicalFrom, utcNow.Date, cancellationToken));
         recentMedical.AddRange(await LoadRecentMedicationsAsync(conn, petId, medicalFrom, utcNow.Date, cancellationToken));
         recentMedical.AddRange(await LoadRecentSurgeriesAsync(conn, petId, medicalFrom, utcNow.Date, config.SurgeryExamTypePatterns, cancellationToken));
+        recentMedical.AddRange(
+            await LoadRecentClinicalExamVisitsNonSurgeryAsync(
+                conn,
+                petId,
+                utcNow.Date.AddDays(-7),
+                utcNow.Date,
+                config.SurgeryExamTypePatterns,
+                cancellationToken));
 
         var journalNotes = await LoadJournalNotesAsync(conn, petId, config.RecentJournalNotesCount, cancellationToken);
         var milestones = new List<UpcomingMilestone>();
@@ -267,6 +275,72 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
             list.Add(new RecentMedicalEvent
             {
                 Type = "surgery",
+                Name = reader.GetString(0),
+                Date = reader.GetDateTime(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Details = details.Length > 0 ? details.ToString() : null,
+            });
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Routine clinical exams in the last N days that do not match surgery-style exam_type patterns (journal Phase 3).
+    /// </summary>
+    private static async Task<List<RecentMedicalEvent>> LoadRecentClinicalExamVisitsNonSurgeryAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        DateTime fromDate,
+        DateTime toDate,
+        IReadOnlyList<string> surgeryPatterns,
+        CancellationToken cancellationToken)
+    {
+        var list = new List<RecentMedicalEvent>();
+        var sql = new StringBuilder(
+            """
+            SELECT COALESCE(exam_type, 'Visit'), exam_date, clinic_name, findings
+            FROM public.clinical_exams
+            WHERE pet_id = @petId
+              AND exam_date >= @fromDate AND exam_date <= @toDate
+            """);
+
+        if (surgeryPatterns.Count > 0)
+        {
+            sql.Append(" AND NOT (");
+            for (var i = 0; i < surgeryPatterns.Count; i++)
+            {
+                if (i > 0)
+                    sql.Append(" OR ");
+                sql.Append("exam_type ILIKE @p").Append(i);
+            }
+
+            sql.Append(')');
+        }
+
+        sql.Append(" ORDER BY exam_date DESC LIMIT 10");
+
+        await using var cmd = new NpgsqlCommand(sql.ToString(), conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("fromDate", fromDate);
+        cmd.Parameters.AddWithValue("toDate", toDate);
+        for (var i = 0; i < surgeryPatterns.Count; i++)
+            cmd.Parameters.AddWithValue("p" + i, "%" + surgeryPatterns[i].Trim() + "%");
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var details = new StringBuilder();
+            if (!reader.IsDBNull(2) && !string.IsNullOrWhiteSpace(reader.GetString(2)))
+                details.Append(reader.GetString(2));
+            if (!reader.IsDBNull(3) && !string.IsNullOrWhiteSpace(reader.GetString(3)))
+            {
+                if (details.Length > 0) details.Append("; ");
+                details.Append(reader.GetString(3));
+            }
+
+            list.Add(new RecentMedicalEvent
+            {
+                Type = "clinical_exam",
                 Name = reader.GetString(0),
                 Date = reader.GetDateTime(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 Details = details.Length > 0 ? details.ToString() : null,

@@ -99,6 +99,8 @@ type Row = CM & {
   offlineFallback?: boolean;
   /** Present when journal session completed (API); used for “Message to vet” prefill. */
   journalSummary?: string;
+  /** API Phase 4 red-flag stop — no journal row should be saved. */
+  journalEmergencyStop?: boolean;
   /** Structured vet notification from journal Gemini when present. */
   vetNotificationPayload?: VetNotificationPayload | null;
   vetMedicalContext?: VetMedicalContext | null;
@@ -247,6 +249,7 @@ export default function MiloJournalChatScreen() {
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
         journalSummary?: string;
+        journalEmergencyStop?: boolean;
         vetNotificationPayload?: VetNotificationPayload | null;
         vetMedicalContext?: VetMedicalContext | null;
         turnId?: string;
@@ -266,6 +269,7 @@ export default function MiloJournalChatScreen() {
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
         journalSummary: extras?.journalSummary,
+        journalEmergencyStop: extras?.journalEmergencyStop,
         vetNotificationPayload: extras?.vetNotificationPayload,
         vetMedicalContext: extras?.vetMedicalContext,
         turnId: tid,
@@ -367,17 +371,21 @@ export default function MiloJournalChatScreen() {
 
         setOfflineJournalActive(false);
 
-        const assistantMsgId = pushAssistant(result.answer, severityForTurn, {
+        const severityOut =
+          result.journalEmergencyStop === true ? ("urgent" as PetLogSeverity) : severityForTurn;
+
+        const assistantMsgId = pushAssistant(result.answer, severityOut, {
           suggestedReplies: result.suggestedReplies,
           journalSessionComplete: result.journalSessionComplete,
           journalSummary: result.journalSummary ?? undefined,
+          journalEmergencyStop: result.journalEmergencyStop,
           vetNotificationPayload: result.vetNotification ?? undefined,
           vetMedicalContext: result.vetMedicalContext ?? undefined,
           turnId: result.turnId ?? result.responseId,
           fileAttachments: result.fileAttachments,
         });
 
-        if (result.journalSessionComplete) {
+        if (result.journalSessionComplete && result.journalEmergencyStop !== true) {
           const nav = await persistJournalEntry(userTurns, result.journalSummary);
           if (nav) {
             setMessages((prev) =>

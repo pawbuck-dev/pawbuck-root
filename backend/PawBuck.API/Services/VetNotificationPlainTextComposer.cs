@@ -163,6 +163,11 @@ public static class VetNotificationPlainTextComposer
         sb.AppendLine($"   What:       {ObservationWhat(o)}");
         if (!string.IsNullOrWhiteSpace(o.Onset))
             sb.AppendLine($"   Onset:      {o.Onset.Trim()}");
+        if (!string.IsNullOrWhiteSpace(o.OnsetDate))
+            sb.AppendLine($"   Onset date: {o.OnsetDate.Trim()}" +
+                          (string.IsNullOrWhiteSpace(o.OnsetPrecision) ? "" : $" ({o.OnsetPrecision.Trim()})"));
+        else if (!string.IsNullOrWhiteSpace(o.OnsetPrecision))
+            sb.AppendLine($"   Onset precision: {o.OnsetPrecision.Trim()}");
         if (!string.IsNullOrWhiteSpace(o.Frequency))
             sb.AppendLine($"   Frequency:  {o.Frequency.Trim()}");
         if (!string.IsNullOrWhiteSpace(o.Severity))

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using PawBuck.API.Models;
 
@@ -9,6 +10,12 @@ namespace PawBuck.API.Services;
 /// </summary>
 public static class ContextEngine
 {
+    /// <summary>Max user messages in a journal interview before the server forces completion.</summary>
+    public const int JournalInterviewMaxUserTurns = 8;
+
+    /// <summary>Model must return this exact string in <c>answer</c> when Phase 4 red-flag triggers emergency stop.</summary>
+    public const string JournalEmergencyRedFlagToken = "EMERGENCY_RED_FLAG";
+
     public const string TagPostVaccine = "post_vaccine";
     public const string TagNewMedication = "new_medication";
     public const string TagLimping = "limping";
@@ -85,7 +92,7 @@ public static class ContextEngine
             if (!anyRecent)
             {
                 hints.Add(
-                    $"(priority) Senior patient; no journal entries in the last {config.QuietJournalDays} days — assess energy, comfort, and stiffness.");
+                    $"(priority) Senior companion; no journal entries in the last {config.QuietJournalDays} days — assess energy, comfort, and stiffness.");
                 tags.Add(TagSeniorQuiet);
             }
         }
@@ -159,6 +166,55 @@ public static class ContextEngine
     }
 
     /// <summary>
+    /// Lines for Phase 3 (contextual scan): what is known from records vs UNKNOWN slots the model must fill via chips.
+    /// </summary>
+    public static void AppendJournalPhaseThreeContextualScan(
+        StringBuilder sb,
+        PetConversationalContextDto ctx,
+        DateTime utcNow)
+    {
+        static bool InLastCalendarDays(DateTime eventDate, DateTime nowUtc, int days)
+        {
+            var delta = (nowUtc.Date - eventDate.Date).TotalDays;
+            return delta >= 0 && delta <= days;
+        }
+
+        var meds = new List<string>();
+        foreach (var e in ctx.RecentMedicalHistory.Where(x => x.Type == "medication_started"))
+        {
+            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 14))
+                meds.Add($"{e.Name} (started {e.Date})");
+        }
+
+        var vax5 = new List<string>();
+        foreach (var e in ctx.RecentMedicalHistory.Where(x => x.Type == "vaccination"))
+        {
+            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 5))
+                vax5.Add($"{e.Name} ({e.Date})");
+        }
+
+        var exams7 = new List<string>();
+        foreach (var e in ctx.RecentMedicalHistory.Where(x =>
+                     x.Type.Equals("clinical_exam", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 7))
+                exams7.Add($"{e.Name} ({e.Date})");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("=== Phase 3 contextual scan (from records; UNKNOWN must be asked) ===");
+        sb.Append("- Current medications (starts on record, last 14 days): ")
+            .AppendLine(meds.Count > 0 ? string.Join("; ", meds) : "UNKNOWN");
+        sb.Append("- Recent vaccines (last 5 days on record): ")
+            .AppendLine(vax5.Count > 0 ? string.Join("; ", vax5) : "UNKNOWN");
+        sb.Append("- Recent vet visit / exam (last 7 days on record): ")
+            .AppendLine(exams7.Count > 0 ? string.Join("; ", exams7) : "UNKNOWN");
+        sb.AppendLine("- Recent diet change (last 14 days): UNKNOWN (not in structured records — ask via chips if relevant)");
+        sb.AppendLine("- Recent travel or boarding (last 7 days): UNKNOWN — ask via chips if relevant");
+        sb.AppendLine("- Recent household change (last 14 days): UNKNOWN — ask via chips if relevant");
+    }
+
+    /// <summary>
     /// System instruction for journal mode: persona and JSON rules only. The first user message in <c>contents</c> carries profile + medical context + date.
     /// </summary>
     /// <param name="userTurnNumber">1-based count of the user’s messages in this session (current message included).</param>
@@ -177,65 +233,55 @@ public static class ContextEngine
             ? string.Join(", ", heuristicTags)
             : "none";
 
-        var turn = Math.Clamp(userTurnNumber, 1, 7);
-        var hardStop = userTurnNumber >= 7
-            ? """
+        var assistantLabel = string.Equals(petDisplayName.Trim(), "Milo", StringComparison.OrdinalIgnoreCase)
+            ? "Milo AI (you may also say \"Milo\")"
+            : "PawBuck's journal helper";
 
-            CRITICAL (turn 7 of 7): You MUST set status to "COMPLETE". Provide the vet-ready summary in summary (scribe rules below). Do not ask another question in answer; suggestedReplies MUST be []. answer should briefly close the interview in a professional tone.
+        var turn = Math.Clamp(userTurnNumber, 1, JournalInterviewMaxUserTurns);
+        var hardStop = userTurnNumber >= JournalInterviewMaxUserTurns
+            ? $"""
+
+            CRITICAL (turn {JournalInterviewMaxUserTurns} of {JournalInterviewMaxUserTurns}): You MUST set status to "COMPLETE". Put the parent-facing journal card text in **summary** (rules below). Do not ask another question in **answer**; suggestedReplies MUST be []. **answer** should briefly thank them and confirm the entry is ready. If they have not explicitly confirmed on the prior turn, still complete with your best parent-facing summary from the thread.
             """
             : "";
 
         return $"""
-            You are Milo, running a **structured health journal interview** for {petDisplayName} (PawBuck). Be concise and professional—think **veterinary EMR documentation**, not social chat.
+            You are the **journal interview assistant** for {petDisplayName} on PawBuck. In user-facing prose, refer to yourself as **{assistantLabel}** only. Do **not** combine your name with {petDisplayName}'s name in one phrase.
 
-            When status is "COMPLETE", the JSON field **summary** must be a **vet-ready clinical summary**: neutral, observational, third-person chart style. Do **not** write phrases like “pet parent reported,” “the owner says,” “parent mentioned,” or similar attribution—record only **observations** (e.g. “Observed reduced water intake since [date]. Patient is alert.”).
+            **Interview goal:** In **5–8** short turns, run a **structured journal entry** interview with **five phases in order**:
+            1) **Frame** — what they noticed and time course (one question per turn).
+            2) **Symptom** — clarify the main concern (one question per turn).
+            3) **Contextual scan** — you **must** run this phase **before** you consider the interview complete. Use the **Phase 3 contextual scan** block in the session context: use prefilled lines; for each line marked UNKNOWN, ask via **suggestedReplies** chips (multi-select style: offer several concrete options **plus** "Not sure" **plus** "+ Add details"). One **answer** question per turn that references those chips.
+            4) **Red-flag screen** — you **must** run this phase **before** complete. Ask explicitly about emergency signs (toxins, seizure, collapse, severe bleeding, trouble breathing, bloated painful abdomen, unable to urinate, extreme pain, repeated vomiting with lethargy, etc.). **suggestedReplies** must include **Not sure** and **+ Add details** and clear yes/no style options.
+               - If **any** red flag applies per the user's selections or text, set **answer** to exactly the token **{JournalEmergencyRedFlagToken}** (ASCII, no spaces), **status** to "CONTINUE", **summary** to "", **suggestedReplies** to [], **vetNotification** omitted. Do not write a journal summary and do not continue the interview in that same turn.
+            5) **Confirm** — you **must not** set status to "COMPLETE" until the user has **explicitly confirmed** the draft entry (e.g. they tapped **Confirm** or clearly said yes). On the turn **before** COMPLETE: **status** "CONTINUE", **answer** shows a **plain-text draft** of what will be saved (parent register, short paragraphs, no markdown). **suggestedReplies** must include **Confirm**, **Edit**, **Not sure**, and **+ Add details**. After they confirm, return **COMPLETE** with the final **summary**.
 
-            The conversation includes a first user message with **session context** (date, profile, recent medical events, instructions). Later messages are chat history and the latest user input—use all of it.
+            **Hard rules:**
+            - **One question per turn** in **answer** while status is "CONTINUE" (except the draft recap turn may be a short paragraph recap plus one closing ask).
+            - **Every** chip set (**suggestedReplies**) must include **Not sure** (or equivalent) and **+ Add details** (user may type detail on the next message).
+            - **Never fabricate.** If something is unknown, omit that line from **summary** entirely — do **not** write "Not specified", "Unknown", or "N/A".
+            - **summary** (when COMPLETE): **Parent-facing register only** — plain sentences, warm-neutral, like a short card the pet parent would read. **Forbidden on the card:** the words **patient**, **vomitus**, **anorexia**, **exhibiting**, or other stiff clinical jargon. Do **not** use markdown in **summary** or **answer**.
+            - **vetNotification** (when COMPLETE, strongly encouraged): **Clinical / vet-export** wording is allowed here only (observations, triage, etc.). Keep **summary** and **answer** parent-safe.
+            - **Fuzzy timing:** When you set observation timing in **vetNotification.observations**, use **onsetDate** as ISO **yyyy-MM-dd** when you can infer a day from the thread; set **onsetPrecision** to **approximate** when the user gave a range (e.g. "2–3 days ago"). Omit **onsetDate** if you cannot infer a day.
+            - **Plain text:** **answer** and **summary** are plain text only (no markdown, no `**`).
 
-            Current user turn: {turn} of 7 (each user message in the thread counts; the session context opener does not count toward this number).
+            The conversation includes a first user message with **session context**. Later messages are history and the latest user input.
 
-            Turn awareness:
-            - Aim to collect enough signal for a solid summary in **3–7** turns. Avoid endless follow-up questions.
-            - Turns 1–3: prioritize **primary** recovery after a long road trip (~1,380 km): **mobility** (stiffness, limping, stairs), **appetite** / eating and drinking.
-            - Turns 4–5: pursue **secondary** signs only if the thread already indicates concerns or gaps; otherwise briefly deepen primary pillars.
-            - Turns 6–7: you **must** move toward conclusion; do not open new topics.
+            Current user turn: **{turn}** of **{JournalInterviewMaxUserTurns}** (each user message in the thread counts; the session context opener does not count).
 
-            Context (Milo / senior travel): Treat {petDisplayName} as a **senior** dog who may be recovering from a long drive. Priority pillars: (1) joint stiffness / limping, (2) hydration / appetite, (3) general energy. Once these are adequately answered, **wrap up**—do not keep interviewing.
-
-            Persona (conversation / **answer** field):
-            - Professional, warm-neutral, one focused question at a time unless the user already gave rich detail.
-            - Never claim you “analyzed” or “processed” private data.
-            - **Never** open with generic lines like “How can I help?” Tie your first question to the user’s message **and** the context when possible.
-            - Prioritize **active** windows from hints (vaccine, new medication, limping, senior quiet journal).
-
-            Safety (**answer** field only):
+            Safety (**answer** when not using the emergency token):
             - Do NOT diagnose or prescribe.
-            - Do **not** add a routine “contact your veterinarian” / “when in doubt see a vet” disclaimer for mild or stable concerns.
-            - **Urgent / emergency:** If the user describes toxins, seizures, collapse, severe hemorrhage, **respiratory distress** / labored breathing, **≥24 hours without water intake** with concern, **acute severe pain**, or **persistent vomiting** with systemic compromise, **answer** must direct them to seek **urgent or emergency veterinary care now** (one short paragraph). That is separate from **summary** formatting below.
+            - For mild concerns, avoid repetitive "see your vet" filler.
+            - If the user describes an **immediate** crisis and you are **not** using {JournalEmergencyRedFlagToken}, still tell them to seek **emergency veterinary care now** in clear parent language.
 
-            Output rules (JSON only):
-            - answer: user-facing message only (no JSON inside). When status is "COMPLETE", do not ask a follow-up question in answer.
-            - suggestedReplies: 2–4 short tap replies for the *next* user message when status is "CONTINUE". When status is "COMPLETE", suggestedReplies MUST be [].
-            - status: "CONTINUE" while you still need one more focused question; "COMPLETE" when you have enough to log the entry **or** this is turn 7.
-            - summary: when status is "COMPLETE", non-empty **vet-ready** text for the saved journal record. When status is "CONTINUE", use "" (empty string).
-              * **Structure (exactly three lines, in this order, each starting with a bold Markdown label followed by a colon and a space):**
-                **Observations:** …
-                **Frequency/Duration:** …
-                **Associated Symptoms:** …
-              * Each line: one tight sentence (≤ ~220 characters); no bullet lists; no numbered lists.
-              * **vetNotification (JSON, optional but strongly encouraged when status is "COMPLETE"):** Populate the parallel object **vetNotification** for downstream **vet email** composition (plain text; no Markdown there). Rules:
-                - **triage.level**: one of fyi | soon | advice | emergency (lowercase). Use **emergency** only for true same-day crises (toxins, seizure, collapse, severe hemorrhage, respiratory distress, bloat/GDV suspicion, etc.). Async email must never be the primary channel for emergencies.
-                - **triage.rationale**: ≤ ~120 chars, clinical, no drama.
-                - **observations**: one object per distinct clinical issue (e.g. separate GI from musculoskeletal). **userText** is the owner’s specific wording; **primaryChip** is the tap label when applicable. When chip and free text describe the same finding, **userText** wins for the vet-facing "What" line — do not duplicate both as separate clinical findings.
-                - **negativeFindings**: short strings (e.g. "appetite normal", "no vomiting") when the thread supports them; otherwise [].
-                - **askLine**: one sentence owner ask, or null to accept product default.
-              * When status is "CONTINUE", omit **vetNotification** entirely (or use null/absent fields).
-              * **Clinical mapping (pet-parent–safe wording):** Owners read this journal too. For **reduced food intake** and **reduced water intake**, **always** use **Not eating (anorexia)** and **Not drinking (adipsia)** — never write “Anorexia” or “Adipsia” alone (those terms alarm many pet parents who know them from human medicine). The **parenthetical** keeps the **standard veterinary term** visible for the clinician. For other signs, prefer the same pattern when a clinical word could confuse or alarm lay readers (e.g. **Labored breathing (dyspnea)**, **Low energy (lethargy)**); otherwise map casual language to clinical vocabulary with plain-language first and the clinical term in parentheses when helpful.
-              * **Severity note (summary only, optional):** Add **at most one** extra final line **only** when the thread supports **high-acuity** concern: **Not drinking (adipsia)** / no water **≥24h**, **respiratory distress** or labored breathing, **acute severe pain**, **persistent vomiting** with red flags, collapse, seizure, hemorrhage, toxin, or bloat/GDV suspicion. That line must be **exactly**:
-                Note: Severe symptoms detected. Veterinary consultation recommended.
-              * Do **not** use legacy prefixes like [URGENT] or [CRITICAL] in **summary**.
+            Output rules (**JSON only** to the API):
+            - **answer**: plain text, user-facing.
+            - **suggestedReplies**: when **CONTINUE**, up to **6** short chips; **always** include **Not sure** and **+ Add details** unless the turn uses {JournalEmergencyRedFlagToken}. When **COMPLETE**, [].
+            - **status**: "CONTINUE" or "COMPLETE".
+            - **summary**: when **COMPLETE**, non-empty parent-facing card text for the saved journal entry. When **CONTINUE**, "".
+            - **vetNotification**: when **COMPLETE**, populate for vet-facing export (plain strings; clinical terms allowed). When **CONTINUE**, omit unless you are not using the red-flag token.
 
-            Priority hints (use these first when they fit the conversation):
+            Priority hints (internal; do not name as "hints" to the user):
             {hintsBlock}
 
             Internal tags (do not mention to user): {tagsLine}

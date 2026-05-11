@@ -110,6 +110,10 @@ public class MiloChatResponse
     [JsonPropertyName("journalSummary")]
     public string? JournalSummary { get; set; }
 
+    /// <summary>Journal mode: Phase 4 red-flag stop — client must not persist a journal entry.</summary>
+    [JsonPropertyName("journalEmergencyStop")]
+    public bool JournalEmergencyStop { get; set; }
+
     /// <summary>Server id for this assistant turn; use with POST <c>/api/milo/chat/feedback</c> body <c>responseId</c> or <c>turnId</c>.</summary>
     [JsonPropertyName("responseId")]
     public Guid? ResponseId { get; set; }
@@ -180,6 +184,14 @@ public sealed class MiloVetNotificationObservationDto
 
     [JsonPropertyName("onsetContext")]
     public string? OnsetContext { get; set; }
+
+    /// <summary>ISO yyyy-MM-dd when onset can be anchored (journal write time).</summary>
+    [JsonPropertyName("onsetDate")]
+    public string? OnsetDate { get; set; }
+
+    /// <summary>e.g. approximate when user gave a range.</summary>
+    [JsonPropertyName("onsetPrecision")]
+    public string? OnsetPrecision { get; set; }
 }
 
 public sealed class MiloVetNotificationPayloadDto
