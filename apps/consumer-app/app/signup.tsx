@@ -1,8 +1,5 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
-import { useOnboarding } from "@/context/onboardingContext";
-import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
 import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
@@ -23,31 +20,12 @@ import {
 function SignUp() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
-  const { addPet } = usePets();
   const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  // Helper to create pet if onboarding data exists
-  const createPetIfNeeded = async () => {
-    if (isOnboardingComplete && petData?.name) {
-      try {
-        console.log("Creating pet from signup:", petData);
-        // Use addPet from usePets hook which properly updates React Query cache
-        await addPet(petData as TablesInsert<"pets">);
-        console.log("Pet created successfully from signup");
-      } catch (error) {
-        console.error("Error creating pet during signup:", error);
-        // Don't throw - continue to home even if pet creation fails
-      } finally {
-        resetOnboarding();
-      }
-    }
-  };
 
   const handleEmailSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -80,17 +58,13 @@ function SignUp() {
         await upsertUserPreferences(data.user.id, {});
       }
 
-      // Create pet if onboarding data exists (wait for completion before navigating)
-      await createPetIfNeeded();
-
-      // Check if we need to return to transfer or household flow
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
           params: transferCode ? { transferCode } : { inviteCode },
         });
       } else {
-        router.replace("/home");
+        router.replace("/(home)/home");
       }
     } catch (error: any) {
       console.error("Error signing up:", error);
@@ -156,15 +130,13 @@ function SignUp() {
                       return;
                     }
 
-                    await createPetIfNeeded();
-
                     if (returnTo && (transferCode || inviteCode)) {
                       router.replace({
                         pathname: returnTo as any,
                         params: transferCode ? { transferCode } : { inviteCode },
                       });
                     } else {
-                      router.replace("/home");
+                      router.replace("/(home)/home");
                     }
                   } catch (error: any) {
                     console.error("Error signing up with OAuth:", error);

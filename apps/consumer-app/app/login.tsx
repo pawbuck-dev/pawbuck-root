@@ -1,8 +1,5 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
-import { useOnboarding } from "@/context/onboardingContext";
-import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
 import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
@@ -45,8 +42,6 @@ const FIGMA_LOGIN_DARK = {
 function Login() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
-  const { addPet } = usePets();
   const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,18 +49,6 @@ function Login() {
   const insets = useSafeAreaInsets();
   const isDark = mode === "dark";
   const figma = isDark ? FIGMA_LOGIN_DARK : FIGMA_LOGIN_LIGHT;
-
-  const createPetIfNeeded = async () => {
-    if (isOnboardingComplete && petData?.name) {
-      try {
-        await addPet(petData as TablesInsert<"pets">);
-      } catch (error) {
-        console.error("Error creating pet during login:", error);
-      } finally {
-        resetOnboarding();
-      }
-    }
-  };
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -79,14 +62,13 @@ function Login() {
         password,
       });
       if (error) throw error;
-      await createPetIfNeeded();
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
           params: transferCode ? { transferCode } : { inviteCode },
         });
       } else {
-        router.replace("/home");
+        router.replace("/(home)/home");
       }
     } catch (error: any) {
       console.error("Error signing in:", error);
@@ -116,14 +98,13 @@ function Login() {
         return;
       }
 
-      await createPetIfNeeded();
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
           params: transferCode ? { transferCode } : { inviteCode },
         });
       } else {
-        router.replace("/home");
+        router.replace("/(home)/home");
       }
     } catch (error: any) {
       console.error("Error during OAuth login:", error);

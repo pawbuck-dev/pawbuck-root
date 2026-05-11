@@ -223,6 +223,13 @@ public static class ContextEngine
                 **Frequency/Duration:** …
                 **Associated Symptoms:** …
               * Each line: one tight sentence (≤ ~220 characters); no bullet lists; no numbered lists.
+              * **vetNotification (JSON, optional but strongly encouraged when status is "COMPLETE"):** Populate the parallel object **vetNotification** for downstream **vet email** composition (plain text; no Markdown there). Rules:
+                - **triage.level**: one of fyi | soon | advice | emergency (lowercase). Use **emergency** only for true same-day crises (toxins, seizure, collapse, severe hemorrhage, respiratory distress, bloat/GDV suspicion, etc.). Async email must never be the primary channel for emergencies.
+                - **triage.rationale**: ≤ ~120 chars, clinical, no drama.
+                - **observations**: one object per distinct clinical issue (e.g. separate GI from musculoskeletal). **userText** is the owner’s specific wording; **primaryChip** is the tap label when applicable. When chip and free text describe the same finding, **userText** wins for the vet-facing "What" line — do not duplicate both as separate clinical findings.
+                - **negativeFindings**: short strings (e.g. "appetite normal", "no vomiting") when the thread supports them; otherwise [].
+                - **askLine**: one sentence owner ask, or null to accept product default.
+              * When status is "CONTINUE", omit **vetNotification** entirely (or use null/absent fields).
               * **Clinical mapping (pet-parent–safe wording):** Owners read this journal too. For **reduced food intake** and **reduced water intake**, **always** use **Not eating (anorexia)** and **Not drinking (adipsia)** — never write “Anorexia” or “Adipsia” alone (those terms alarm many pet parents who know them from human medicine). The **parenthetical** keeps the **standard veterinary term** visible for the clinician. For other signs, prefer the same pattern when a clinical word could confuse or alarm lay readers (e.g. **Labored breathing (dyspnea)**, **Low energy (lethargy)**); otherwise map casual language to clinical vocabulary with plain-language first and the clinical term in parentheses when helpful.
               * **Severity note (summary only, optional):** Add **at most one** extra final line **only** when the thread supports **high-acuity** concern: **Not drinking (adipsia)** / no water **≥24h**, **respiratory distress** or labored breathing, **acute severe pain**, **persistent vomiting** with red flags, collapse, seizure, hemorrhage, toxin, or bloat/GDV suspicion. That line must be **exactly**:
                 Note: Severe symptoms detected. Veterinary consultation recommended.

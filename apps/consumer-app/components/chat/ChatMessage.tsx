@@ -15,6 +15,11 @@ const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 interface ChatMessageProps {
   message: ChatMessageType;
   isNew?: boolean;
+  /**
+   * When false, hides per-bubble thumbs (e.g. Milo health journal uses a single session feedback row).
+   * @default true
+   */
+  showInlineTurnFeedback?: boolean;
 }
 
 function MiloTurnFeedbackRow({
@@ -95,7 +100,11 @@ function MiloTurnFeedbackRow({
   );
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isNew = true }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({
+  message,
+  isNew = true,
+  showInlineTurnFeedback = true,
+}) => {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const isUser = message.role === "user";
@@ -217,7 +226,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isNew = true 
           >
             {formatTime(message.timestamp)}
           </Text>
-          {!isUser && message.turnId ? (
+          {!isUser && showInlineTurnFeedback && message.turnId ? (
             <View style={{ flexShrink: 0 }}>
               <MiloTurnFeedbackRow
                 turnId={message.turnId}

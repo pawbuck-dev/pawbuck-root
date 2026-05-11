@@ -387,6 +387,49 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                             @enum = new[] { "CONTINUE", "COMPLETE" },
                         },
                         summary = new { type = "string" },
+                        vetNotification = new
+                        {
+                            type = "object",
+                            properties = new
+                            {
+                                triage = new
+                                {
+                                    type = "object",
+                                    properties = new
+                                    {
+                                        level = new { type = "string", @enum = new[] { "fyi", "soon", "advice", "emergency" } },
+                                        rationale = new { type = "string" },
+                                        confidence = new { type = "number" },
+                                    },
+                                },
+                                observations = new
+                                {
+                                    type = "array",
+                                    items = new
+                                    {
+                                        type = "object",
+                                        properties = new
+                                        {
+                                            taxonomy = new { type = "string" },
+                                            displayLabel = new { type = "string" },
+                                            primaryChip = new { type = "string" },
+                                            userText = new { type = "string" },
+                                            onset = new { type = "string" },
+                                            frequency = new { type = "string" },
+                                            severity = new { type = "string" },
+                                            trend = new { type = "string" },
+                                            onsetContext = new { type = "string" },
+                                        },
+                                    },
+                                },
+                                negativeFindings = new
+                                {
+                                    type = "array",
+                                    items = new { type = "string" },
+                                },
+                                askLine = new { type = "string" },
+                            },
+                        },
                     },
                     required = new[] { "answer", "suggestedReplies", "status", "summary" },
                 },
@@ -474,6 +517,10 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             || hints.Count > 0;
 
         var ridJournal = responseId == Guid.Empty ? (Guid?)null : responseId;
+        MiloVetMedicalContextDto? vetMed = null;
+        if (complete)
+            vetMed = VetMedicalContextMapper.FromPetContext(ctx);
+
         return new MiloChatResponse
         {
             Answer = answer,
@@ -488,6 +535,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             TurnId = ridJournal.HasValue ? ridJournal.Value.ToString("D") : null,
             PromptVersion = config.PromptVersion,
             HeuristicTags = tags,
+            VetNotification = complete ? dto.VetNotification : null,
+            VetMedicalContext = vetMed,
         };
     }
 
@@ -530,6 +579,9 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
 
         [JsonPropertyName("summary")]
         public string? Summary { get; set; }
+
+        [JsonPropertyName("vetNotification")]
+        public MiloVetNotificationPayloadDto? VetNotification { get; set; }
     }
 
     private async Task<MiloChatPlanDto?> RunPlanStepAsync(

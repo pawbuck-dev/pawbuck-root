@@ -3,7 +3,6 @@ import { MiloStarterSuggestionPill } from "@/components/chat/MiloStarterSuggesti
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
-import { useSubscription } from "@/context/subscriptionContext";
 import { ChatMessage as CM } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -28,9 +27,15 @@ import {
 import {
   fetchMiloChat,
   submitMiloJournalFeedback,
-  SubscriptionRequiredError,
   type MiloChatFileAttachment,
 } from "@/utils/miloChatApi";
+import { isPlausibleDisplayNameForGreeting, resolveAuthDisplayName } from "@/services/authDisplayName";
+import type { VetMedicalContext, VetNotificationPayload, VetOwnerContact } from "@/types/vetNotification";
+import {
+  buildVetMessageFromJournalSession,
+  buildVetMessageSubject,
+  shouldSuppressVetEmailCompose,
+} from "@/utils/buildVetMessageFromJournalSession";
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
@@ -43,7 +48,6 @@ import {
   MILO_EMPTY_THREAD_PROMPT_COUNT,
 } from "@/services/miloSuggestedPrompts";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
-import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -67,6 +71,18 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+function shortTimeZoneAbbrev(): string {
+  try {
+    return (
+      Intl.DateTimeFormat(undefined, { timeZoneName: "short" })
+        .formatToParts(new Date())
+        .find((p) => p.type === "timeZoneName")?.value ?? ""
+    );
+  } catch {
+    return "";
+  }
+}
+
 type JournalNavTarget = {
   entryId: string;
   kind: "server" | "milo";
@@ -81,6 +97,11 @@ type Row = CM & {
   journalNavTarget?: JournalNavTarget;
   /** True when answer came from local offline script (API unreachable). */
   offlineFallback?: boolean;
+  /** Present when journal session completed (API); used for “Message to vet” prefill. */
+  journalSummary?: string;
+  /** Structured vet notification from journal Gemini when present. */
+  vetNotificationPayload?: VetNotificationPayload | null;
+  vetMedicalContext?: VetMedicalContext | null;
   turnId?: string;
   /** @deprecated use turnId */
   responseId?: string;
@@ -94,8 +115,6 @@ export default function MiloJournalChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { canAccessFeature, isLoading: subLoading, openPaywall } = useSubscription();
-  const canUseMilo = canAccessFeature("milo_chat");
   const { pets } = usePets();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
@@ -184,6 +203,12 @@ export default function MiloJournalChatScreen() {
   );
 
   const miloGreetingSuffix = useMemo(() => miloHiGreetingSuffixFromUser(user ?? undefined), [user]);
+  /** Full owner display name for vet email signature (same source as profile-aware flows). */
+  const vetMessageOwnerSignature = useMemo(() => {
+    const full = resolveAuthDisplayName(user ?? undefined).trim();
+    if (full && isPlausibleDisplayNameForGreeting(full)) return full;
+    return "Pet parent";
+  }, [user]);
 
   // Scroll when keyboard is visible; avoid translating the composer (breaks iOS keyboard on device).
   useEffect(() => {
@@ -221,6 +246,9 @@ export default function MiloJournalChatScreen() {
         suggestedReplies?: string[];
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
+        journalSummary?: string;
+        vetNotificationPayload?: VetNotificationPayload | null;
+        vetMedicalContext?: VetMedicalContext | null;
         turnId?: string;
         responseId?: string;
         fileAttachments?: MiloChatFileAttachment[];
@@ -237,6 +265,9 @@ export default function MiloJournalChatScreen() {
         suggestedReplies: extras?.suggestedReplies,
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
+        journalSummary: extras?.journalSummary,
+        vetNotificationPayload: extras?.vetNotificationPayload,
+        vetMedicalContext: extras?.vetMedicalContext,
         turnId: tid,
         responseId: tid,
         fileAttachments: extras?.fileAttachments,
@@ -339,6 +370,9 @@ export default function MiloJournalChatScreen() {
         const assistantMsgId = pushAssistant(result.answer, severityForTurn, {
           suggestedReplies: result.suggestedReplies,
           journalSessionComplete: result.journalSessionComplete,
+          journalSummary: result.journalSummary ?? undefined,
+          vetNotificationPayload: result.vetNotification ?? undefined,
+          vetMedicalContext: result.vetMedicalContext ?? undefined,
           turnId: result.turnId ?? result.responseId,
           fileAttachments: result.fileAttachments,
         });
@@ -352,10 +386,6 @@ export default function MiloJournalChatScreen() {
           }
         }
       } catch (e) {
-        if (e instanceof SubscriptionRequiredError) {
-          openPaywall("milo_journal_chat");
-          return;
-        }
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         const offline = getOfflineJournalTurn(priorUserLines.length, pet.name);
@@ -384,13 +414,11 @@ export default function MiloJournalChatScreen() {
       pushAssistant,
       messages,
       persistJournalEntry,
-      openPaywall,
       triageDisclaimerStatus,
     ]
   );
 
   useEffect(() => {
-    if (subLoading || !canUseMilo) return;
     if (triageDisclaimerStatus !== "accepted") return;
     const ctx = params.context ? String(params.context) : "";
     if (!ctx || !pet || autoSentRef.current) return;
@@ -402,23 +430,75 @@ export default function MiloJournalChatScreen() {
       /* use raw */
     }
     void handleSend(decoded);
-  }, [params.context, pet, handleSend, subLoading, canUseMilo, triageDisclaimerStatus]);
+  }, [params.context, pet, handleSend, triageDisclaimerStatus]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [messages.length]);
 
-  const openMessagesCompose = (userObservation: string) => {
-    if (!pet) return;
-    const body = `Hi — update on ${pet.name}:\n\n${userObservation}\n\n(Sent from PawBuck journal)`;
+  const openVetMessageCompose = useCallback(() => {
+    if (!pet || !user) return;
+    let lastComplete: Row | undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const row = messages[i];
+      if (row.role === "assistant" && row.journalSessionComplete) {
+        lastComplete = row;
+        break;
+      }
+    }
+    if (shouldSuppressVetEmailCompose(lastComplete?.vetNotificationPayload, lastComplete?.severity)) {
+      Alert.alert(
+        "Call your veterinary clinic",
+        "This session may be urgent. Do not rely on email—call your vet or an emergency clinic now. Your observations are saved in the journal so you can read them during the call.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    const userTurns = messages.filter((m) => m.role === "user").map((m) => m.content);
+    const journalSummary = lastComplete?.journalSummary?.trim() ?? null;
+    const sessionDateLabel = new Date().toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const ownerPhoneRaw =
+      (typeof meta.phone === "string" && meta.phone) ||
+      (typeof meta.phone_number === "string" && meta.phone_number) ||
+      undefined;
+    const vetOwnerContact: VetOwnerContact | undefined = {
+      email: user.email ?? undefined,
+      phone: ownerPhoneRaw,
+      preferredContactLine: "Email reply",
+    };
+    const journalRecordId = lastComplete?.journalNavTarget?.entryId ?? pet.id;
+    const logIsoTimestamp = new Date().toISOString();
+    const tz = shortTimeZoneAbbrev();
+    const composeInput = {
+      pet,
+      userTurns,
+      journalSummary,
+      ownerSigningName: vetMessageOwnerSignature,
+      sessionDateLabel,
+      logIsoTimestamp,
+      timezoneAbbrev: tz || null,
+      severity: lastComplete?.severity ?? null,
+      vetNotificationPayload: lastComplete?.vetNotificationPayload ?? null,
+      vetMedicalContext: lastComplete?.vetMedicalContext ?? null,
+      vetOwnerContact,
+      journalRecordId,
+    };
+    const body = buildVetMessageFromJournalSession(composeInput);
+    const subject = buildVetMessageSubject(composeInput);
     router.push({
       pathname: "/(home)/messages",
       params: {
         composeMessage: encodeURIComponent(body),
+        composeSubject: encodeURIComponent(subject),
         composePetId: pet.id,
       },
     } as any);
-  };
+  }, [pet, messages, vetMessageOwnerSignature, user, router]);
 
   const openJournalEntry = useCallback(
     (nav: JournalNavTarget) => {
@@ -435,6 +515,59 @@ export default function MiloJournalChatScreen() {
     },
     [pet, router]
   );
+
+  /** One left margin for the whole column (aligns with Milo bubble inset); pills stack with even spacing. */
+  const journalCtaTrackStyle = {
+    marginLeft: 56,
+    marginBottom: 8,
+    gap: 10,
+    alignSelf: "stretch" as const,
+    maxWidth: "92%" as const,
+  };
+
+  const renderJournalCtaPill = (
+    label: string,
+    opts: {
+      onPress: () => void;
+      disabled?: boolean;
+      accessibilityLabel: string;
+      backgroundColor: string;
+      color: string;
+    }
+  ) => (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      disabled={opts.disabled}
+      onPress={opts.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={opts.accessibilityLabel}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 9999,
+        alignSelf: "flex-start",
+        backgroundColor: opts.backgroundColor,
+        opacity: opts.disabled ? 0.55 : 1,
+      }}
+    >
+      <Text style={{ fontSize: 14, fontWeight: "700", color: opts.color }}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={opts.color} />
+    </TouchableOpacity>
+  );
+
+  const journalSavedPill = (m: Row) =>
+    renderJournalCtaPill("Saved to Journal", {
+      onPress: () => {
+        if (m.journalNavTarget) openJournalEntry(m.journalNavTarget);
+      },
+      disabled: !m.journalNavTarget,
+      accessibilityLabel: m.journalNavTarget ? "Saved to journal, open entry" : "Saving entry to journal",
+      backgroundColor: "rgba(34,197,94,0.2)",
+      color: "#15803d",
+    });
 
   const renderJournalFeedback = (m: Row, index: number) => {
     const tid = m.turnId ?? m.responseId;
@@ -485,18 +618,9 @@ export default function MiloJournalChatScreen() {
     const midFlowChips = (m.suggestedReplies?.length ?? 0) > 0 && !m.journalSessionComplete;
     if (midFlowChips && m.severity !== "urgent") return null;
 
-    let obs = "";
-    for (let i = index - 1; i >= 0; i--) {
-      const row = messages[i];
-      if (row && row.role === "user") {
-        obs = row.content;
-        break;
-      }
-    }
-
     if (midFlowChips && m.severity === "urgent") {
       return (
-        <View style={{ marginLeft: 56, marginBottom: 8, maxWidth: "92%" }}>
+        <View style={{ marginLeft: 56, marginBottom: 8, maxWidth: "92%" as const }}>
           <View
             style={{
               padding: 12,
@@ -514,100 +638,56 @@ export default function MiloJournalChatScreen() {
     }
 
     if (m.journalSessionComplete) {
-      const savedToJournalCta = (
-        <TouchableOpacity
-          disabled={!m.journalNavTarget}
-          onPress={() => m.journalNavTarget && openJournalEntry(m.journalNavTarget)}
-          style={{
-            alignSelf: "flex-start",
-            marginLeft: 56,
-            marginTop: 4,
-            marginBottom: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            borderRadius: 10,
-            backgroundColor: "rgba(34,197,94,0.2)",
-            opacity: m.journalNavTarget ? 1 : 0.55,
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={
-            m.journalNavTarget ? "Saved to journal, open entry" : "Saving entry to journal"
-          }
-        >
-          <Text style={{ fontSize: 12, fontWeight: "700", color: "#15803d" }}>Saved to Journal →</Text>
-        </TouchableOpacity>
-      );
-
       switch (m.severity) {
         case "low":
-          return savedToJournalCta;
+          return <View style={journalCtaTrackStyle}>{journalSavedPill(m)}</View>;
         case "medium":
           return (
-            <View style={{ marginLeft: 56, marginBottom: 8 }}>
-              {savedToJournalCta}
-              <TouchableOpacity
-                style={{
-                  alignSelf: "flex-start",
-                  marginTop: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(245,158,11,0.2)",
-                }}
-                onPress={() =>
+            <View style={journalCtaTrackStyle}>
+              {journalSavedPill(m)}
+              {renderJournalCtaPill("Flag for next vet visit", {
+                onPress: () =>
                   Alert.alert(
                     "Flag for vet",
                     "We’ll remind you to mention this at the next visit. Continue monitoring symptoms.",
                     [{ text: "OK" }]
-                  )
-                }
-              >
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#b45309" }}>
-                  Flag for next vet visit
-                </Text>
-              </TouchableOpacity>
+                  ),
+                accessibilityLabel: "Flag for next vet visit",
+                backgroundColor: "rgba(245,158,11,0.2)",
+                color: "#b45309",
+              })}
             </View>
           );
         case "high":
           return (
-            <View style={{ marginLeft: 56, marginBottom: 8 }}>
-              {savedToJournalCta}
-              <TouchableOpacity
-                style={{
-                  alignSelf: "flex-start",
-                  marginTop: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(239,68,68,0.15)",
-                }}
-                onPress={() => openMessagesCompose(obs)}
-              >
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#b91c1c" }}>
-                  Send symptoms to vet
-                </Text>
-              </TouchableOpacity>
+            <View style={journalCtaTrackStyle}>
+              {journalSavedPill(m)}
+              {renderJournalCtaPill("Send symptoms to vet", {
+                onPress: () => openVetMessageCompose(),
+                disabled: shouldSuppressVetEmailCompose(m.vetNotificationPayload, m.severity),
+                accessibilityLabel: "Send symptoms to vet",
+                backgroundColor: "rgba(239,68,68,0.15)",
+                color: "#b91c1c",
+              })}
             </View>
           );
         case "urgent":
           return (
-            <View style={{ marginLeft: 56, marginBottom: 12, maxWidth: "92%" }}>
-              {savedToJournalCta}
+            <View style={{ ...journalCtaTrackStyle, marginBottom: 12 }}>
+              {journalSavedPill(m)}
               <View
                 style={{
                   padding: 12,
                   borderRadius: 12,
                   backgroundColor: "rgba(239,68,68,0.2)",
-                  marginTop: 8,
-                  marginBottom: 8,
                 }}
               >
                 <Text style={{ fontSize: 13, fontWeight: "700", color: "#991b1b" }}>
                   Possible emergency — seek immediate veterinary or ER care if your pet is in distress.
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
+              {renderJournalCtaPill("Emergency help (911)", {
+                onPress: () => {
                   Alert.alert(
                     "Emergency",
                     "If this is life-threatening, call your nearest emergency veterinary clinic now. For human emergencies, call local emergency services.",
@@ -621,22 +701,15 @@ export default function MiloJournalChatScreen() {
                       },
                     ]
                   );
-                }}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                  backgroundColor: "#dc2626",
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
-                  Emergency help (911)
-                </Text>
-              </TouchableOpacity>
+                },
+                accessibilityLabel: "Emergency help call 911",
+                backgroundColor: "#dc2626",
+                color: "#fff",
+              })}
             </View>
           );
         default:
-          return savedToJournalCta;
+          return <View style={journalCtaTrackStyle}>{journalSavedPill(m)}</View>;
       }
     }
 
@@ -660,65 +733,48 @@ export default function MiloJournalChatScreen() {
         );
       case "medium":
         return (
-          <TouchableOpacity
-            style={{
-              alignSelf: "flex-start",
-              marginLeft: 56,
-              marginBottom: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 12,
+          <View style={journalCtaTrackStyle}>
+            {renderJournalCtaPill("Flag for next vet visit", {
+              onPress: () =>
+                Alert.alert(
+                  "Flag for vet",
+                  "We’ll remind you to mention this at the next visit. Continue monitoring symptoms.",
+                  [{ text: "OK" }]
+                ),
+              accessibilityLabel: "Flag for next vet visit",
               backgroundColor: "rgba(245,158,11,0.2)",
-            }}
-            onPress={() =>
-              Alert.alert(
-                "Flag for vet",
-                "We’ll remind you to mention this at the next visit. Continue monitoring symptoms.",
-                [{ text: "OK" }]
-              )
-            }
-          >
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#b45309" }}>
-              Flag for next vet visit
-            </Text>
-          </TouchableOpacity>
+              color: "#b45309",
+            })}
+          </View>
         );
       case "high":
         return (
-          <TouchableOpacity
-            style={{
-              alignSelf: "flex-start",
-              marginLeft: 56,
-              marginBottom: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 12,
+          <View style={journalCtaTrackStyle}>
+            {renderJournalCtaPill("Send symptoms to vet", {
+              onPress: () => openVetMessageCompose(),
+              disabled: shouldSuppressVetEmailCompose(m.vetNotificationPayload, m.severity),
+              accessibilityLabel: "Send symptoms to vet",
               backgroundColor: "rgba(239,68,68,0.15)",
-            }}
-            onPress={() => openMessagesCompose(obs)}
-          >
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#b91c1c" }}>
-              Send symptoms to vet
-            </Text>
-          </TouchableOpacity>
+              color: "#b91c1c",
+            })}
+          </View>
         );
       case "urgent":
         return (
-          <View style={{ marginLeft: 56, marginBottom: 12, maxWidth: "92%" }}>
+          <View style={{ ...journalCtaTrackStyle, marginBottom: 12 }}>
             <View
               style={{
                 padding: 12,
                 borderRadius: 12,
                 backgroundColor: "rgba(239,68,68,0.2)",
-                marginBottom: 8,
               }}
             >
               <Text style={{ fontSize: 13, fontWeight: "700", color: "#991b1b" }}>
                 Possible emergency — seek immediate veterinary or ER care if your pet is in distress.
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => {
+            {renderJournalCtaPill("Emergency help (911)", {
+              onPress: () => {
                 Alert.alert(
                   "Emergency",
                   "If this is life-threatening, call your nearest emergency veterinary clinic now. For human emergencies, call local emergency services.",
@@ -732,18 +788,11 @@ export default function MiloJournalChatScreen() {
                     },
                   ]
                 );
-              }}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: "#dc2626",
-              }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
-                Emergency help (911)
-              </Text>
-            </TouchableOpacity>
+              },
+              accessibilityLabel: "Emergency help call 911",
+              backgroundColor: "#dc2626",
+              color: "#fff",
+            })}
           </View>
         );
       default:
@@ -761,27 +810,6 @@ export default function MiloJournalChatScreen() {
           <Text style={{ color: theme.primary, fontWeight: "600" }}>Go back</Text>
         </TouchableOpacity>
       </View>
-    );
-  }
-
-  if (subLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: theme.background,
-        }}
-      >
-        <ActivityIndicator color={theme.primary} size="large" />
-      </View>
-    );
-  }
-
-  if (!canUseMilo) {
-    return (
-      <PremiumFeatureLocked title="Milo" onGoBack={() => router.back()} feature="milo_journal_screen" />
     );
   }
 
@@ -874,7 +902,11 @@ export default function MiloJournalChatScreen() {
           keyboardDismissMode="interactive"
           renderItem={({ item, index }) => (
             <View>
-              <ChatMessage message={item} isNew={index === messages.length - 1} />
+              <ChatMessage
+                message={item}
+                isNew={index === messages.length - 1}
+                showInlineTurnFeedback={false}
+              />
               {renderJournalFeedback(item, index)}
               {renderActions(item, index)}
             </View>
@@ -887,11 +919,12 @@ export default function MiloJournalChatScreen() {
             ) : (
               <View
                 style={{
-                  paddingHorizontal: 20,
+                  width: "100%",
+                  alignSelf: "stretch",
+                  paddingHorizontal: 16,
                   paddingTop: 16,
                   paddingBottom: 24,
-                  alignSelf: "stretch",
-                  width: "100%",
+                  flexShrink: 0,
                 }}
               >
                 <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
@@ -903,7 +936,7 @@ export default function MiloJournalChatScreen() {
                     fontWeight: "800",
                     color: theme.foreground,
                     marginTop: 6,
-                    marginBottom: 16,
+                    marginBottom: 14,
                   }}
                 >
                   Where should we start?
@@ -916,7 +949,7 @@ export default function MiloJournalChatScreen() {
                     fill={tokens.composerBg}
                     stroke={tokens.composerBorder}
                     textColor={tokens.textPrimary}
-                    screenHorizontalPaddingPx={20}
+                    screenHorizontalPaddingPx={16}
                     onPress={() => {
                       void handleSend(q);
                       setInput("");
@@ -934,100 +967,129 @@ export default function MiloJournalChatScreen() {
         />
 
       {showJournalChips && lastMessage?.suggestedReplies ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          style={{ marginBottom: 8 }}
-          contentContainerStyle={{
-            flexDirection: "row",
-            gap: 8,
-            paddingHorizontal: 16,
-            paddingBottom: 4,
-            alignItems: "center",
-          }}
-        >
-          {lastMessage.suggestedReplies.map((label) => (
-            <Pressable
-              key={label}
-              onPress={() => {
-                void handleSend(label);
-                setInput("");
-              }}
-              style={({ pressed }) => ({
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                borderRadius: 9999,
-                backgroundColor: tokens.chipBg,
-                borderWidth: 1,
-                borderColor: tokens.chipBorder,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontSize: 14,
-                  lineHeight: 20,
-                  color: tokens.textPrimary,
-                }}
-                numberOfLines={2}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
-
         <View
           style={{
-            paddingHorizontal: 12,
-            paddingTop: 8,
-            paddingBottom: Math.max(insets.bottom, 12),
-            flexDirection: "row",
-            alignItems: "flex-end",
-            backgroundColor: isDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.9)",
+            width: "100%",
+            alignSelf: "stretch",
+            paddingHorizontal: 16,
+            paddingTop: 4,
+            paddingBottom: 8,
+            flexShrink: 0,
           }}
         >
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={`Tell Milo about ${pet.name}...`}
-            placeholderTextColor={tokens.placeholder}
-            style={{
-              flex: 1,
-              minHeight: 44,
-              maxHeight: 120,
-              paddingHorizontal: 14,
-              paddingVertical: Platform.OS === "ios" ? 10 : 12,
-              borderRadius: 22,
-              borderWidth: 1,
-              borderColor: tokens.composerBorder,
-              backgroundColor: tokens.composerBg,
-              color: tokens.textPrimary,
-              fontSize: 16,
-              lineHeight: 22,
-            }}
-            multiline
-            showSoftInputOnFocus
-            editable={triageDisclaimerStatus === "accepted"}
-            keyboardAppearance={isDark ? "dark" : "light"}
-            {...(Platform.OS === "android" ? { textAlignVertical: "top" as const } : {})}
-          />
-          <Pressable
-            onPress={() => {
-              void handleSend(input);
-              setInput("");
-            }}
-            disabled={busy || !input.trim() || triageDisclaimerStatus !== "accepted"}
-            style={{
-              marginLeft: 8,
-              marginBottom: 6,
-              opacity: input.trim() && !busy && triageDisclaimerStatus === "accepted" ? 1 : 0.4,
+          <ScrollView
+            style={{ alignSelf: "stretch" }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            contentContainerStyle={{
+              alignItems: "flex-start",
+              paddingRight: 4,
+              paddingBottom: 4,
             }}
           >
-            <Ionicons name="send" size={26} color={theme.primary} />
-          </Pressable>
+            {lastMessage.suggestedReplies.map((label, chipIndex) => (
+              <MiloStarterSuggestionPill
+                key={`${chipIndex}-${label}`}
+                label={label}
+                mode={isDark ? "dark" : "light"}
+                fill={tokens.composerBg}
+                stroke={tokens.composerBorder}
+                textColor={tokens.textPrimary}
+                screenHorizontalPaddingPx={16}
+                onPress={() => {
+                  void handleSend(label);
+                  setInput("");
+                }}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+        {/* Composer — match MiloChatModal: lifted card, inset field + circular send (no separate “input pill”). */}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: Math.max(insets.bottom, 12),
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: tokens.composerBg,
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: tokens.composerBorder,
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              ...(!isDark && {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.06,
+                shadowRadius: 16,
+                elevation: 4,
+              }),
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+              <TextInput
+                value={input}
+                onChangeText={setInput}
+                placeholder={`Tell Milo about ${pet.name}...`}
+                placeholderTextColor={tokens.placeholder}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  maxHeight: 120,
+                  fontSize: 15,
+                  lineHeight: 22,
+                  color: theme.foreground,
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
+                }}
+                multiline
+                showSoftInputOnFocus
+                editable={triageDisclaimerStatus === "accepted"}
+                keyboardAppearance={isDark ? "dark" : "light"}
+                {...(Platform.OS === "android" ? { textAlignVertical: "top" as const } : {})}
+              />
+              <Pressable
+                onPress={() => {
+                  void handleSend(input);
+                  setInput("");
+                }}
+                disabled={busy || !input.trim() || triageDisclaimerStatus !== "accepted"}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  marginLeft: 4,
+                  backgroundColor:
+                    input.trim() && !busy && triageDisclaimerStatus === "accepted"
+                      ? "#FFFFFF"
+                      : isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(13,15,15,0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 1,
+                }}
+              >
+                <Ionicons
+                  name="send"
+                  size={18}
+                  color={
+                    input.trim() && !busy && triageDisclaimerStatus === "accepted"
+                      ? "#0D0F0F"
+                      : isDark
+                        ? "rgba(255,255,255,0.35)"
+                        : theme.secondary
+                  }
+                />
+              </Pressable>
+            </View>
+          </View>
         </View>
       </KeyboardAvoidingView>
 

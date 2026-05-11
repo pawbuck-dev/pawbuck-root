@@ -3,12 +3,10 @@ import PetSelector from "@/components/home/PetSelector";
 import HealthRecordsUploadSheet, {
   UploadSheetOption,
 } from "@/components/health/HealthRecordsUploadSheet";
-import HealthRecordsTooltipModal from "@/components/onboarding/HealthRecordsTooltipModal";
 import { usePets } from "@/context/petsContext";
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { petPossessiveLabel } from "@/utils/petCopy";
-import { hasSeenHealthRecordsTooltip } from "@/utils/onboardingStorage";
 import { Ionicons } from "@expo/vector-icons";
 import {
   MaterialTopTabNavigationEventMap,
@@ -55,7 +53,6 @@ export default function HealthRecordsLayout() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
-  const [showTooltip, setShowTooltip] = useState(false);
   const [showUploadSheet, setShowUploadSheet] = useState(false);
 
   const tabHeaderTitle = useMemo(
@@ -71,14 +68,6 @@ export default function HealthRecordsLayout() {
     }),
     [currentPet?.name]
   );
-
-  useEffect(() => {
-    const checkTooltip = async () => {
-      const hasSeen = await hasSeenHealthRecordsTooltip();
-      if (!hasSeen) setShowTooltip(true);
-    };
-    checkTooltip();
-  }, []);
 
   useEffect(() => {
     const currentTab = segments[segments.length - 1] as Tab;
@@ -339,7 +328,6 @@ export default function HealthRecordsLayout() {
         onClose={() => setShowUploadSheet(false)}
       />
 
-      <HealthRecordsTooltipModal visible={showTooltip} onClose={() => setShowTooltip(false)} />
     </View>
   );
 }

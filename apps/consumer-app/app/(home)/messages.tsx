@@ -9,7 +9,6 @@ import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import PendingEmailDetailView from "@/components/messages/PendingEmailDetailView";
 import PendingEmailListItem from "@/components/messages/PendingEmailListItem";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
-import MessagesOnboardingModal from "@/components/onboarding/MessagesOnboardingModal";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -23,13 +22,12 @@ import {
   groupThreadsByType,
 } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
-import { hasSeenMessagesOnboarding } from "@/utils/onboardingStorage";
 import { supabase } from "@/utils/supabase";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -70,6 +68,7 @@ export default function MessagesScreen() {
   const params = useLocalSearchParams<{
     email?: string;
     composeMessage?: string;
+    composeSubject?: string;
     composePetId?: string;
   }>();
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +77,7 @@ export default function MessagesScreen() {
     string | undefined
   >();
   const [composeInitialBody, setComposeInitialBody] = useState<string | undefined>();
+  const [composeInitialSubject, setComposeInitialSubject] = useState<string | undefined>();
   const [composeInitialPetId, setComposeInitialPetId] = useState<string | undefined>();
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
     null
@@ -87,7 +87,6 @@ export default function MessagesScreen() {
   const [selectedFailedEmail, setSelectedFailedEmail] =
     useState<FailedEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showMessagesOnboarding, setShowMessagesOnboarding] = useState(false);
   const [careTeamFilter, setCareTeamFilter] =
     useState<MessageCareTeamFilter>("all");
   const [resolutionEmail, setResolutionEmail] = useState<FailedEmail | null>(null);
@@ -112,28 +111,6 @@ export default function MessagesScreen() {
     queryFn: () => getReviewInbox(),
   });
 
-  // Check if messages onboarding should be shown
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      // Only show if no thread, pending approval, or failed email is selected
-      if (
-        !selectedThread &&
-        !selectedPendingApproval &&
-        !selectedFailedEmail &&
-        !resolutionEmail
-      ) {
-        const hasSeen = await hasSeenMessagesOnboarding();
-        if (!hasSeen) {
-          // Show after a short delay to let the screen render
-          setTimeout(() => {
-            setShowMessagesOnboarding(true);
-          }, 500);
-        }
-      }
-    };
-    checkOnboarding();
-  }, [selectedThread, selectedPendingApproval, selectedFailedEmail, resolutionEmail]);
-
   // Handle route params to open new message modal with pre-filled email
   React.useEffect(() => {
     if (params.email) {
@@ -151,13 +128,26 @@ export default function MessagesScreen() {
       } catch {
         setComposeInitialBody(String(params.composeMessage));
       }
+      if (params.composeSubject) {
+        try {
+          setComposeInitialSubject(decodeURIComponent(String(params.composeSubject)));
+        } catch {
+          setComposeInitialSubject(String(params.composeSubject));
+        }
+      } else {
+        setComposeInitialSubject(undefined);
+      }
       if (params.composePetId) {
         setComposeInitialPetId(String(params.composePetId));
       }
       setShowNewMessageModal(true);
-      router.setParams({ composeMessage: undefined, composePetId: undefined });
+      router.setParams({
+        composeMessage: undefined,
+        composeSubject: undefined,
+        composePetId: undefined,
+      });
     }
-  }, [params.composeMessage, params.composePetId]);
+  }, [params.composeMessage, params.composeSubject, params.composePetId]);
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -812,10 +802,12 @@ export default function MessagesScreen() {
           setShowNewMessageModal(false);
           setInitialRecipientEmail(undefined);
           setComposeInitialBody(undefined);
+          setComposeInitialSubject(undefined);
           setComposeInitialPetId(undefined);
         }}
         initialRecipientEmail={initialRecipientEmail}
         initialMessageBody={composeInitialBody}
+        initialSubject={composeInitialSubject}
         initialPetId={composeInitialPetId}
         onSend={async (messageData) => {
           try {
@@ -850,12 +842,6 @@ export default function MessagesScreen() {
             );
           }
         }}
-      />
-
-      {/* Messages Onboarding Modal */}
-      <MessagesOnboardingModal
-        visible={showMessagesOnboarding}
-        onClose={() => setShowMessagesOnboarding(false)}
       />
 
       <ReviewInboxResolutionModal

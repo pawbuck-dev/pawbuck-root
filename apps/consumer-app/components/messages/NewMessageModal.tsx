@@ -34,6 +34,8 @@ interface NewMessageModalProps {
   initialRecipientEmail?: string;
   /** Pre-fill body when opening from Milo journal / deep link */
   initialMessageBody?: string;
+  /** Pre-fill subject when opening from Milo journal / deep link */
+  initialSubject?: string;
   /** Pre-select pet when opening from Milo journal */
   initialPetId?: string;
 }
@@ -58,6 +60,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   onSend,
   initialRecipientEmail,
   initialMessageBody,
+  initialSubject,
   initialPetId,
 }) => {
   const { theme, mode } = useTheme();
@@ -86,6 +89,12 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       setMessage(initialMessageBody);
     }
   }, [visible, initialMessageBody]);
+
+  useEffect(() => {
+    if (visible && initialSubject != null && initialSubject.trim()) {
+      setSubject(initialSubject.trim());
+    }
+  }, [visible, initialSubject]);
 
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId) || null,
@@ -399,7 +408,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
     );
 
     return (
-      <View style={{ position: "relative" }}>
+      <View>
         <TouchableOpacity
           onPress={() => {
             setShowPetDropdown(false);
@@ -441,11 +450,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
         {showDropdown && (
           <View
             style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              marginTop: 6,
+              marginTop: 8,
+              alignSelf: "stretch",
               borderRadius: 16,
               backgroundColor: inputBg,
               borderWidth: 1,
@@ -457,7 +463,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               shadowOpacity: 0.22,
               shadowRadius: 16,
               elevation: Platform.OS === "android" ? 18 : 10,
-              zIndex: 100,
             }}
           >
             <ScrollView
@@ -667,25 +672,17 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
           </View>
         </View>
 
-        <ScrollView
-          style={{ flex: 1, paddingHorizontal: 20, overflow: "visible" }}
-          contentContainerStyle={{ paddingBottom: 8 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Pet Selector */}
+        {/*
+          Pet + To sit above the body ScrollView. Recipient/pet lists use in-flow layout (not
+          position:absolute) so the menu reserves vertical space and never draws over Subject/Message.
+        */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 4 }}>
           {pets.length > 1 && (
-            <View
-            style={{
-              marginBottom: 20,
-              zIndex: showPetDropdown ? 80 : 1,
-              elevation: showPetDropdown && Platform.OS === "android" ? 12 : 0,
-            }}
-          >
+            <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
                 Pet
               </Text>
-              <View style={{ position: "relative" }}>
+              <View>
                 <TouchableOpacity
                   onPress={() => {
                     setShowPetDropdown(!showPetDropdown);
@@ -717,11 +714,8 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                 {showPetDropdown && (
                   <View
                     style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      marginTop: 4,
+                      marginTop: 8,
+                      alignSelf: "stretch",
                       backgroundColor: inputBg,
                       borderWidth: 1,
                       borderColor: inputBorder,
@@ -732,7 +726,6 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       shadowOpacity: 0.25,
                       shadowRadius: 12,
                       elevation: Platform.OS === "android" ? 16 : 8,
-                      zIndex: 90,
                     }}
                   >
                     <ScrollView
@@ -776,14 +769,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             </View>
           )}
 
-          {/* To Field — high z-index + opaque menu so list is not obscured by Subject/Message below */}
-          <View
-            style={{
-              marginBottom: 20,
-              zIndex: showToDropdown ? 100 : 3,
-              elevation: showToDropdown && Platform.OS === "android" ? 20 : 0,
-            }}
-          >
+          <View style={{ marginBottom: 16 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
               To
             </Text>
@@ -795,7 +781,14 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               () => setShowToDropdown(!showToDropdown)
             )}
           </View>
+        </View>
 
+        <ScrollView
+          style={{ flex: 1, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingBottom: 8 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Subject Field */}
           <View style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>

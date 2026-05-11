@@ -8,7 +8,7 @@ export default function AddPetCard() {
   const { theme } = useTheme();
 
   const handleAddPet = () => {
-    router.push("/onboarding/step1");
+    router.push("/(home)/add-pet");
   };
 
   return (

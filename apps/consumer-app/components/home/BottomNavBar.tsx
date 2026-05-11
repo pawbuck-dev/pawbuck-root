@@ -1,5 +1,4 @@
 import { useChat } from "@/context/chatContext";
-import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -42,7 +41,6 @@ export default function BottomNavBar({
   const router = useRouter();
   const pathname = usePathname();
   const { openChat } = useChat();
-  const { ensurePremium } = useSubscription();
   const { pets } = usePets();
   const { pendingApprovals } = useEmailApproval();
   const insets = useSafeAreaInsets();
@@ -68,7 +66,7 @@ export default function BottomNavBar({
 
   const handleNavPress = (id: string) => {
     if (id === "milo") {
-      ensurePremium(() => openChat(), "bottom_nav_milo");
+      openChat();
       return;
     }
     const item = navItems.find((n) => n.id === id);

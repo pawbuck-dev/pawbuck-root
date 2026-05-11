@@ -1,7 +1,5 @@
-import InitialWelcomeScreen from "@/components/onboarding/InitialWelcomeScreen";
 import SplashScreen from "@/components/layout/SplashScreen";
 import { useAuth } from "@/context/authContext";
-import { useOnboarding } from "@/context/onboardingContext";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -9,46 +7,24 @@ import { View } from "react-native";
 export default function Index() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
-  const { isOnboardingComplete } = useOnboarding();
-  const [showSplash, setShowSplash] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
 
-  // Redirect to home if already authenticated
   useEffect(() => {
-    if (!loading && isAuthenticated && !isOnboardingComplete) {
-      router.replace("/home");
+    if (loading || !splashDone) return;
+    if (isAuthenticated) {
+      router.replace("/(home)/home");
+    } else {
+      router.replace("/login");
     }
-  }, [isAuthenticated, loading, router, isOnboardingComplete]);
+  }, [isAuthenticated, loading, splashDone, router]);
 
-  // Handle splash screen finish
-  const handleSplashFinish = () => {
-    setShowSplash(false);
-    setShowWelcome(true);
-  };
-
-  // Show loading screen while checking authentication (SplashScreen sets StatusBar by theme)
-  if (loading) {
+  if (loading || !splashDone) {
     return (
       <View className="flex-1">
-        <SplashScreen onFinish={handleSplashFinish} />
+        <SplashScreen onFinish={() => setSplashDone(true)} />
       </View>
     );
   }
 
-  // Don't render the welcome screen if authenticated (will redirect)
-  if (isAuthenticated) {
-    return null;
-  }
-
-  // Show splash screen (Figma light 1386:41126 / dark 1340:30146)
-  if (showSplash) {
-    return (
-      <View className="flex-1">
-        <SplashScreen onFinish={handleSplashFinish} />
-      </View>
-    );
-  }
-
-  // Show initial welcome screen after splash (Figma 1340:31045 dark / 1386:42025 light)
-  return <InitialWelcomeScreen />;
+  return null;
 }

@@ -15,7 +15,6 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
-import EmailOnboardingModal from "@/components/onboarding/EmailOnboardingModal";
 import { useAuth } from "@/context/authContext";
 import { useChat } from "@/context/chatContext";
 import { useSubscription } from "@/context/subscriptionContext";
@@ -23,7 +22,6 @@ import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { hasSeenEmailOnboarding } from "@/utils/onboardingStorage";
 import { TablesInsert, TablesUpdate } from "@/database.types";
 import {
   getCareTeamMembersForPet,
@@ -49,7 +47,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -93,8 +91,6 @@ export default function Home() {
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
-  const [showEmailOnboarding, setShowEmailOnboarding] = useState(false);
-
   const { data: messageThreads = [] } = useQuery({
     queryKey: ["messageThreads"],
     queryFn: () => fetchMessageThreads(),
@@ -288,16 +284,6 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    const checkEmailOnboarding = async () => {
-      if (selectedPet?.email_id) {
-        const hasSeen = await hasSeenEmailOnboarding();
-        if (!hasSeen) setShowEmailOnboarding(true);
-      }
-    };
-    checkEmailOnboarding();
-  }, [selectedPet?.email_id]);
-
   useFocusEffect(
     useCallback(() => {
       if (selectedPetId) {
@@ -365,7 +351,7 @@ export default function Home() {
             Add your first furry friend to get started
           </Text>
           <TouchableOpacity
-            onPress={() => router.push("/onboarding/step1")}
+            onPress={() => router.push("/(home)/add-pet")}
             style={{
               width: "100%",
               maxWidth: 320,
@@ -441,9 +427,7 @@ export default function Home() {
           )}
 
           {/* Lead: Talk to Milo */}
-          <MiloHomeLeadCard
-            onOpenMilo={() => ensurePremium(() => openChat(), "home_milo_lead")}
-          />
+          <MiloHomeLeadCard onOpenMilo={() => openChat()} />
 
           {/* Health Briefing + journal continuity */}
           {selectedPet && (
@@ -638,14 +622,6 @@ export default function Home() {
         />
       )}
 
-      {/* Email Onboarding Modal */}
-      {selectedPet?.email_id && (
-        <EmailOnboardingModal
-          visible={showEmailOnboarding}
-          petEmail={`${selectedPet.email_id}@pawbuck.app`}
-          onClose={() => setShowEmailOnboarding(false)}
-        />
-      )}
     </View>
   );
 }

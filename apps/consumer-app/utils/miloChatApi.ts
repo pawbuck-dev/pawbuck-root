@@ -1,4 +1,5 @@
 import { Pet } from "@/context/petsContext";
+import type { VetMedicalContext, VetNotificationPayload } from "@/types/vetNotification";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 
@@ -37,6 +38,10 @@ export type MiloChatApiResult = {
   journalSessionComplete?: boolean;
   journalStatus?: string;
   journalSummary?: string;
+  /** Structured vet-notification payload when journal completes (API). */
+  vetNotification?: VetNotificationPayload | null;
+  /** Record-backed medical lines for vet compose (API). */
+  vetMedicalContext?: VetMedicalContext | null;
   /** Server turn id for POST /api/milo/chat/feedback (general + journal). */
   turnId?: string;
   /** @deprecated Same as turnId when present */
@@ -45,6 +50,37 @@ export type MiloChatApiResult = {
   heuristicTags?: string[];
   fileAttachments?: MiloChatFileAttachment[];
 };
+
+function parseVetMedicalContext(raw: unknown): VetMedicalContext | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const s = (k: string) => (typeof o[k] === "string" ? (o[k] as string).trim() : undefined);
+  const out: VetMedicalContext = {
+    lastVisitDate: s("lastVisitDate"),
+    lastVisitLabel: s("lastVisitLabel"),
+    vaccinesStatus: s("vaccinesStatus"),
+    vaccinesDetail: s("vaccinesDetail"),
+    medicationsLine: s("medicationsLine"),
+    allergiesLine: s("allergiesLine"),
+    insuranceLine: s("insuranceLine"),
+    weightTrendSummary: s("weightTrendSummary"),
+  };
+  const has =
+    out.lastVisitDate ||
+    out.lastVisitLabel ||
+    out.vaccinesStatus ||
+    out.vaccinesDetail ||
+    out.medicationsLine ||
+    out.allergiesLine ||
+    out.insuranceLine ||
+    out.weightTrendSummary;
+  return has ? out : undefined;
+}
+
+function parseVetNotificationPayload(raw: unknown): VetNotificationPayload | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  return raw as VetNotificationPayload;
+}
 
 function parseTurnIdFromChatJson(data: {
   turnId?: unknown;
@@ -150,6 +186,8 @@ export async function fetchMiloChat(params: {
     journalSessionComplete?: boolean;
     journalStatus?: string;
     journalSummary?: string;
+    vetNotification?: unknown;
+    vetMedicalContext?: unknown;
     turnId?: string;
     responseId?: string;
     promptVersion?: string;
@@ -209,6 +247,8 @@ export async function fetchMiloChat(params: {
     journalSessionComplete: data.journalSessionComplete,
     journalStatus: data.journalStatus,
     journalSummary: data.journalSummary,
+    vetNotification: parseVetNotificationPayload(data.vetNotification),
+    vetMedicalContext: parseVetMedicalContext(data.vetMedicalContext),
     turnId,
     responseId: turnId,
     promptVersion: data.promptVersion,

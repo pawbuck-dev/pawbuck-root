@@ -1,6 +1,5 @@
 import { useAuth } from "@/context/authContext";
 import { Pet } from "@/context/petsContext";
-import { useSubscription } from "@/context/subscriptionContext";
 import { hasAcceptedMiloGeneralChatDisclaimer } from "@/services/miloGeneralChatDisclaimer";
 import type { MiloStarterScreen } from "@/services/miloSuggestedPrompts";
 import {
@@ -45,7 +44,6 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 function ChatProviderInner({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { openPaywall } = useSubscription();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +132,6 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Chat error:", err);
       if (err instanceof SubscriptionRequiredError) {
-        openPaywall("milo_chat");
         setError(err.message);
         return;
       }
@@ -151,7 +148,7 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPet, openPaywall, user?.id]);
+  }, [selectedPet, user?.id]);
 
   return (
     <ChatContext.Provider

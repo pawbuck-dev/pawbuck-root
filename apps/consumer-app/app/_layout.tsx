@@ -5,7 +5,6 @@ import { SubscriptionProvider } from "@/context/subscriptionContext";
 import { configureRevenueCat } from "@/services/revenuecat";
 import { EmailApprovalProvider } from "@/context/emailApprovalContext";
 import { NotificationsProvider } from "@/context/notificationsContext";
-import { OnboardingProvider } from "@/context/onboardingContext";
 import { PetsProvider } from "@/context/petsContext";
 import { SelectedPetProvider } from "@/context/selectedPetContext";
 import { ThemeProvider, useTheme } from "@/context/themeContext";
@@ -135,26 +134,24 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <EmailApprovalProvider>
-            <OnboardingProvider>
-              <PetsProvider>
-                <SelectedPetProvider>
-                  <UserPreferencesProvider>
-                    <NotificationsProvider>
-                      <SafeAreaProvider>
-                        <GestureHandlerRootView>
-                          <SubscriptionProvider>
-                            <ChatProvider>
-                              <ThemedRootStack />
-                            </ChatProvider>
-                          </SubscriptionProvider>
-                        </GestureHandlerRootView>
-                        <EmailApprovalModal />
-                      </SafeAreaProvider>
-                    </NotificationsProvider>
-                  </UserPreferencesProvider>
-                </SelectedPetProvider>
-              </PetsProvider>
-            </OnboardingProvider>
+            <PetsProvider>
+              <SelectedPetProvider>
+                <UserPreferencesProvider>
+                  <NotificationsProvider>
+                    <SafeAreaProvider>
+                      <GestureHandlerRootView>
+                        <SubscriptionProvider>
+                          <ChatProvider>
+                            <ThemedRootStack />
+                          </ChatProvider>
+                        </SubscriptionProvider>
+                      </GestureHandlerRootView>
+                      <EmailApprovalModal />
+                    </SafeAreaProvider>
+                  </NotificationsProvider>
+                </UserPreferencesProvider>
+              </SelectedPetProvider>
+            </PetsProvider>
           </EmailApprovalProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -34,18 +34,6 @@ jest.mock("@/context/themeContext", () => ({
   }),
 }));
 
-jest.mock("@/context/onboardingContext", () => ({
-  useOnboarding: () => ({
-    isOnboardingComplete: false,
-    petData: null,
-    resetOnboarding: jest.fn(),
-  }),
-}));
-
-jest.mock("@/context/petsContext", () => ({
-  usePets: () => ({ addPet: jest.fn() }),
-}));
-
 jest.mock("@/components/OAuth/OAuth", () => ({
   __esModule: true,
   default: () => null,

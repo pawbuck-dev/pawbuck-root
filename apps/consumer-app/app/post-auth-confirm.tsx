@@ -1,7 +1,4 @@
-import { useOnboarding } from "@/context/onboardingContext";
-import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { TablesInsert } from "@/database.types";
 import {
   needsDisplayNamePrompt,
   persistOwnerDisplayNameForSession,
@@ -30,15 +27,13 @@ function paramToString(v: string | string[] | undefined): string {
 }
 
 /**
- * After OAuth: confirm account + save pet from onboarding draft; optional inline name when the provider did not supply one.
+ * After OAuth: optional inline display name when the provider did not supply one.
  */
 export default function PostAuthConfirmScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const { isOnboardingComplete, petData, resetOnboarding } = useOnboarding();
-  const { addPet } = usePets();
   const params = useLocalSearchParams<{
     returnTo?: string | string[];
     transferCode?: string | string[];
@@ -54,18 +49,6 @@ export default function PostAuthConfirmScreen() {
   const [booting, setBooting] = useState(true);
   const [showNameField, setShowNameField] = useState(false);
 
-  const createPetIfNeeded = useCallback(async () => {
-    if (isOnboardingComplete && petData?.name) {
-      try {
-        await addPet(petData as TablesInsert<"pets">);
-      } catch (e) {
-        console.error("[post-auth-confirm] addPet", e);
-      } finally {
-        resetOnboarding();
-      }
-    }
-  }, [isOnboardingComplete, petData, addPet, resetOnboarding]);
-
   const goHomeOrReturn = useCallback(async () => {
     const {
       data: { user },
@@ -73,16 +56,15 @@ export default function PostAuthConfirmScreen() {
     if (user?.id) {
       await upsertUserPreferences(user.id, {}).catch(() => {});
     }
-    await createPetIfNeeded();
     if (returnTo && (transferCode || inviteCode)) {
       router.replace({
         pathname: returnTo as never,
         params: transferCode ? { transferCode } : { inviteCode },
       });
     } else {
-      router.replace("/home");
+      router.replace("/(home)/home");
     }
-  }, [createPetIfNeeded, returnTo, transferCode, inviteCode, router]);
+  }, [returnTo, transferCode, inviteCode, router]);
 
   const goHomeOrReturnRef = useRef(goHomeOrReturn);
   goHomeOrReturnRef.current = goHomeOrReturn;
@@ -136,11 +118,7 @@ export default function PostAuthConfirmScreen() {
     }
   }, [name, goHomeOrReturn]);
 
-  const petLabel = petData?.name?.trim() || "your pet";
-  const petLine =
-    isOnboardingComplete && petData?.name
-      ? `We'll save ${petLabel}'s profile to your account.`
-      : "You're ready to use PawBuck.";
+  const petLine = "You're ready to use PawBuck.";
 
   if (booting) {
     return (

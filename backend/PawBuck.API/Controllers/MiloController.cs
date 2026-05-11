@@ -100,6 +100,21 @@ public class MiloController : ControllerBase
     }
 
     /// <summary>
+    /// Plain-text vet notification draft (subject + body) from structured fields. Same rules as the consumer compose helper.
+    /// </summary>
+    [Authorize]
+    [HttpPost("vet-notification-draft")]
+    [ProducesResponseType(typeof(MiloVetNotificationDraftResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult VetNotificationDraft([FromBody] MiloVetNotificationDraftRequest? body)
+    {
+        if (body == null)
+            return BadRequest(new { error = "body is required" });
+        var (subject, text) = VetNotificationPlainTextComposer.Compose(body);
+        return Ok(new MiloVetNotificationDraftResponse { Subject = subject, Body = text });
+    }
+
+    /// <summary>
     /// Thumbs up/down on a journal Milo assistant turn (<see cref="MiloChatResponse.ResponseId"/>).
     /// </summary>
     [Authorize]

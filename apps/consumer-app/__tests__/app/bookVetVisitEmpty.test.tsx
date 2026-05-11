@@ -80,7 +80,7 @@ describe("BookVetVisitScreen (no pets)", () => {
     jest.clearAllMocks();
   });
 
-  it("prompts to add a pet and links to onboarding", () => {
+  it("prompts to add a pet and links to add-pet", () => {
     render(
       <SafeAreaProvider initialMetrics={initialMetrics}>
         <BookVetVisitScreen />
@@ -89,6 +89,6 @@ describe("BookVetVisitScreen (no pets)", () => {
     expect(screen.getByText("Book a visit")).toBeTruthy();
     expect(screen.getByText(/Add a pet to your profile first/)).toBeTruthy();
     fireEvent.press(screen.getByText("Add a pet"));
-    expect(mockPush).toHaveBeenCalledWith("/onboarding/step1");
+    expect(mockPush).toHaveBeenCalledWith("/(home)/add-pet");
   });
 });

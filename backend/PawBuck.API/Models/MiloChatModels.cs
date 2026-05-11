@@ -129,6 +129,178 @@ public class MiloChatResponse
     /// <summary>Recent health record documents tied to the facts loaded for this turn (for in-chat file chips).</summary>
     [JsonPropertyName("fileAttachments")]
     public IReadOnlyList<MiloChatFileAttachment>? FileAttachments { get; set; }
+
+    /// <summary>Optional structured vet-notification payload when journal mode completes (spec §4).</summary>
+    [JsonPropertyName("vetNotification")]
+    public MiloVetNotificationPayloadDto? VetNotification { get; set; }
+
+    /// <summary>Optional record-backed medical lines for vet compose (server only).</summary>
+    [JsonPropertyName("vetMedicalContext")]
+    public MiloVetMedicalContextDto? VetMedicalContext { get; set; }
+}
+
+/// <summary>Triage block for vet notification JSON (journal Gemini).</summary>
+public sealed class MiloVetNotificationTriageDto
+{
+    [JsonPropertyName("level")]
+    public string? Level { get; set; }
+
+    [JsonPropertyName("rationale")]
+    public string? Rationale { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+}
+
+public sealed class MiloVetNotificationObservationDto
+{
+    [JsonPropertyName("taxonomy")]
+    public string? Taxonomy { get; set; }
+
+    [JsonPropertyName("displayLabel")]
+    public string? DisplayLabel { get; set; }
+
+    [JsonPropertyName("primaryChip")]
+    public string? PrimaryChip { get; set; }
+
+    [JsonPropertyName("userText")]
+    public string? UserText { get; set; }
+
+    [JsonPropertyName("onset")]
+    public string? Onset { get; set; }
+
+    [JsonPropertyName("frequency")]
+    public string? Frequency { get; set; }
+
+    [JsonPropertyName("severity")]
+    public string? Severity { get; set; }
+
+    [JsonPropertyName("trend")]
+    public string? Trend { get; set; }
+
+    [JsonPropertyName("onsetContext")]
+    public string? OnsetContext { get; set; }
+}
+
+public sealed class MiloVetNotificationPayloadDto
+{
+    [JsonPropertyName("triage")]
+    public MiloVetNotificationTriageDto? Triage { get; set; }
+
+    [JsonPropertyName("observations")]
+    public List<MiloVetNotificationObservationDto>? Observations { get; set; }
+
+    [JsonPropertyName("negativeFindings")]
+    public List<string>? NegativeFindings { get; set; }
+
+    [JsonPropertyName("askLine")]
+    public string? AskLine { get; set; }
+}
+
+public sealed class MiloVetMedicalContextDto
+{
+    [JsonPropertyName("lastVisitDate")]
+    public string? LastVisitDate { get; set; }
+
+    [JsonPropertyName("lastVisitLabel")]
+    public string? LastVisitLabel { get; set; }
+
+    [JsonPropertyName("vaccinesStatus")]
+    public string? VaccinesStatus { get; set; }
+
+    [JsonPropertyName("vaccinesDetail")]
+    public string? VaccinesDetail { get; set; }
+
+    [JsonPropertyName("medicationsLine")]
+    public string? MedicationsLine { get; set; }
+
+    [JsonPropertyName("allergiesLine")]
+    public string? AllergiesLine { get; set; }
+
+    [JsonPropertyName("insuranceLine")]
+    public string? InsuranceLine { get; set; }
+
+    [JsonPropertyName("weightTrendSummary")]
+    public string? WeightTrendSummary { get; set; }
+}
+
+/// <summary>Request for <c>POST /api/milo/vet-notification-draft</c> (plain-text subject + body).</summary>
+public sealed class MiloVetNotificationDraftRequest
+{
+    [JsonPropertyName("petName")]
+    public string? PetName { get; set; }
+
+    [JsonPropertyName("breed")]
+    public string? Breed { get; set; }
+
+    [JsonPropertyName("animalType")]
+    public string? AnimalType { get; set; }
+
+    [JsonPropertyName("dateOfBirth")]
+    public string? DateOfBirth { get; set; }
+
+    [JsonPropertyName("sex")]
+    public string? Sex { get; set; }
+
+    [JsonPropertyName("weightValue")]
+    public double WeightValue { get; set; }
+
+    [JsonPropertyName("weightUnit")]
+    public string? WeightUnit { get; set; }
+
+    [JsonPropertyName("emailId")]
+    public string? EmailId { get; set; }
+
+    [JsonPropertyName("microchip")]
+    public string? Microchip { get; set; }
+
+    [JsonPropertyName("userTurns")]
+    public List<string>? UserTurns { get; set; }
+
+    [JsonPropertyName("journalSummary")]
+    public string? JournalSummary { get; set; }
+
+    [JsonPropertyName("ownerSigningName")]
+    public string? OwnerSigningName { get; set; }
+
+    [JsonPropertyName("sessionDateLabel")]
+    public string? SessionDateLabel { get; set; }
+
+    [JsonPropertyName("logIsoTimestamp")]
+    public string? LogIsoTimestamp { get; set; }
+
+    [JsonPropertyName("timezoneAbbrev")]
+    public string? TimezoneAbbrev { get; set; }
+
+    [JsonPropertyName("severity")]
+    public string? Severity { get; set; }
+
+    [JsonPropertyName("vetNotification")]
+    public MiloVetNotificationPayloadDto? VetNotification { get; set; }
+
+    [JsonPropertyName("vetMedicalContext")]
+    public MiloVetMedicalContextDto? VetMedicalContext { get; set; }
+
+    [JsonPropertyName("ownerPhone")]
+    public string? OwnerPhone { get; set; }
+
+    [JsonPropertyName("ownerEmail")]
+    public string? OwnerEmail { get; set; }
+
+    [JsonPropertyName("preferredContactLine")]
+    public string? PreferredContactLine { get; set; }
+
+    [JsonPropertyName("journalRecordId")]
+    public string? JournalRecordId { get; set; }
+}
+
+public sealed class MiloVetNotificationDraftResponse
+{
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = "";
+
+    [JsonPropertyName("body")]
+    public string Body { get; set; } = "";
 }
 
 /// <summary>Gemini plan step (JSON). Property names match API camelCase.</summary>

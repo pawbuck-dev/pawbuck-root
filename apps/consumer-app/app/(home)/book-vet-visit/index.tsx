@@ -279,7 +279,7 @@ export default function BookVetVisitScreen() {
             Add a pet to your profile first, then you can book a vet visit.
           </Text>
           <Pressable
-            onPress={() => router.push("/onboarding/step1")}
+            onPress={() => router.push("/(home)/add-pet")}
             className="mt-6 py-3 px-6 rounded-full self-start"
             style={{ backgroundColor: "#3BD0D2" }}
           >

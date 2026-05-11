@@ -1,4 +1,3 @@
-import { useOnboarding } from "@/context/onboardingContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,7 +22,6 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const { selectedPet } = useSelectedPet();
-  const { resetOnboarding } = useOnboarding();
   const router = useRouter();
   const greeting = useMemo(() => getGreeting(), []);
   /** With a selected pet: "{Name}'s Care". With none, avoid the literal "Pet's Care" fallback. */
@@ -83,8 +81,7 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TouchableOpacity
             onPress={() => {
-              resetOnboarding();
-              router.push("/onboarding/step1");
+              router.push("/(home)/add-pet");
             }}
             activeOpacity={0.7}
             style={btnStyle}

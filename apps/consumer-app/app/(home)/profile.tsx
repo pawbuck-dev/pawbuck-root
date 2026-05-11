@@ -1,6 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PrivateImage from "@/components/common/PrivateImage";
-import PetPassportOnboardingModal from "@/components/onboarding/PetPassportOnboardingModal";
 import { LogOutConfirmModal } from "@/components/profile/LogOutConfirmModal";
 import { ProfileEditModal } from "@/components/profile/ProfileEditModal";
 import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/ProfileFigmaRow";
@@ -18,13 +17,11 @@ import {
 import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
-import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { invokeDeleteAccount } from "@/services/accountDeletion";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
-import { hasSeenPetPassportOnboarding } from "@/utils/onboardingStorage";
 import { supabase } from "@/utils/supabase";
 import {
   profileEmailDisplayForHero,
@@ -55,7 +52,6 @@ export default function Profile() {
   const { user, signOut } = useAuth();
   const { pets } = usePets();
   const { selectedPet, selectedPetId, setSelectedPetId } = useSelectedPet();
-  const { resetOnboarding, setPostPetCreationRoute } = useOnboarding();
   const queryClient = useQueryClient();
 
   const screenTokens = useMemo(() => getProfileScreenTokens(theme, isDarkMode), [theme, isDarkMode]);
@@ -68,8 +64,6 @@ export default function Profile() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [showPetPassportOnboarding, setShowPetPassportOnboarding] = useState(false);
-
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user_profile"],
     queryFn: getUserProfile,
@@ -122,23 +116,6 @@ export default function Profile() {
       setIsSigningOut(false);
     }
   };
-
-  useEffect(() => {
-    let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    void (async () => {
-      const hasSeen = await hasSeenPetPassportOnboarding();
-      if (!hasSeen && !cancelled) {
-        timeoutId = setTimeout(() => {
-          if (!cancelled) setShowPetPassportOnboarding(true);
-        }, 500);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
 
   const performAccountDeletion = async () => {
     setIsDeletingAccount(true);
@@ -353,9 +330,7 @@ export default function Profile() {
               subtitle={row.subtitle}
               onPress={() => {
                 if (row.id === "add") {
-                  resetOnboarding();
-                  setPostPetCreationRoute("/(home)/profile");
-                  router.push(row.href);
+                  router.push("/(home)/add-pet");
                   return;
                 }
                 if (row.id === "details") {
@@ -475,10 +450,6 @@ export default function Profile() {
         isSigningOut={isSigningOut}
       />
 
-      <PetPassportOnboardingModal
-        visible={showPetPassportOnboarding}
-        onClose={() => setShowPetPassportOnboarding(false)}
-      />
     </View>
   );
 }
