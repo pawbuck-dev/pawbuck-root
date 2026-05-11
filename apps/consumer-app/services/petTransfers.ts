@@ -100,9 +100,9 @@ export type CreatePetTransferOptions = {
 };
 
 export type TransferPrepSnapshot = {
-  weightValue: number;
-  weightUnit: string;
-  weightLabel: string;
+  weightValue: number | null;
+  weightUnit: string | null;
+  weightLabel: string | null;
   activeMedicationCount: number;
   lastVetVisitDate: string | null;
   /** Approximate whole days since last vet visit (null if unknown). */
@@ -396,10 +396,13 @@ export async function getTransferPrepSnapshot(petId: string): Promise<TransferPr
     vetVisitOlderThan12Months = Date.now() - d0 > 365.25 * 86400000;
   }
 
+  const wv = pet.weight_value;
+  const wu = pet.weight_unit;
+  const hasWeight = wv != null && wu != null && wu.trim() !== "";
   return {
-    weightValue: Number(pet.weight_value),
-    weightUnit: pet.weight_unit,
-    weightLabel: formatWeightLabel(Number(pet.weight_value), pet.weight_unit),
+    weightValue: hasWeight ? Number(wv) : null,
+    weightUnit: hasWeight ? wu : null,
+    weightLabel: hasWeight ? formatWeightLabel(Number(wv), wu) : null,
     activeMedicationCount,
     lastVetVisitDate,
     lastVetVisitDaysAgo,

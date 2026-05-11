@@ -67,9 +67,17 @@ export default function PetProfile() {
       if (weightUnit === "kg" && isKg) {
         setEditedWeightValue(currentPet.weight_value?.toString() || "");
       } else if (weightUnit === "kg" && !isKg) {
-        setEditedWeightValue((currentPet.weight_value / 2.20462).toFixed(1));
+        setEditedWeightValue(
+          currentPet.weight_value != null
+            ? (currentPet.weight_value / 2.20462).toFixed(1)
+            : ""
+        );
       } else if (weightUnit === "lbs" && isKg) {
-        setEditedWeightValue((currentPet.weight_value * 2.20462).toFixed(1));
+        setEditedWeightValue(
+          currentPet.weight_value != null
+            ? (currentPet.weight_value * 2.20462).toFixed(1)
+            : ""
+        );
       } else {
         setEditedWeightValue(currentPet.weight_value?.toString() || "");
       }

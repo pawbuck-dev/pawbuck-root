@@ -482,6 +482,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
       return convertWeight(latestLog.weight_value, latestLog.weight_unit as WeightUnit, displayUnit);
     }
     if (pet) {
+      if (pet.weight_value == null) return null;
       const u = pet.weight_unit === "kg" ? "kg" : "lbs";
       return convertWeight(pet.weight_value, u, displayUnit);
     }

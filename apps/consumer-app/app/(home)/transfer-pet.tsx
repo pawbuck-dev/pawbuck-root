@@ -562,7 +562,7 @@ export default function TransferPet() {
               <View style={[styles.snapshotCard, { backgroundColor: cardBg }]}>
                 <Text style={[styles.snapshotTitle, { color: theme.foreground }]}>Current status</Text>
                 <Text style={[styles.snapshotLine, { color: theme.secondary }]}>
-                  Weight: {transferPrep.weightLabel}
+                  Weight: {transferPrep.weightLabel ?? "Not on file"}
                 </Text>
                 <Text style={[styles.snapshotLine, { color: theme.secondary, marginTop: 6 }]}>
                   Active medication courses: {transferPrep.activeMedicationCount}
