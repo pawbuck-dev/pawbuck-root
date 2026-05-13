@@ -58,6 +58,17 @@ function SignUp() {
         await upsertUserPreferences(data.user.id, {});
       }
 
+      // Email confirmation enabled: signUp succeeds but there is no session yet — do not
+      // send users to home (they cannot load or save pets until they confirm + sign in).
+      if (!data.session) {
+        Alert.alert(
+          "Check your email",
+          "We sent you a confirmation link. Open it to activate your account, then sign in. You can add your pet after you are signed in.",
+          [{ text: "OK", onPress: () => router.replace("/login") }]
+        );
+        return;
+      }
+
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,

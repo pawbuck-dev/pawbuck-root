@@ -23,7 +23,15 @@ export const getPets = async () => {
 
 export const createPet = async (petData: TablesInsert<"pets">) => {
   // Align the REST client's JWT with storage (same identity PostgREST sends to Postgres).
-  await supabase.auth.refreshSession();
+  const { error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError) {
+    const {
+      data: { session: fallback },
+    } = await supabase.auth.getSession();
+    if (!fallback?.access_token) {
+      throw refreshError;
+    }
+  }
 
   const {
     data: { user },

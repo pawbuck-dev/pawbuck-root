@@ -33,11 +33,14 @@ export function isSessionExpiredLikeError(err: unknown): boolean {
     msg.includes("refresh token not found") ||
     msg.includes("session expired") ||
     msg.includes("session missing") ||
-    msg.includes("not authenticated") ||
     msg.includes("auth session missing")
   ) {
     return true;
   }
+
+  // Do not treat Postgres RPC text "not authenticated" as a JWT/session expiry:
+  // insert_pet_for_current_user (and similar) may raise that when auth.uid() is null;
+  // misclassification caused signOut() and empty home right after onboarding.
 
   // PostgREST: invalid / expired JWT on API requests (code varies by version)
   if (code === "PGRST301") return true;

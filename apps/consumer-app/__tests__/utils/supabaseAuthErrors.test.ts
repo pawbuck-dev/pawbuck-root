@@ -20,6 +20,10 @@ describe("supabaseAuthErrors", () => {
       expect(isSessionExpiredLikeError(new Error("Network request failed"))).toBe(false);
       expect(isSessionExpiredLikeError({ code: "42501", message: "permission denied" })).toBe(false);
     });
+
+    it("does not treat pet insert RPC auth wording as session expiry", () => {
+      expect(isSessionExpiredLikeError({ message: "not authenticated", code: "28000" })).toBe(false);
+    });
   });
 
   describe("isRlsAccessDeniedError", () => {

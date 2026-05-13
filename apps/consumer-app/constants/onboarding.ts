@@ -4,7 +4,32 @@ import { onboardingCountryFlags } from "./onboardingCountries";
 export const COUNTRY_FLAGS: Record<string, string> = onboardingCountryFlags();
 
 
-  export const CAT_BREEDS = [
+/** Quick picks when the breed search box is empty (must exist in {@link CAT_BREEDS}). */
+export const POPULAR_CAT_BREEDS_FOR_PICKER = [
+  "British Shorthair",
+  "Maine Coon",
+  "Persian",
+  "Ragdoll",
+  "Siamese",
+  "American Shorthair",
+  "Bengal",
+  "Unknown",
+];
+
+/** Quick picks when the breed search box is empty (must exist in {@link DOG_BREEDS}). */
+export const POPULAR_DOG_BREEDS_FOR_PICKER = [
+  "Labrador Retriever",
+  "Golden Retriever",
+  "French Bulldog",
+  "German Shepherd Dog",
+  "Poodle",
+  "Bulldog",
+  "Beagle",
+  "Dachshund",
+  "Unknown",
+];
+
+export const CAT_BREEDS = [
    "Abyssinian", "Aegean", "American Bobtail", "American Curl", "American Shorthair", "American Wirehair", "Aphrodite Giant", "Arabian Mau", "Asian cat", "Australian Mist",
     "Balinese", "Bambino", "Bengal", "Birman", "Bombay", "British Longhair", "British Shorthair", "Burmese", "Burmilla",
     "California Spangled", "Chantilly-Tiffany", "Chartreux", "Chausie", "Colorpoint Shorthair", "Cornish Rex", "Cymric", "Cyprus",
@@ -20,7 +45,7 @@ export const COUNTRY_FLAGS: Record<string, string> = onboardingCountryFlags();
   ];
 
 
-  export const DOG_BREEDS = [
+export const DOG_BREEDS = [
       "Affenpinscher", "Afghan Hound", "Airedale Terrier", "Akita", "Alaskan Malamute", "American Bulldog", "American Cocker Spaniel", "American English Coonhound", "American Eskimo Dog", "American Foxhound", "American Staffordshire Terrier", "Anatolian Shepherd Dog", "Australian Cattle Dog", "Australian Shepherd", "Australian Terrier",
       "Basenji", "Basset Hound", "Beagle", "Bearded Collie", "Beauceron", "Bedlington Terrier", "Belgian Malinois", "Belgian Sheepdog", "Belgian Tervuren", "Bernese Mountain Dog", "Bichon Frise", "Black and Tan Coonhound", "Bloodhound", "Border Collie", "Border Terrier", "Borzoi", "Boston Terrier", "Bouvier des Flandres", "Boxer", "Boykin Spaniel", "Briard", "Brittany", "Brussels Griffon", "Bull Terrier", "Bulldog", "Bullmastiff",
       "Cairn Terrier", "Canaan Dog", "Cane Corso", "Cardigan Welsh Corgi", "Cavalier King Charles Spaniel", "Chesapeake Bay Retriever", "Chihuahua", "Chinese Crested", "Chinese Shar-Pei", "Chow Chow", "Clumber Spaniel", "Cocker Spaniel", "Collie", "Coton de Tulear", "Curly-Coated Retriever",
