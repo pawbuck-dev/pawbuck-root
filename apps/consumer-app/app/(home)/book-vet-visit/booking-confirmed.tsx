@@ -95,8 +95,7 @@ export default function BookingConfirmedScreen() {
   };
 
   const onViewAppointments = () => {
-    Alert.alert("Coming soon", "Your appointments list will live here.");
-    router.replace("/(home)/home");
+    router.replace("/(home)/calendar" as any);
   };
 
   const cardBg = isDark ? "rgba(255,255,255,0.08)" : "#FFFFFF";

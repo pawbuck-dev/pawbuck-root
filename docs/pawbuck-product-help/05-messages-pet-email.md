@@ -15,3 +15,7 @@ Forward vet emails to your pet's PawBuck address from your mail app. Keep subjec
 ## Review and triage
 
 Some messages require **owner review** (for example unclear attachments). Use the in-app actions to accept, reject, or reassign content according to on-screen instructions.
+
+## Calendar invites (.ics)
+
+When an allowed sender emails your pet’s address and attaches a **calendar invite** (often `.ics` / `text/calendar`), PawBuck may create a **pending** appointment on **Calendar** for you to confirm. This is separate from health-document attachments; confirm or dismiss those rows on **Calendar**.

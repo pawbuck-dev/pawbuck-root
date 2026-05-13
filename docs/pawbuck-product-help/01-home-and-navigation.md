@@ -27,7 +27,9 @@ With a pet selected, **Home** usually includes, in order:
 
 Some cards (for example a **weekly challenge** or **book a vet visit** promo) may appear only in certain app versions or when product flags turn them on.
 
-## Profile vs legacy Settings
+## Home header (top right)
+
+Next to the greeting you may see **Add pet** (plus), **Calendar** (opens **Calendar** — appointments from booking and confirmed email invites), and **Notifications** (alerts when available).
 
 **Profile** is the main place for account editing, pet rows (**View & edit pet profile**, **Add New Pet**, **Claim a Pet**, **Manage Access**, **Transfer Ownership**, **Care Team**), **Reminders** (journal nudge time, insurance/travel expiry pushes, vet appointment pushes), **Settings** rows (**Notifications** opens system settings, **Privacy & Security** info, **Appearance** toggles light/dark), **Help & Support** (**Contact Us**), **Log out**, and **Delete account**.
 

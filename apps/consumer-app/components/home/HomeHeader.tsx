@@ -90,7 +90,9 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push("/(home)/profile")}
+            onPress={() => {
+              router.push("/(home)/calendar" as any);
+            }}
             activeOpacity={0.7}
             style={btnStyle}
           >

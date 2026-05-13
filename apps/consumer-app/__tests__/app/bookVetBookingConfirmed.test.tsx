@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import BookingConfirmedScreen from "@/app/(home)/book-vet-visit/booking-confirmed";
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { Alert } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 let mockReplace: jest.Mock;
@@ -101,8 +100,7 @@ describe("BookingConfirmedScreen", () => {
     expect(mockReplace).toHaveBeenCalledWith("/(home)/home");
   });
 
-  it("View Appointments shows coming soon and replaces home", () => {
-    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  it("View Appointments navigates to calendar", () => {
     mockParams = {
       vetId: "1",
       petId: "pet-1",
@@ -112,8 +110,6 @@ describe("BookingConfirmedScreen", () => {
     };
     renderConfirmed();
     fireEvent.press(screen.getByText("View Appointments"));
-    expect(alertSpy).toHaveBeenCalledWith("Coming soon", expect.any(String));
-    expect(mockReplace).toHaveBeenCalledWith("/(home)/home");
-    alertSpy.mockRestore();
+    expect(mockReplace).toHaveBeenCalledWith("/(home)/calendar");
   });
 });

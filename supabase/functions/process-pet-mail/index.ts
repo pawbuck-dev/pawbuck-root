@@ -12,6 +12,7 @@ import {
   buildValidationErrorResponse,
   logProcessingSummary,
   processAttachments,
+  sendCalendarImportsPendingNotification,
   sendFailedNotification,
   sendProcessedNotification,
   sendSkippedAttachmentsNotification,
@@ -30,6 +31,10 @@ import {
 import { storeInboundMessage } from "./messageStorage.ts";
 import { createThreadFromInboundEmail } from "./threadCreation.ts";
 import { lookupRecipientName } from "./recipientNameLookup.ts";
+import {
+  importIcsAttachmentsToVetBookings,
+  isCalendarAttachment,
+} from "./icsVetBookingImport.ts";
 import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
@@ -129,6 +134,7 @@ Deno.serve(async (req) => {
     // The recipient email in the "To" field is the reply-to address from our outbound emails
     const messageStorageStartTime = Date.now();
     let messageStored = false;
+    let lastInboundMessageId: string | null = null;
     
     // Log email details for debugging
     console.log(`[MONITORING] Email details - To: ${recipientEmail}, From: ${senderEmail}, Subject: ${parsedEmail.subject}`);
@@ -153,7 +159,7 @@ Deno.serve(async (req) => {
           console.log(`[MONITORING] ✅ Thread found: ${thread.threadId} (subject: ${thread.subject}, recipient: ${thread.recipientEmail})`);
           console.log(`[MONITORING] Storing message in thread ${thread.threadId}...`);
           
-          await storeInboundMessage({
+          const storedId = await storeInboundMessage({
             threadId: thread.threadId,
             senderEmail: senderEmail,
             recipientEmail: recipientEmail,
@@ -163,6 +169,7 @@ Deno.serve(async (req) => {
             body: parsedEmail.textBody, // Already cleaned by emailParser
             sentAt: parsedEmail.date || undefined,
           });
+          if (storedId) lastInboundMessageId = storedId;
           
           messageStored = true;
           const messageStorageDuration = Date.now() - messageStorageStartTime;
@@ -193,7 +200,7 @@ Deno.serve(async (req) => {
             console.log(`[MONITORING] ✅ Created new thread: ${newThread.threadId}`);
             
             // Store the message in the new thread
-            await storeInboundMessage({
+            const storedId = await storeInboundMessage({
               threadId: newThread.threadId,
               senderEmail: senderEmail,
               recipientEmail: recipientEmail, // This is the pet's email (not used in this context)
@@ -203,6 +210,7 @@ Deno.serve(async (req) => {
               body: parsedEmail.textBody,
               sentAt: parsedEmail.date || undefined,
             });
+            if (storedId) lastInboundMessageId = storedId;
             
             messageStored = true;
             const messageStorageDuration = Date.now() - messageStorageStartTime;
@@ -232,31 +240,77 @@ Deno.serve(async (req) => {
       console.log(`[MONITORING] No text body to store (textBody length: ${parsedEmail.textBody?.length || 0})`);
     }
 
-    // Step 8: Check for attachments
-    if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
+    // Step 8: Calendar invites (ICS) from attachments — before health-document pipeline
+    const allAttachments = parsedEmail.attachments ?? [];
+    const icsAttachments = allAttachments.filter(isCalendarAttachment);
+    const otherAttachments = allAttachments.filter((a) => !isCalendarAttachment(a));
+
+    if (icsAttachments.length > 0) {
+      try {
+        const batch = await importIcsAttachmentsToVetBookings({
+          pet,
+          attachments: icsAttachments,
+          fileKey: s3Config.fileKey,
+          threadMessageId: lastInboundMessageId,
+        });
+        if (batch.newlyInsertedCount > 0) {
+          await sendCalendarImportsPendingNotification(
+            pet,
+            batch.newlyInsertedCount
+          );
+        }
+      } catch (icsErr) {
+        console.error("[MONITORING] ICS import failed:", icsErr);
+      }
+    }
+
+    // Step 9: No file attachments at all
+    if (allAttachments.length === 0) {
       console.log("[MONITORING] No attachments to process", pet, emailInfo);
-      
-      // Mark email as completed even if there are no attachments
-      // (lock was acquired, so we need to release it)
+
       const totalDuration = Date.now() - startTime;
-      console.log(`[MONITORING] Marking email as completed (no attachments, message stored: ${messageStored}, duration: ${totalDuration}ms)`);
-      
-      await markEmailAsCompleted(
-        s3Config.fileKey,
-        pet.id,
-        0, // no attachments
-        true // success
+      console.log(
+        `[MONITORING] Marking email as completed (no attachments, message stored: ${messageStored}, duration: ${totalDuration}ms)`
       );
-      
-      console.log(`[MONITORING] ✅ Email processing completed (no attachments) in ${totalDuration}ms`);
-      
+
+      await markEmailAsCompleted(s3Config.fileKey, pet.id, 0, true);
+
+      console.log(
+        `[MONITORING] ✅ Email processing completed (no attachments) in ${totalDuration}ms`
+      );
+
       return buildSuccessResponse(pet, emailInfo, [], "No attachments to process");
     }
 
-    // Step 9: Process all attachments
+    // Step 10: Only ICS — no health documents to classify
+    if (otherAttachments.length === 0) {
+      const totalDuration = Date.now() - startTime;
+      console.log(
+        `[MONITORING] Marking email as completed (ICS-only, ${allAttachments.length} files, message stored: ${messageStored}, duration: ${totalDuration}ms)`
+      );
+
+      await markEmailAsCompleted(s3Config.fileKey, pet.id, allAttachments.length, true);
+
+      console.log(
+        `[MONITORING] ✅ Email processing completed (ICS-only) in ${totalDuration}ms`
+      );
+
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        icsAttachments.length > 0
+          ? "Calendar invite(s) imported — confirm in the app calendar"
+          : "No health attachments to process"
+      );
+    }
+
+    // Step 11: Process non-ICS attachments (health records pipeline)
     const attachmentProcessingStartTime = Date.now();
-    console.log(`[MONITORING] Starting attachment processing (${parsedEmail.attachments.length} attachments)`);
-    
+    console.log(
+      `[MONITORING] Starting attachment processing (${otherAttachments.length} non-ICS attachments)`
+    );
+
     const emailContext: EmailContext = {
       subject: parsedEmail.subject,
       textBody: parsedEmail.textBody,
@@ -264,43 +318,39 @@ Deno.serve(async (req) => {
 
     const processedAttachments = await processAttachments(
       pet,
-      parsedEmail.attachments,
+      otherAttachments,
       emailContext
     );
 
     const attachmentProcessingDuration = Date.now() - attachmentProcessingStartTime;
-    console.log(`[MONITORING] ✅ Attachment processing completed (${attachmentProcessingDuration}ms, ${processedAttachments.length} processed)`);
+    console.log(
+      `[MONITORING] ✅ Attachment processing completed (${attachmentProcessingDuration}ms, ${processedAttachments.length} processed)`
+    );
 
-    // Step 10: Log summary and return success
     logProcessingSummary(processedAttachments);
 
-    // Step 11: Mark email as completed (idempotency)
     const totalDuration = Date.now() - startTime;
-    console.log(`[MONITORING] Marking email as completed (total duration: ${totalDuration}ms, attachments: ${processedAttachments.length}, message stored: ${messageStored})`);
-    
-    await markEmailAsCompleted(
-      s3Config.fileKey,
-      pet.id,
-      processedAttachments.length,
-      true
+    console.log(
+      `[MONITORING] Marking email as completed (total duration: ${totalDuration}ms, attachments: ${allAttachments.length}, message stored: ${messageStored})`
     );
-    
-    console.log(`[MONITORING] ✅ Email processing completed successfully in ${totalDuration}ms`);
 
-    // Step 12: Check for skipped attachments due to pet validation failure
+    await markEmailAsCompleted(s3Config.fileKey, pet.id, allAttachments.length, true);
+
+    console.log(
+      `[MONITORING] ✅ Email processing completed successfully in ${totalDuration}ms`
+    );
+
     const skippedAttachments = processedAttachments.filter(
-      (a) => a.skippedReason === "no_pet_info" || 
-             a.skippedReason === "microchip_mismatch" || 
-             a.skippedReason === "attributes_mismatch"
+      (a) =>
+        a.skippedReason === "no_pet_info" ||
+        a.skippedReason === "microchip_mismatch" ||
+        a.skippedReason === "attributes_mismatch"
     );
 
-    // Step 13: Send notifications
-    // Send skipped notification if any attachments were skipped due to pet validation failure
     if (skippedAttachments.length > 0) {
       await sendSkippedAttachmentsNotification(pet, emailInfo, skippedAttachments);
     }
 
-    // Send processed notification if records were successfully added
     await sendProcessedNotification(pet, emailInfo, processedAttachments);
 
     return buildSuccessResponse(pet, emailInfo, processedAttachments);

@@ -14,7 +14,7 @@ Auditable checklist for Milo RAG (`documentation` table). Each row maps to one o
 | Pet transfer | `07-pet-transfer.md` | `transfer-pet`, claim flow |
 | Milo AI | `08-milo.md` | `milo`, Milo chat modal |
 | Pawthon & walks | `09-pawthon-walks.md` | `pawthon`, `pawthon-walk`, leaderboard |
-| Vet booking | `10-book-vet-visit.md` | `book-vet-visit/*` |
+| Vet booking & calendar | `10-book-vet-visit.md` | `book-vet-visit/*`, `(home)/calendar`, Home header calendar |
 | Pet journal | `11-pet-journal.md` | `pet-journal/*` (incl. `pet-journal/behavior-baseline`) |
 | Settings & notifications | `12-settings-notifications.md` | `profile` (Reminders + Settings rows), `settings` → redirect to profile, device OS settings |
 | Account & privacy | `13-account-privacy.md` | profile, sign-out, delete account |

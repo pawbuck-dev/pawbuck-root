@@ -8,6 +8,36 @@ import type {
 } from "../types.ts";
 
 /**
+ * Notify owner that ICS from pet email created pending vet bookings to confirm in-app.
+ */
+export async function sendCalendarImportsPendingNotification(
+  pet: Pet,
+  importCount: number
+): Promise<void> {
+  if (importCount <= 0) return;
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title:
+        importCount === 1
+          ? `Confirm appointment for ${pet.name}`
+          : `Confirm ${importCount} appointments for ${pet.name}`,
+      body:
+        "We imported a calendar invite from email. Open Calendar in the app to confirm the time.",
+      data: {
+        type: "vet_booking_import_pending",
+        petId: pet.id,
+        petName: pet.name,
+        count: String(importCount),
+      },
+    });
+    console.log(`Calendar import pending notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send calendar import notification:", notificationError);
+  }
+}
+
+/**
  * Send push notification after successful email processing
  */
 export async function sendProcessedNotification(

@@ -2145,11 +2145,14 @@ export type Database = {
       }
       vet_bookings: {
         Row: {
+          booking_source: string
           clinic_id: string
           clinic_name: string | null
           created_at: string
+          email_import_key: string | null
           end_utc: string
           external_appointment_id: string | null
+          ics_uid: string | null
           id: string
           notes: string | null
           pawbuck_appointment_id: string | null
@@ -2158,14 +2161,18 @@ export type Database = {
           service_label: string | null
           start_utc: string
           status: string
+          thread_message_id: string | null
           user_id: string
         }
         Insert: {
+          booking_source?: string
           clinic_id: string
           clinic_name?: string | null
           created_at?: string
+          email_import_key?: string | null
           end_utc: string
           external_appointment_id?: string | null
+          ics_uid?: string | null
           id?: string
           notes?: string | null
           pawbuck_appointment_id?: string | null
@@ -2174,14 +2181,18 @@ export type Database = {
           service_label?: string | null
           start_utc: string
           status?: string
+          thread_message_id?: string | null
           user_id: string
         }
         Update: {
+          booking_source?: string
           clinic_id?: string
           clinic_name?: string | null
           created_at?: string
+          email_import_key?: string | null
           end_utc?: string
           external_appointment_id?: string | null
+          ics_uid?: string | null
           id?: string
           notes?: string | null
           pawbuck_appointment_id?: string | null
@@ -2190,6 +2201,7 @@ export type Database = {
           service_label?: string | null
           start_utc?: string
           status?: string
+          thread_message_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -2198,6 +2210,13 @@ export type Database = {
             columns: ["pet_id"]
             isOneToOne: false
             referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vet_bookings_thread_message_id_fkey"
+            columns: ["thread_message_id"]
+            isOneToOne: false
+            referencedRelation: "thread_messages"
             referencedColumns: ["id"]
           },
         ]

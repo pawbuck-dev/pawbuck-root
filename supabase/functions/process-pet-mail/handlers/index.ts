@@ -1,6 +1,7 @@
 // Re-export all handlers for convenience
 export { processAttachments } from "./attachmentProcessor.ts";
 export {
+  sendCalendarImportsPendingNotification,
   sendFailedNotification,
   sendMicrochipMismatchNotification,
   sendProcessedNotification,

@@ -1,5 +1,9 @@
 let mockGetUser: jest.Mock;
-const mockVetBookings = { insert: jest.fn() };
+const mockVetBookings = {
+  insert: jest.fn(),
+  select: jest.fn(),
+  update: jest.fn(),
+};
 
 jest.mock("@/utils/supabase", () => {
   mockGetUser = jest.fn();
@@ -14,7 +18,12 @@ jest.mock("@/utils/supabase", () => {
   };
 });
 
-import { insertVetBooking } from "@/services/vetBookings";
+import {
+  confirmVetBookingImport,
+  dismissVetBookingImport,
+  fetchVetBookings,
+  insertVetBooking,
+} from "@/services/vetBookings";
 
 function chainInsertId(result: { data: { id: string } | null; error: Error | null }) {
   const single = jest.fn().mockResolvedValue(result);
@@ -22,6 +31,16 @@ function chainInsertId(result: { data: { id: string } | null; error: Error | nul
   const insert = jest.fn().mockReturnValue({ select });
   mockVetBookings.insert = insert;
   return insert;
+}
+
+function setupSelectChain(rows: unknown[]) {
+  const chain: Record<string, jest.Mock> = {};
+  chain.order = jest.fn().mockResolvedValue({ data: rows, error: null });
+  chain.neq = jest.fn(() => chain);
+  chain.eq = jest.fn(() => chain);
+  chain.gte = jest.fn(() => chain);
+  mockVetBookings.select = jest.fn(() => chain);
+  return chain;
 }
 
 const validPet = "550e8400-e29b-41d4-a716-446655440001";
@@ -69,6 +88,7 @@ describe("insertVetBooking", () => {
         user_id: "user-1",
         pet_id: null,
         status: "confirmed",
+        booking_source: "in_app",
       })
     );
   });
@@ -93,6 +113,7 @@ describe("insertVetBooking", () => {
       expect.objectContaining({
         pet_id: validPet,
         pawbuck_appointment_id: validAppt,
+        booking_source: "in_app",
       })
     );
   });
@@ -112,5 +133,61 @@ describe("insertVetBooking", () => {
       pawbuckAppointmentId: null,
     });
     expect(res).toBeNull();
+  });
+});
+
+describe("fetchVetBookings", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("returns empty when not authenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    await expect(fetchVetBookings()).resolves.toEqual([]);
+  });
+
+  it("orders by start_utc and excludes cancelled", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    const rows = [{ id: "b1", start_utc: "2026-02-01T10:00:00Z" }];
+    const chain = setupSelectChain(rows);
+    const out = await fetchVetBookings({ startAfterIso: "2026-01-01T00:00:00Z" });
+    expect(out).toEqual(rows);
+    expect(mockVetBookings.select).toHaveBeenCalledWith("*");
+    expect(chain.eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(chain.neq).toHaveBeenCalledWith("status", "cancelled");
+    expect(chain.gte).toHaveBeenCalledWith("start_utc", "2026-01-01T00:00:00Z");
+    expect(chain.order).toHaveBeenCalledWith("start_utc", { ascending: true });
+  });
+
+  it("filters by pet when petId set", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    setupSelectChain([]);
+    await fetchVetBookings({ petId: validPet });
+    expect(mockVetBookings.select).toHaveBeenCalled();
+  });
+});
+
+describe("confirmVetBookingImport / dismissVetBookingImport", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+  });
+
+  it("confirm chains id and pending status", async () => {
+    const innerEq = jest.fn().mockResolvedValue({ error: null });
+    const outerEq = jest.fn(() => ({ eq: innerEq }));
+    mockVetBookings.update = jest.fn(() => ({ eq: outerEq }));
+    await confirmVetBookingImport("bid-1");
+    expect(mockVetBookings.update).toHaveBeenCalledWith({ status: "confirmed" });
+    expect(outerEq).toHaveBeenCalledWith("id", "bid-1");
+    expect(innerEq).toHaveBeenCalledWith("status", "pending_confirmation");
+  });
+
+  it("dismiss sets cancelled", async () => {
+    const eq = jest.fn().mockResolvedValue({ error: null });
+    mockVetBookings.update = jest.fn(() => ({ eq }));
+    await dismissVetBookingImport("bid-2");
+    expect(mockVetBookings.update).toHaveBeenCalledWith({ status: "cancelled" });
+    expect(eq).toHaveBeenCalledWith("id", "bid-2");
   });
 });

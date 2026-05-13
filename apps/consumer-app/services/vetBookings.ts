@@ -1,5 +1,8 @@
 import type { VetBookingServiceId } from "@/constants/vetBookingServices";
+import type { Tables } from "@/database.types";
 import { supabase } from "@/utils/supabase";
+
+export type VetBookingRow = Tables<"vet_bookings">;
 
 export type InsertVetBookingInput = {
   petId: string | null;
@@ -37,6 +40,7 @@ export async function insertVetBooking(input: InsertVetBookingInput): Promise<{ 
     pawbuck_appointment_id: input.pawbuckAppointmentId && isUuid(input.pawbuckAppointmentId) ? input.pawbuckAppointmentId : null,
     status: "confirmed",
     notes: input.notes ?? null,
+    booking_source: "in_app" as const,
   };
 
   const { data, error } = await supabase.from("vet_bookings").insert(row).select("id").single();
@@ -47,6 +51,75 @@ export async function insertVetBooking(input: InsertVetBookingInput): Promise<{ 
   }
 
   return data ? { id: data.id as string } : null;
+}
+
+export type FetchVetBookingsParams = {
+  petId?: string | null;
+  /** Only return rows with start_utc >= this ISO timestamp. */
+  startAfterIso?: string;
+};
+
+/**
+ * List vet bookings for the signed-in user (RLS also enforces ownership).
+ * Excludes cancelled rows. Ordered by start time ascending.
+ */
+export async function fetchVetBookings(params?: FetchVetBookingsParams): Promise<VetBookingRow[]> {
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData.user) {
+    console.warn("[vetBookings] fetchVetBookings: not authenticated");
+    return [];
+  }
+
+  let q = supabase
+    .from("vet_bookings")
+    .select("*")
+    .eq("user_id", userData.user.id)
+    .neq("status", "cancelled");
+
+  if (params?.petId) {
+    q = q.eq("pet_id", params.petId);
+  }
+  if (params?.startAfterIso) {
+    q = q.gte("start_utc", params.startAfterIso);
+  }
+
+  const { data, error } = await q.order("start_utc", { ascending: true });
+
+  if (error) {
+    console.warn("[vetBookings] fetch failed", error.message);
+    return [];
+  }
+
+  return (data ?? []) as VetBookingRow[];
+}
+
+/** Confirm a pending email ICS import so reminders apply. */
+export async function confirmVetBookingImport(bookingId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("vet_bookings")
+    .update({ status: "confirmed" })
+    .eq("id", bookingId)
+    .eq("status", "pending_confirmation");
+
+  if (error) {
+    console.warn("[vetBookings] confirm import failed", error.message);
+    return false;
+  }
+  return true;
+}
+
+/** Dismiss / cancel an email ICS import the user does not want on the calendar. */
+export async function dismissVetBookingImport(bookingId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("vet_bookings")
+    .update({ status: "cancelled" })
+    .eq("id", bookingId);
+
+  if (error) {
+    console.warn("[vetBookings] dismiss import failed", error.message);
+    return false;
+  }
+  return true;
 }
 
 function isUuid(s: string): boolean {

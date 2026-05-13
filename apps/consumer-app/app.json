@@ -42,7 +42,9 @@
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -106,6 +108,12 @@
         {
           "microphonePermission": "Pawbuck uses the microphone so you can speak messages to Milo instead of typing.",
           "speechRecognitionPermission": "Pawbuck converts your speech to text in Milo chat. Audio is processed on your device where supported."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "PawBuck can add confirmed vet appointments to your calendar when you tap Add to phone calendar."
         }
       ]
     ],

@@ -66,7 +66,7 @@ describe("SignUp screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (supabase.auth.signUp as jest.Mock).mockResolvedValue({
-      data: { user: { id: "new-user-1" } },
+      data: { user: { id: "new-user-1" }, session: { access_token: "mock" } },
       error: null,
     });
   });
