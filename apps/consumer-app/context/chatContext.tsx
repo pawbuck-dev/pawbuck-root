@@ -21,6 +21,9 @@ export interface ChatMessage {
   fileAttachments?: MiloChatFileAttachment[];
   /** Present when the server registered this assistant turn (POST /api/milo/chat/feedback). */
   turnId?: string;
+  /** From POST /api/milo/chat — drives contextual per-bubble footers. */
+  usedPetData?: boolean;
+  usedRag?: boolean;
 }
 
 interface ChatContextType {
@@ -126,6 +129,8 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
         timestamp: new Date(),
         fileAttachments: result.fileAttachments,
         turnId: result.turnId,
+        usedPetData: result.usedPetData,
+        usedRag: result.usedRag,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

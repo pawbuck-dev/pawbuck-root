@@ -1,0 +1,67 @@
+---
+description: Review PawBuck bug observations from Notion against the codebase
+globs:
+alwaysApply: false
+---
+
+# Notion bug review agent
+
+Use the **pawbuck-notion-bugs** MCP server (`tools/notion-bug-agent/`) to triage engineering bugs recorded in Notion.
+
+**Database:** https://www.notion.so/Please-add-your-bug-observations-here-34f5d2e4a5ff8076b561cee6ec0eb8c9
+
+## When to use
+
+- User asks to review, triage, or investigate bugs from Notion
+- User shares a Notion bug URL or page id
+- Weekly bug hygiene / unreviewed observation sweep
+
+## Workflow
+
+1. **Discover** — call `get_bug_database_schema` if field names are unclear
+2. **Fetch** — `list_bug_observations` with `only_unreviewed: true`, or `get_bug_observation` for one item
+3. **Investigate** — search the codebase, read relevant files, run targeted tests
+4. **Review** — for each bug, produce:
+   - Repro validity (still happens? can't tell? fixed?)
+   - Likely root cause and affected paths
+   - Severity recommendation
+   - Next action: fix now / backlog / duplicate / needs more info
+   - Missing details for the reporter
+5. **Present** — show the review to the user and **wait for approval** before taking further action
+6. **Record (optional)** — only call `update_bug_review` after the user explicitly approves the review text
+
+## Human-in-the-loop (required)
+
+**Do not auto-commit or auto-fix.** The user reviews everything before any code lands.
+
+- **Never** run `git commit`, `git push`, or open a PR unless the user explicitly asks
+- **Never** implement bug fixes in the working tree unless the user explicitly asks
+- **Never** call `update_bug_review` unless the user approves the review notes first
+- Default mode is **read-only triage**: fetch from Notion, investigate the codebase, report findings
+- If a fix is warranted, describe the proposed change and wait for the user to say "go ahead" or "commit it"
+
+## Review output format
+
+```markdown
+## Verdict
+<still reproduces | likely fixed | needs more info | duplicate>
+
+## Findings
+<what you found in the codebase>
+
+## Recommended action
+<fix now | backlog | close | ask reporter>
+
+## Suggested status
+<Triaged | Needs info | Duplicate | Fixed>
+```
+
+## Boundaries
+
+- Notion is **internal engineering tooling** — do not wire into consumer app, provider app, or PawBuck.API product APIs
+- Do not store `NOTION_API_KEY` in app code or commit it
+- Respect architecture boundaries when suggesting fixes (scheduling via PawBuck.API adapters, migrations in `supabase/migrations/`, etc.)
+
+## Setup
+
+See `tools/notion-bug-agent/README.md` for Notion integration token, database sharing, and `.cursor/mcp.json` config.

@@ -26,6 +26,14 @@ public sealed class PetConversationalContextDto
     /// </summary>
     [JsonPropertyName("behaviorBaseline")]
     public BehaviorBaselineSnapshot? BehaviorBaseline { get; set; }
+
+    /// <summary>Total rows in <c>medicines</c> for this pet (any date).</summary>
+    [JsonPropertyName("medicationsOnFileCount")]
+    public int MedicationsOnFileCount { get; set; }
+
+    /// <summary>Total rows in <c>vaccinations</c> for this pet (any date).</summary>
+    [JsonPropertyName("vaccinationsOnFileCount")]
+    public int VaccinationsOnFileCount { get; set; }
 }
 
 public sealed class BehaviorBaselineSnapshot

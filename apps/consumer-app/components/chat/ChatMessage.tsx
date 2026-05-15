@@ -1,4 +1,4 @@
-import { MILO_ASSISTANT_RESPONSE_FOOTER } from "@/constants/miloDisclaimers";
+import { resolveMiloAssistantFooter } from "@/services/miloAssistantFooter";
 import { ChatMessage as ChatMessageType } from "@/context/chatContext";
 import { HEALTH_ELEVATION, HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
@@ -20,6 +20,8 @@ interface ChatMessageProps {
    * @default true
    */
   showInlineTurnFeedback?: boolean;
+  /** Journal triage screen — per-bubble footers are suppressed (session disclaimer already shown). */
+  journalMode?: boolean;
 }
 
 function MiloTurnFeedbackRow({
@@ -104,6 +106,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isNew = true,
   showInlineTurnFeedback = true,
+  journalMode = false,
 }) => {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
@@ -161,6 +164,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         ...(isDark ? {} : HEALTH_ELEVATION.cardLight),
       };
 
+  const assistantFooter = !isUser
+    ? resolveMiloAssistantFooter({
+        content: message.content,
+        usedPetData: message.usedPetData,
+        usedRag: message.usedRag,
+        isJournalMode: journalMode,
+      })
+    : null;
+
   return (
     <Animated.View
       style={{
@@ -194,7 +206,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         {!isUser && message.fileAttachments && message.fileAttachments.length > 0 ? (
           <MiloFileAttachmentChips attachments={message.fileAttachments} />
         ) : null}
-        {!isUser ? (
+        {!isUser && assistantFooter ? (
           <Text
             style={{
               fontSize: 11,
@@ -204,7 +216,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             }}
             accessibilityRole="text"
           >
-            {MILO_ASSISTANT_RESPONSE_FOOTER}
+            {assistantFooter}
           </Text>
         ) : null}
         <View

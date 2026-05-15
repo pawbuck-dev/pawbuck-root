@@ -162,7 +162,9 @@ public class MiloReasoningServiceJournalTests
         var response = await sut.ChatAsync(UserId, JournalRequest(), CancellationToken.None);
 
         response.Answer.Should().Be("Great to hear!");
-        response.SuggestedReplies.Should().BeEquivalentTo(new[] { "More energy", "Same as usual" }, options => options.WithStrictOrdering());
+        response.SuggestedReplies.Should().BeEquivalentTo(
+            new[] { "More energy", "Same as usual", JournalInterviewOrchestration.ChipNotSure, JournalInterviewOrchestration.ChipAddDetails },
+            options => options.WithStrictOrdering());
         response.JournalSessionComplete.Should().BeFalse();
         response.JournalStatus.Should().Be("CONTINUE");
         response.JournalSummary.Should().BeNull();
@@ -337,10 +339,10 @@ public class MiloReasoningServiceJournalTests
     }
 
     [Fact]
-    public async Task ChatAsync_JournalMode_OnEighthUserTurn_ForcesCompleteEvenWhenModelSaysContinue()
+    public async Task ChatAsync_JournalMode_OnSixthUserTurn_ForcesCompleteEvenWhenModelSaysContinue()
     {
         var history = new List<MiloChatHistoryMessage>();
-        for (var i = 0; i < 7; i++)
+        for (var i = 0; i < 5; i++)
         {
             history.Add(new MiloChatHistoryMessage { Role = "user", Content = $"msg{i}" });
             history.Add(new MiloChatHistoryMessage { Role = "assistant", Content = $"ack{i}" });
@@ -356,7 +358,7 @@ public class MiloReasoningServiceJournalTests
         var handler = new GeminiTestHandler { InnerTextPart = inner };
         var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
 
-        var request = JournalRequest("eighth user line");
+        var request = JournalRequest("sixth user line");
         request.History = history;
 
         var response = await sut.ChatAsync(UserId, request, CancellationToken.None);

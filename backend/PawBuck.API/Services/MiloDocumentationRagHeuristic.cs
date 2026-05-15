@@ -62,7 +62,32 @@ public static class MiloDocumentationRagHeuristic
         if (m.Contains("pawthon", StringComparison.Ordinal) || (m.Contains("walk", StringComparison.Ordinal) && m.Contains("how", StringComparison.Ordinal)))
             return true;
 
-        if (m.Contains("journal", StringComparison.Ordinal) && m.Contains("how", StringComparison.Ordinal))
+        if (m.Contains("journal", StringComparison.Ordinal) &&
+            (m.Contains("how", StringComparison.Ordinal) ||
+             m.Contains("log", StringComparison.Ordinal) ||
+             m.Contains("note", StringComparison.Ordinal) ||
+             m.Contains("track", StringComparison.Ordinal) ||
+             m.Contains("write", StringComparison.Ordinal)))
+            return true;
+
+        if (m.Contains("note taking", StringComparison.Ordinal) ||
+            m.Contains("note-taking", StringComparison.Ordinal) ||
+            m.Contains("take notes", StringComparison.Ordinal) ||
+            m.Contains("keep notes", StringComparison.Ordinal) ||
+            (m.Contains("notes", StringComparison.Ordinal) &&
+                (m.Contains("keep", StringComparison.Ordinal) ||
+                 m.Contains("take", StringComparison.Ordinal) ||
+                 m.Contains("write", StringComparison.Ordinal) ||
+                 m.Contains("log", StringComparison.Ordinal))) ||
+            (m.Contains("log", StringComparison.Ordinal) &&
+                (m.Contains("symptom", StringComparison.Ordinal) ||
+                 m.Contains("behavior", StringComparison.Ordinal) ||
+                 m.Contains("behaviour", StringComparison.Ordinal))) ||
+            (m.Contains("track", StringComparison.Ordinal) &&
+                (m.Contains("symptom", StringComparison.Ordinal) ||
+                 m.Contains("behavior", StringComparison.Ordinal) ||
+                 m.Contains("behaviour", StringComparison.Ordinal))) ||
+            (m.Contains("write down", StringComparison.Ordinal) && m.Contains("pet", StringComparison.Ordinal)))
             return true;
 
         if (m.Contains("what can milo", StringComparison.Ordinal) || m.Contains("what does milo", StringComparison.Ordinal))
@@ -120,6 +145,40 @@ public static class MiloDocumentationRagHeuristic
                  m.Contains("transfer code", StringComparison.Ordinal))))
         {
             set.Add("07-pet-transfer.md");
+        }
+
+        if (m.Contains("journal", StringComparison.Ordinal) ||
+            m.Contains("note taking", StringComparison.Ordinal) ||
+            m.Contains("note-taking", StringComparison.Ordinal) ||
+            m.Contains("take notes", StringComparison.Ordinal) ||
+            m.Contains("keep notes", StringComparison.Ordinal) ||
+            (m.Contains("notes", StringComparison.Ordinal) &&
+                (m.Contains("keep", StringComparison.Ordinal) ||
+                 m.Contains("take", StringComparison.Ordinal) ||
+                 m.Contains("write", StringComparison.Ordinal) ||
+                 m.Contains("log", StringComparison.Ordinal))) ||
+            m.Contains("behavior baseline", StringComparison.Ordinal) ||
+            m.Contains("behaviour baseline", StringComparison.Ordinal) ||
+            (m.Contains("log", StringComparison.Ordinal) &&
+                (m.Contains("symptom", StringComparison.Ordinal) ||
+                 m.Contains("behavior", StringComparison.Ordinal) ||
+                 m.Contains("behaviour", StringComparison.Ordinal))) ||
+            (m.Contains("track", StringComparison.Ordinal) &&
+                (m.Contains("symptom", StringComparison.Ordinal) ||
+                 m.Contains("behavior", StringComparison.Ordinal) ||
+                 m.Contains("behaviour", StringComparison.Ordinal))) ||
+            (m.Contains("write down", StringComparison.Ordinal) && m.Contains("pet", StringComparison.Ordinal)))
+        {
+            set.Add("11-pet-journal.md");
+        }
+
+        if (m.Contains("what can milo", StringComparison.Ordinal) ||
+            m.Contains("what does milo", StringComparison.Ordinal) ||
+            (m.Contains("milo", StringComparison.Ordinal) &&
+                (m.Contains("help", StringComparison.Ordinal) ||
+                 m.Contains("do", StringComparison.Ordinal))))
+        {
+            set.Add("08-milo.md");
         }
 
         return set.Count > 0 ? set.ToList() : Array.Empty<string>();

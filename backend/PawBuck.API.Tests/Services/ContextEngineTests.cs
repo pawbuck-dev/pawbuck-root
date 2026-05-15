@@ -111,7 +111,7 @@ public class ContextEngineTests
     }
 
     [Fact]
-    public void BuildJournalSystemPersonaPrompt_ContainsSeniorScribeClinicalAbstractRules()
+    public void BuildJournalSystemPersonaPrompt_ContainsTightInterviewRules()
     {
         var prompt = ContextEngine.BuildJournalSystemPersonaPrompt(
             "Rex",
@@ -120,14 +120,11 @@ public class ContextEngineTests
             [],
             userTurnNumber: 1);
 
-        prompt.Should().Contain("veterinary EMR");
-        prompt.Should().Contain("**Observations:**");
-        prompt.Should().Contain("**Frequency/Duration:**");
-        prompt.Should().Contain("**Associated Symptoms:**");
-        prompt.Should().Contain("Not eating (anorexia)");
-        prompt.Should().Contain("Not drinking (adipsia)");
-        prompt.Should().Contain("Note: Severe symptoms detected.");
-        prompt.Should().Contain("Do **not** use legacy prefixes like [URGENT]");
+        prompt.Should().Contain("4–6");
+        prompt.Should().Contain("medications only");
+        prompt.Should().Contain("separate");
+        prompt.Should().Contain(ContextEngine.JournalEmergencyRedFlagToken);
+        prompt.Should().Contain("Turn directive");
     }
 
     [Fact]

@@ -1,0 +1,26 @@
+{
+  "name": "@pawbuck/notion-bug-agent",
+  "version": "1.0.0",
+  "description": "MCP server and CLI to fetch and review PawBuck bug observations from Notion",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "notion-bug-review": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "review": "tsx src/cli.ts",
+    "test": "node --import tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@notionhq/client": "^2.2.15"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

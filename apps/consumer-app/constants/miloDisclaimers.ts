@@ -1,4 +1,4 @@
-/** Shown under every Milo assistant chat bubble (modal + journal triage). */
+/** @deprecated Use {@link resolveMiloAssistantFooter} — per-bubble footers are contextual now. */
 export const MILO_ASSISTANT_RESPONSE_FOOTER = "AI-generated. Not veterinary advice.";
 
 /** Health Briefing screen and home snapshot card. */

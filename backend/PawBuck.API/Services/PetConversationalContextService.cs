@@ -66,6 +66,7 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         milestones.AddRange(await LoadUpcomingVetBookingsAsync(conn, petId, utcNow, cancellationToken));
 
         var baseline = await LoadBehaviorBaselineAsync(conn, petId, cancellationToken);
+        var (medsOnFile, vaxOnFile) = await LoadOnFileMedicationVaccinationCountsAsync(conn, petId, cancellationToken);
 
         return new PetConversationalContextDto
         {
@@ -74,7 +75,27 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
             RecentJournalNotes = journalNotes,
             UpcomingMilestones = milestones,
             BehaviorBaseline = baseline,
+            MedicationsOnFileCount = medsOnFile,
+            VaccinationsOnFileCount = vaxOnFile,
         };
+    }
+
+    private static async Task<(int Medications, int Vaccinations)> LoadOnFileMedicationVaccinationCountsAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT
+              (SELECT COUNT(*)::int FROM public.medicines WHERE pet_id = @petId),
+              (SELECT COUNT(*)::int FROM public.vaccinations WHERE pet_id = @petId)
+            """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("petId", petId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return (0, 0);
+        return (reader.GetInt32(0), reader.GetInt32(1));
     }
 
     private static async Task<BehaviorBaselineSnapshot?> LoadBehaviorBaselineAsync(

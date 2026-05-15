@@ -356,7 +356,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
 """;
         }
 
-        var contextBlockText = BuildJournalContextBlock(petName, petContextBlock, ctx, utcNow);
+        var contextBlockText = BuildJournalContextBlock(petName, petContextBlock, ctx, utcNow, request.History, userTurnNumber);
         var contents = BuildJournalContentsWithContextPrefix(contextBlockText, request.History, userMessage);
 
         const double journalTemperature = 0.7;
@@ -527,10 +527,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             summary = answer;
         }
 
-        var replies = (dto.SuggestedReplies ?? new List<string>())
-            .Where(static s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => s.Trim())
-            .Take(6)
+        var replies = JournalInterviewOrchestration
+            .SanitizeSuggestedReplies(answer, dto.SuggestedReplies)
             .ToList();
         if (complete)
             replies = [];
@@ -646,7 +644,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             - For health-related messages (symptoms, appetite, energy, recovery, behavior, how the pet has been doing), include journal when recent owner-written observations would help; you may use journal alone for journal-only questions.
             - When the user mentions vaccines, boosters, shots, immunizations, titers, or overdue boosters, include vaccinations (or health_summary) in dataNeeded.
             - When the user mentions symptoms, limping, vomiting, energy, appetite, or "how they've been," include journal (and specific health categories as needed) so Milo can synthesize owner observations.
-            - needsDocumentationRag: true when the user asks about the PawBuck app, product help, how-to / where in the app, family sharing, invites, pet transfer, pet email, Messages inbox, Settings, notifications, Pawthon walks, vet booking, journal usage, Milo itself, account deletion, or any topic not answered solely from structured pet rows.
+            - needsDocumentationRag: true when the user asks about the PawBuck app, product help, how-to / where in the app, family sharing, invites, pet transfer, pet email, Messages inbox, Settings, notifications, Pawthon walks, vet booking, journal usage, note-taking / logging symptoms or behavior, Milo itself, account deletion, or any topic not answered solely from structured pet rows.
+            - For general pet-care or wellness questions where logging observations in PawBuck would help (symptoms, behavior changes, appetite, energy, "should I write this down"), include journal in dataNeeded when a pet is verified and set needsDocumentationRag true so Milo can cite Pet Journal paths from product help.
             - For pure product how-to ("How do I…", "Where do I…"), prefer dataNeeded ["none"] only unless they also ask to inspect existing records (e.g. "list my overdue vaccines" needs vaccinations).
             - reasoningBrief: one short sentence explaining the plan (internal).
 
@@ -776,7 +775,9 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         string petName,
         string petContextBlock,
         PetConversationalContextDto ctx,
-        DateTime utcNow)
+        DateTime utcNow,
+        IReadOnlyList<MiloChatHistoryMessage>? history,
+        int userTurnNumber)
     {
         var sb = new StringBuilder();
         sb.AppendLine("=== Session context (authorized) ===");
@@ -815,7 +816,9 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 sb.Append("- ").Append(m.Label).Append(" — ").AppendLine(m.DueDate);
         }
 
-        ContextEngine.AppendJournalPhaseThreeContextualScan(sb, ctx, utcNow);
+        ContextEngine.AppendJournalPhaseThreeContextualScan(sb, ctx, utcNow, petName);
+        var scan = JournalInterviewOrchestration.ComputeContextScanState(ctx, utcNow);
+        JournalInterviewOrchestration.AppendTurnDirective(sb, scan, history, userTurnNumber, petName);
         sb.AppendLine();
         sb.AppendLine(ContextEngine.FormatContextForPrompt(ctx));
 
@@ -998,6 +1001,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 - If documentation is insufficient, say so in one sentence and suggest **Contact Us** (Settings or Profile) for account-specific help.
                 - Do not fabricate pet health records; the facts block is usually empty for product questions—ignore it unless it clearly adds context.
                 - For urgent medical emergencies, briefly advise contacting a veterinarian immediately (no diagnosis).
+                - After the answer, add one short encouraging line to try the flow in PawBuck when it fits (e.g. log an observation in **Pet Journal** from Home, or open Milo from the bottom bar)—ground paths in the documentation above; do not invent screens.
                 - Max ~320 words.
 
                 {petContextBlock}
@@ -1018,6 +1022,10 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 PRIMARY JOB: Synthesize this pet's data from the facts below. Always prioritize summarizing and organizing existing records (journal, vaccines, medications, labs, exams) over generic veterinary how-to (e.g. long desensitization protocols, training plans, or step-by-step behavior articles not tied to this pet's rows). When facts are thin, add only brief neutral context—do not replace record synthesis with generic advice.
 
                 Use ONLY the facts and documentation below for factual claims; do not invent records.
+
+                PawBuck next step (encourage app use without being salesy):
+                - When facts are thin, the user describes new symptoms/behavior/appetite/energy changes, or asks about tracking or note-taking, close with at most one practical PawBuck suggestion: **Pet journal** for owner observations (Home → Pet Journal, or Milo journal check-in), **Health Records** for uploading vet paperwork, or **vet booking** when they mention scheduling—use FAQ paths only when supported below; otherwise keep it generic ("log it in Pet Journal").
+                - Do not let this replace record synthesis, medical guidance, or the vet disclaimer.
 
                 Operational rules:
                 - OPENING: The FIRST line of your reply MUST be exactly the Markdown header `### Summary` (level 3). The paragraph(s) immediately under it must be grounded ONLY in retrieved pet facts (pet name, dates, statuses from the facts block). Use **bold** for important clinical labels (vaccines, meds, labs, findings). After Summary you may use additional `###` sections and bullets.

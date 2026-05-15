@@ -51,6 +51,8 @@ export type MiloChatApiResult = {
   promptVersion?: string;
   heuristicTags?: string[];
   fileAttachments?: MiloChatFileAttachment[];
+  usedPetData?: boolean;
+  usedRag?: boolean;
 };
 
 function parseVetMedicalContext(raw: unknown): VetMedicalContext | undefined {
@@ -258,6 +260,8 @@ export async function fetchMiloChat(params: {
     promptVersion: data.promptVersion,
     heuristicTags: data.heuristicTags,
     fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
+    usedPetData: data.usedPetData,
+    usedRag: data.usedRag,
   };
 }
 

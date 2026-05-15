@@ -41,7 +41,7 @@ public sealed class MiloJournalConfigSnapshot
     };
 
     [JsonPropertyName("promptVersion")]
-    public string PromptVersion { get; set; } = "v2";
+    public string PromptVersion { get; set; } = "v3";
 
     [JsonPropertyName("journalTemperature")]
     public double JournalTemperature { get; set; } = 0.65;

@@ -11,7 +11,7 @@ namespace PawBuck.API.Services;
 public static class ContextEngine
 {
     /// <summary>Max user messages in a journal interview before the server forces completion.</summary>
-    public const int JournalInterviewMaxUserTurns = 8;
+    public const int JournalInterviewMaxUserTurns = 6;
 
     /// <summary>Model must return this exact string in <c>answer</c> when Phase 4 red-flag triggers emergency stop.</summary>
     public const string JournalEmergencyRedFlagToken = "EMERGENCY_RED_FLAG";
@@ -205,52 +205,30 @@ public static class ContextEngine
     }
 
     /// <summary>
-    /// Lines for Phase 3 (contextual scan): what is known from records vs UNKNOWN slots the model must fill via chips.
+    /// Lines for Phase 3 (contextual scan): record gaps the model must fill via dedicated turns.
     /// </summary>
+    public static void AppendJournalPhaseThreeContextualScan(
+        StringBuilder sb,
+        PetConversationalContextDto ctx,
+        DateTime utcNow,
+        string petName)
+    {
+        var scan = JournalInterviewOrchestration.ComputeContextScanState(ctx, utcNow);
+        JournalInterviewOrchestration.AppendPhaseThreeContextualScan(sb, scan, petName);
+    }
+
+    internal static bool TryParseEventDate(string s, out DateTime date) => TryParseDate(s, out date);
+
+    /// <summary>
+    /// Deprecated overload — prefer scan with pet name for required question openers.
+    /// </summary>
+    [Obsolete("Use overload with petName for contextual scan openers.")]
     public static void AppendJournalPhaseThreeContextualScan(
         StringBuilder sb,
         PetConversationalContextDto ctx,
         DateTime utcNow)
     {
-        static bool InLastCalendarDays(DateTime eventDate, DateTime nowUtc, int days)
-        {
-            var delta = (nowUtc.Date - eventDate.Date).TotalDays;
-            return delta >= 0 && delta <= days;
-        }
-
-        var meds = new List<string>();
-        foreach (var e in ctx.RecentMedicalHistory.Where(x => x.Type == "medication_started"))
-        {
-            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 14))
-                meds.Add($"{e.Name} (started {e.Date})");
-        }
-
-        var vax5 = new List<string>();
-        foreach (var e in ctx.RecentMedicalHistory.Where(x => x.Type == "vaccination"))
-        {
-            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 5))
-                vax5.Add($"{e.Name} ({e.Date})");
-        }
-
-        var exams7 = new List<string>();
-        foreach (var e in ctx.RecentMedicalHistory.Where(x =>
-                     x.Type.Equals("clinical_exam", StringComparison.OrdinalIgnoreCase)))
-        {
-            if (TryParseDate(e.Date, out var d) && InLastCalendarDays(d, utcNow, 7))
-                exams7.Add($"{e.Name} ({e.Date})");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("=== Phase 3 contextual scan (from records; UNKNOWN must be asked) ===");
-        sb.Append("- Current medications (starts on record, last 14 days): ")
-            .AppendLine(meds.Count > 0 ? string.Join("; ", meds) : "UNKNOWN");
-        sb.Append("- Recent vaccines (last 5 days on record): ")
-            .AppendLine(vax5.Count > 0 ? string.Join("; ", vax5) : "UNKNOWN");
-        sb.Append("- Recent vet visit / exam (last 7 days on record): ")
-            .AppendLine(exams7.Count > 0 ? string.Join("; ", exams7) : "UNKNOWN");
-        sb.AppendLine("- Recent diet change (last 14 days): UNKNOWN (not in structured records — ask via chips if relevant)");
-        sb.AppendLine("- Recent travel or boarding (last 7 days): UNKNOWN — ask via chips if relevant");
-        sb.AppendLine("- Recent household change (last 14 days): UNKNOWN — ask via chips if relevant");
+        AppendJournalPhaseThreeContextualScan(sb, ctx, utcNow, ctx.PetProfile.Name);
     }
 
     /// <summary>
@@ -287,22 +265,27 @@ public static class ContextEngine
         return $"""
             You are the **journal interview assistant** for {petDisplayName} on PawBuck. In user-facing prose, refer to yourself as **{assistantLabel}** only. Do **not** combine your name with {petDisplayName}'s name in one phrase.
 
-            **Interview goal:** In **5–8** short turns, run a **structured journal entry** interview with **five phases in order**:
-            1) **Frame** — what they noticed and time course (one question per turn).
-            2) **Symptom** — clarify the main concern (one question per turn).
-            3) **Contextual scan** — you **must** run this phase **before** you consider the interview complete. Use the **Phase 3 contextual scan** block in the session context: use prefilled lines; for each line marked UNKNOWN, ask via **suggestedReplies** chips (multi-select style: offer several concrete options **plus** "Not sure" **plus** "+ Add details"). One **answer** question per turn that references those chips.
-            4) **Red-flag screen** — you **must** run this phase **before** complete. Ask explicitly about emergency signs (toxins, seizure, collapse, severe bleeding, trouble breathing, bloated painful abdomen, unable to urinate, extreme pain, repeated vomiting with lethargy, etc.). **suggestedReplies** must include **Not sure** and **+ Add details** and clear yes/no style options.
-               - If **any** red flag applies per the user's selections or text, set **answer** to exactly the token **{JournalEmergencyRedFlagToken}** (ASCII, no spaces), **status** to "CONTINUE", **summary** to "", **suggestedReplies** to [], **vetNotification** omitted. Do not write a journal summary and do not continue the interview in that same turn.
-            5) **Confirm** — you **must not** set status to "COMPLETE" until the user has **explicitly confirmed** the draft entry (e.g. they tapped **Confirm** or clearly said yes). On the turn **before** COMPLETE: **status** "CONTINUE", **answer** shows a **plain-text draft** of what will be saved (parent register, short paragraphs, no markdown). **suggestedReplies** must include **Confirm**, **Edit**, **Not sure**, and **+ Add details**. After they confirm, return **COMPLETE** with the final **summary**.
+            **Interview goal:** In **4–6** short turns total, run a **structured journal entry** interview:
+            1) **Frame** (turn 1) — what they noticed and time course.
+            2) **Symptom** (turn 2) — clarify the main concern.
+            3) **Contextual scan** (turns 3–4 max) — follow the **Phase 3** and **Turn directive** blocks in session context:
+               - If medications are missing on file, ask **medications only** on one turn (required opener in context). Never combine with vaccines.
+               - If vaccines are missing on file, ask **vaccines only** on a **separate** turn.
+               - Skip diet, travel, and household unless the user already mentioned appetite/GI, travel, or stress.
+               - Chips must directly answer the question you asked (medication chips for med questions, vaccine chips for vaccine questions).
+            4) **Red-flag screen** (one turn) — emergency signs. **suggestedReplies**: No emergency signs, Yes — possible emergency, Not sure, + Add details.
+               - If **any** red flag applies, set **answer** to exactly **{JournalEmergencyRedFlagToken}**, **status** "CONTINUE", **summary** "", **suggestedReplies** [].
+            5) **Confirm** (turn 5–6) — draft recap, then **COMPLETE** only after explicit Confirm.
 
             **Hard rules:**
-            - **One question per turn** in **answer** while status is "CONTINUE" (except the draft recap turn may be a short paragraph recap plus one closing ask).
-            - **Every** chip set (**suggestedReplies**) must include **Not sure** (or equivalent) and **+ Add details** (user may type detail on the next message).
-            - **Never fabricate.** If something is unknown, omit that line from **summary** entirely — do **not** write "Not specified", "Unknown", or "N/A".
-            - **summary** (when COMPLETE): **Parent-facing register only** — plain sentences, warm-neutral, like a short card the pet parent would read. **Forbidden on the card:** the words **patient**, **vomitus**, **anorexia**, **exhibiting**, or other stiff clinical jargon. Do **not** use markdown in **summary** or **answer**.
-            - **vetNotification** (when COMPLETE, strongly encouraged): **Clinical / vet-export** wording is allowed here only (observations, triage, etc.). Keep **summary** and **answer** parent-safe.
-            - **Fuzzy timing:** When you set observation timing in **vetNotification.observations**, use **onsetDate** as ISO **yyyy-MM-dd** when you can infer a day from the thread; set **onsetPrecision** to **approximate** when the user gave a range (e.g. "2–3 days ago"). Omit **onsetDate** if you cannot infer a day.
-            - **Plain text:** **answer** and **summary** are plain text only (no markdown, no `**`).
+            - **One question per turn** while status is "CONTINUE".
+            - Follow the **Turn directive** block — do not repeat phases already covered in the thread.
+            - **Do not** ask more than **two** contextual-scan questions (medications + vaccines when both missing; skip optional vet visit if turn budget is tight).
+            - **Every** chip set must include **Not sure** and **+ Add details** unless using {JournalEmergencyRedFlagToken}.
+            - **Never fabricate.** Omit unknown lines from **summary** — no "Not specified" or "N/A".
+            - **summary** (COMPLETE): parent-facing plain sentences only — no markdown, no clinical jargon (**patient**, **vomitus**, **anorexia**, **exhibiting**).
+            - **vetNotification** (COMPLETE, encouraged): clinical wording allowed here only.
+            - **Plain text** in **answer** and **summary** only.
 
             The conversation includes a first user message with **session context**. Later messages are history and the latest user input.
 

@@ -914,6 +914,7 @@ export default function MiloJournalChatScreen() {
                 message={item}
                 isNew={index === messages.length - 1}
                 showInlineTurnFeedback={false}
+                journalMode
               />
               {renderJournalFeedback(item, index)}
               {renderActions(item, index)}

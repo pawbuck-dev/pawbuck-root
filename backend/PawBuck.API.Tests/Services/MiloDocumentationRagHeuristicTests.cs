@@ -39,4 +39,32 @@ public class MiloDocumentationRagHeuristicTests
     {
         MiloDocumentationRagHeuristic.GetBoostSourceFiles("What is 2+2?").Should().BeEmpty();
     }
+
+    [Theory]
+    [InlineData("How do I log symptoms in the journal?")]
+    [InlineData("Should I write down my pet's behavior changes?")]
+    [InlineData("I want to track symptoms for my dog")]
+    public void GetBoostSourceFiles_JournalTopics_ReturnsJournalDoc(string message)
+    {
+        var files = MiloDocumentationRagHeuristic.GetBoostSourceFiles(message);
+        files.Should().Contain("11-pet-journal.md");
+    }
+
+    [Theory]
+    [InlineData("What can Milo help me with?")]
+    [InlineData("What does Milo do in the app?")]
+    public void GetBoostSourceFiles_MiloTopics_ReturnsMiloDoc(string message)
+    {
+        var files = MiloDocumentationRagHeuristic.GetBoostSourceFiles(message);
+        files.Should().Contain("08-milo.md");
+    }
+
+    [Theory]
+    [InlineData("Should I keep notes when my cat vomits?")]
+    [InlineData("How do I track behavior changes?")]
+    [InlineData("Is note taking useful for vet visits?")]
+    public void ShouldForceDocumentationRag_ObservationTopics_ReturnsTrue(string message)
+    {
+        MiloDocumentationRagHeuristic.ShouldForceDocumentationRag(message).Should().BeTrue();
+    }
 }
