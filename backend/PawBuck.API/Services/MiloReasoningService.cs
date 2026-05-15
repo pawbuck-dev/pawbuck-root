@@ -816,8 +816,8 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 sb.Append("- ").Append(m.Label).Append(" — ").AppendLine(m.DueDate);
         }
 
-        ContextEngine.AppendJournalPhaseThreeContextualScan(sb, ctx, utcNow, petName);
         var scan = JournalInterviewOrchestration.ComputeContextScanState(ctx, utcNow);
+        JournalInterviewOrchestration.AppendPhaseThreeContextualScan(sb, scan, petName);
         JournalInterviewOrchestration.AppendTurnDirective(sb, scan, history, userTurnNumber, petName);
         sb.AppendLine();
         sb.AppendLine(ContextEngine.FormatContextForPrompt(ctx));
@@ -830,7 +830,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         var lifeStage = profile.IsSenior ? "a senior companion" : "a younger companion";
         var age = string.IsNullOrWhiteSpace(profile.AgeDisplay) ? "unknown age" : profile.AgeDisplay;
         return
-            $"Instruction: {petName} is {lifeStage} ({age}); focus on mobility and activity levels, especially after travel or a change in routine.";
+            $"Instruction: {petName} is {lifeStage} ({age}); focus on mobility, stamina, and how they are moving today — without asking about travel, diet, or household changes unless the user already brought those up.";
     }
 
     /// <summary>

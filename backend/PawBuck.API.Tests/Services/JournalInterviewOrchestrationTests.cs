@@ -69,4 +69,32 @@ public class JournalInterviewOrchestrationTests
         sb.ToString().Should().Contain("Medications ONLY");
         sb.ToString().Should().NotContain("Vaccines ONLY");
     }
+
+    [Fact]
+    public void AppendTurnDirective_OnFourthTurnAfterMedsAsked_DirectsVaccineQuestionOnly()
+    {
+        var sb = new System.Text.StringBuilder();
+        var scan = new JournalInterviewOrchestration.ContextScanState
+        {
+            NeedsMedicationAsk = true,
+            NeedsVaccineAsk = true,
+        };
+        var history = new List<MiloChatHistoryMessage>
+        {
+            new() { Role = "user", Content = "Lethargic today" },
+            new() { Role = "assistant", Content = "When did you first notice?" },
+            new() { Role = "user", Content = "This morning" },
+            new()
+            {
+                Role = "assistant",
+                Content = "I don't see any medicines on Rex's record. Is Rex taking any medication right now?",
+            },
+            new() { Role = "user", Content = "No medications right now" },
+        };
+
+        JournalInterviewOrchestration.AppendTurnDirective(sb, scan, history, userTurnNumber: 4, "Rex");
+
+        sb.ToString().Should().Contain("Vaccines ONLY");
+        sb.ToString().Should().NotContain("Medications ONLY");
+    }
 }
