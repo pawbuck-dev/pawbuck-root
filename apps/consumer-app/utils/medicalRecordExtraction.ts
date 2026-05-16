@@ -44,17 +44,21 @@ export function parseMedicalRecordExtraction(raw: unknown): MedicalRecordExtract
   const itemsRaw = o.items;
   const items: MedicalRecordItem[] = Array.isArray(itemsRaw)
     ? itemsRaw
-        .map((row) => {
+        .map((row): MedicalRecordItem | null => {
           if (!row || typeof row !== "object") return null;
           const r = row as Record<string, unknown>;
           const name = typeof r.name === "string" ? r.name.trim() : "";
           const category = typeof r.category === "string" ? r.category.trim() : "";
           if (!name) return null;
-          return {
+          const item: MedicalRecordItem = {
             name,
             category,
-            expiryDate: typeof r.expiryDate === "string" ? r.expiryDate : null,
+            expiryDate:
+              typeof r.expiryDate === "string" && r.expiryDate.trim() !== ""
+                ? r.expiryDate.trim()
+                : undefined,
           };
+          return item;
         })
         .filter((x): x is MedicalRecordItem => x != null)
     : [];

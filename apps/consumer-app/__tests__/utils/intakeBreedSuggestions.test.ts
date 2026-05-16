@@ -8,9 +8,24 @@ describe("intakeBreedSuggestions", () => {
     it("detects giant breeds", () => {
       expect(breedSizeTier("Great Dane")).toBe("giant");
     });
+    it("detects Alaskan Malamute as large", () => {
+      expect(breedSizeTier("Alaskan Malamute")).toBe("large");
+    });
   });
 
   describe("suggestIntakeFromPet", () => {
+    it("accepts weight stored as kilograms (pet profile DB variant)", () => {
+      const s = suggestIntakeFromPet({
+        animal_type: "dog",
+        breed: "Alaskan Malamute",
+        weight_value: 16.3,
+        weight_unit: "kilograms",
+      });
+      expect(s.summary).toContain("16.3");
+      expect(s.summary).toContain("weight");
+      expect(s.summary).not.toContain("unknown");
+    });
+
     it("uses weight for a dog when present", () => {
       const s = suggestIntakeFromPet({
         animal_type: "dog",

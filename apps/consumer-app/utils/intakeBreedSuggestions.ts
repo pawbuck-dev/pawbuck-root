@@ -22,8 +22,10 @@ function clamp(n: number, lo: number, hi: number): number {
 
 function weightToKg(weightValue: number | null, weightUnit: string | null): number | null {
   if (weightValue == null || weightValue <= 0) return null;
-  if (weightUnit === "kg") return weightValue;
-  if (weightUnit === "lbs") return weightValue * 0.45359237;
+  const u = (weightUnit ?? "").trim().toLowerCase();
+  // Match pet profile / DB variants (pet-profile.tsx accepts "kilograms" and "pounds").
+  if (u === "kg" || u === "kgs" || u === "kilogram" || u === "kilograms") return weightValue;
+  if (u === "lbs" || u === "lb" || u === "pound" || u === "pounds") return weightValue * 0.45359237;
   return null;
 }
 
@@ -44,7 +46,11 @@ export function breedSizeTier(breed: string): BreedSizeTier {
   ) {
     return "small";
   }
-  if (/(golden retriever|labrador|german shepherd|husky|boxer|doberman|pointer|weimaraner|vizsla|australian cattle)/.test(b)) {
+  if (
+    /(golden retriever|labrador|german shepherd|husky|malamute|alaskan|samoyed|akita|rottweiler|malinois|doodle|labradoodle|goldendoodle|boxer|doberman|pointer|weimaraner|vizsla|australian cattle|ridgeback|setter)/.test(
+      b
+    )
+  ) {
     return "large";
   }
   if (/(great dane|mastiff|saint bernard|newfoundland|irish wolfhound|bernese)/.test(b)) {
