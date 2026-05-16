@@ -18,7 +18,9 @@
           "NSAllowsLocalNetworking": true
         },
         "NSLocationWhenInUseUsageDescription": "PawBuck uses your location to map walks with your pet.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "PawBuck tracks your walk route in the background so you can keep your phone in your pocket. Tracking is only active during a walk."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "PawBuck tracks your walk route in the background so you can keep your phone in your pocket. Tracking is only active during a walk.",
+        "NSCalendarsUsageDescription": "PawBuck can add confirmed vet appointments to your calendar when you tap Add to phone calendar.",
+        "NSRemindersUsageDescription": "PawBuck does not read or change your reminders. iOS requires this description when the app uses calendar features."
       },
       "usesAppleSignIn": true,
       "appleTeamId": "DLT7WMG69P"
@@ -113,7 +115,8 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "PawBuck can add confirmed vet appointments to your calendar when you tap Add to phone calendar."
+          "calendarPermission": "PawBuck can add confirmed vet appointments to your calendar when you tap Add to phone calendar.",
+          "remindersPermission": "PawBuck does not read or change your reminders. iOS requires this description when the app uses calendar features."
         }
       ]
     ],
