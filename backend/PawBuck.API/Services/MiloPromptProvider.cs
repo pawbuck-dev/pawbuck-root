@@ -31,9 +31,16 @@ Return ONLY valid JSON matching this shape (no markdown, no commentary):
 - Do not put administered/given dates into `expiryDate`; reserve `expiryDate` for next-due or expiry only.
 
 ## Items
-- **name**: Vaccine name, medication name, or service name (e.g. "DHPP", "Rabies", "Annual exam").
+- **name**: Vaccine name, medication name, test name, or service name (e.g. "DHPP", "Rabies", "Annual exam", "Chemistry panel").
 - **category**: Broad category such as "vaccination", "medication", "lab", "exam".
 - **expiryDate**: ISO-8601 date for when this item expires or is next due.
+- For vaccination certificates, emit **one item per vaccine** on the document (e.g. DAPP, Bordetella, Rabies as separate items).
+- Canonicalize common vaccine aliases:
+  - DHPP/DAPP/DA2PP → "DHPP (Distemper, Hepatitis, Parvovirus, Parainfluenza)"
+  - Bordetella/Kennel Cough → "Bordetella"
+  - Lepto/L4 → "Leptospirosis"
+  - Rabies 1yr/3yr → "Rabies"
+  - FVRCP → "FVRCP (Core Feline)"
 
 ## Confidence score
 - Set `confidenceScore` (0-100) based on document clarity and completeness:

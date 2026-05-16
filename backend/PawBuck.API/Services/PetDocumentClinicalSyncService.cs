@@ -10,7 +10,14 @@ namespace PawBuck.API.Services;
 public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncService
 {
     private const string UniqueViolationSqlState = "23505";
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private static readonly HashSet<string> SyncableDocumentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        MiloPetFactsKinds.Vaccinations,
+        MiloPetFactsKinds.Medications,
+        MiloPetFactsKinds.ClinicalExams,
+        MiloPetFactsKinds.LabResults,
+    };
 
     private readonly IOptions<SupabaseOptions> _options;
     private readonly ILogger<PetDocumentClinicalSyncService> _logger;
@@ -32,30 +39,31 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         await using var conn = new NpgsqlConnection(cs);
         await conn.OpenAsync(cancellationToken);
 
-        var ids = new List<(Guid Id, string DocType)>();
+        var ids = new List<Guid>();
         await using (var cmd = new NpgsqlCommand(
                    """
-                   SELECT id, document_type::text
+                   SELECT id
                    FROM public.pet_documents
                    WHERE clinical_synced_at IS NULL
-                     AND document_type = ANY (ARRAY['vaccinations'::public.pet_document_type, 'medications'::public.pet_document_type])
+                     AND document_type = ANY (@types)
                    ORDER BY created_at ASC
                    LIMIT @lim
                    """,
                    conn))
         {
+            cmd.Parameters.AddWithValue("types", SyncableDocumentTypes.ToArray());
             cmd.Parameters.AddWithValue("lim", maxRows);
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
-                ids.Add((reader.GetGuid(0), reader.GetString(1)));
+                ids.Add(reader.GetGuid(0));
         }
 
         var processed = 0;
-        foreach (var (id, docType) in ids)
+        foreach (var id in ids)
         {
             try
             {
-                await ProcessOneAsync(conn, id, docType, cancellationToken);
+                await SyncDocumentByIdAsync(id, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -68,16 +76,26 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         return processed;
     }
 
-    private async Task ProcessOneAsync(NpgsqlConnection conn, Guid documentId, string documentType, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<PetDocumentClinicalSyncResult> SyncDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default)
     {
+        var cs = _options.Value.ConnectionString;
+        if (string.IsNullOrWhiteSpace(cs))
+            return new PetDocumentClinicalSyncResult { Error = "database_not_configured" };
+
+        await using var conn = new NpgsqlConnection(cs);
+        await conn.OpenAsync(cancellationToken);
+
+        string? docType = null;
         string? extractedJson = null;
         Guid petId = default;
         Guid userId = default;
         string storagePath = "";
+        DateTimeOffset? syncedAt = null;
 
         await using (var load = new NpgsqlCommand(
                    """
-                   SELECT pet_id, user_id, storage_path, extracted_json::text
+                   SELECT pet_id, user_id, storage_path, document_type::text, extracted_json::text, clinical_synced_at
                    FROM public.pet_documents
                    WHERE id = @id
                    """,
@@ -86,80 +104,288 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
             load.Parameters.AddWithValue("id", documentId);
             await using var reader = await load.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken))
-                return;
+                return new PetDocumentClinicalSyncResult { Error = "document_not_found" };
+
             petId = reader.GetGuid(0);
             userId = reader.GetGuid(1);
             storagePath = reader.GetString(2);
-            extractedJson = reader.IsDBNull(3) ? null : reader.GetString(3);
+            docType = reader.GetString(3);
+            extractedJson = reader.IsDBNull(4) ? null : reader.GetString(4);
+            syncedAt = reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5);
+        }
+
+        if (syncedAt.HasValue)
+            return new PetDocumentClinicalSyncResult { Synced = true };
+
+        if (string.IsNullOrWhiteSpace(docType) || !SyncableDocumentTypes.Contains(docType))
+        {
+            await MarkSyncedAsync(conn, documentId, "unsupported document_type", cancellationToken);
+            return new PetDocumentClinicalSyncResult { Synced = true, Error = "unsupported_document_type" };
         }
 
         if (string.IsNullOrWhiteSpace(extractedJson))
         {
             await MarkSyncedAsync(conn, documentId, "empty extracted_json", cancellationToken);
-            return;
+            return new PetDocumentClinicalSyncResult { Synced = true, Error = "empty extracted_json" };
         }
 
-        FlexibleVaultExtraction? extraction;
+        var result = new PetDocumentClinicalSyncResult();
         try
         {
-            extraction = JsonSerializer.Deserialize<FlexibleVaultExtraction>(extractedJson, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "pet_documents {DocumentId}: invalid JSON", documentId);
-            await MarkSyncedAsync(conn, documentId, "invalid JSON", cancellationToken);
-            return;
-        }
-
-        if (extraction == null)
-        {
-            await MarkSyncedAsync(conn, documentId, "null extraction", cancellationToken);
-            return;
-        }
-
-        try
-        {
-            if (string.Equals(documentType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase))
-                await TryInsertVaccinationAsync(conn, petId, userId, storagePath, extraction, cancellationToken);
-            else if (string.Equals(documentType, MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase))
-                await TryInsertMedicationAsync(conn, petId, userId, storagePath, extraction, cancellationToken);
+            if (VaultExtractedJsonParser.TryParseMedicalRecord(extractedJson, out var medical) && medical != null)
+            {
+                await SyncMedicalRecordAsync(conn, petId, userId, storagePath, docType, medical, result, cancellationToken);
+            }
+            else if (VaultExtractedJsonParser.TryParseFlexible(extractedJson, out var flexible) && flexible != null)
+            {
+                await SyncLegacyFlexibleAsync(conn, petId, userId, storagePath, docType, flexible, result, cancellationToken);
+            }
             else
             {
-                await MarkSyncedAsync(conn, documentId, "unsupported document_type", cancellationToken);
-                return;
+                await MarkSyncedAsync(conn, documentId, "invalid JSON", cancellationToken);
+                return new PetDocumentClinicalSyncResult { Synced = true, Error = "invalid_json" };
             }
 
-            await MarkSyncedAsync(conn, documentId, null, cancellationToken);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogInformation("pet_documents {DocumentId}: skip insert ({Message})", documentId, ex.Message);
-            await MarkSyncedAsync(conn, documentId, ex.Message.Length > 200 ? ex.Message[..200] : ex.Message, cancellationToken);
+            var syncError = result.ClinicalRowsCreated == 0 && result.SkippedDuplicates == 0
+                ? "no_clinical_rows_created"
+                : null;
+            await MarkSyncedAsync(conn, documentId, syncError, cancellationToken);
+            result.Synced = true;
+            if (syncError != null)
+                result.Error = syncError;
+            return result;
         }
         catch (PostgresException ex) when (ex.SqlState == UniqueViolationSqlState)
         {
             _logger.LogInformation("pet_documents {DocumentId}: duplicate clinical row ({Message})", documentId, ex.Message);
             await MarkSyncedAsync(conn, documentId, "duplicate", cancellationToken);
+            result.Synced = true;
+            result.Error = "duplicate";
+            return result;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogInformation("pet_documents {DocumentId}: skip insert ({Message})", documentId, ex.Message);
+            await MarkSyncedAsync(conn, documentId, TruncateError(ex.Message), cancellationToken);
+            result.Synced = true;
+            result.Error = TruncateError(ex.Message);
+            return result;
         }
     }
 
-    private async Task TryInsertVaccinationAsync(
+    private static async Task SyncMedicalRecordAsync(
         NpgsqlConnection conn,
         Guid petId,
         Guid userId,
         string storagePath,
-        FlexibleVaultExtraction extraction,
+        string documentType,
+        MedicalRecordExtraction medical,
+        PetDocumentClinicalSyncResult result,
         CancellationToken cancellationToken)
     {
-        var name = PickName(extraction, "Vaccination");
-        var administered = PickDate(extraction, ["date", "given", "administered", "visit"]);
-        if (!administered.HasValue)
-            throw new InvalidOperationException("missing_vaccination_date");
+        var visitDate = VaultExtractedJsonParser.ParseOptionalDate(medical.DateOfVisit);
+        var clinic = string.IsNullOrWhiteSpace(medical.ClinicName) ? null : medical.ClinicName.Trim();
+        var items = medical.Items ?? new List<MedicalRecordItem>();
 
-        var nextDue = PickDateOnlyFromFacts(extraction, ["next", "due", "expiry", "booster"]);
-        var clinic = PickFactValueContaining(extraction, ["clinic", "hospital", "practice"]);
-        var notes = string.IsNullOrWhiteSpace(extraction.Summary) ? null : extraction.Summary.Trim();
+        if (string.Equals(documentType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase))
+        {
+            if (items.Count == 0)
+                throw new InvalidOperationException("missing_vaccination_items");
 
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                    continue;
+
+                var administered = visitDate ?? throw new InvalidOperationException("missing_vaccination_date");
+                var nextDue = VaultExtractedJsonParser.ParseOptionalDate(item.ExpiryDate);
+                if (await VaccinationExistsAsync(conn, petId, item.Name, administered, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    continue;
+                }
+
+                await InsertVaccinationAsync(
+                    conn, petId, userId, item.Name.Trim(), administered, nextDue, clinic, null, storagePath, cancellationToken);
+                result.VaccinationsCreated++;
+            }
+
+            return;
+        }
+
+        if (string.Equals(documentType, MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase))
+        {
+            if (items.Count == 0)
+                throw new InvalidOperationException("missing_medication_items");
+
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                    continue;
+
+                if (await MedicationExistsAsync(conn, petId, item.Name, visitDate, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    continue;
+                }
+
+                await InsertMedicationAsync(
+                    conn,
+                    petId,
+                    userId,
+                    item.Name.Trim(),
+                    visitDate,
+                    VaultExtractedJsonParser.ParseOptionalDate(item.ExpiryDate),
+                    clinic,
+                    storagePath,
+                    cancellationToken);
+                result.MedicationsCreated++;
+            }
+
+            return;
+        }
+
+        if (string.Equals(documentType, MiloPetFactsKinds.ClinicalExams, StringComparison.OrdinalIgnoreCase))
+        {
+            var examDate = VaultExtractedJsonParser.ParseOptionalDateOnly(medical.DateOfVisit)
+                           ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+            if (items.Count == 0)
+            {
+                var examType = "Clinical visit";
+                if (await ClinicalExamExistsAsync(conn, petId, examType, examDate, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    return;
+                }
+
+                await InsertClinicalExamAsync(
+                    conn, petId, userId, examDate, examType, clinic, null, null, storagePath, cancellationToken);
+                result.ClinicalExamsCreated++;
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                    continue;
+
+                var examType = item.Name.Trim();
+                if (await ClinicalExamExistsAsync(conn, petId, examType, examDate, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    continue;
+                }
+
+                var followUp = VaultExtractedJsonParser.ParseOptionalDateOnly(item.ExpiryDate);
+                await InsertClinicalExamAsync(
+                    conn, petId, userId, examDate, examType, clinic, followUp, item.Category, storagePath, cancellationToken);
+                result.ClinicalExamsCreated++;
+            }
+
+            return;
+        }
+
+        if (string.Equals(documentType, MiloPetFactsKinds.LabResults, StringComparison.OrdinalIgnoreCase))
+        {
+            var testDate = visitDate;
+            var labName = clinic ?? "Unknown lab";
+
+            if (items.Count == 0)
+            {
+                if (await LabResultExistsAsync(conn, petId, "Lab panel", testDate, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    return;
+                }
+
+                await InsertLabResultAsync(conn, petId, userId, "Lab panel", labName, testDate, storagePath, cancellationToken);
+                result.LabResultsCreated++;
+                return;
+            }
+
+            foreach (var item in items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                    continue;
+
+                var testType = item.Name.Trim();
+                if (await LabResultExistsAsync(conn, petId, testType, testDate, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    continue;
+                }
+
+                await InsertLabResultAsync(conn, petId, userId, testType, labName, testDate, storagePath, cancellationToken);
+                result.LabResultsCreated++;
+            }
+        }
+    }
+
+    private static async Task SyncLegacyFlexibleAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        Guid userId,
+        string storagePath,
+        string documentType,
+        FlexibleVaultExtraction flexible,
+        PetDocumentClinicalSyncResult result,
+        CancellationToken cancellationToken)
+    {
+        if (string.Equals(documentType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase))
+        {
+            var name = PickName(flexible, "Vaccination");
+            var administered = PickDate(flexible, ["date", "given", "administered", "visit"])
+                               ?? throw new InvalidOperationException("missing_vaccination_date");
+            if (await VaccinationExistsAsync(conn, petId, name, administered, cancellationToken))
+            {
+                result.SkippedDuplicates++;
+                return;
+            }
+
+            var nextDue = PickDateOnlyFromFacts(flexible, ["next", "due", "expiry", "booster"]);
+            var clinic = PickFactValueContaining(flexible, ["clinic", "hospital", "practice"]);
+            var notes = string.IsNullOrWhiteSpace(flexible.Summary) ? null : flexible.Summary.Trim();
+            await InsertVaccinationAsync(conn, petId, userId, name, administered, nextDue, clinic, notes, storagePath, cancellationToken);
+            result.VaccinationsCreated++;
+            return;
+        }
+
+        if (string.Equals(documentType, MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase))
+        {
+            var name = PickName(flexible, "Medication");
+            if (await MedicationExistsAsync(conn, petId, name, PickDate(flexible, ["start", "begin", "filled"]), cancellationToken))
+            {
+                result.SkippedDuplicates++;
+                return;
+            }
+
+            await InsertMedicationAsync(
+                conn,
+                petId,
+                userId,
+                name,
+                PickDate(flexible, ["start", "begin", "filled"]),
+                null,
+                PickFactValueContaining(flexible, ["prescribed", "vet", "clinic"]),
+                storagePath,
+                cancellationToken);
+            result.MedicationsCreated++;
+        }
+    }
+
+    private static async Task InsertVaccinationAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        Guid userId,
+        string name,
+        DateTime administered,
+        DateTime? nextDue,
+        string? clinic,
+        string? notes,
+        string storagePath,
+        CancellationToken cancellationToken)
+    {
         await using var cmd = new NpgsqlCommand(
             """
             INSERT INTO public.vaccinations (pet_id, user_id, name, date, next_due_date, clinic_name, notes, document_url, created_at)
@@ -169,7 +395,7 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         cmd.Parameters.AddWithValue("pet_id", petId);
         cmd.Parameters.AddWithValue("user_id", userId);
         cmd.Parameters.AddWithValue("name", name);
-        cmd.Parameters.AddWithValue("date", administered.Value);
+        cmd.Parameters.AddWithValue("date", administered);
         cmd.Parameters.Add(new NpgsqlParameter("next_due", NpgsqlDbType.TimestampTz) { Value = nextDue.HasValue ? nextDue.Value : DBNull.Value });
         cmd.Parameters.Add(new NpgsqlParameter("clinic", NpgsqlDbType.Text) { Value = string.IsNullOrWhiteSpace(clinic) ? DBNull.Value : clinic });
         cmd.Parameters.Add(new NpgsqlParameter("notes", NpgsqlDbType.Text) { Value = notes == null ? DBNull.Value : notes });
@@ -177,43 +403,190 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private async Task TryInsertMedicationAsync(
+    private static async Task InsertMedicationAsync(
         NpgsqlConnection conn,
         Guid petId,
         Guid userId,
+        string name,
+        DateTime? start,
+        DateTime? nextDue,
+        string? prescribedBy,
         string storagePath,
-        FlexibleVaultExtraction extraction,
         CancellationToken cancellationToken)
     {
-        var name = PickName(extraction, "Medication");
-        var dosage = PickFactValueContaining(extraction, ["dosage", "dose", "strength", "mg", "ml"]) ?? "See label";
-        var frequency = PickFactValueContaining(extraction, ["frequency", "schedule", "how often"]) ?? "As needed";
-        var type = "prescription";
-        var prescribedBy = PickFactValueContaining(extraction, ["prescribed", "vet", "doctor", "provider"]);
-        var purpose = string.IsNullOrWhiteSpace(extraction.Summary) ? null : extraction.Summary.Trim();
-        DateTime? start = PickDate(extraction, ["start", "begin", "filled"]);
-
         await using var cmd = new NpgsqlCommand(
             """
             INSERT INTO public.medicines (
               pet_id, user_id, name, type, dosage, frequency, schedules, reminder_enabled,
-              start_date, prescribed_by, purpose, document_url)
+              start_date, next_due_date, prescribed_by, document_url)
             VALUES (
               @pet_id, @user_id, @name, @type, @dosage, @frequency, '[]'::json, false,
-              @start_date, @prescribed_by, @purpose, @document_url)
+              @start_date, @next_due, @prescribed_by, @document_url)
             """,
             conn);
         cmd.Parameters.AddWithValue("pet_id", petId);
         cmd.Parameters.AddWithValue("user_id", userId);
         cmd.Parameters.AddWithValue("name", name);
-        cmd.Parameters.AddWithValue("type", type);
-        cmd.Parameters.AddWithValue("dosage", dosage);
-        cmd.Parameters.AddWithValue("frequency", frequency);
+        cmd.Parameters.AddWithValue("type", "prescription");
+        cmd.Parameters.AddWithValue("dosage", "See label");
+        cmd.Parameters.AddWithValue("frequency", "As directed");
         cmd.Parameters.Add(new NpgsqlParameter("start_date", NpgsqlDbType.TimestampTz) { Value = start.HasValue ? start.Value : DBNull.Value });
-        cmd.Parameters.Add(new NpgsqlParameter("prescribed_by", NpgsqlDbType.Text) { Value = prescribedBy == null ? DBNull.Value : prescribedBy });
-        cmd.Parameters.Add(new NpgsqlParameter("purpose", NpgsqlDbType.Text) { Value = purpose == null ? DBNull.Value : purpose });
+        cmd.Parameters.Add(new NpgsqlParameter("next_due", NpgsqlDbType.TimestampTz) { Value = nextDue.HasValue ? nextDue.Value : DBNull.Value });
+        cmd.Parameters.Add(new NpgsqlParameter("prescribed_by", NpgsqlDbType.Text) { Value = string.IsNullOrWhiteSpace(prescribedBy) ? DBNull.Value : prescribedBy });
         cmd.Parameters.AddWithValue("document_url", storagePath);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task InsertClinicalExamAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        Guid userId,
+        DateOnly examDate,
+        string examType,
+        string? clinic,
+        DateOnly? followUp,
+        string? findings,
+        string storagePath,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            INSERT INTO public.clinical_exams (
+              pet_id, user_id, exam_date, clinic_name, exam_type, findings, follow_up_date, document_url, created_at, updated_at)
+            VALUES (
+              @pet_id, @user_id, @exam_date, @clinic, @exam_type, @findings, @follow_up, @document_url, timezone('utc', now()), timezone('utc', now()))
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("user_id", userId);
+        cmd.Parameters.AddWithValue("exam_date", examDate);
+        cmd.Parameters.Add(new NpgsqlParameter("clinic", NpgsqlDbType.Text) { Value = string.IsNullOrWhiteSpace(clinic) ? DBNull.Value : clinic });
+        cmd.Parameters.AddWithValue("exam_type", examType);
+        cmd.Parameters.Add(new NpgsqlParameter("findings", NpgsqlDbType.Text) { Value = string.IsNullOrWhiteSpace(findings) ? DBNull.Value : findings });
+        cmd.Parameters.Add(new NpgsqlParameter("follow_up", NpgsqlDbType.Date) { Value = followUp.HasValue ? followUp.Value : DBNull.Value });
+        cmd.Parameters.AddWithValue("document_url", storagePath);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task InsertLabResultAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        Guid userId,
+        string testType,
+        string labName,
+        DateTime? testDate,
+        string storagePath,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            INSERT INTO public.lab_results (
+              pet_id, user_id, test_type, lab_name, test_date, results, document_url, created_at, updated_at)
+            VALUES (
+              @pet_id, @user_id, @test_type, @lab_name, @test_date, '[]'::jsonb, @document_url, timezone('utc', now()), timezone('utc', now()))
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("user_id", userId);
+        cmd.Parameters.AddWithValue("test_type", testType);
+        cmd.Parameters.AddWithValue("lab_name", labName);
+        cmd.Parameters.Add(new NpgsqlParameter("test_date", NpgsqlDbType.TimestampTz) { Value = testDate.HasValue ? testDate.Value : DBNull.Value });
+        cmd.Parameters.AddWithValue("document_url", storagePath);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> VaccinationExistsAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string name,
+        DateTime date,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT 1 FROM public.vaccinations
+            WHERE pet_id = @pet_id
+              AND lower(trim(name)) = lower(trim(@name))
+              AND (date AT TIME ZONE 'UTC')::date = (@date AT TIME ZONE 'UTC')::date
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("name", name);
+        cmd.Parameters.AddWithValue("date", date);
+        return await cmd.ExecuteScalarAsync(cancellationToken) != null;
+    }
+
+    private static async Task<bool> MedicationExistsAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string name,
+        DateTime? start,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT 1 FROM public.medicines
+            WHERE pet_id = @pet_id
+              AND lower(trim(name)) = lower(trim(@name))
+              AND (
+                @start IS NULL
+                OR COALESCE((start_date AT TIME ZONE 'UTC')::date, created_at::date) = (@start AT TIME ZONE 'UTC')::date
+              )
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("name", name);
+        cmd.Parameters.Add(new NpgsqlParameter("start", NpgsqlDbType.TimestampTz) { Value = start.HasValue ? start.Value : DBNull.Value });
+        return await cmd.ExecuteScalarAsync(cancellationToken) != null;
+    }
+
+    private static async Task<bool> ClinicalExamExistsAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string examType,
+        DateOnly examDate,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT 1 FROM public.clinical_exams
+            WHERE pet_id = @pet_id
+              AND lower(trim(exam_type)) = lower(trim(@exam_type))
+              AND exam_date = @exam_date
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("exam_type", examType);
+        cmd.Parameters.AddWithValue("exam_date", examDate);
+        return await cmd.ExecuteScalarAsync(cancellationToken) != null;
+    }
+
+    private static async Task<bool> LabResultExistsAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string testType,
+        DateTime? testDate,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT 1 FROM public.lab_results
+            WHERE pet_id = @pet_id
+              AND lower(trim(test_type)) = lower(trim(@test_type))
+              AND (
+                @test_date IS NULL
+                OR (test_date AT TIME ZONE 'UTC')::date = (@test_date AT TIME ZONE 'UTC')::date
+              )
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("test_type", testType);
+        cmd.Parameters.Add(new NpgsqlParameter("test_date", NpgsqlDbType.TimestampTz) { Value = testDate.HasValue ? testDate.Value : DBNull.Value });
+        return await cmd.ExecuteScalarAsync(cancellationToken) != null;
     }
 
     private async Task MarkSyncedAsync(NpgsqlConnection conn, Guid documentId, string? error, CancellationToken cancellationToken)
@@ -231,6 +604,9 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static string TruncateError(string message) =>
+        message.Length > 200 ? message[..200] : message;
+
     private static string PickName(FlexibleVaultExtraction e, string fallback)
     {
         if (!string.IsNullOrWhiteSpace(e.Title))
@@ -241,23 +617,20 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
 
     private static DateTime? PickDate(FlexibleVaultExtraction e, string[] labelNeedles)
     {
-        if (TryParseFlexibleDate(e.PrimaryDate, out var d))
+        if (VaultExtractedJsonParser.TryParseFlexibleDate(e.PrimaryDate, out var d))
             return d;
         foreach (var fact in e.KeyFacts ?? Enumerable.Empty<FlexibleKeyFact>())
         {
             if (string.IsNullOrWhiteSpace(fact.Label))
                 continue;
-            var lab = fact.Label.Trim();
-            if (labelNeedles.Any(n => lab.Contains(n, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (TryParseFlexibleDate(fact.Value, out d))
-                    return d;
-            }
+            if (labelNeedles.Any(n => fact.Label.Contains(n, StringComparison.OrdinalIgnoreCase))
+                && VaultExtractedJsonParser.TryParseFlexibleDate(fact.Value, out d))
+                return d;
         }
 
         foreach (var fact in e.KeyFacts ?? Enumerable.Empty<FlexibleKeyFact>())
         {
-            if (TryParseFlexibleDate(fact.Value, out d))
+            if (VaultExtractedJsonParser.TryParseFlexibleDate(fact.Value, out d))
                 return d;
         }
 
@@ -270,12 +643,9 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         {
             if (string.IsNullOrWhiteSpace(fact.Label))
                 continue;
-            var lab = fact.Label.Trim();
-            if (labelNeedles.Any(n => lab.Contains(n, StringComparison.OrdinalIgnoreCase)))
-            {
-                if (TryParseFlexibleDate(fact.Value, out var d))
-                    return d;
-            }
+            if (labelNeedles.Any(n => fact.Label.Contains(n, StringComparison.OrdinalIgnoreCase))
+                && VaultExtractedJsonParser.TryParseFlexibleDate(fact.Value, out var d))
+                return d;
         }
 
         return null;
@@ -292,20 +662,5 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         }
 
         return null;
-    }
-
-    private static bool TryParseFlexibleDate(string? raw, out DateTime utc)
-    {
-        utc = default;
-        if (string.IsNullOrWhiteSpace(raw))
-            return false;
-        var s = raw.Trim();
-        if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
-        {
-            utc = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
-            return true;
-        }
-
-        return false;
     }
 }

@@ -39,4 +39,7 @@ public class PetDocumentVaultRowDto
     public string? Metadata { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Populated when the document type maps to clinical tables (vaccines, meds, exams, labs).</summary>
+    public PetDocumentClinicalSyncResult? ClinicalSync { get; set; }
 }

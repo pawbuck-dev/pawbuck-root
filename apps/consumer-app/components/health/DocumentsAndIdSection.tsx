@@ -5,6 +5,8 @@ import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { usePetDocuments } from "@/hooks/usePetDocuments";
+import { invalidateClinicalQueries } from "@/utils/invalidateClinicalQueries";
+import { formatClinicalSyncMessage } from "@/utils/medicalRecordExtraction";
 import { pickPdfFile } from "@/utils/filePicker";
 import { formatMicrochipDisplay } from "@/utils/microchipDisplay";
 import { pickImageFromLibrary } from "@/utils/imagePicker";
@@ -81,9 +83,10 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             try {
               const img = await pickImageFromLibrary();
               if (!img) return;
-              await uploadAndAnalyze(pet.id, pet.name, img);
-              await queryClient.invalidateQueries({ queryKey: ["pet_documents", pet.id] });
-              Alert.alert("Saved", "Document analyzed and saved.");
+              const row = await uploadAndAnalyze(pet.id, pet.name, img);
+              await invalidateClinicalQueries(queryClient, pet.id);
+              const syncMsg = formatClinicalSyncMessage(row.clinicalSync);
+              Alert.alert("Saved", syncMsg ?? "Document analyzed and saved.");
             } catch (e) {
               Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
             }
@@ -95,9 +98,10 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             try {
               const pdf = await pickPdfFile();
               if (!pdf) return;
-              await uploadAndAnalyze(pet.id, pet.name, pdf);
-              await queryClient.invalidateQueries({ queryKey: ["pet_documents", pet.id] });
-              Alert.alert("Saved", "Document analyzed and saved.");
+              const row = await uploadAndAnalyze(pet.id, pet.name, pdf);
+              await invalidateClinicalQueries(queryClient, pet.id);
+              const syncMsg = formatClinicalSyncMessage(row.clinicalSync);
+              Alert.alert("Saved", syncMsg ?? "Document analyzed and saved.");
             } catch (e) {
               Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
             }

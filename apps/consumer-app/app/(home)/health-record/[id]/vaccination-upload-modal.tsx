@@ -4,14 +4,19 @@ import { LibraryButton } from "@/components/upload/LibraryButton";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { useVaccinations } from "@/context/vaccinationsContext";
-import { VaccinationInsert, VaccinationOCRResponse } from "@/types/vaccination";
+import { VaccinationInsert } from "@/types/vaccination";
 import { isDuplicateVaccination } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
-import { uploadFile } from "@/utils/image";
+import { invalidateClinicalQueries } from "@/utils/invalidateClinicalQueries";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
+import {
+  formatClinicalSyncMessage,
+  medicalRecordToVaccinationInserts,
+  parseMedicalRecordExtraction,
+} from "@/utils/medicalRecordExtraction";
 import { supabase } from "@/utils/supabase";
-import { parseVaccinationOCRResponse } from "@/utils/vaccination/response";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,6 +58,7 @@ export default function VaccinationUploadModal() {
   const { pet } = useSelectedPet();
   const { vaccinations: existingVaccinations } = useVaccinations();
   const queryClient = useQueryClient();
+  const { uploadAndAnalyze } = useMiloUpload();
   const [extractedVaccinations, setExtractedVaccinations] = useState<
     VaccinationInsert[]
   >([]);
@@ -68,42 +74,41 @@ export default function VaccinationUploadModal() {
       return;
     }
     try {
-      // Step 1: Uploading
       setStatus("uploading");
       setStatusMessage("Uploading document...");
 
-      const extension = file.mimeType?.split("/")[1];
-      const data = await uploadFile(
-        file,
-        `${user.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/vaccinations/${Date.now()}.${extension}`
-      );
+      const row = await uploadAndAnalyze(pet.id, pet.name, file);
 
-      // Step 2: Extracting
       setStatus("extracting");
       setStatusMessage("Extracting vaccination data...");
 
-      const { data: ocrData, error: ocrError } =
-        await supabase.functions.invoke<VaccinationOCRResponse>(
-          "vaccination-ocr",
-          {
-            body: {
-              bucket: "pets",
-              path: data.path,
-            },
-          }
-        );
+      await invalidateClinicalQueries(queryClient, pet.id);
 
-      if (ocrError) {
+      const imported = row.clinicalSync?.vaccinationsCreated ?? 0;
+      if (imported > 0) {
+        const syncMsg = formatClinicalSyncMessage(row.clinicalSync);
+        setStatus("success");
+        setStatusMessage(syncMsg ?? "Vaccinations added to health records.");
+        setTimeout(() => router.back(), 1500);
+        return;
+      }
+
+      const extraction = parseMedicalRecordExtraction(row.extractedJson);
+      const supabaseVaccines = extraction
+        ? medicalRecordToVaccinationInserts(pet.id, extraction, row.storagePath)
+        : [];
+
+      if (supabaseVaccines.length === 0) {
         setStatus("error");
-        setStatusMessage("Failed to process document");
-        Alert.alert("Error", "Failed to process vaccination OCR");
+        setStatusMessage("Could not extract vaccines from this document");
+        Alert.alert(
+          "Review needed",
+          "We saved the document but could not auto-import vaccines. Try a clearer photo or add records manually."
+        );
         setTimeout(() => setStatus("idle"), 2000);
         return;
       }
 
-      const supabaseVaccines = parseVaccinationOCRResponse(pet.id, ocrData!, data.path);
-
-      // Store extracted data and switch to review mode
       setExtractedVaccinations(supabaseVaccines);
       setStatus("idle");
       setIsReviewMode(true);
@@ -212,10 +217,7 @@ export default function VaccinationUploadModal() {
         return;
       }
 
-      // Invalidate vaccinations query to trigger refetch
-      await queryClient.invalidateQueries({
-        queryKey: ["vaccinations", pet.id],
-      });
+      await invalidateClinicalQueries(queryClient, pet.id);
 
       // Success
       setStatus("success");

@@ -15,6 +15,7 @@ import {
 } from "@/services/miloSuggestedPrompts";
 import { buildDocumentUploadThreadContent } from "@/services/miloDocumentUploadThread";
 import { pickPdfFile } from "@/utils/filePicker";
+import { invalidateClinicalQueries } from "@/utils/invalidateClinicalQueries";
 import { pickImageFromLibrary } from "@/utils/imagePicker";
 import { fetchJournalEntries } from "@/services/petJournal";
 import {
@@ -260,7 +261,7 @@ export const MiloChatModal: React.FC = () => {
           { id: `${t}-u`, role: "user", content: userContent, timestamp: new Date() },
           { id: `${t}-a`, role: "assistant", content: assistantContent, timestamp: new Date() },
         ]);
-        await queryClient.invalidateQueries({ queryKey: ["pet_documents", selectedPet.id] });
+        await invalidateClinicalQueries(queryClient, selectedPet.id);
       } catch (e) {
         Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
       }

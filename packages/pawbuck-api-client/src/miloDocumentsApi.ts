@@ -9,6 +9,17 @@ export type AnalyzePetDocumentRequest = {
   mimeType?: string;
 };
 
+export type PetDocumentClinicalSyncResultDto = {
+  synced?: boolean;
+  vaccinationsCreated?: number;
+  medicationsCreated?: number;
+  clinicalExamsCreated?: number;
+  labResultsCreated?: number;
+  skippedDuplicates?: number;
+  clinicalRowsCreated?: number;
+  error?: string | null;
+};
+
 export type PetDocumentVaultRowDto = {
   id: string;
   petId: string;
@@ -21,6 +32,7 @@ export type PetDocumentVaultRowDto = {
   metadata: string | null;
   createdAt: string;
   updatedAt: string;
+  clinicalSync?: PetDocumentClinicalSyncResultDto | null;
 };
 
 async function parseJsonOrThrow(res: Response): Promise<unknown> {

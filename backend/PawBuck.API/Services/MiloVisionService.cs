@@ -23,6 +23,7 @@ public class MiloVisionService : IMiloVisionService
 
     private readonly IMiloPetFactsService _petFacts;
     private readonly IMiloPromptProvider _prompts;
+    private readonly IPetDocumentClinicalSyncService _clinicalSync;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<SupabaseOptions> _supabaseOptions;
     private readonly IOptions<GeminiOptions> _geminiOptions;
@@ -31,6 +32,7 @@ public class MiloVisionService : IMiloVisionService
     public MiloVisionService(
         IMiloPetFactsService petFacts,
         IMiloPromptProvider prompts,
+        IPetDocumentClinicalSyncService clinicalSync,
         IHttpClientFactory httpClientFactory,
         IOptions<SupabaseOptions> supabaseOptions,
         IOptions<GeminiOptions> geminiOptions,
@@ -38,6 +40,7 @@ public class MiloVisionService : IMiloVisionService
     {
         _petFacts = petFacts;
         _prompts = prompts;
+        _clinicalSync = clinicalSync;
         _httpClientFactory = httpClientFactory;
         _supabaseOptions = supabaseOptions;
         _geminiOptions = geminiOptions;
@@ -135,9 +138,19 @@ public class MiloVisionService : IMiloVisionService
         var docType = NormalizeVaultDocumentType(classification.DocumentType);
         var classConfidence = classification.Confidence;
 
-        var extractionPrompt = _prompts.GetFlexibleExtractionPrompt(docType);
-        var extractedJson = await RunFlexibleExtractionAsync(
-            base64, mimeType, extractionPrompt, apiKey, model, cancellationToken);
+        string extractedJson;
+        if (UsesFlexibleVaultExtraction(docType))
+        {
+            var extractionPrompt = _prompts.GetFlexibleExtractionPrompt(docType);
+            extractedJson = await RunFlexibleExtractionAsync(
+                base64, mimeType, extractionPrompt, apiKey, model, cancellationToken);
+        }
+        else
+        {
+            var extractionPrompt = _prompts.GetPromptForType(docType);
+            extractedJson = await RunMedicalRecordExtractionAsync(
+                base64, mimeType, extractionPrompt, apiKey, model, cancellationToken);
+        }
 
         double rowConfidence = classConfidence;
         try
@@ -151,7 +164,7 @@ public class MiloVisionService : IMiloVisionService
             /* keep classification confidence */
         }
 
-        return await InsertPetDocumentAsync(
+        var row = await InsertPetDocumentAsync(
             petId,
             ownerUserId,
             storagePath,
@@ -161,7 +174,33 @@ public class MiloVisionService : IMiloVisionService
             extractedJson,
             metadata: JsonSerializer.Serialize(new { classificationReasoning = classification.Reasoning }),
             cancellationToken);
+
+        if (IsClinicalSyncDocumentType(docType))
+        {
+            try
+            {
+                row.ClinicalSync = await _clinicalSync.SyncDocumentByIdAsync(row.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Inline clinical sync failed for pet_documents {DocumentId}", row.Id);
+                row.ClinicalSync = new PetDocumentClinicalSyncResult { Error = "sync_failed" };
+            }
+        }
+
+        return row;
     }
+
+    private static bool UsesFlexibleVaultExtraction(string docType) =>
+        docType.Equals("insurance_policy", StringComparison.OrdinalIgnoreCase)
+        || docType.Equals("pedigree", StringComparison.OrdinalIgnoreCase)
+        || docType.Equals("identity_document", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsClinicalSyncDocumentType(string docType) =>
+        docType.Equals(MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase)
+        || docType.Equals(MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase)
+        || docType.Equals(MiloPetFactsKinds.ClinicalExams, StringComparison.OrdinalIgnoreCase)
+        || docType.Equals(MiloPetFactsKinds.LabResults, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Maps classifier output to allowed <c>pet_documents</c> document types (same rules as ingestion).
@@ -347,6 +386,69 @@ public class MiloVisionService : IMiloVisionService
         var text = ExtractFirstCandidateText(json);
         if (string.IsNullOrWhiteSpace(text))
             return """{"title":"","summary":"","keyFacts":[],"confidenceScore":0}""";
+        return text;
+    }
+
+    private async Task<string> RunMedicalRecordExtractionAsync(
+        string base64,
+        string mime,
+        string extractionPrompt,
+        string apiKey,
+        string model,
+        CancellationToken cancellationToken)
+    {
+        var requestBody = new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    parts = new object[]
+                    {
+                        new { text = extractionPrompt },
+                        new { inline_data = new { mime_type = mime, data = base64 } },
+                    },
+                },
+            },
+            generationConfig = new
+            {
+                temperature = 0.1,
+                response_mime_type = "application/json",
+                response_schema = new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        petName = new { type = "string" },
+                        documentType = new { type = "string" },
+                        clinicName = new { type = "string" },
+                        dateOfVisit = new { type = "string" },
+                        items = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    name = new { type = "string" },
+                                    category = new { type = "string" },
+                                    expiryDate = new { type = "string" },
+                                },
+                                required = new[] { "name", "category" },
+                            },
+                        },
+                        confidenceScore = new { type = "number" },
+                    },
+                    required = new[] { "petName", "documentType", "clinicName", "dateOfVisit", "items", "confidenceScore" },
+                },
+            },
+        };
+
+        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, cancellationToken);
+        var text = ExtractFirstCandidateText(json);
+        if (string.IsNullOrWhiteSpace(text))
+            return """{"petName":"","documentType":"irrelevant","clinicName":"","dateOfVisit":"","items":[],"confidenceScore":0}""";
         return text;
     }
 

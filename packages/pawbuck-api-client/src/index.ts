@@ -10,6 +10,7 @@ export {
 export {
   analyzePetDocument,
   type AnalyzePetDocumentRequest,
+  type PetDocumentClinicalSyncResultDto,
   type PetDocumentVaultRowDto,
 } from "./miloDocumentsApi";
 
