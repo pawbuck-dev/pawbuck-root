@@ -1,5 +1,7 @@
+import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { resolveHomeCareHeadline } from "@/utils/userDisplayIdentity";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -21,11 +23,14 @@ type HomeHeaderProps = {
 export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const { user } = useAuth();
   const { selectedPet } = useSelectedPet();
   const router = useRouter();
   const greeting = useMemo(() => getGreeting(), []);
-  /** With a selected pet: "{Name}'s Care". With none, avoid the literal "Pet's Care" fallback. */
-  const headline = selectedPet ? `${selectedPet.name}'s Care` : "Home";
+  const headline = useMemo(
+    () => resolveHomeCareHeadline(user, selectedPet),
+    [user, selectedPet]
+  );
 
   const btnStyle = {
     width: 44,

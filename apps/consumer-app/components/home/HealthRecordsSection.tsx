@@ -13,8 +13,9 @@ import { fetchClinicalExams } from "@/services/clinicalExams";
 import { fetchLabResults } from "@/services/labResults";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { petPossessiveLabel } from "@/utils/petCopy";
-import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
+import { buildVaccineHubSummary } from "@/utils/vaccineHubSummary";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import moment from "moment";
@@ -136,43 +137,37 @@ export default function HealthRecordsSection({
     enabled: !!petId,
   });
 
-  const loading = loadingVac || loadingMed || loadingEx || loadingLab;
+  const { requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
+
+  const loading = loadingVac || loadingMed || loadingEx || loadingLab || isLoadingRequirements;
 
   /** Avoid "your pet's …" on hub when name fallback is used */
   const petNameForTitles = petName === "your pet" ? undefined : petName;
 
   const vaccineSummary = useMemo(() => {
-    if (vaccinations.length === 0) {
+    if (isLoadingRequirements) {
       return {
-        badge: { label: "No records", variant: "neutral" as BadgeVariant },
-        primary: "Add vaccine records",
+        badge: { label: "Loading…", variant: "neutral" as BadgeVariant },
+        primary: "Checking vaccine status",
         secondary: null as string | null,
         nextLine: null as string | null,
       };
     }
-    const latestIds = latestVaccinationIdSet(vaccinations);
-    const now = new Date();
-    let overdue = 0;
-    let nearestDue: Date | null = null;
-    for (const v of vaccinations) {
-      if (!latestIds.has(v.id)) continue;
-      if (v.next_due_date) {
-        const d = new Date(v.next_due_date);
-        if (d < now) overdue++;
-        else if (!nearestDue || d < nearestDue) nearestDue = d;
-      }
-    }
-    const compliant = overdue === 0;
+
+    const hub = buildVaccineHubSummary(vaccinations, requiredVaccinesStatus, {
+      hasRequirementsModel: requiredVaccinesStatus.total > 0,
+    });
+
     return {
       badge: {
-        label: compliant ? "Compliant" : `${overdue} Overdue`,
-        variant: (compliant ? "success" : "warning") as BadgeVariant,
+        label: hub.badge.label,
+        variant: hub.badge.variant as BadgeVariant,
       },
-      primary: compliant ? "All Vaccines Up To Date" : "Review vaccination schedule",
-      secondary: nearestDue ? formatHubDate(nearestDue.toISOString()) : null,
-      nextLine: nearestDue ? "Next Due" : null,
+      primary: hub.primary,
+      secondary: hub.secondary,
+      nextLine: hub.nextLine,
     };
-  }, [vaccinations]);
+  }, [vaccinations, requiredVaccinesStatus, isLoadingRequirements]);
 
   const medSummary = useMemo(() => {
     const now = new Date();

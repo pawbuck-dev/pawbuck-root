@@ -40,13 +40,7 @@ export default function MyCareTeamSection({
           My Care Team
         </Text>
         <TouchableOpacity
-          onPress={() => {
-            if (readOnly) {
-              router.push("/(home)/profile");
-            } else {
-              router.push("/(home)/family-access" as any);
-            }
-          }}
+          onPress={() => router.push("/(home)/family-access" as any)}
           style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
           activeOpacity={0.7}
         >
@@ -70,7 +64,7 @@ export default function MyCareTeamSection({
           contactCount={careTeamMembers.length}
           onAddTeamPress={() => {
             if (readOnly) {
-              router.push("/(home)/profile");
+              router.push("/(home)/family-access" as any);
             } else {
               onAddMember("veterinarian");
             }

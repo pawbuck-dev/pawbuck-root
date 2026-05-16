@@ -150,6 +150,18 @@ public class MiloVisionService : IMiloVisionService
             var extractionPrompt = _prompts.GetPromptForType(docType);
             extractedJson = await RunMedicalRecordExtractionAsync(
                 base64, mimeType, extractionPrompt, apiKey, model, cancellationToken);
+
+            if (IsVaccinationsDocumentType(docType) && !HasVaccinationItemsInExtraction(extractedJson))
+            {
+                const string retrySuffix = """
+
+IMPORTANT: You MUST return a non-empty "items" array with one entry per vaccine antigen on the document.
+Use specific vaccine names (e.g. "Rabies", "DHPP", "DAPP", "Bordetella") — never use the document title as an item name.
+Do not return only a title or summary without items.
+""";
+                extractedJson = await RunMedicalRecordExtractionAsync(
+                    base64, mimeType, extractionPrompt + retrySuffix, apiKey, model, cancellationToken);
+            }
         }
 
         double rowConfidence = classConfidence;
@@ -201,6 +213,17 @@ public class MiloVisionService : IMiloVisionService
         || docType.Equals(MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase)
         || docType.Equals(MiloPetFactsKinds.ClinicalExams, StringComparison.OrdinalIgnoreCase)
         || docType.Equals(MiloPetFactsKinds.LabResults, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsVaccinationsDocumentType(string docType) =>
+        docType.Equals(MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasVaccinationItemsInExtraction(string extractedJson)
+    {
+        if (!VaultExtractedJsonParser.TryParseMedicalRecord(extractedJson, out var medical) || medical?.Items == null)
+            return false;
+
+        return VaultExtractedJsonParser.FilterVaccinationItems(medical.Items).Count > 0;
+    }
 
     /// <summary>
     /// Maps classifier output to allowed <c>pet_documents</c> document types (same rules as ingestion).

@@ -45,7 +45,7 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
                    SELECT id
                    FROM public.pet_documents
                    WHERE clinical_synced_at IS NULL
-                     AND document_type = ANY (@types)
+                     AND document_type::text = ANY (@types)
                    ORDER BY created_at ASC
                    LIMIT @lim
                    """,
@@ -74,6 +74,54 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         }
 
         return processed;
+    }
+
+    /// <inheritdoc />
+    public async Task<PetDocumentClinicalSyncResult> ResyncDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var cs = _options.Value.ConnectionString;
+        if (string.IsNullOrWhiteSpace(cs))
+            return new PetDocumentClinicalSyncResult { Error = "database_not_configured" };
+
+        await using var conn = new NpgsqlConnection(cs);
+        await conn.OpenAsync(cancellationToken);
+
+        Guid petId = default;
+        string storagePath = "";
+
+        await using (var load = new NpgsqlCommand(
+                   """
+                   SELECT pet_id, storage_path
+                   FROM public.pet_documents
+                   WHERE id = @id
+                   """,
+                   conn))
+        {
+            load.Parameters.AddWithValue("id", documentId);
+            await using var reader = await load.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                return new PetDocumentClinicalSyncResult { Error = "document_not_found" };
+
+            petId = reader.GetGuid(0);
+            storagePath = reader.GetString(1);
+        }
+
+        await DeleteClinicalRowsForDocumentAsync(conn, petId, storagePath, cancellationToken);
+
+        await using (var reset = new NpgsqlCommand(
+                   """
+                   UPDATE public.pet_documents
+                   SET clinical_synced_at = NULL,
+                       clinical_sync_error = NULL
+                   WHERE id = @id
+                   """,
+                   conn))
+        {
+            reset.Parameters.AddWithValue("id", documentId);
+            await reset.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        return await SyncDocumentByIdAsync(documentId, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -132,9 +180,15 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         var result = new PetDocumentClinicalSyncResult();
         try
         {
+            var isVaccinationsDoc = string.Equals(docType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase);
+
             if (VaultExtractedJsonParser.TryParseMedicalRecord(extractedJson, out var medical) && medical != null)
             {
                 await SyncMedicalRecordAsync(conn, petId, userId, storagePath, docType, medical, result, cancellationToken);
+            }
+            else if (isVaccinationsDoc)
+            {
+                throw new InvalidOperationException("missing_vaccination_items");
             }
             else if (VaultExtractedJsonParser.TryParseFlexible(extractedJson, out var flexible) && flexible != null)
             {
@@ -189,14 +243,12 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
 
         if (string.Equals(documentType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase))
         {
-            if (items.Count == 0)
+            var vaccinationItems = VaultExtractedJsonParser.FilterVaccinationItems(items);
+            if (vaccinationItems.Count == 0)
                 throw new InvalidOperationException("missing_vaccination_items");
 
-            foreach (var item in items)
+            foreach (var item in vaccinationItems)
             {
-                if (string.IsNullOrWhiteSpace(item.Name))
-                    continue;
-
                 var administered = visitDate ?? throw new InvalidOperationException("missing_vaccination_date");
                 var nextDue = VaultExtractedJsonParser.ParseOptionalDate(item.ExpiryDate);
                 if (await VaccinationExistsAsync(conn, petId, item.Name, administered, cancellationToken))
@@ -332,25 +384,6 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         PetDocumentClinicalSyncResult result,
         CancellationToken cancellationToken)
     {
-        if (string.Equals(documentType, MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase))
-        {
-            var name = PickName(flexible, "Vaccination");
-            var administered = PickDate(flexible, ["date", "given", "administered", "visit"])
-                               ?? throw new InvalidOperationException("missing_vaccination_date");
-            if (await VaccinationExistsAsync(conn, petId, name, administered, cancellationToken))
-            {
-                result.SkippedDuplicates++;
-                return;
-            }
-
-            var nextDue = PickDateOnlyFromFacts(flexible, ["next", "due", "expiry", "booster"]);
-            var clinic = PickFactValueContaining(flexible, ["clinic", "hospital", "practice"]);
-            var notes = string.IsNullOrWhiteSpace(flexible.Summary) ? null : flexible.Summary.Trim();
-            await InsertVaccinationAsync(conn, petId, userId, name, administered, nextDue, clinic, notes, storagePath, cancellationToken);
-            result.VaccinationsCreated++;
-            return;
-        }
-
         if (string.Equals(documentType, MiloPetFactsKinds.Medications, StringComparison.OrdinalIgnoreCase))
         {
             var name = PickName(flexible, "Medication");
@@ -587,6 +620,25 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         cmd.Parameters.AddWithValue("test_type", testType);
         cmd.Parameters.Add(new NpgsqlParameter("test_date", NpgsqlDbType.TimestampTz) { Value = testDate.HasValue ? testDate.Value : DBNull.Value });
         return await cmd.ExecuteScalarAsync(cancellationToken) != null;
+    }
+
+    private static async Task DeleteClinicalRowsForDocumentAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string storagePath,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new NpgsqlCommand(
+            """
+            DELETE FROM public.vaccinations WHERE pet_id = @pet_id AND document_url = @path;
+            DELETE FROM public.medicines WHERE pet_id = @pet_id AND document_url = @path;
+            DELETE FROM public.clinical_exams WHERE pet_id = @pet_id AND document_url = @path;
+            DELETE FROM public.lab_results WHERE pet_id = @pet_id AND document_url = @path;
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("path", storagePath);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private async Task MarkSyncedAsync(NpgsqlConnection conn, Guid documentId, string? error, CancellationToken cancellationToken)

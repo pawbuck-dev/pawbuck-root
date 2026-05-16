@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import {
   miloHiGreetingSuffixFromUser,
   profileEmailDisplayForHero,
+  resolveHomeCareHeadline,
   resolveProfileHeroDisplayName,
   sanitizeCareTeamMemberDisplayName,
 } from "@/utils/userDisplayIdentity";
@@ -35,6 +36,22 @@ describe("miloHiGreetingSuffixFromUser", () => {
       user_metadata: { full_name: "9wqhyq7fh6" },
     });
     expect(miloHiGreetingSuffixFromUser(u)).toBe(" there");
+  });
+});
+
+describe("resolveHomeCareHeadline", () => {
+  it("uses owner first name when logged in with a display name", () => {
+    const u = mockUser({ user_metadata: { full_name: "Rakesh Renganathan" } });
+    expect(resolveHomeCareHeadline(u, { name: "Pawsome" })).toBe("Rakesh");
+  });
+
+  it("falls back to pet name when owner name is not available", () => {
+    const u = mockUser({ email: "opaque@privaterelay.appleid.com" });
+    expect(resolveHomeCareHeadline(u, { name: "Pawsome" })).toBe("Pawsome");
+  });
+
+  it("returns Home when neither owner nor pet name is available", () => {
+    expect(resolveHomeCareHeadline(null, null)).toBe("Home");
   });
 });
 

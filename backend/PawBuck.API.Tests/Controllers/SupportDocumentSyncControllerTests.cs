@@ -46,4 +46,32 @@ public class SupportDocumentSyncControllerTests
         body!.RowsAttempted.Should().Be(0);
         body.Message.Should().Contain("No pending");
     }
+
+    [Fact]
+    public async Task Resync_WhenNotFound_Returns404()
+    {
+        var id = Guid.NewGuid();
+        _syncMock
+            .Setup(s => s.ResyncDocumentByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PetDocumentClinicalSyncResult { Error = "document_not_found" });
+
+        var result = await _controller.Resync(id, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task Resync_WhenSuccess_ReturnsOk()
+    {
+        var id = Guid.NewGuid();
+        _syncMock
+            .Setup(s => s.ResyncDocumentByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PetDocumentClinicalSyncResult { Synced = true, VaccinationsCreated = 2 });
+
+        var result = await _controller.Resync(id, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var body = ok.Value.Should().BeOfType<PetDocumentClinicalSyncResult>().Subject;
+        body.VaccinationsCreated.Should().Be(2);
+    }
 }

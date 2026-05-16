@@ -33,4 +33,18 @@ public sealed class SupportDocumentSyncController : ControllerBase
             : $"Attempted sync for {n} pet_documents row(s). Check API logs for per-row errors.";
         return Ok(new SupportDocumentSyncRunResponse { RowsAttempted = n, Message = message });
     }
+
+    /// <summary>
+    /// Removes clinical rows tied to the vault file, clears sync state, and re-runs ingestion for one document.
+    /// </summary>
+    [HttpPost("resync/{documentId:guid}")]
+    [ProducesResponseType(typeof(PetDocumentClinicalSyncResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Resync(Guid documentId, CancellationToken cancellationToken = default)
+    {
+        var result = await _clinicalSync.ResyncDocumentByIdAsync(documentId, cancellationToken);
+        if (string.Equals(result.Error, "document_not_found", StringComparison.Ordinal))
+            return NotFound(result);
+        return Ok(result);
+    }
 }

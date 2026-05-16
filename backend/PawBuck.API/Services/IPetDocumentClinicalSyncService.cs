@@ -10,4 +10,9 @@ public interface IPetDocumentClinicalSyncService
 
     /// <summary>Sync one vault document immediately after analyze (idempotent when already synced).</summary>
     Task<PetDocumentClinicalSyncResult> SyncDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes clinical rows linked to the document, clears <c>clinical_synced_at</c>, and re-runs sync.
+    /// </summary>
+    Task<PetDocumentClinicalSyncResult> ResyncDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken = default);
 }

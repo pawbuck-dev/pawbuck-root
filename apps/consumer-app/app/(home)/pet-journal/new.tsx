@@ -10,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -33,9 +33,10 @@ export default function PetJournalNewScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { pets } = usePets();
-  const { petId, domain: domainParam } = useLocalSearchParams<{
+  const { petId, domain: domainParam, subtype: subtypeParam } = useLocalSearchParams<{
     petId?: string;
     domain?: string;
+    subtype?: string;
   }>();
 
   const initialDomain = useMemo(() => {
@@ -54,6 +55,19 @@ export default function PetJournalNewScreen() {
 
   const pet = pets.find((p) => p.id === petId);
 
+  useEffect(() => {
+    const d = domainParam as JournalDomain | undefined;
+    if (d && DOMAINS.includes(d)) setDomain(d);
+  }, [domainParam]);
+
+  useEffect(() => {
+    if (!subtypeParam?.trim() || !domainParam) return;
+    const d = domainParam as JournalDomain;
+    if (!DOMAINS.includes(d)) return;
+    const allowed = subtypesForDomain(d).map((s) => s.id);
+    if (allowed.includes(subtypeParam)) setSubtype(subtypeParam);
+  }, [subtypeParam, domainParam]);
+
   const mutation = useMutation({
     mutationFn: () =>
       createJournalEntry({
@@ -66,6 +80,7 @@ export default function PetJournalNewScreen() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pet_journal"] });
+      queryClient.invalidateQueries({ queryKey: ["pet_journal_home"] });
       queryClient.invalidateQueries({ queryKey: ["health_briefing"] });
       router.back();
     },

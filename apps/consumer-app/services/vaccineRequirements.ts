@@ -23,6 +23,105 @@ export interface VaccineEquivalency {
 
 export type VaccineCategory = "required" | "recommended" | "other";
 
+export interface RequiredVaccinesStatus {
+  total: number;
+  administered: number;
+  missing: VaccineRequirement[];
+  administeredList: VaccineRequirement[];
+}
+
+export type VaccinationForCompliance = {
+  name: string;
+  next_due_date?: string | null;
+};
+
+/**
+ * Resolve canonical requirement key for a vaccination row name.
+ */
+export const getCanonicalKeyForVaccination = (
+  vaccineName: string,
+  equivalencies: VaccineEquivalency[],
+  requirements: VaccineRequirement[]
+): string | null => {
+  const canonicalFromEquivalencies = findCanonicalKey(vaccineName, equivalencies);
+  if (canonicalFromEquivalencies) return canonicalFromEquivalencies;
+
+  const normalizedName = vaccineName.toLowerCase().trim();
+
+  for (const req of requirements) {
+    if (
+      req.vaccine_name.toLowerCase().includes(normalizedName) ||
+      normalizedName.includes(req.vaccine_name.toLowerCase())
+    ) {
+      return req.canonical_key;
+    }
+    if (normalizedName.includes(req.canonical_key.toLowerCase())) {
+      return req.canonical_key;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Compare pet vaccinations against regional required vaccine rules.
+ */
+export const computeRequiredVaccinesStatus = (
+  vaccinations: VaccinationForCompliance[],
+  requirements: VaccineRequirement[],
+  equivalencies: VaccineEquivalency[]
+): RequiredVaccinesStatus => {
+  const requiredVaccines = requirements.filter((req) => req.is_required);
+  const total = requiredVaccines.length;
+
+  if (total === 0) {
+    return {
+      total: 0,
+      administered: 0,
+      missing: [],
+      administeredList: [],
+    };
+  }
+
+  const petVaccinationCanonicalKeys = new Set<string>();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (const vaccination of vaccinations) {
+    const isExpired =
+      vaccination.next_due_date && new Date(vaccination.next_due_date) < today;
+
+    if (!isExpired) {
+      const canonicalKey = getCanonicalKeyForVaccination(
+        vaccination.name,
+        equivalencies,
+        requirements
+      );
+      if (canonicalKey) {
+        petVaccinationCanonicalKeys.add(canonicalKey);
+      }
+    }
+  }
+
+  const administered: VaccineRequirement[] = [];
+  const missing: VaccineRequirement[] = [];
+
+  for (const requiredVaccine of requiredVaccines) {
+    if (petVaccinationCanonicalKeys.has(requiredVaccine.canonical_key)) {
+      administered.push(requiredVaccine);
+    } else {
+      missing.push(requiredVaccine);
+    }
+  }
+
+  return {
+    total,
+    administered: administered.length,
+    missing,
+    administeredList: administered,
+  };
+};
+
 export interface CategorizedVaccine<T> {
   vaccination: T;
   category: VaccineCategory;

@@ -1,4 +1,8 @@
-import { countOverdueVaccinations } from "@/utils/healthHubAttention";
+import {
+  buildHealthAttentionSubtitle,
+  countMissingRequiredVaccines,
+  countOverdueVaccinations,
+} from "@/utils/healthHubAttention";
 
 describe("countOverdueVaccinations", () => {
   it("returns 0 for empty list", () => {
@@ -28,5 +32,26 @@ describe("countOverdueVaccinations", () => {
         { id: "new", name: "Rabies", date: "2021-06-01", next_due_date: past.toISOString() },
       ])
     ).toBe(1);
+  });
+});
+
+describe("countMissingRequiredVaccines", () => {
+  it("returns missing list length", () => {
+    expect(
+      countMissingRequiredVaccines({
+        total: 2,
+        administered: 0,
+        missing: [{ id: "a" }, { id: "b" }] as never,
+        administeredList: [],
+      })
+    ).toBe(2);
+  });
+});
+
+describe("buildHealthAttentionSubtitle", () => {
+  it("combines missing required and overdue", () => {
+    expect(buildHealthAttentionSubtitle(2, 1)).toBe(
+      "2 required vaccines missing · 1 overdue vaccine"
+    );
   });
 });

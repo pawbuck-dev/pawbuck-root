@@ -15,6 +15,7 @@ import MyCareTeamSection from "@/components/home/MyCareTeamSection";
 import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
+import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
 import { useAuth } from "@/context/authContext";
 import { useChat } from "@/context/chatContext";
 import { useSubscription } from "@/context/subscriptionContext";
@@ -229,6 +230,7 @@ export default function Home() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pet_journal_home", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
       ...(SHOW_WEEKLY_CHALLENGE_ON_HOME
@@ -427,7 +429,10 @@ export default function Home() {
           )}
 
           {/* Lead: Talk to Milo */}
-          <MiloHomeLeadCard onOpenMilo={() => openChat()} />
+          <MiloHomeLeadCard
+            petName={selectedPet?.name}
+            onOpenMilo={() => openChat()}
+          />
 
           {/* Health Briefing + journal continuity */}
           {selectedPet && (
@@ -462,66 +467,7 @@ export default function Home() {
           {/* Pet Journal */}
           {selectedPet && (
             <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
-              <TouchableOpacity
-                onPress={() =>
-                  ensurePremium(
-                    () =>
-                      router.push({
-                        pathname: "/(home)/pet-journal",
-                        params: { petId: selectedPet.id },
-                      } as any),
-                    "pet_journal_home_row"
-                  )
-                }
-                activeOpacity={0.85}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-                  borderRadius: 20,
-                  paddingVertical: 16,
-                  paddingHorizontal: 16,
-                  ...(Platform.OS === "android"
-                    ? {}
-                    : {
-                        borderWidth: 1,
-                        borderColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                      }),
-                }}
-              >
-                <View
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "#EDEDEE",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  <Ionicons name="book-outline" size={22} color={theme.foreground} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Pet Journal</Text>
-                  <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
-                    Log health, behavior & environment
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginLeft: 8,
-                  }}
-                >
-                  <MaterialCommunityIcons name="arrow-top-right" size={20} color={theme.secondary} />
-                </View>
-              </TouchableOpacity>
+              <PetJournalHomeCard pet={selectedPet} />
             </View>
           )}
 
@@ -588,7 +534,6 @@ export default function Home() {
                 careTeamMembers={careTeamMembers}
                 onAddMember={handleAddCareTeamMember}
                 onEditMember={handleEditCareTeamMember}
-                readOnly={true}
               />
             </View>
           )}

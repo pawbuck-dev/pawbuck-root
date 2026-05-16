@@ -1,4 +1,5 @@
 using FluentAssertions;
+using PawBuck.API.Models;
 using PawBuck.API.Services;
 using Xunit;
 
@@ -26,6 +27,77 @@ public class VaultExtractedJsonParserTests
         VaultExtractedJsonParser.TryParseMedicalRecord(json, out var record).Should().BeTrue();
         record!.Items.Should().HaveCount(2);
         record.DateOfVisit.Should().Be("2025-10-11");
+    }
+
+    [Fact]
+    public void TryParseMedicalRecord_WhenOnlyDateOfVisit_ReturnsFalse()
+    {
+        const string json = """
+            {
+              "dateOfVisit": "2025-10-11",
+              "clinicName": "Main St Vet"
+            }
+            """;
+
+        VaultExtractedJsonParser.TryParseMedicalRecord(json, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TryParseMedicalRecord_WhenHybridFlexibleFieldsAndItems_UsesItems()
+    {
+        const string json = """
+            {
+              "title": "Certificate of Vaccination",
+              "summary": "DAPP and Rabies given",
+              "dateOfVisit": "2025-10-11",
+              "items": [
+                { "name": "DAPP", "category": "vaccination", "expiryDate": "2028-10-10" },
+                { "name": "Rabies", "category": "vaccination", "expiryDate": "2028-07-04" }
+              ]
+            }
+            """;
+
+        VaultExtractedJsonParser.TryParseMedicalRecord(json, out var record).Should().BeTrue();
+        record!.Items!.Select(i => i.Name).Should().BeEquivalentTo(["DAPP", "Rabies"]);
+    }
+
+    [Fact]
+    public void TryGetMedicalItems_WhenFlexibleOnly_ReturnsEmptyItems()
+    {
+        const string json = """
+            {
+              "title": "Certificate of Vaccination",
+              "summary": "Rabies given",
+              "primaryDate": "2025-10-11"
+            }
+            """;
+
+        VaultExtractedJsonParser.TryGetMedicalItems(
+                json,
+                out var items,
+                out _,
+                out _,
+                out _,
+                out _)
+            .Should()
+            .BeTrue();
+        items.Should().BeEmpty();
+        VaultExtractedJsonParser.TryParseMedicalRecord(json, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void FilterVaccinationItems_ExcludesGenericTitlesAndNonVaccineCategories()
+    {
+        var items = new[]
+        {
+            new MedicalRecordItem { Name = "Certificate of Vaccination", Category = "vaccination" },
+            new MedicalRecordItem { Name = "DAPP", Category = "vaccination" },
+            new MedicalRecordItem { Name = "Chemistry panel", Category = "lab" },
+            new MedicalRecordItem { Name = "Rabies", Category = "" },
+        };
+
+        var filtered = VaultExtractedJsonParser.FilterVaccinationItems(items);
+        filtered.Select(i => i.Name).Should().BeEquivalentTo(["DAPP", "Rabies"]);
     }
 
     [Fact]

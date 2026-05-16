@@ -3,6 +3,7 @@
  * Overdue counts only the latest administration per vaccine name (see vaccinationGrouping).
  */
 
+import type { RequiredVaccinesStatus } from "@/services/vaccineRequirements";
 import { latestVaccinationIdSet } from "@/utils/vaccinationGrouping";
 
 export type VaccinationDueRow = {
@@ -26,6 +27,28 @@ export function countOverdueVaccinations(vaccinations: VaccinationDueRow[]): num
     }
   }
   return overdue;
+}
+
+export function countMissingRequiredVaccines(required: RequiredVaccinesStatus): number {
+  return required.missing.length;
+}
+
+export function buildHealthAttentionSubtitle(
+  missingRequired: number,
+  overdue: number
+): string {
+  const parts: string[] = [];
+  if (missingRequired > 0) {
+    parts.push(
+      missingRequired === 1
+        ? "1 required vaccine missing"
+        : `${missingRequired} required vaccines missing`
+    );
+  }
+  if (overdue > 0) {
+    parts.push(overdue === 1 ? "1 overdue vaccine" : `${overdue} overdue vaccines`);
+  }
+  return parts.join(" · ");
 }
 
 /** 6-digit #RRGGBB → rgba for soft primary surfaces */

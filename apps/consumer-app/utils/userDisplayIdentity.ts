@@ -4,7 +4,31 @@ import {
   resolveAuthDisplayName,
 } from "@/services/authDisplayName";
 
-/** Suffix for `Hi${suffix}!` — space + first name, or ` there` for "Hi there!". */
+/**
+ * Home header title: owner display name when known, else selected pet name, else "Home".
+ */
+export function resolveHomeCareHeadline(
+  user: User | null | undefined,
+  selectedPet: { name: string } | null | undefined,
+  profileFullName?: string | null
+): string {
+  const fromProfile = profileFullName?.trim() ?? "";
+  const fromMeta = resolveAuthDisplayName(user);
+  const named =
+    (fromProfile && isPlausibleDisplayNameForGreeting(fromProfile) ? fromProfile : "") ||
+    (isPlausibleDisplayNameForGreeting(fromMeta) ? fromMeta : "");
+
+  if (named) {
+    const first = named.split(/\s+/).filter(Boolean)[0] ?? named;
+    return first;
+  }
+
+  const petName = selectedPet?.name?.trim();
+  if (petName) return petName;
+
+  return "Home";
+}
+
 export function miloHiGreetingSuffixFromUser(user: User | null | undefined): string {
   const resolved = resolveAuthDisplayName(user);
   if (!isPlausibleDisplayNameForGreeting(resolved)) return " there";

@@ -236,7 +236,7 @@ export default function HealthRecordsLayout() {
       <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace(`/(home)/health-record/${id}` as any)}
             activeOpacity={0.7}
             style={{
               width: 40,

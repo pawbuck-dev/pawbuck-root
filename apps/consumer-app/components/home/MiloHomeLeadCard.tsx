@@ -4,13 +4,16 @@ import React from "react";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 
 type Props = {
+  /** Selected pet display name for personalized headline. */
+  petName?: string | null;
   onOpenMilo: () => void;
 };
 
 /**
  * Primary home CTA — opens Milo chat (same premium gate as bottom nav Milo).
  */
-export default function MiloHomeLeadCard({ onOpenMilo }: Props) {
+export default function MiloHomeLeadCard({ petName, onOpenMilo }: Props) {
+  const name = petName?.trim() || "your pet";
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const borderStyle =
@@ -51,7 +54,7 @@ export default function MiloHomeLeadCard({ onOpenMilo }: Props) {
           <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>
-                Something off with Milo today?
+                {`Something off with ${name} today?`}
               </Text>
               <Ionicons name="sparkles" size={18} color={theme.primary} />
             </View>
