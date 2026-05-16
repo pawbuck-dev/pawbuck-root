@@ -6,11 +6,12 @@ import {
 } from "@/constants/bodyTracker";
 import BodyTrackerObservationBlock from "@/components/home/BodyTrackerObservationBlock";
 import { RiceBowlIcon, WaterGlassIcon } from "@/components/icons";
-import DailyIntakeConfigModal from "@/components/home/DailyIntakeConfigModal";
+import DailyIntakeConfigModal, { type DailyIntakeConfigSave } from "@/components/home/DailyIntakeConfigModal";
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { syncBodyTrackerObservationJournals } from "@/services/bodyTrackerJournalSync";
+import { resolveIntakePrefs, type PetWithIntakePrefs } from "@/utils/intakeBreedSuggestions";
 import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
 import { insertWeightLog, listWeightLogs, updatePetTargetWeight } from "@/services/petWeightLogs";
 import type { WeightUnit } from "@/utils/weightUnits";
@@ -154,8 +155,13 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
   const isDark = mode === "dark";
   const { width: winW } = useWindowDimensions();
   const { user } = useAuth();
-  const { pets } = usePets();
+  const { pets, updatePet } = usePets();
   const pet = pets.find((p) => p.id === petId) ?? null;
+
+  const resolvedIntake = useMemo(
+    () => resolveIntakePrefs((pet ?? null) as PetWithIntakePrefs | null),
+    [pet]
+  );
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [displayUnit, setDisplayUnit] = useState<WeightUnit>(
     pet?.weight_unit === "kg" ? "kg" : "lbs"
@@ -516,11 +522,21 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
     });
   };
 
-  const handleUpdateTargets = useCallback(
-    (newWaterTarget: number, newFoodTarget: number) => {
-      mutation.mutate({ food_target: newFoodTarget, water_target: newWaterTarget });
+  const handleSaveIntakeConfig = useCallback(
+    async (cfg: DailyIntakeConfigSave) => {
+      await mutation.mutateAsync({
+        food_target: cfg.mealsPerDay,
+        water_target: cfg.waterCupsPerDay,
+      });
+      await updatePet(petId, {
+        intake_meals_per_day: cfg.mealsPerDay,
+        intake_grams_per_meal: cfg.gramsPerMeal,
+        intake_water_cups_per_day: cfg.waterCupsPerDay,
+        intake_water_ml_per_cup: cfg.mlPerCup,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
     },
-    [mutation]
+    [mutation, petId, updatePet, queryClient, user?.id]
   );
 
   if (isLoading) {
@@ -705,7 +721,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
                   minHeight: 32,
                 }}
               >
-                {foodIntake * 150}g/{foodTarget * 150}g daily
+                {foodIntake * resolvedIntake.gramsPerMeal}g/{foodTarget * resolvedIntake.gramsPerMeal}g daily
               </Text>
             </View>
             <ProgressIcons
@@ -757,7 +773,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
                   minHeight: 32,
                 }}
               >
-                {waterIntake * 250}ml/{waterTarget * 250}ml daily
+                {waterIntake * resolvedIntake.mlPerCup}ml/{waterTarget * resolvedIntake.mlPerCup}ml daily
               </Text>
             </View>
             <ProgressIcons
@@ -1058,10 +1074,8 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
       <DailyIntakeConfigModal
         visible={showConfigModal}
         onClose={() => setShowConfigModal(false)}
-        petId={petId}
-        currentWaterTarget={waterTarget}
-        currentFoodTarget={foodTarget}
-        onSave={handleUpdateTargets}
+        pet={pet}
+        onSave={handleSaveIntakeConfig}
       />
 
       <Modal visible={logOpen} transparent animationType="fade" onRequestClose={() => setLogOpen(false)}>

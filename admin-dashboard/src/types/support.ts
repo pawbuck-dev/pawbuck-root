@@ -28,6 +28,12 @@ export interface SupportMetrics {
   dailySignups: SupportDailySignupPoint[];
 }
 
+/** POST /api/support/document-sync/run */
+export interface SupportDocumentSyncRunResponse {
+  rowsAttempted: number;
+  message: string | null;
+}
+
 export interface SupportUserRow {
   id: string;
   email: string | null;

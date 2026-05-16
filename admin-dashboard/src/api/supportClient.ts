@@ -10,6 +10,7 @@ import type {
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
+  SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
   SupportMetrics,
   SupportPetExplorerRow,
@@ -93,6 +94,20 @@ export function createSupportClient(
 
   return {
     getMetrics: () => request<SupportMetrics>("/api/support/metrics"),
+
+    /**
+     * One-shot: sync pending pet_documents vault rows into clinical tables (same as background DocumentSyncWorker).
+     * batchSize is clamped server-side to 1–100.
+     */
+    runPendingDocumentSync: (batchSize?: number) => {
+      const p = new URLSearchParams();
+      if (batchSize != null) p.set("batchSize", String(batchSize));
+      const qs = p.toString();
+      return request<SupportDocumentSyncRunResponse>(
+        `/api/support/document-sync/run${qs ? `?${qs}` : ""}`,
+        { method: "POST" },
+      );
+    },
 
     /** Same cohorts as the metric cards: all auth users, users with a pet, users with pet + health data. */
     listUsers: (segment: "all" | "withPets" | "withHealth") =>

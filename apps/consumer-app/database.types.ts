@@ -1601,6 +1601,10 @@ export type Database = {
           deleted_at: string | null
           email_id: string
           id: string
+          intake_grams_per_meal: number | null
+          intake_meals_per_day: number | null
+          intake_water_cups_per_day: number | null
+          intake_water_ml_per_cup: number | null
           microchip_number: string | null
           name: string
           passport_number: string | null
@@ -1623,6 +1627,10 @@ export type Database = {
           deleted_at?: string | null
           email_id: string
           id?: string
+          intake_grams_per_meal?: number | null
+          intake_meals_per_day?: number | null
+          intake_water_cups_per_day?: number | null
+          intake_water_ml_per_cup?: number | null
           microchip_number?: string | null
           name: string
           passport_number?: string | null
@@ -1645,6 +1653,10 @@ export type Database = {
           deleted_at?: string | null
           email_id?: string
           id?: string
+          intake_grams_per_meal?: number | null
+          intake_meals_per_day?: number | null
+          intake_water_cups_per_day?: number | null
+          intake_water_ml_per_cup?: number | null
           microchip_number?: string | null
           name?: string
           passport_number?: string | null

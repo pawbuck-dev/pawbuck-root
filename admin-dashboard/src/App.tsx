@@ -7,6 +7,7 @@ import { MiloClassifyHarness } from "@/components/MiloClassifyHarness";
 import { MiloJournalPanel } from "@/components/MiloJournalPanel";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
+import { DocumentSyncAdminPanel } from "@/components/DocumentSyncAdminPanel";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
 import { ProcessedEmailsPanel } from "@/components/ProcessedEmailsPanel";
 import { UserDirectoryTable } from "@/components/UserDirectoryTable";
@@ -340,7 +341,10 @@ export function App() {
       {banner ? <div className="error">{banner}</div> : null}
 
       {tab === "overview" ? (
-        <DashboardOverview metrics={metrics} loading={metricsLoading} />
+        <div className="overview-stack">
+          <DashboardOverview metrics={metrics} loading={metricsLoading} />
+          <DocumentSyncAdminPanel client={client} />
+        </div>
       ) : null}
 
       {tab === "users" ? (

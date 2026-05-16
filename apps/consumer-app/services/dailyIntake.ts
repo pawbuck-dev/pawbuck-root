@@ -1,13 +1,26 @@
 import { Tables } from "@/database.types";
 import { supabase } from "@/utils/supabase";
+import { resolveIntakePrefs, type PetWithIntakePrefs } from "@/utils/intakeBreedSuggestions";
 
 export type DailyIntake = Tables<"daily_intake">;
 
-const DEFAULT_FOOD_TARGET = 4;
-const DEFAULT_WATER_TARGET = 6;
-
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function fetchPetForIntake(petId: string): Promise<PetWithIntakePrefs | null> {
+  const { data, error } = await supabase
+    .from("pets")
+    .select(
+      "animal_type, breed, weight_value, weight_unit, intake_meals_per_day, intake_grams_per_meal, intake_water_cups_per_day, intake_water_ml_per_cup"
+    )
+    .eq("id", petId)
+    .maybeSingle();
+  if (error) {
+    console.warn("dailyIntake: could not load pet for defaults", error.message);
+    return null;
+  }
+  return data as PetWithIntakePrefs | null;
 }
 
 export async function getDailyIntake(petId: string): Promise<DailyIntake> {
@@ -32,6 +45,9 @@ export async function getDailyIntake(petId: string): Promise<DailyIntake> {
 
   if (data) return data;
 
+  const petRow = await fetchPetForIntake(petId);
+  const resolved = resolveIntakePrefs(petRow);
+
   const { data: created, error: insertError } = await supabase
     .from("daily_intake")
     .insert({
@@ -40,8 +56,8 @@ export async function getDailyIntake(petId: string): Promise<DailyIntake> {
       date: today,
       food_intake: 0,
       water_intake: 0,
-      food_target: DEFAULT_FOOD_TARGET,
-      water_target: DEFAULT_WATER_TARGET,
+      food_target: resolved.mealsPerDay,
+      water_target: resolved.waterCupsPerDay,
       poop_count: 0,
       pee_count: 0,
       poop_target: 6,
