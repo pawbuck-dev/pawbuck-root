@@ -11,7 +11,7 @@ export type MiloAssistantFooterInput = {
 
 /** Document-upload confirmations in general Milo chat — not health advice. */
 const DOCUMENT_UPLOAD_ASSISTANT_RE =
-  /^(I've filed this under|I saved the file for)/i;
+  /(Here's what I found in your document|I've filed this under|I saved the file for|Everything is saved under|Added .+ to health records)/i;
 
 /** Milo clinical scribe replies start with a Summary section. */
 const CLINICAL_SUMMARY_RE = /^###\s*Summary\b/m;

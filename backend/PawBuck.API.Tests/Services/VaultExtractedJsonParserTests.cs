@@ -17,8 +17,8 @@ public class VaultExtractedJsonParserTests
               "clinicName": "Beach Avenue Animal Hospital",
               "dateOfVisit": "2025-10-11",
               "items": [
-                { "name": "DAPP", "category": "vaccination", "expiryDate": "2028-10-10" },
-                { "name": "Bordetella", "category": "vaccination", "expiryDate": "2026-10-11" }
+                { "name": "DAPP", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2028-10-10" },
+                { "name": "Bordetella", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2026-10-11" }
               ],
               "confidenceScore": 95
             }
@@ -51,7 +51,7 @@ public class VaultExtractedJsonParserTests
               "summary": "DAPP and Rabies given",
               "dateOfVisit": "2025-10-11",
               "items": [
-                { "name": "DAPP", "category": "vaccination", "expiryDate": "2028-10-10" },
+                { "name": "DAPP", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2028-10-10" },
                 { "name": "Rabies", "category": "vaccination", "expiryDate": "2028-07-04" }
               ]
             }
@@ -83,6 +83,37 @@ public class VaultExtractedJsonParserTests
             .BeTrue();
         items.Should().BeEmpty();
         VaultExtractedJsonParser.TryParseMedicalRecord(json, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void FilterProvablyAdministeredVaccinations_ExcludesDueOnlyWithoutAdministeredDate()
+    {
+        var items = new[]
+        {
+            new MedicalRecordItem
+            {
+                Name = "DAPP",
+                Category = "vaccination",
+                AdministeredDate = "2025-10-11",
+                ExpiryDate = "2028-10-10",
+            },
+            new MedicalRecordItem
+            {
+                Name = "Bordetella",
+                Category = "vaccination",
+                AdministeredDate = "2025-10-11",
+                ExpiryDate = "2026-10-11",
+            },
+            new MedicalRecordItem
+            {
+                Name = "Rabies",
+                Category = "vaccination",
+                ExpiryDate = "2028-07-04",
+            },
+        };
+
+        var filtered = VaultExtractedJsonParser.FilterProvablyAdministeredVaccinations(items);
+        filtered.Select(i => i.Name).Should().BeEquivalentTo(["DAPP", "Bordetella"]);
     }
 
     [Fact]

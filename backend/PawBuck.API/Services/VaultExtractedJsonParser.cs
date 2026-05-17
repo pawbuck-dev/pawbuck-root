@@ -99,6 +99,7 @@ public static class VaultExtractedJsonParser
                 {
                     Name = name.Trim(),
                     Category = TryGetStringProperty(itemEl, "category") ?? "",
+                    AdministeredDate = TryGetStringProperty(itemEl, "administeredDate"),
                     ExpiryDate = TryGetStringProperty(itemEl, "expiryDate"),
                 });
             }
@@ -129,6 +130,21 @@ public static class VaultExtractedJsonParser
             .Where(i => !string.IsNullOrWhiteSpace(i.Name))
             .Where(i => IsVaccinationCategory(i.Category))
             .Where(i => !IsGenericVaccineTitle(i.Name))
+            .ToList();
+
+    /// <summary>True when the item has an explicit administered/given date on the document.</summary>
+    public static bool TryGetItemAdministeredDate(MedicalRecordItem item, out DateTime administered)
+    {
+        administered = default;
+        if (string.IsNullOrWhiteSpace(item.AdministeredDate))
+            return false;
+
+        return TryParseFlexibleDate(item.AdministeredDate.Trim(), out administered);
+    }
+
+    public static List<MedicalRecordItem> FilterProvablyAdministeredVaccinations(IEnumerable<MedicalRecordItem> items) =>
+        FilterVaccinationItems(items)
+            .Where(i => TryGetItemAdministeredDate(i, out _))
             .ToList();
 
     public static bool TryParseFlexible(string? extractedJson, out FlexibleVaultExtraction? flexible)

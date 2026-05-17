@@ -55,18 +55,6 @@ export default function DocumentsAndIdSection({ pet }: Props) {
     () => vaultDocs.filter((d) => d.document_type === "travel_certificate"),
     [vaultDocs]
   );
-  /** Vault rows shown at top (subsections list insurance / pedigree / travel separately). */
-  const otherVaultDocs = useMemo(
-    () =>
-      vaultDocs.filter(
-        (d) =>
-          !["insurance_policy", "pedigree", "travel_certificate", "billing_invoice"].includes(
-            d.document_type
-          )
-      ),
-    [vaultDocs]
-  );
-
   const handleAddDocument = () => {
     if (!pet?.id) {
       Alert.alert("Error", "No pet selected");
@@ -199,23 +187,6 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             <Text style={{ fontSize: 13, color: theme.secondary }}>
               {miloUploadStatus === "uploading" ? "Uploading…" : "Analyzing with Milo…"}
             </Text>
-          </View>
-        ) : null}
-        {otherVaultDocs.length > 0 ? (
-          <View style={{ marginBottom: 16 }}>
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: "600",
-                color: theme.secondary,
-                marginBottom: 8,
-              }}
-            >
-              Saved documents
-            </Text>
-            {otherVaultDocs.map((d) => (
-              <DocumentCard key={d.id} row={d} />
-            ))}
           </View>
         ) : null}
         <TouchableOpacity
@@ -530,8 +501,8 @@ export default function DocumentsAndIdSection({ pet }: Props) {
         {certificatesExpanded ? (
           <View style={{ marginTop: 14 }}>
             <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
-              Upload certificates or other records with + Add document. Classified files appear under Saved
-              documents above.
+              Upload certificates or other records with + Add document. Vaccination and clinical files are
+              added to the matching Health sections automatically.
             </Text>
 
             <TouchableOpacity

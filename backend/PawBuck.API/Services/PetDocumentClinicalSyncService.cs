@@ -249,7 +249,9 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
 
             foreach (var item in vaccinationItems)
             {
-                var administered = visitDate ?? throw new InvalidOperationException("missing_vaccination_date");
+                if (!VaultExtractedJsonParser.TryGetItemAdministeredDate(item, out var administered))
+                    continue;
+
                 var nextDue = VaultExtractedJsonParser.ParseOptionalDate(item.ExpiryDate);
                 if (await VaccinationExistsAsync(conn, petId, item.Name, administered, cancellationToken))
                 {

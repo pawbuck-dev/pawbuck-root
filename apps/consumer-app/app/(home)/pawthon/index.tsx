@@ -3,6 +3,7 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useAuth } from "@/context/authContext";
+import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import {
   fetchMyWeeklyWalkerRank,
   fetchPawthonHubStats,
@@ -24,11 +25,12 @@ export default function PawthonHubScreen() {
   const { selectedPet, selectedPetId } = useSelectedPet();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
 
   const { data: weeklyWalkerRank } = useQuery({
     queryKey: ["pawthon", "weeklyWalkerRank"],
     queryFn: fetchMyWeeklyWalkerRank,
-    enabled: !!user,
+    enabled: weeklyChallengeEnabled && !!user,
   });
 
   const { data: hubStats, isLoading } = useQuery({
@@ -75,10 +77,15 @@ export default function PawthonHubScreen() {
             walkCount={hubStats.walkCount}
             totalMiles={hubStats.totalMiles}
             petsCount={pets.length}
-            rankLabel={formatWeeklyWalkerRankLine(
-              weeklyWalkerRank?.rank ?? null,
-              weeklyWalkerRank?.total ?? 0
-            )}
+            showWeeklyChallenge={weeklyChallengeEnabled}
+            rankLabel={
+              weeklyChallengeEnabled
+                ? formatWeeklyWalkerRankLine(
+                    weeklyWalkerRank?.rank ?? null,
+                    weeklyWalkerRank?.total ?? 0
+                  )
+                : undefined
+            }
             onBack={() => router.back()}
             onStartWalk={() => {
               queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });

@@ -18,21 +18,25 @@ describe("Milo extraction (MedicalRecordSchema)", () => {
           {
             name: "DHPP (Distemper, Hepatitis, Parvovirus, Parainfluenza)",
             category: "vaccination",
+            administeredDate: "2025-11-10",
             expiryDate: "2028-10-10",
           },
           {
             name: "Rabies 1yr",
             category: "vaccination",
+            administeredDate: "2025-11-10",
             expiryDate: "2028-07-04",
           },
           {
             name: "Bordetella",
             category: "vaccination",
+            administeredDate: "2025-11-10",
             expiryDate: "2026-11-10",
           },
           {
             name: "Leptospirosis",
             category: "vaccination",
+            administeredDate: "2025-11-10",
             expiryDate: "2026-11-10",
           },
         ],

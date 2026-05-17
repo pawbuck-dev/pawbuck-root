@@ -51,6 +51,7 @@ import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -70,6 +71,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 function shortTimeZoneAbbrev(): string {
   try {
@@ -933,9 +936,34 @@ export default function MiloJournalChatScreen() {
                   paddingHorizontal: 16,
                   paddingTop: 16,
                   paddingBottom: 24,
+                  flexGrow: 1,
                   flexShrink: 0,
                 }}
               >
+                <View
+                  style={{
+                    flex: 1,
+                    minHeight: 160,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 141,
+                      height: 141,
+                      borderRadius: 70.5,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Image
+                      source={MILO_AVATAR}
+                      style={{ width: 141, height: 141 }}
+                      contentFit="cover"
+                    />
+                  </View>
+                </View>
                 <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
                   Hi{miloGreetingSuffix}!
                 </Text>

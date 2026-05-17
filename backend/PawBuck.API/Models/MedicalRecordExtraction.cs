@@ -34,6 +34,10 @@ public sealed class MedicalRecordItem
     [JsonPropertyName("category")]
     public string Category { get; set; } = "";
 
+    /// <summary>ISO date when this vaccine was given; null if not documented as administered.</summary>
+    [JsonPropertyName("administeredDate")]
+    public string? AdministeredDate { get; set; }
+
     [JsonPropertyName("expiryDate")]
     public string? ExpiryDate { get; set; }
 }

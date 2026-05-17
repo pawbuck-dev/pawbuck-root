@@ -1,3 +1,6 @@
+/** Weekly challenge UI (home card, Pawthon hub hero) requires more than this many registered users. */
+export const WEEKLY_CHALLENGE_MIN_APP_USERS = 300;
+
 /** Ignore GPS jumps shorter than this (meters) to reduce noise. */
 export const PAWTHON_MIN_SEGMENT_METERS = 4;
 

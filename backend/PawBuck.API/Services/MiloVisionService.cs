@@ -155,9 +155,10 @@ public class MiloVisionService : IMiloVisionService
             {
                 const string retrySuffix = """
 
-IMPORTANT: You MUST return a non-empty "items" array with one entry per vaccine antigen on the document.
-Use specific vaccine names (e.g. "Rabies", "DHPP", "DAPP", "Bordetella") — never use the document title as an item name.
-Do not return only a title or summary without items.
+IMPORTANT: Return a non-empty "items" array for vaccines explicitly listed as administered/given on the document.
+Each administered vaccine must have "administeredDate" (ISO YYYY-MM-DD) and "expiryDate" when a next-due date is shown.
+Do NOT include vaccines that appear only under "due for booster", "next due", or similar — those are not proof of administration.
+Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") — never use the document title as an item name.
 """;
                 extractedJson = await RunMedicalRecordExtractionAsync(
                     base64, mimeType, extractionPrompt + retrySuffix, apiKey, model, cancellationToken);
@@ -456,6 +457,7 @@ Do not return only a title or summary without items.
                                 {
                                     name = new { type = "string" },
                                     category = new { type = "string" },
+                                    administeredDate = new { type = "string" },
                                     expiryDate = new { type = "string" },
                                 },
                                 required = new[] { "name", "category" },

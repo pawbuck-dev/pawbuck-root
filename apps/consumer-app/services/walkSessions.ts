@@ -86,7 +86,12 @@ export async function fetchWeekDistanceKmForPet(petId: string): Promise<number> 
 }
 
 export type { WalkSessionStreakSlice };
-export { computeWalkingStreakFromSessions, formatWeeklyChallengeFigmaLine, formatWeeklyWalkerRankLine };
+export {
+  computeWalkingStreakFromSessions,
+  formatWeeklyChallengeFigmaLine,
+  formatWeeklyWalkerRankLine,
+  isWeeklyChallengeEnabled,
+} from "./walkMetrics";
 
 export async function fetchSessionsForStreak(
   petId: string,
@@ -122,6 +127,19 @@ export async function fetchLifetimeWalkAggregatesForPet(
   const walkCount = data.length;
   const totalMeters = data.reduce((acc, row) => acc + Number(row.distance_meters ?? 0), 0);
   return { walkCount, totalMeters };
+}
+
+/** Registered auth users (for weekly challenge visibility gate). */
+export async function fetchAppRegisteredUserCount(): Promise<number> {
+  const { data, error } = await supabase.rpc("app_registered_user_count");
+
+  if (error) {
+    console.warn("[walkSessions] app_registered_user_count", error.message);
+    return 0;
+  }
+
+  const n = typeof data === "number" ? data : Number(data ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /** Leaderboard row for dashboard / hub (#rank of total walkers this UTC ISO week). */

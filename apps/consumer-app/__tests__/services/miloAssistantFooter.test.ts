@@ -40,6 +40,15 @@ describe("resolveMiloAssistantFooter", () => {
     ).toBeNull();
   });
 
+  it("omits footer for document upload summaries with OCR bullets", () => {
+    expect(
+      resolveMiloAssistantFooter({
+        content:
+          "Here's what I found in your document:\n• Rabies — given Jul 4, 2025\n\nAdded 1 vaccine record to health records.",
+      })
+    ).toBeNull();
+  });
+
   it("infers health footer from clinical summary shape without API flags", () => {
     expect(
       resolveMiloAssistantFooter({

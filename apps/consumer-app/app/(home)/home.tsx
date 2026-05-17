@@ -35,6 +35,8 @@ import {
   fetchMyWeeklyWalkerRank,
   fetchPawthonDashboardStats,
 } from "@/services/walkSessions";
+import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
+import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CareTeamMemberType,
@@ -63,11 +65,6 @@ import {
   GestureDetector,
 } from "react-native-gesture-handler";
 
-/** Weekly challenge card (rank line only when cohort ≥ WEEKLY_CHALLENGE_RANK_COPY_MIN_COHORT). */
-const SHOW_WEEKLY_CHALLENGE_ON_HOME = true;
-/** Re-enable vet booking CTA on home when ready */
-const SHOW_VET_BOOKING_ON_HOME = false;
-
 export default function Home() {
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
@@ -82,6 +79,7 @@ export default function Home() {
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
+  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
   const { ensurePremium } = useSubscription();
   const { openChat } = useChat();
   const queryClient = useQueryClient();
@@ -132,13 +130,13 @@ export default function Home() {
   const { data: pawthonStats } = useQuery({
     queryKey: ["pawthon", selectedPetId],
     queryFn: () => fetchPawthonDashboardStats(selectedPetId!),
-    enabled: SHOW_WEEKLY_CHALLENGE_ON_HOME && !!selectedPetId,
+    enabled: weeklyChallengeEnabled && !!selectedPetId,
   });
 
   const { data: weeklyWalkerRank } = useQuery({
     queryKey: ["pawthon", "weeklyWalkerRank"],
     queryFn: fetchMyWeeklyWalkerRank,
-    enabled: SHOW_WEEKLY_CHALLENGE_ON_HOME && !!user,
+    enabled: weeklyChallengeEnabled && !!user,
   });
 
   const createCareTeamMemberMutation = useMutation({
@@ -233,7 +231,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["pet_journal_home", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
-      ...(SHOW_WEEKLY_CHALLENGE_ON_HOME
+      ...(weeklyChallengeEnabled
         ? [
             queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
             queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
@@ -292,14 +290,14 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
-        if (SHOW_WEEKLY_CHALLENGE_ON_HOME) {
+        if (weeklyChallengeEnabled) {
           queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
           queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
           queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
         }
       }
       refreshPendingApprovals();
-    }, [selectedPetId, queryClient, refreshPendingApprovals])
+    }, [selectedPetId, queryClient, refreshPendingApprovals, weeklyChallengeEnabled])
   );
 
   // Loading states
@@ -500,7 +498,7 @@ export default function Home() {
           )}
 
           {/* Weekly Challenge */}
-          {SHOW_WEEKLY_CHALLENGE_ON_HOME && selectedPet && (
+          {weeklyChallengeEnabled && selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
               <WeeklyChallengeCard
                 petName={selectedPet.name}
@@ -516,7 +514,7 @@ export default function Home() {
           )}
 
           {/* Book a vet visit (hidden until re-enabled) */}
-          {SHOW_VET_BOOKING_ON_HOME && selectedPet && (
+          {SHOW_VET_BOOKING_UI && selectedPet && (
             <View style={{ marginBottom: 24 }}>
               <BookVetVisitSection
                 petName={selectedPet.name}

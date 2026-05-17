@@ -12,8 +12,10 @@ export type PawthonHubContentProps = {
   walkCount: number;
   totalMiles: number;
   petsCount: number;
-  /** Leaderboard row, e.g. "#5 of 8 walkers" — placeholders until live rankings. */
+  /** Leaderboard row, e.g. "#5 of 8 walkers" — hidden when weekly challenge is gated off. */
   rankLabel?: string;
+  /** When false, hides the weekly challenge hero (rankings need enough app users). */
+  showWeeklyChallenge?: boolean;
   onStartWalk: () => void;
   onBack: () => void;
 };
@@ -88,6 +90,7 @@ export function PawthonHubContent({
   totalMiles,
   petsCount,
   rankLabel = formatWeeklyWalkerRankLine(null, 0),
+  showWeeklyChallenge = true,
   onStartWalk,
   onBack,
 }: PawthonHubContentProps) {
@@ -137,100 +140,102 @@ export function PawthonHubContent({
         </Text>
       </View>
 
-      <LinearGradient
-        colors={creamBg}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          borderRadius: 24,
-          overflow: "hidden",
-          borderWidth: isDark ? 1 : 0,
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "transparent",
-          marginBottom: 20,
-        }}
-      >
-        <View
+      {showWeeklyChallenge ? (
+        <LinearGradient
+          colors={creamBg}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            position: "absolute",
-            right: -40,
-            top: "12%",
-            width: 220,
-            height: 220,
-            borderRadius: 110,
-            backgroundColor: sunburstRay,
-            opacity: 0.9,
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            right: 16,
-            bottom: -24,
-            width: 140,
-            height: 140,
-            borderRadius: 70,
-            backgroundColor: sunburstRay,
-            opacity: 0.5,
-          }}
-        />
-
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "stretch",
-            justifyContent: "space-between",
-            paddingVertical: 20,
-            paddingLeft: 20,
-            paddingRight: 10,
-            minHeight: 148,
+            borderRadius: 24,
+            overflow: "hidden",
+            borderWidth: isDark ? 1 : 0,
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "transparent",
+            marginBottom: 20,
           }}
         >
           <View
             style={{
-              flex: 1,
-              minWidth: 0,
+              position: "absolute",
+              right: -40,
+              top: "12%",
+              width: 220,
+              height: 220,
+              borderRadius: 110,
+              backgroundColor: sunburstRay,
+              opacity: 0.9,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: -24,
+              width: 140,
+              height: 140,
+              borderRadius: 70,
+              backgroundColor: sunburstRay,
+              opacity: 0.5,
+            }}
+          />
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              justifyContent: "space-between",
+              paddingVertical: 20,
+              paddingLeft: 20,
               paddingRight: 10,
-              zIndex: 2,
-              justifyContent: "center",
+              minHeight: 148,
             }}
           >
-            <Text
+            <View
               style={{
-                fontFamily: "Poppins_600SemiBold",
-                fontSize: 11,
-                letterSpacing: 1.2,
-                color: labelColor,
-                marginBottom: 6,
+                flex: 1,
+                minWidth: 0,
+                paddingRight: 10,
+                zIndex: 2,
+                justifyContent: "center",
               }}
             >
-              WEEKLY CHALLENGE
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Poppins_700Bold",
-                fontSize: 22,
-                lineHeight: 28,
-                color: titleColor,
-                marginBottom: 8,
-              }}
-            >
-              Walker Marathon
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Poppins_500Medium",
-                fontSize: 14,
-                lineHeight: 20,
-                color: subColor,
-              }}
-            >
-              {rankLabel}
-            </Text>
-          </View>
+              <Text
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  color: labelColor,
+                  marginBottom: 6,
+                }}
+              >
+                WEEKLY CHALLENGE
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Poppins_700Bold",
+                  fontSize: 22,
+                  lineHeight: 28,
+                  color: titleColor,
+                  marginBottom: 8,
+                }}
+              >
+                Walker Marathon
+              </Text>
+              <Text
+                style={{
+                  fontFamily: "Poppins_500Medium",
+                  fontSize: 14,
+                  lineHeight: 20,
+                  color: subColor,
+                }}
+              >
+                {rankLabel}
+              </Text>
+            </View>
 
-          <PawthonTrophyIllustration size={152} />
-        </View>
-      </LinearGradient>
+            <PawthonTrophyIllustration size={152} />
+          </View>
+        </LinearGradient>
+      ) : null}
 
       <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
         <StatCard

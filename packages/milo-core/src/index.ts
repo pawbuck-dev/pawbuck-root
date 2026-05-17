@@ -23,6 +23,7 @@ export {
   type FlexibleDocumentExtraction,
 } from "./schema";
 
+export { hasVaccinationAdministrationProof } from "./vaccination-extraction";
 export { MEDICAL_RECORD_EXTRACTION_SYSTEM_PROMPT } from "./prompts/extraction-prompt";
 export { PET_DOCUMENT_CLASSIFICATION_SYSTEM_PROMPT } from "./prompts/classification-prompt";
 export { FLEXIBLE_DOCUMENT_EXTRACTION_SYSTEM_PROMPT } from "./prompts/flexible-extraction-prompt";

@@ -40,7 +40,7 @@ export default function RequiredVaccinesHubCard({ petId, hideViewInVaccinationsC
   const { requiredVaccinesStatus, isLoadingRequirements } = useVaccineCategories();
   const [expanded, setExpanded] = useState(false);
 
-  const { total, administered, missing } = requiredVaccinesStatus;
+  const { total, administered, missing, administeredList } = requiredVaccinesStatus;
   const hasRequiredModel = total > 0;
   const hasGaps = missing.length > 0;
 
@@ -87,33 +87,49 @@ export default function RequiredVaccinesHubCard({ petId, hideViewInVaccinationsC
             <Ionicons name="shield-checkmark" size={24} color={successText} />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
-                {petPossessiveLabel(pet?.name, "Required Vaccines")}
-              </Text>
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 100,
-                  backgroundColor: successBg,
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: successText }}>Compliant</Text>
-              </View>
-            </View>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
+              {petPossessiveLabel(pet?.name, "Required Vaccines")}
+            </Text>
             <Text style={{ fontSize: 14, color: theme.secondary, marginTop: 4 }}>
               {administered}/{total} vaccines completed
             </Text>
           </View>
         </View>
 
-        <View style={{ marginTop: 14 }}>
-          <CompliantVaccineBanner
-            body={getRequiredVaccinesCompliantBody(pet?.country)}
-            onCtaPress={hideViewInVaccinationsCta ? undefined : goVaccinations}
-          />
-        </View>
+        {hideViewInVaccinationsCta ? (
+          <View style={{ marginTop: 14, gap: 8 }}>
+            {administeredList.map((req) => (
+              <View
+                key={req.canonical_key}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  backgroundColor: successBg,
+                }}
+              >
+                <Ionicons name="checkmark-circle" size={20} color={successText} />
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: theme.foreground }}>
+                  {req.vaccine_name}
+                </Text>
+              </View>
+            ))}
+            <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 18 }}>
+              {getRequiredVaccinesCompliantBody(pet?.country)}
+            </Text>
+          </View>
+        ) : (
+          <View style={{ marginTop: 14 }}>
+            <CompliantVaccineBanner
+              title=""
+              body={getRequiredVaccinesCompliantBody(pet?.country)}
+              onCtaPress={goVaccinations}
+            />
+          </View>
+        )}
       </View>
     );
   }

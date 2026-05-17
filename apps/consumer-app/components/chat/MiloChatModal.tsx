@@ -7,6 +7,12 @@ import { useAuth } from "@/context/authContext";
 import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import {
+  MILO_AVATAR_FRAME_SIZE,
+  MILO_BUSY_HERO_BOX_SIZE,
+  useMiloDocumentAnalysisAnimations,
+  useMiloDocumentAnalysisStatusCopy,
+} from "@/hooks/useMiloDocumentAnalysisAnimations";
 import { useMiloSpeechToText } from "@/hooks/useMiloSpeechToText";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import {
@@ -252,7 +258,11 @@ export const MiloChatModal: React.FC = () => {
       try {
         const row = await uploadAndAnalyze(selectedPet.id, selectedPet.name, file);
         const { userContent, assistantContent } = buildDocumentUploadThreadContent(
-          { documentType: row.documentType, extractedJson: row.extractedJson },
+          {
+            documentType: row.documentType,
+            extractedJson: row.extractedJson,
+            clinicalSync: row.clinicalSync ?? null,
+          },
           { id: selectedPet.id, name: selectedPet.name },
           pets.map((p) => ({ id: p.id, name: p.name }))
         );
@@ -309,17 +319,24 @@ export const MiloChatModal: React.FC = () => {
 
   const docPipelineBusy = uploadStatus === "uploading" || uploadStatus === "analyzing";
   const composerBusy = isLoading || docPipelineBusy || generalDisclaimerStatus !== "accepted";
-  const composerBusyLabel = isLoading
-    ? "Generating..."
-    : uploadStatus === "uploading"
-      ? "Uploading document..."
-      : uploadStatus === "analyzing"
-        ? "Analyzing document..."
-        : generalDisclaimerStatus === "pending"
-          ? "Please accept the disclaimer to continue."
-          : generalDisclaimerStatus === "loading"
-            ? "…"
-            : "";
+  const heroAnimationsActive = docPipelineBusy && messages.length === 0;
+  const spinIconActive = composerBusy && (docPipelineBusy || isLoading);
+
+  const cyclingDocStatus = useMiloDocumentAnalysisStatusCopy(docPipelineBusy);
+  const { spinRotate, breathScale, sonarScale, sonarOpacity } = useMiloDocumentAnalysisAnimations({
+    spin: spinIconActive,
+    hero: heroAnimationsActive,
+  });
+
+  const composerBusyLabel = docPipelineBusy
+    ? cyclingDocStatus
+    : isLoading
+      ? "Generating..."
+      : generalDisclaimerStatus === "pending"
+        ? "Please accept the disclaimer to continue."
+        : generalDisclaimerStatus === "loading"
+          ? "…"
+          : "";
 
   const handleSend = async () => {
     if (!inputText.trim() || composerBusy) return;
@@ -464,7 +481,65 @@ export const MiloChatModal: React.FC = () => {
         {/* Messages Container */}
         <View style={{ flex: 1, minHeight: 0, flexShrink: 1 }}>
           {messages.length === 0 ? (
-            <View style={{ flex: 1, minHeight: 0, flexShrink: 1 }} />
+            <View
+              style={{
+                flex: 1,
+                minHeight: 0,
+                flexShrink: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: MILO_BUSY_HERO_BOX_SIZE,
+                  height: MILO_BUSY_HERO_BOX_SIZE,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {heroAnimationsActive ? (
+                  <Animated.View
+                    pointerEvents="none"
+                    style={{
+                      position: "absolute",
+                      width: MILO_AVATAR_FRAME_SIZE,
+                      height: MILO_AVATAR_FRAME_SIZE,
+                      borderRadius: MILO_AVATAR_FRAME_SIZE / 2,
+                      borderWidth: 2,
+                      borderColor: theme.primary,
+                      backgroundColor:
+                        mode === "dark" ? "rgba(95, 196, 192, 0.14)" : "rgba(43, 168, 158, 0.14)",
+                      opacity: sonarOpacity,
+                      transform: [{ scale: sonarScale }],
+                    }}
+                  />
+                ) : null}
+                <Animated.View
+                  style={{
+                    transform: [{ scale: heroAnimationsActive ? breathScale : 1 }],
+                  }}
+                >
+                  <View
+                    style={{
+                      width: MILO_AVATAR_FRAME_SIZE,
+                      height: MILO_AVATAR_FRAME_SIZE,
+                      borderRadius: MILO_AVATAR_FRAME_SIZE / 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Image
+                      source={MILO_AVATAR}
+                      style={{
+                        width: MILO_AVATAR_FRAME_SIZE,
+                        height: MILO_AVATAR_FRAME_SIZE,
+                      }}
+                      contentFit="cover"
+                    />
+                  </View>
+                </Animated.View>
+              </View>
+            </View>
           ) : (
             <FlatList
               ref={flatListRef}
@@ -622,7 +697,9 @@ export const MiloChatModal: React.FC = () => {
                 >
                   {composerBusyLabel}
                 </Text>
-                <GeneratingIcon />
+                <Animated.View style={{ transform: [{ rotate: spinRotate }] }}>
+                  <GeneratingIcon />
+                </Animated.View>
               </View>
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center" }}>

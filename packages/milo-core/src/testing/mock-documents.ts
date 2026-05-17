@@ -3,6 +3,26 @@
  * Used to drive extraction tests and simulate Vision-LLM inputs.
  */
 
+/** Beach Avenue–style cert: administered block vs booster-due block (Rabies due-only). */
+export const BEACH_AVENUE_VACCINATION_CERT = `
+Beach Avenue Animal Hospital
+CERTIFICATE OF VACCINATION(S)
+Date: 11 October, 2025
+
+Patient: Milo | Species: Canine
+
+Vaccinations Administered:
+DAPP on 11-10-2025
+Bordetella on 11-10-2025
+Leptospirosis on 11-10-2025
+
+Milo is due for booster vaccinations:
+Rabies on 07-04-2028
+DAPP on 10-10-2028
+Bordetella on 11-10-2026
+Leptospirosis on 11-10-2026
+`;
+
 /** Standard vaccine/visit receipt text (clear structure, one pet) */
 export const STAINED_VET_RECEIPT = `
 Beach Avenue Animal Hospital

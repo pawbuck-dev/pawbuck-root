@@ -1,4 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
@@ -232,24 +233,26 @@ export default function CalendarScreen() {
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => router.push("/(home)/book-vet-visit" as any)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            padding: 14,
-            borderRadius: 14,
-            backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "rgba(59,208,210,0.15)",
-            marginBottom: 20,
-          }}
-        >
-          <Ionicons name="add-circle-outline" size={22} color="#3BD0D2" />
-          <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground, flex: 1 }}>
-            Book a vet visit
-          </Text>
-          <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
-        </Pressable>
+        {SHOW_VET_BOOKING_UI ? (
+          <Pressable
+            onPress={() => router.push("/(home)/book-vet-visit" as any)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              padding: 14,
+              borderRadius: 14,
+              backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "rgba(59,208,210,0.15)",
+              marginBottom: 20,
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={22} color="#3BD0D2" />
+            <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground, flex: 1 }}>
+              Book a vet visit
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
+          </Pressable>
+        ) : null}
 
         {isLoading ? (
           <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
@@ -265,8 +268,9 @@ export default function CalendarScreen() {
                 paddingHorizontal: 24,
               }}
             >
-              No appointments yet. Book in the app or confirm calendar invites sent to your pet’s
-              inbox.
+              {SHOW_VET_BOOKING_UI
+                ? "No appointments yet. Book in the app or confirm calendar invites sent to your pet’s inbox."
+                : "No appointments yet. Confirm calendar invites sent to your pet’s inbox when you receive them."}
             </Text>
           </View>
         ) : null}

@@ -18,14 +18,20 @@ public class PetDocumentClinicalSyncRoutingTests
               "title": "Certificate of Vaccination",
               "dateOfVisit": "2025-10-11",
               "items": [
-                { "name": "DAPP", "category": "vaccination", "expiryDate": "2028-10-10" },
+                { "name": "DAPP", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2028-10-10" },
+                { "name": "Bordetella", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2026-10-11" },
+                { "name": "Leptospirosis", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2026-10-11" },
                 { "name": "Rabies", "category": "vaccination", "expiryDate": "2028-07-04" }
               ]
             }
             """;
 
         VaultExtractedJsonParser.TryParseMedicalRecord(json, out var medical).Should().BeTrue();
-        VaultExtractedJsonParser.FilterVaccinationItems(medical!.Items!).Should().HaveCount(2);
+        VaultExtractedJsonParser.FilterVaccinationItems(medical!.Items!).Should().HaveCount(4);
+        VaultExtractedJsonParser.FilterProvablyAdministeredVaccinations(medical.Items!)
+            .Select(i => i.Name)
+            .Should()
+            .BeEquivalentTo(["DAPP", "Bordetella", "Leptospirosis"]);
     }
 
     [Fact]

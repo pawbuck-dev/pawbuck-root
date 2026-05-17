@@ -14,6 +14,7 @@ jest.mock("@/utils/supabase", () => {
 
 import {
   fetchLifetimeWalkAggregatesForPet,
+  fetchAppRegisteredUserCount,
   fetchMyWeeklyWalkerRank,
   fetchRecentWalkSessions,
   fetchSessionsForStreak,
@@ -146,6 +147,17 @@ describe("walkSessions service", () => {
     const { select } = chainSelectEqGte({ data: slices, error: null });
     mockFrom.mockReturnValue({ select });
     await expect(fetchSessionsForStreak("p1", 30)).resolves.toEqual(slices);
+  });
+
+  it("fetchAppRegisteredUserCount parses rpc scalar", async () => {
+    mockRpc.mockResolvedValue({ data: 420, error: null });
+    await expect(fetchAppRegisteredUserCount()).resolves.toBe(420);
+    expect(mockRpc).toHaveBeenCalledWith("app_registered_user_count");
+  });
+
+  it("fetchAppRegisteredUserCount returns 0 on rpc error", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error("rpc") });
+    await expect(fetchAppRegisteredUserCount()).resolves.toBe(0);
   });
 
   it("fetchMyWeeklyWalkerRank parses rpc row", async () => {

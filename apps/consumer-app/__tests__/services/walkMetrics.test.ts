@@ -2,6 +2,7 @@ import moment from "moment";
 import {
   computeWalkingStreakFromSessions,
   formatWeeklyChallengeFigmaLine,
+  isWeeklyChallengeEnabled,
   formatWeeklyWalkerRankLine,
 } from "@/services/walkMetrics";
 
@@ -17,6 +18,13 @@ describe("formatWeeklyWalkerRankLine", () => {
 
   it("handles unranked with positive total", () => {
     expect(formatWeeklyWalkerRankLine(null, 8)).toBe("8 walkers this week · start a walk to rank");
+  });
+});
+
+describe("isWeeklyChallengeEnabled", () => {
+  it("requires more than 300 registered users", () => {
+    expect(isWeeklyChallengeEnabled(300)).toBe(false);
+    expect(isWeeklyChallengeEnabled(301)).toBe(true);
   });
 });
 

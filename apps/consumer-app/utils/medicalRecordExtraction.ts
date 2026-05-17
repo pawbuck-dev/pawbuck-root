@@ -3,6 +3,8 @@ import type { VaccinationInsert } from "@/types/vaccination";
 export type MedicalRecordItem = {
   name: string;
   category: string;
+  /** ISO date when this vaccine was given on the document; omit if not provably administered. */
+  administeredDate?: string | null;
   expiryDate?: string | null;
 };
 
@@ -53,6 +55,10 @@ export function parseMedicalRecordExtraction(raw: unknown): MedicalRecordExtract
           const item: MedicalRecordItem = {
             name,
             category,
+            administeredDate:
+              typeof r.administeredDate === "string" && r.administeredDate.trim() !== ""
+                ? r.administeredDate.trim()
+                : undefined,
             expiryDate:
               typeof r.expiryDate === "string" && r.expiryDate.trim() !== ""
                 ? r.expiryDate.trim()
@@ -73,25 +79,28 @@ export function parseMedicalRecordExtraction(raw: unknown): MedicalRecordExtract
   };
 }
 
+function hasAdministrationProof(item: MedicalRecordItem): boolean {
+  return Boolean(item.administeredDate?.trim());
+}
+
 export function medicalRecordToVaccinationInserts(
   petId: string,
   extraction: MedicalRecordExtraction,
   documentPath?: string
 ): VaccinationInsert[] {
-  const administered = extraction.dateOfVisit?.trim();
-  if (!administered) return [];
-
   const clinic = extraction.clinicName?.trim() || null;
-  return (extraction.items ?? []).map((item) => ({
-    pet_id: petId,
-    name: item.name,
-    date: administered,
-    next_due_date: item.expiryDate?.trim() || null,
-    clinic_name: clinic,
-    notes: "",
-    document_url: documentPath ?? null,
-    created_at: new Date().toISOString(),
-  }));
+  return (extraction.items ?? [])
+    .filter(hasAdministrationProof)
+    .map((item) => ({
+      pet_id: petId,
+      name: item.name,
+      date: item.administeredDate!.trim(),
+      next_due_date: item.expiryDate?.trim() || null,
+      clinic_name: clinic,
+      notes: "",
+      document_url: documentPath ?? null,
+      created_at: new Date().toISOString(),
+    }));
 }
 
 export function formatClinicalSyncMessage(sync?: PetDocumentClinicalSyncResult | null): string | null {

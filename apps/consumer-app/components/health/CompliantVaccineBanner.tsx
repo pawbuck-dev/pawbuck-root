@@ -1,4 +1,3 @@
-import { useTheme } from "@/context/themeContext";
 import { Image } from "expo-image";
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
@@ -6,9 +5,12 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 const COMPLIANT_FRAME = require("@/assets/icons/ComplaintFrame.svg");
 
 const GREEN = "#1D9C3D";
+/** ComplaintFrame.svg uses a fixed white card — text must stay dark for contrast in dark mode. */
+const ON_FRAME_TITLE = "#1C1C1E";
+const ON_FRAME_BODY = "#727979";
 
 export type CompliantVaccineBannerProps = {
-  /** Defaults to "Compliant" */
+  /** Omit or pass empty string to hide (e.g. when the parent already shows a Compliant badge). */
   title?: string;
   body: string;
   /** Defaults to "View schedule". Omit `onCtaPress` to hide the CTA. */
@@ -27,11 +29,7 @@ export function CompliantVaccineBanner({
   onCtaPress,
 }: CompliantVaccineBannerProps) {
   const showCta = onCtaPress != null;
-  const { theme, mode } = useTheme();
-  const isDark = mode === "dark";
-
-  const titleColor = theme.foreground;
-  const bodyColor = isDark ? "rgba(255,255,255,0.72)" : "#727979";
+  const showTitle = Boolean(title?.trim());
 
   return (
     <View style={styles.root}>
@@ -39,8 +37,10 @@ export function CompliantVaccineBanner({
       <View style={styles.content} pointerEvents="box-none">
         <View style={styles.row}>
           <View style={styles.textBlock}>
-            <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
-            <Text style={[styles.body, { color: bodyColor }]}>{body}</Text>
+            {showTitle ? (
+              <Text style={[styles.title, { color: ON_FRAME_TITLE }]}>{title}</Text>
+            ) : null}
+            <Text style={[styles.body, { color: ON_FRAME_BODY }]}>{body}</Text>
           </View>
           {showCta ? (
             <Pressable

@@ -66,6 +66,11 @@ export const medicalRecordDocumentTypeSchema = z.enum([
 export const medicalRecordItemSchema = z.object({
   name: z.string(),
   category: z.string(),
+  /** ISO date when this vaccine was given on the document; omit if not provably administered. */
+  administeredDate: z
+    .string()
+    .regex(isoDateRegex, isoDateMessage)
+    .optional(),
   expiryDate: z.string().regex(isoDateRegex, isoDateMessage),
 });
 

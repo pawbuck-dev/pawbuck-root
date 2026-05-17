@@ -13,7 +13,7 @@ Return ONLY valid JSON matching this shape (no markdown, no commentary):
   "clinicName": "string",
   "dateOfVisit": "YYYY-MM-DD",
   "items": [
-    { "name": "string", "category": "string", "expiryDate": "YYYY-MM-DD" }
+    { "name": "string", "category": "string", "administeredDate": "YYYY-MM-DD", "expiryDate": "YYYY-MM-DD" }
   ],
   "confidenceScore": 0-100
 }
@@ -23,14 +23,16 @@ Return ONLY valid JSON matching this shape (no markdown, no commentary):
 - Do not use MM/DD/YYYY, DD-MM-YYYY, or any other format.
 
 ## Expiry dates vs administered / visit dates
-- **dateOfVisit**: The date the pet was seen or the main event date (e.g. "Date of Visit", "Date Given", "Service Date"). There is exactly one such date per document; use it for \`dateOfVisit\`.
-- **items[].expiryDate**: For each vaccine, medication, or certificate, use the **expiry** or **next due** date (e.g. "Next due", "Valid until", "Expires", "Next dose due"). This is the date after which the item is no longer valid or another dose is due. Put this in \`expiryDate\` for that item.
-- Do not put administered/given dates into \`expiryDate\`; reserve \`expiryDate\` for next-due or expiry only.
+- **dateOfVisit**: The date the pet was seen or the certificate was signed (e.g. "Date:", "Date of Visit"). There is exactly one such date per document; use it for \`dateOfVisit\`. This is **not** proof that every vaccine on the page was administered that day.
+- **items[].administeredDate**: ISO-8601 date when **this specific** vaccine was given, only if the document clearly states it was administered (e.g. under "Vaccinations Administered", "Given", "Date administered"). **Omit** \`administeredDate\` (or omit the entire item) when the vaccine appears only under "due for booster", "next due", "expires", or similar future-due sections without a given/administered date.
+- **items[].expiryDate**: Next due, valid until, or booster due date for that vaccine. Do not put administered/given dates into \`expiryDate\`.
 
 ## Items
 - **name**: Vaccine name, medication name, or service name (e.g. "DHPP", "Rabies", "Annual exam").
 - **category**: Broad category such as "vaccination", "medication", "lab", "exam".
+- **administeredDate**: Required on an item only when administration is explicitly documented for that vaccine. Never infer administration from \`dateOfVisit\` alone.
 - **expiryDate**: ISO-8601 date for when this item expires or is next due.
+- For vaccination certificates with separate **administered** vs **due/booster** lists: include in \`items[]\` only vaccines from the administered list (each with \`administeredDate\`). Do **not** add vaccines that appear only in the due/booster list (e.g. Rabies listed only as "due 2028-07-04" with no administered line).
 
 ## Confidence score
 - Set \`confidenceScore\` (0-100) based on document clarity and completeness:
