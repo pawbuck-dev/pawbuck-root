@@ -4,6 +4,7 @@ import {
   parseIcsCalendarToEvents,
   type ParsedIcsEvent,
 } from "./icsParser.ts";
+import { resolvePetHomeTimezone } from "./petTimezoneResolver.ts";
 import type { ParsedAttachment, Pet } from "./types.ts";
 
 function createSupabaseClient() {
@@ -33,12 +34,13 @@ export function isCalendarAttachment(a: ParsedAttachment): boolean {
   );
 }
 
-function endFromStart(startIso: string, ev: ParsedIcsEvent): string {
+function endFromStart(startIso: string, ev: ParsedIcsEvent, homeTimezone: string): string {
   if (ev.dtendRaw) {
     const endIso = icsValueToIsoUtc(
       "DTEND",
       ev.dtendProp.replace(/^DTEND/i, ""),
-      ev.dtendRaw
+      ev.dtendRaw,
+      homeTimezone
     );
     if (endIso) return endIso;
   }
@@ -70,6 +72,7 @@ export async function importIcsAttachmentsToVetBookings(params: {
   const results: IcsImportResult[] = [];
   const supabase = createSupabaseClient();
   let newlyInsertedCount = 0;
+  const homeTimezone = await resolvePetHomeTimezone(params.pet.id);
 
   for (const att of params.attachments) {
     const one: IcsImportResult = { filename: att.filename, vetBookingIds: [], errors: [] };
@@ -94,13 +97,14 @@ export async function importIcsAttachmentsToVetBookings(params: {
       const startIso = icsValueToIsoUtc(
         "DTSTART",
         ev.dtstartProp.replace(/^DTSTART/i, ""),
-        ev.dtstartRaw ?? ""
+        ev.dtstartRaw ?? "",
+        homeTimezone
       );
       if (!startIso) {
         one.errors.push(`Event ${idx}: invalid DTSTART`);
         continue;
       }
-      const endIso = endFromStart(startIso, ev);
+      const endIso = endFromStart(startIso, ev, homeTimezone);
       const uidPart = ev.uid?.trim() || `noid-${idx}`;
       const emailImportKey = `${params.fileKey}:${uidPart}:${idx}`;
 

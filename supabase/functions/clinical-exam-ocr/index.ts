@@ -10,6 +10,7 @@ import {
   getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
+import { ocrDeprecatedResponse } from "../_shared/ocr-deprecated.ts";
 
 interface ClinicalExamExtraction {
   exam_type: string;
@@ -33,6 +34,9 @@ interface ClinicalExamOCRResponse {
 }
 
 Deno.serve(async (req) => {
+  const deprecated = ocrDeprecatedResponse(req);
+  if (deprecated) return deprecated;
+
   if (req.method === "OPTIONS") {
     return handleCorsRequest();
   }

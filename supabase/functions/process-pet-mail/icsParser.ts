@@ -3,6 +3,8 @@
  * Handles unfolded lines, DTSTART/DTEND (DATE and DATETIME, Zulu), UID, SUMMARY, LOCATION, DESCRIPTION.
  */
 
+import { wallTimeToUtc } from "./appointmentTime.ts";
+
 export type ParsedIcsEvent = {
   uid: string | null;
   dtstartRaw: string | null;
@@ -45,29 +47,61 @@ function splitProperty(line: string): { name: string; params: string; value: str
   return { name: m[1].toUpperCase(), params: m[2] ?? "", value: unescapeIcsText(m[3] ?? "") };
 }
 
+function resolveIcsTimezone(params: string, wallTimeZone: string): string {
+  const tzidMatch = params.match(/TZID=([^;:]+)/i);
+  if (tzidMatch?.[1]) {
+    const tz = tzidMatch[1].trim();
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return tz;
+    } catch {
+      // fall through
+    }
+  }
+  return wallTimeZone;
+}
+
+function icsCompactToLocalIso(v: string): string | null {
+  if (/^\d{8}$/.test(v)) {
+    const y = v.slice(0, 4);
+    const mo = v.slice(4, 6);
+    const da = v.slice(6, 8);
+    return `${y}-${mo}-${da}T12:00:00`;
+  }
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if (!m) return null;
+  const [, y, mo, da, hh, mi, ss] = m;
+  return `${y}-${mo}-${da}T${hh}:${mi}:${ss}`;
+}
+
 /**
  * Parse ICS datetime / date into ISO 8601 UTC string.
- * Floating local times (no Z, no TZID offset) are interpreted as UTC wall time (best-effort v1).
+ * Floating local times use pet (or TZID) IANA zone; Zulu suffix stays UTC.
  */
-export function icsValueToIsoUtc(propName: string, params: string, value: string): string | null {
+export function icsValueToIsoUtc(
+  propName: string,
+  params: string,
+  value: string,
+  wallTimeZone: string
+): string | null {
   const v = value.trim();
   const p = `${propName}${params}`.toUpperCase();
+  const zone = resolveIcsTimezone(params, wallTimeZone);
 
   if (p.includes("VALUE=DATE") || /^\d{8}$/.test(v)) {
-    const d = v.slice(0, 8);
-    if (!/^\d{8}$/.test(d)) return null;
-    const y = d.slice(0, 4);
-    const mo = d.slice(4, 6);
-    const da = d.slice(6, 8);
-    return `${y}-${mo}-${da}T12:00:00.000Z`;
+    const local = icsCompactToLocalIso(v.slice(0, 8));
+    if (!local) return null;
+    return wallTimeToUtc(local, zone);
   }
 
   const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
   if (!m) return null;
   const [, y, mo, da, hh, mm, ss, z] = m;
-  const isoLocal = `${y}-${mo}-${da}T${hh}:${mm}:${ss}.000`;
-  if (z) return `${isoLocal.slice(0, -1)}Z`;
-  return `${isoLocal}Z`;
+  if (z) {
+    return `${y}-${mo}-${da}T${hh}:${mm}:${ss}.000Z`;
+  }
+  const local = `${y}-${mo}-${da}T${hh}:${mm}:${ss}`;
+  return wallTimeToUtc(local, zone);
 }
 
 export function parseIcsCalendarToEvents(icsText: string): ParsedIcsEvent[] {

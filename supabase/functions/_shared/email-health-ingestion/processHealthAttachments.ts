@@ -1,0 +1,336 @@
+import { saveOCRResults } from "../../process-pet-mail/dbPersistence.ts";
+import { classifyAttachment } from "../../process-pet-mail/geminiClassifier.ts";
+import { triggerOCR } from "../../process-pet-mail/ocrTrigger.ts";
+import { validatePetFromDocument } from "../../process-pet-mail/petValidator.ts";
+import { uploadAttachment } from "../../process-pet-mail/storageUploader.ts";
+import type {
+  DocumentClassification,
+  DocumentType,
+  EmailContext,
+  ParsedAttachment,
+  Pet,
+  PetValidationResult,
+  ProcessedAttachment,
+} from "../../process-pet-mail/types.ts";
+import { analyzePetDocumentInternal } from "../pawbuck-milo-api.ts";
+import { uploadCanonicalDocument } from "./canonicalStorage.ts";
+import { useLegacyOcrPipeline, useVaultHealthPipeline } from "./flags.ts";
+
+export type ForcedDocumentPipelineType = Exclude<
+  DocumentType,
+  "irrelevant" | "billing_invoice" | "travel_certificate"
+>;
+
+export type ProcessHealthAttachmentsOptions = {
+  ingestionSource: "email_ses" | "email_mailgun";
+  /** Review Inbox / reprocess: hard override on PawBuck.API analyze-internal */
+  apiDocumentTypeOverride?: string;
+  forcedDocumentType?: ForcedDocumentPipelineType;
+  forcedAttachmentIndexLimit?: number;
+  onMicrochipMismatch?: (
+    pet: Pet,
+    validation: PetValidationResult,
+    filename: string,
+  ) => Promise<void>;
+};
+
+export async function processHealthAttachments(
+  pet: Pet,
+  attachments: ParsedAttachment[],
+  emailContext: EmailContext,
+  options: ProcessHealthAttachmentsOptions,
+): Promise<ProcessedAttachment[]> {
+  const results: ProcessedAttachment[] = [];
+  for (let i = 0; i < attachments.length; i++) {
+    const attachment = attachments[i];
+    const forced =
+      options.forcedDocumentType &&
+      (options.forcedAttachmentIndexLimit == null
+        ? i < 1
+        : i < options.forcedAttachmentIndexLimit)
+        ? options.forcedDocumentType
+        : undefined;
+
+    const apiOverride = forced
+      ? options.apiDocumentTypeOverride ?? forced
+      : options.apiDocumentTypeOverride &&
+          (options.forcedAttachmentIndexLimit == null
+            ? i < 1
+            : i < options.forcedAttachmentIndexLimit)
+        ? options.apiDocumentTypeOverride
+        : undefined;
+
+    results.push(
+      await processOne(
+        pet,
+        attachment,
+        emailContext,
+        options.ingestionSource,
+        forced,
+        apiOverride,
+        options.onMicrochipMismatch,
+      ),
+    );
+  }
+  return results;
+}
+
+async function processOne(
+  pet: Pet,
+  attachment: ParsedAttachment,
+  emailContext: EmailContext,
+  ingestionSource: "email_ses" | "email_mailgun",
+  forcedDocumentType?: ForcedDocumentPipelineType,
+  apiDocumentTypeOverride?: string,
+  onMicrochipMismatch?: ProcessHealthAttachmentsOptions["onMicrochipMismatch"],
+): Promise<ProcessedAttachment> {
+  try {
+    const classification: DocumentClassification = forcedDocumentType
+      ? {
+          type: forcedDocumentType,
+          confidence: 1,
+          reasoning: "User-confirmed document type (Review Inbox resolution)",
+        }
+      : await classifyAttachment(
+          attachment,
+          emailContext.subject,
+          emailContext.textBody,
+        );
+
+    if (classification.type === "irrelevant") {
+      return skipped(attachment, classification);
+    }
+
+    const petValidation = await validatePetFromDocument(
+      attachment,
+      emailContext.subject,
+      pet,
+    );
+
+    if (petValidation.microchipMismatchNotify && onMicrochipMismatch) {
+      try {
+        await onMicrochipMismatch(pet, petValidation, attachment.filename);
+      } catch (e) {
+        console.error("Microchip mismatch notification error:", e);
+      }
+    }
+
+    if (!petValidation.isValid) {
+      return validationSkipped(attachment, classification, petValidation);
+    }
+
+    if (useVaultHealthPipeline()) {
+      return await processVaultPath(
+        pet,
+        attachment,
+        classification,
+        ingestionSource,
+        apiDocumentTypeOverride,
+        petValidation,
+      );
+    }
+
+    if (useLegacyOcrPipeline()) {
+      return await processLegacyOcrPath(
+        pet,
+        attachment,
+        classification,
+        petValidation,
+      );
+    }
+
+    return failed(
+      attachment,
+      classification,
+      "Vault pipeline disabled and legacy OCR not enabled",
+      petValidation,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return errorResult(attachment, msg);
+  }
+}
+
+async function processVaultPath(
+  pet: Pet,
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+  ingestionSource: string,
+  apiDocumentTypeOverride: string | undefined,
+  petValidation: PetValidationResult,
+): Promise<ProcessedAttachment> {
+  const documentId = crypto.randomUUID();
+  let storagePath: string;
+  try {
+    storagePath = await uploadCanonicalDocument(
+      pet,
+      documentId,
+      attachment.filename,
+      attachment.content,
+      attachment.mimeType,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return failed(attachment, classification, `Upload failed: ${msg}`, petValidation);
+  }
+
+  const analyze = await analyzePetDocumentInternal({
+    petId: pet.id,
+    userId: pet.user_id,
+    bucket: "pets",
+    path: storagePath,
+    mimeType: attachment.mimeType,
+    documentId,
+    documentTypeOverride: apiDocumentTypeOverride,
+    ingestionSource,
+  });
+
+  if (!analyze.ok) {
+    return {
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      classification,
+      uploaded: true,
+      storagePath,
+      ocrTriggered: false,
+      ocrSuccess: false,
+      dbInserted: false,
+      vaultPersisted: false,
+      vaultDocumentId: documentId,
+      error: analyze.error,
+      petValidation,
+    };
+  }
+
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: true,
+    storagePath,
+    ocrTriggered: true,
+    ocrSuccess: true,
+    dbInserted: true,
+    vaultPersisted: true,
+    vaultDocumentId: analyze.row.id || documentId,
+    petValidation,
+  };
+}
+
+async function processLegacyOcrPath(
+  pet: Pet,
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+  petValidation: PetValidationResult,
+): Promise<ProcessedAttachment> {
+  let storagePath: string;
+  try {
+    storagePath = await uploadAttachment(
+      pet,
+      classification.type,
+      attachment.filename,
+      attachment.content,
+      attachment.mimeType,
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return failed(attachment, classification, `Upload failed: ${msg}`, petValidation);
+  }
+
+  const ocrResult = await triggerOCR(classification.type, "pets", storagePath);
+  const dbResult =
+    ocrResult.success && ocrResult.data
+      ? await saveOCRResults(classification.type, pet, storagePath, ocrResult.data)
+      : { success: false, recordIds: undefined as string[] | undefined };
+
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: true,
+    storagePath,
+    ocrTriggered: true,
+    ocrResult: ocrResult.data,
+    ocrSuccess: ocrResult.success,
+    dbInserted: dbResult.success,
+    dbRecordIds: dbResult.recordIds,
+    petValidation,
+    error: ocrResult.success ? undefined : ocrResult.error,
+  };
+}
+
+function skipped(
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+): ProcessedAttachment {
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: false,
+    ocrTriggered: false,
+    ocrSuccess: false,
+    dbInserted: false,
+  };
+}
+
+function validationSkipped(
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+  petValidation: PetValidationResult,
+): ProcessedAttachment {
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: false,
+    ocrTriggered: false,
+    ocrSuccess: false,
+    dbInserted: false,
+    petValidation,
+    skippedReason: petValidation.skipReason,
+  };
+}
+
+function failed(
+  attachment: ParsedAttachment,
+  classification: DocumentClassification,
+  error: string,
+  petValidation?: PetValidationResult,
+): ProcessedAttachment {
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification,
+    uploaded: false,
+    ocrTriggered: false,
+    ocrSuccess: false,
+    dbInserted: false,
+    error,
+    petValidation,
+  };
+}
+
+function errorResult(attachment: ParsedAttachment, error: string): ProcessedAttachment {
+  return {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    classification: {
+      type: "irrelevant",
+      confidence: 0,
+      reasoning: "Processing failed",
+    },
+    uploaded: false,
+    ocrTriggered: false,
+    ocrSuccess: false,
+    dbInserted: false,
+    error,
+  };
+}

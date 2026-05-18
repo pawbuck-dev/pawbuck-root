@@ -1,3 +1,4 @@
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import { AuthProvider } from "@/context/authContext";
 import { ChatProvider } from "@/context/chatContext";
@@ -139,12 +140,14 @@ export default function RootLayout() {
                 <UserPreferencesProvider>
                   <NotificationsProvider>
                     <SafeAreaProvider>
-                      <GestureHandlerRootView>
-                        <SubscriptionProvider>
-                          <ChatProvider>
-                            <ThemedRootStack />
-                          </ChatProvider>
-                        </SubscriptionProvider>
+                      <GestureHandlerRootView style={{ flex: 1 }}>
+                        <AppErrorBoundary>
+                          <SubscriptionProvider>
+                            <ChatProvider>
+                              <ThemedRootStack />
+                            </ChatProvider>
+                          </SubscriptionProvider>
+                        </AppErrorBoundary>
                       </GestureHandlerRootView>
                       <EmailApprovalModal />
                     </SafeAreaProvider>

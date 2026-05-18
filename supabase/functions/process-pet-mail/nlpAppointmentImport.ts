@@ -8,6 +8,7 @@ import {
   shouldPersistNlpExtraction,
   type NlpAppointmentExtraction,
 } from "./nlpAppointmentTypes.ts";
+import { resolveEmailReferenceYear } from "./emailReferenceTime.ts";
 import { resolvePetHomeTimezone } from "./petTimezoneResolver.ts";
 import type { ParsedEmail, Pet } from "./types.ts";
 
@@ -52,7 +53,7 @@ export async function runNlpAppointmentImportIfEligible(
     pet: params.pet,
     senderEmail: params.senderEmail,
     homeTimezone,
-    referenceYear: params.referenceYear ?? 2026,
+    referenceYear: params.referenceYear ?? resolveEmailReferenceYear(params.parsedEmail.date),
   });
 
   return importNlpAppointmentToVetBookings({

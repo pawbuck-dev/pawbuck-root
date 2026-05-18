@@ -8,6 +8,15 @@ public class AnalyzePetDocumentInternalRequest
     public string Bucket { get; set; } = "pets";
     public string Path { get; set; } = string.Empty;
     public string? MimeType { get; set; }
+
+    /// <summary>Pre-assigned vault row id (must match the storage object path segment).</summary>
+    public Guid? DocumentId { get; set; }
+
+    /// <summary>When set, skips Gemini classification and uses this document type (Review Inbox ground truth).</summary>
+    public string? DocumentTypeOverride { get; set; }
+
+    /// <summary>Provenance for metadata, e.g. email_ses, email_mailgun, review_inbox.</summary>
+    public string? IngestionSource { get; set; }
 }
 
 /// <summary>POST /api/milo/documents/analyze</summary>

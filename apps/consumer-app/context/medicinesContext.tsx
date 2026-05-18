@@ -7,8 +7,8 @@ import {
   updateMedicine,
 } from "@/services/medicines";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDataMutationFeedback } from "@/hooks/useDataMutationFeedback";
 import React, { createContext, ReactNode, useContext } from "react";
-import { Alert } from "react-native";
 import { useNotifications } from "./notificationsContext";
 import { useSelectedPet } from "./selectedPetContext";
 
@@ -37,6 +37,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
   const petId = pet?.id ?? "";
   const queryClient = useQueryClient();
   const { refreshNotifications } = useNotifications();
+  const { handleMutationError } = useDataMutationFeedback();
 
   const {
     data: medicines = [],
@@ -67,17 +68,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
       refreshNotifications();
     },
     onError: (error) => {
-      // Handle duplicate medication error separately
-      if (error.message.startsWith("DUPLICATE_MEDICATION:")) {
-        console.warn("Duplicate medication attempted:", error.message);
-        Alert.alert(
-          "Duplicate Medication",
-          "This medication record already exists for this pet."
-        );
-      } else {
-        console.error("Error adding medicine:", error);
-        Alert.alert("Error", "Failed to add medicine");
-      }
+      handleMutationError(error, "Failed to add medicine");
     },
   });
 
@@ -91,8 +82,7 @@ export const MedicinesProvider: React.FC<{ children: ReactNode }> = ({
     },
 
     onError: (error) => {
-      console.error("Error updating medicine:", error);
-      Alert.alert("Error", "Failed to update medicine");
+      handleMutationError(error, "Failed to update medicine");
     },
   });
 

@@ -11,8 +11,12 @@ import {
   getFileAsBase64,
   getMimeTypeFromPath,
 } from "../_shared/supabase-utils.ts";
+import { ocrDeprecatedResponse } from "../_shared/ocr-deprecated.ts";
 
 Deno.serve(async (req) => {
+  const deprecated = ocrDeprecatedResponse(req);
+  if (deprecated) return deprecated;
+
   if (req.method === "OPTIONS") {
     return handleCorsRequest();
   }

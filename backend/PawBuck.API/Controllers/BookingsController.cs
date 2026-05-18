@@ -1,7 +1,10 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PawBuck.API.Models;
 using PawBuck.API.Scheduling;
 using PawBuck.API.Scheduling.Contracts;
+using PawBuck.API.Security;
 
 namespace PawBuck.API.Controllers;
 
@@ -9,15 +12,21 @@ namespace PawBuck.API.Controllers;
 /// Vet (and future grooming/boarding) booking via plug-in vendor adapters. Clients never call Vetstoria/EazyVet directly.
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class BookingsController : ControllerBase
 {
     private readonly ISchedulingBookingService _scheduling;
+    private readonly IBookingRequestAuthorization _bookingAuth;
     private readonly ILogger<BookingsController> _logger;
 
-    public BookingsController(ISchedulingBookingService scheduling, ILogger<BookingsController> logger)
+    public BookingsController(
+        ISchedulingBookingService scheduling,
+        IBookingRequestAuthorization bookingAuth,
+        ILogger<BookingsController> logger)
     {
         _scheduling = scheduling;
+        _bookingAuth = bookingAuth;
         _logger = logger;
     }
 
@@ -25,9 +34,13 @@ public class BookingsController : ControllerBase
     [HttpPost("availability")]
     [ProducesResponseType(typeof(AvailabilityResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Availability([FromBody] AvailabilityRequestDto body, CancellationToken cancellationToken)
     {
+        if (!TryGetAuthenticatedUserId(out _))
+            return Unauthorized();
+
         if (body.RangeEndUtc <= body.RangeStartUtc)
             return BadRequest(new { error = "RangeEndUtc must be after RangeStartUtc" });
 
@@ -48,12 +61,23 @@ public class BookingsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(BookAppointmentResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> Book([FromBody] BookAppointmentRequestDto body, CancellationToken cancellationToken)
     {
+        if (!TryGetAuthenticatedUserId(out var userId))
+            return Unauthorized();
+
         if (body.EndUtc <= body.StartUtc)
             return BadRequest(new { error = "EndUtc must be after StartUtc" });
+
+        var auth = await _bookingAuth.AuthorizeBookAsync(userId, body, cancellationToken);
+        if (auth.Status == BookingAuthStatus.Forbidden)
+            return Forbid();
+        if (auth.Status == BookingAuthStatus.BadRequest)
+            return BadRequest(new { error = auth.Message });
 
         var command = new BookAppointmentCommand
         {
@@ -63,7 +87,7 @@ public class BookingsController : ControllerBase
             EndUtc = body.EndUtc,
             ExternalResourceId = body.ExternalResourceId,
             SelectionToken = body.SelectionToken,
-            UserId = body.UserId,
+            UserId = userId,
             PetId = body.PetId,
             Notes = body.Notes,
             IdempotencyKey = body.IdempotencyKey ?? Request.Headers["Idempotency-Key"].FirstOrDefault()
@@ -77,12 +101,23 @@ public class BookingsController : ControllerBase
     [HttpPost("cancel")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> Cancel([FromBody] CancelAppointmentRequestDto body, CancellationToken cancellationToken)
     {
+        if (!TryGetAuthenticatedUserId(out var userId))
+            return Unauthorized();
+
         if (body.AppointmentId == null && string.IsNullOrWhiteSpace(body.ExternalAppointmentId))
             return BadRequest(new { error = "AppointmentId or ExternalAppointmentId is required" });
+
+        var auth = await _bookingAuth.AuthorizeCancelAsync(userId, body, cancellationToken);
+        if (auth.Status == BookingAuthStatus.Forbidden)
+            return Forbid();
+        if (auth.Status == BookingAuthStatus.BadRequest)
+            return BadRequest(new { error = auth.Message });
 
         var command = new CancelAppointmentCommand
         {
@@ -94,6 +129,12 @@ public class BookingsController : ControllerBase
 
         var result = await _scheduling.CancelAsync(command, cancellationToken);
         return MapCancel(result);
+    }
+
+    private bool TryGetAuthenticatedUserId(out Guid userId)
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(sub, out userId);
     }
 
     private IActionResult MapAvailability(SchedulingResult<IReadOnlyList<NormalizedSlot>> result)

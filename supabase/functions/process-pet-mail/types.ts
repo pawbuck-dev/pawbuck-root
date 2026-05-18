@@ -99,6 +99,9 @@ export interface ProcessedAttachment {
   ocrSuccess: boolean;
   dbInserted: boolean;
   dbRecordIds?: string[];
+  /** Vault pipeline: pet_documents row created via analyze-internal */
+  vaultPersisted?: boolean;
+  vaultDocumentId?: string;
   error?: string;
   // Pet validation fields
   petValidation?: PetValidationResult;

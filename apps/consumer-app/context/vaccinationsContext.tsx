@@ -11,6 +11,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useDataMutationFeedback } from "@/hooks/useDataMutationFeedback";
 import React, { createContext, ReactNode, useContext } from "react";
 import { useSelectedPet } from "./selectedPetContext";
 
@@ -50,6 +51,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
   const queryClient = useQueryClient();
   const { pet } = useSelectedPet();
   const petId = pet?.id ?? "";
+  const { handleMutationError } = useDataMutationFeedback();
 
   // Fetch vaccinations using React Query
   const {
@@ -77,12 +79,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
       );
     },
     onError: (err) => {
-      // Handle duplicate vaccination error separately
-      if (err.message.startsWith("DUPLICATE_VACCINATION:")) {
-        console.warn("Duplicate vaccination attempted:", err.message);
-      } else {
-        console.error("Error adding vaccination:", err);
-      }
+      handleMutationError(err, "Failed to add vaccination");
     },
   });
 
@@ -99,7 +96,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
       );
     },
     onError: (err) => {
-      console.error("Error updating vaccination:", err);
+      handleMutationError(err, "Failed to update vaccination");
     },
   });
 
@@ -114,7 +111,7 @@ export const VaccinationsProvider: React.FC<{ children: ReactNode }> = ({
       );
     },
     onError: (err) => {
-      console.error("Error deleting vaccination:", err);
+      handleMutationError(err, "Failed to delete vaccination");
     },
   });
 

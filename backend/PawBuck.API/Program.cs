@@ -191,6 +191,8 @@ builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();
 builder.Services.AddScoped<IMiloCuratedSnippetsService, MiloCuratedSnippetsService>();
 builder.Services.AddScoped<IMiloPetFactsService, MiloPetFactsService>();
+builder.Services.AddScoped<IVetBookingOwnershipService, VetBookingOwnershipService>();
+builder.Services.AddScoped<IBookingRequestAuthorization, BookingRequestAuthorization>();
 builder.Services.AddScoped<IPetConversationalContextService, PetConversationalContextService>();
 builder.Services.AddScoped<IMiloJournalConfigProvider, MiloJournalConfigProvider>();
 builder.Services.AddScoped<IMiloJournalConfigAdminService, MiloJournalConfigAdminService>();

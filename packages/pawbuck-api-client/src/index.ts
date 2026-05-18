@@ -1,5 +1,6 @@
 export {
   bookAppointment,
+  BookingApiError,
   fetchAvailability,
   type AvailabilityResponse,
   type BookAppointmentResponse,

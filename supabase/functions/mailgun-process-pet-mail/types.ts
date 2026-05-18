@@ -54,6 +54,8 @@ export interface Pet {
   microchip_number: string | null;
   date_of_birth: string;
   sex: string;
+  country?: string;
+  home_timezone?: string | null;
 }
 
 // Pet validation types (defined before ProcessedAttachment which uses them)
@@ -106,6 +108,8 @@ export interface ProcessedAttachment {
   ocrSuccess: boolean;
   dbInserted: boolean;
   dbRecordIds?: string[];
+  vaultPersisted?: boolean;
+  vaultDocumentId?: string;
   error?: string;
   // Pet validation fields
   petValidation?: PetValidationResult;

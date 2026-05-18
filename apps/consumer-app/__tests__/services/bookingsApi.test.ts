@@ -1,7 +1,24 @@
 import { bookAppointment, fetchAvailability } from "@/services/bookingsApi";
 
+const mockGetSession = jest.fn();
+
+jest.mock("@/utils/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: (...args: unknown[]) => mockGetSession(...args),
+    },
+  },
+}));
+
 describe("bookingsApi (consumer wrapper)", () => {
   const orig = process.env.EXPO_PUBLIC_PAWBUCK_API_URL;
+
+  beforeEach(() => {
+    mockGetSession.mockResolvedValue({
+      data: { session: { access_token: "test-jwt-token" } },
+      error: null,
+    });
+  });
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -20,7 +37,19 @@ describe("bookingsApi (consumer wrapper)", () => {
     ).rejects.toThrow("EXPO_PUBLIC_PAWBUCK_API_URL is not set");
   });
 
-  it("forwards to PawBuck.API when base URL is set", async () => {
+  it("throws when not signed in", async () => {
+    process.env.EXPO_PUBLIC_PAWBUCK_API_URL = "http://127.0.0.1:5998";
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    await expect(
+      fetchAvailability({
+        clinicId: "x",
+        rangeStartUtc: "a",
+        rangeEndUtc: "b",
+      })
+    ).rejects.toThrow("Not signed in");
+  });
+
+  it("forwards Authorization header to PawBuck.API when base URL is set", async () => {
     process.env.EXPO_PUBLIC_PAWBUCK_API_URL = "http://127.0.0.1:5998";
     jest.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ slots: [] }), { status: 200 })
@@ -34,7 +63,11 @@ describe("bookingsApi (consumer wrapper)", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:5998/api/bookings/availability",
-      expect.any(Object)
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-jwt-token",
+        }),
+      })
     );
   });
 

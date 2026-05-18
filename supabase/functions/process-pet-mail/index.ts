@@ -31,12 +31,15 @@ import {
 import { storeInboundMessage } from "./messageStorage.ts";
 import { createThreadFromInboundEmail } from "./threadCreation.ts";
 import { lookupRecipientName } from "./recipientNameLookup.ts";
+import { runHybridCalendarImport } from "./calendarImportOrchestrator.ts";
+import { isCalendarAttachment } from "./icsVetBookingImport.ts";
 import {
-  importIcsAttachmentsToVetBookings,
-  isCalendarAttachment,
-} from "./icsVetBookingImport.ts";
-import { runNlpAppointmentImportIfEligible } from "./nlpAppointmentImport.ts";
-import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
+  computeEmailSuccess,
+  createInitialPipelineOutcome,
+  summarizePipelineFailure,
+  tallyAttachmentOutcomes,
+} from "./pipelineOutcome.ts";
+import type { EmailContext, EmailInfo, Pet, ProcessedAttachment, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
 
@@ -112,10 +115,23 @@ Deno.serve(async (req) => {
     // allowing reprocessing when user approves the email from the app
     const lockResult = await tryAcquireProcessingLock(s3Config.fileKey);
     if (!lockResult.acquired) {
+      if (lockResult.reason === "lock_error") {
+        console.error(`[MONITORING] Lock error for ${s3Config.fileKey} — fail-closed, not processing`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "processing_lock_unavailable",
+            message: "Could not acquire email processing lock",
+            s3Key: s3Config.fileKey,
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       const message = lockResult.status === "completed"
         ? "Email already processed"
         : "Email is currently being processed";
-      
+
       console.log(`${message}: ${s3Config.fileKey} - skipping`);
       return new Response(
         JSON.stringify({
@@ -130,6 +146,8 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    const pipelineOutcome = createInitialPipelineOutcome();
 
     // Step 7.5: Store inbound message if it has text content and we can find a thread
     // The recipient email in the "To" field is the reply-to address from our outbound emails
@@ -235,54 +253,49 @@ Deno.serve(async (req) => {
           console.error(`[MONITORING] Error message: ${error.message}`);
           console.error(`[MONITORING] Error stack: ${error.stack}`);
         }
-        // Don't fail the entire request if message storage fails
+        pipelineOutcome.messageStorageFailed = true;
       }
     } else {
       console.log(`[MONITORING] No text body to store (textBody length: ${parsedEmail.textBody?.length || 0})`);
     }
 
-    // Step 8: Calendar invites (ICS) from attachments — before health-document pipeline
+    // Step 8: Calendar invites (ICS) + NLP fallback — before health-document pipeline
     const allAttachments = parsedEmail.attachments ?? [];
     const icsAttachments = allAttachments.filter(isCalendarAttachment);
     const otherAttachments = allAttachments.filter((a) => !isCalendarAttachment(a));
 
-    let calendarImportsInserted = 0;
+    const calendarBatch = await runHybridCalendarImport({
+      parsedEmail,
+      pet,
+      senderEmail,
+      fileKey: s3Config.fileKey,
+      threadMessageId: lastInboundMessageId,
+      icsAttachments,
+    });
 
-    if (icsAttachments.length > 0) {
-      try {
-        const batch = await importIcsAttachmentsToVetBookings({
-          pet,
-          attachments: icsAttachments,
-          fileKey: s3Config.fileKey,
-          threadMessageId: lastInboundMessageId,
-        });
-        calendarImportsInserted += batch.newlyInsertedCount;
-      } catch (icsErr) {
-        console.error("[MONITORING] ICS import failed:", icsErr);
-      }
-    } else {
-      try {
-        const nlpBatch = await runNlpAppointmentImportIfEligible({
-          parsedEmail,
-          pet,
-          senderEmail,
-          fileKey: s3Config.fileKey,
-          threadMessageId: lastInboundMessageId,
-          hasCalendarAttachments: false,
-          referenceYear: 2026,
-        });
-        calendarImportsInserted += nlpBatch.newlyInsertedCount;
-        if (nlpBatch.skippedReason && nlpBatch.skippedReason !== "not_eligible") {
-          console.log(`[MONITORING] NLP calendar import skipped: ${nlpBatch.skippedReason}`);
-        }
-      } catch (nlpErr) {
-        console.error("[MONITORING] NLP appointment import failed:", nlpErr);
-      }
+    pipelineOutcome.calendar.attempted =
+      icsAttachments.length > 0 || calendarBatch.icsAttempted || calendarBatch.nlpAttempted;
+    pipelineOutcome.calendar.error = calendarBatch.calendarError;
+    pipelineOutcome.calendar.insertedCount = calendarBatch.newlyInsertedCount;
+    pipelineOutcome.calendar.acceptableSkip = calendarBatch.acceptableSkip;
+
+    if (calendarBatch.newlyInsertedCount > 0) {
+      await sendCalendarImportsPendingNotification(pet, calendarBatch.newlyInsertedCount);
     }
 
-    if (calendarImportsInserted > 0) {
-      await sendCalendarImportsPendingNotification(pet, calendarImportsInserted);
-    }
+    pipelineOutcome.messageStored = messageStored;
+
+    const finalizeEmail = async (attachmentCount: number) => {
+      const success = computeEmailSuccess(pipelineOutcome);
+      await markEmailAsCompleted(
+        s3Config.fileKey,
+        pet.id,
+        attachmentCount,
+        success,
+        summarizePipelineFailure(pipelineOutcome)
+      );
+      return success;
+    };
 
     // Step 9: No file attachments at all
     if (allAttachments.length === 0) {
@@ -293,7 +306,7 @@ Deno.serve(async (req) => {
         `[MONITORING] Marking email as completed (no attachments, message stored: ${messageStored}, duration: ${totalDuration}ms)`
       );
 
-      await markEmailAsCompleted(s3Config.fileKey, pet.id, 0, true);
+      await finalizeEmail(0);
 
       console.log(
         `[MONITORING] ✅ Email processing completed (no attachments) in ${totalDuration}ms`
@@ -309,7 +322,7 @@ Deno.serve(async (req) => {
         `[MONITORING] Marking email as completed (ICS-only, ${allAttachments.length} files, message stored: ${messageStored}, duration: ${totalDuration}ms)`
       );
 
-      await markEmailAsCompleted(s3Config.fileKey, pet.id, allAttachments.length, true);
+      await finalizeEmail(allAttachments.length);
 
       console.log(
         `[MONITORING] ✅ Email processing completed (ICS-only) in ${totalDuration}ms`
@@ -349,12 +362,14 @@ Deno.serve(async (req) => {
 
     logProcessingSummary(processedAttachments);
 
+    Object.assign(pipelineOutcome.attachments, tallyAttachmentOutcomes(processedAttachments));
+
     const totalDuration = Date.now() - startTime;
     console.log(
       `[MONITORING] Marking email as completed (total duration: ${totalDuration}ms, attachments: ${allAttachments.length}, message stored: ${messageStored})`
     );
 
-    await markEmailAsCompleted(s3Config.fileKey, pet.id, allAttachments.length, true);
+    await finalizeEmail(allAttachments.length);
 
     console.log(
       `[MONITORING] ✅ Email processing completed successfully in ${totalDuration}ms`
@@ -392,7 +407,8 @@ Deno.serve(async (req) => {
           s3Config.fileKey,
           pet?.id || "unknown",
           0,
-          false
+          false,
+          errorMessage
         );
       } catch (markError) {
         console.error(`[MONITORING] ❌ Failed to mark email as completed:`, markError);

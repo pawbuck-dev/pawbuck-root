@@ -78,6 +78,7 @@ public class MiloVisionService : IMiloVisionService
             request.Path,
             mime,
             bytes,
+            internalOptions: null,
             cancellationToken);
     }
 
@@ -112,7 +113,20 @@ public class MiloVisionService : IMiloVisionService
             request.Path,
             mime,
             bytes,
+            new InternalDocumentProcessOptions
+            {
+                DocumentId = request.DocumentId,
+                DocumentTypeOverride = request.DocumentTypeOverride,
+                IngestionSource = request.IngestionSource,
+            },
             cancellationToken);
+    }
+
+    private sealed class InternalDocumentProcessOptions
+    {
+        public Guid? DocumentId { get; init; }
+        public string? DocumentTypeOverride { get; init; }
+        public string? IngestionSource { get; init; }
     }
 
     private async Task<PetDocumentVaultRowDto> ProcessBytesAndInsertAsync(
@@ -121,6 +135,7 @@ public class MiloVisionService : IMiloVisionService
         string storagePath,
         string mimeType,
         byte[] bytes,
+        InternalDocumentProcessOptions? internalOptions,
         CancellationToken cancellationToken)
     {
         var base64 = Convert.ToBase64String(bytes);
@@ -134,9 +149,26 @@ public class MiloVisionService : IMiloVisionService
             ? GeminiOptions.DefaultModelId
             : _geminiOptions.Value.Model!.Trim();
 
-        var classification = await RunClassificationAsync(base64, mimeType, apiKey, model, cancellationToken);
-        var docType = NormalizeVaultDocumentType(classification.DocumentType);
-        var classConfidence = classification.Confidence;
+        ClassificationParse classification;
+        string docType;
+        double classConfidence;
+
+        var typeOverride = internalOptions?.DocumentTypeOverride?.Trim();
+        if (!string.IsNullOrEmpty(typeOverride))
+        {
+            docType = NormalizeVaultDocumentType(typeOverride);
+            classConfidence = 1.0;
+            classification = new ClassificationParse(
+                docType,
+                classConfidence,
+                "documentTypeOverride");
+        }
+        else
+        {
+            classification = await RunClassificationAsync(base64, mimeType, apiKey, model, cancellationToken);
+            docType = NormalizeVaultDocumentType(classification.DocumentType);
+            classConfidence = classification.Confidence;
+        }
 
         string extractedJson;
         if (UsesFlexibleVaultExtraction(docType))
@@ -177,6 +209,7 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
             /* keep classification confidence */
         }
 
+        var metadata = BuildVaultMetadata(classification.Reasoning, internalOptions);
         var row = await InsertPetDocumentAsync(
             petId,
             ownerUserId,
@@ -185,7 +218,8 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
             docType,
             rowConfidence,
             extractedJson,
-            metadata: JsonSerializer.Serialize(new { classificationReasoning = classification.Reasoning }),
+            metadata,
+            internalOptions?.DocumentId,
             cancellationToken);
 
         if (IsClinicalSyncDocumentType(docType))
@@ -561,6 +595,18 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
         return o is Guid g ? g : null;
     }
 
+    private static string BuildVaultMetadata(string? classificationReasoning, InternalDocumentProcessOptions? options)
+    {
+        var dict = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(classificationReasoning))
+            dict["classificationReasoning"] = classificationReasoning;
+        if (!string.IsNullOrWhiteSpace(options?.IngestionSource))
+            dict["ingestionSource"] = options.IngestionSource!.Trim();
+        if (!string.IsNullOrWhiteSpace(options?.DocumentTypeOverride))
+            dict["documentTypeOverride"] = options.DocumentTypeOverride!.Trim();
+        return JsonSerializer.Serialize(dict);
+    }
+
     private async Task<PetDocumentVaultRowDto> InsertPetDocumentAsync(
         Guid petId,
         Guid ownerUserId,
@@ -570,6 +616,7 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
         double confidence,
         string extractedJson,
         string? metadata,
+        Guid? documentId,
         CancellationToken cancellationToken)
     {
         var cs = _supabaseOptions.Value.ConnectionString;
@@ -579,16 +626,26 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
         await using var conn = new NpgsqlConnection(cs);
         await conn.OpenAsync(cancellationToken);
 
-        await using var cmd = new NpgsqlCommand(
-            """
-            INSERT INTO public.pet_documents
-              (pet_id, user_id, storage_path, mime_type, document_type, confidence, extracted_json, metadata, created_at, updated_at)
-            VALUES
-              (@pet_id, @user_id, @storage_path, @mime_type, CAST(@document_type AS public.pet_document_type), @confidence, @extracted_json, @metadata, timezone('utc', now()), timezone('utc', now()))
-            RETURNING id, pet_id, user_id, storage_path, mime_type, document_type::text, confidence, extracted_json::text, metadata::text, created_at, updated_at
-            """,
-            conn);
+        var sql = documentId.HasValue
+            ? """
+              INSERT INTO public.pet_documents
+                (id, pet_id, user_id, storage_path, mime_type, document_type, confidence, extracted_json, metadata, created_at, updated_at)
+              VALUES
+                (@id, @pet_id, @user_id, @storage_path, @mime_type, CAST(@document_type AS public.pet_document_type), @confidence, @extracted_json, @metadata, timezone('utc', now()), timezone('utc', now()))
+              RETURNING id, pet_id, user_id, storage_path, mime_type, document_type::text, confidence, extracted_json::text, metadata::text, created_at, updated_at
+              """
+            : """
+              INSERT INTO public.pet_documents
+                (pet_id, user_id, storage_path, mime_type, document_type, confidence, extracted_json, metadata, created_at, updated_at)
+              VALUES
+                (@pet_id, @user_id, @storage_path, @mime_type, CAST(@document_type AS public.pet_document_type), @confidence, @extracted_json, @metadata, timezone('utc', now()), timezone('utc', now()))
+              RETURNING id, pet_id, user_id, storage_path, mime_type, document_type::text, confidence, extracted_json::text, metadata::text, created_at, updated_at
+              """;
 
+        await using var cmd = new NpgsqlCommand(sql, conn);
+
+        if (documentId.HasValue)
+            cmd.Parameters.AddWithValue("id", documentId.Value);
         cmd.Parameters.AddWithValue("pet_id", petId);
         cmd.Parameters.AddWithValue("user_id", ownerUserId);
         cmd.Parameters.AddWithValue("storage_path", storagePath);

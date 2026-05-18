@@ -2,10 +2,19 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 export type ProcessingStatus = "processing" | "completed";
 
+export type LockReason =
+  | "duplicate_completed"
+  | "in_progress"
+  | "reclaimed"
+  | "lock_error";
+
 export interface LockResult {
   acquired: boolean;
   status?: ProcessingStatus;
+  reason?: LockReason;
 }
+
+export const STALE_PROCESSING_MS = 15 * 60 * 1000;
 
 /**
  * Email metadata to store when acquiring a processing lock
@@ -37,6 +46,33 @@ function createSupabaseClient() {
   }
 
   return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+async function tryReclaimStaleProcessingLock(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  emailKey: string,
+): Promise<LockResult | null> {
+  const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS).toISOString();
+
+  const { data, error } = await supabase
+    .from("processed_emails")
+    .update({ started_at: new Date().toISOString() })
+    .eq("s3_key", emailKey)
+    .eq("status", "processing")
+    .lt("started_at", staleBefore)
+    .select("s3_key");
+
+  if (error) {
+    console.error(`[MONITORING] Reclaim update failed (emailKey: ${emailKey}):`, error);
+    return null;
+  }
+
+  if (data && data.length > 0) {
+    console.log(`[MONITORING] Reclaimed stale processing lock for: ${emailKey}`);
+    return { acquired: true, reason: "reclaimed" };
+  }
+
+  return null;
 }
 
 /**
@@ -86,23 +122,31 @@ export async function tryAcquireProcessingLock(
     
     const { data, error: selectError } = await supabase
       .from("processed_emails")
-      .select("status")
+      .select("status, started_at")
       .eq("s3_key", emailKey)
       .single();
 
     if (selectError || !data) {
       console.error("Error checking existing lock status:", selectError);
-      // Fail safe - don't process if we can't determine status
-      return { acquired: false, status: "processing" };
+      return { acquired: false, status: "processing", reason: "lock_error" };
     }
 
-    console.log(`Existing lock status: ${data.status}`);
-    return { acquired: false, status: data.status as ProcessingStatus };
+    const status = data.status as ProcessingStatus;
+    if (status === "processing") {
+      const reclaimed = await tryReclaimStaleProcessingLock(supabase, emailKey);
+      if (reclaimed) return reclaimed;
+    }
+
+    console.log(`Existing lock status: ${status}`);
+    return {
+      acquired: false,
+      status,
+      reason: status === "completed" ? "duplicate_completed" : "in_progress",
+    };
   }
 
-  // For other errors, log and fail open (allow processing)
-  console.error("Error acquiring processing lock:", insertError);
-  return { acquired: true }; // Fail open - allow processing on unexpected errors
+  console.error("[MONITORING] Lock acquisition failed (fail-closed):", insertError);
+  return { acquired: false, reason: "lock_error" };
 }
 
 /**

@@ -2,6 +2,7 @@ import { bookAppointment, fetchAvailability } from "../src/bookingApi";
 
 describe("bookingApi", () => {
   const base = "http://127.0.0.1:5999";
+  const token = "test-access-token";
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -13,7 +14,7 @@ describe("bookingApi", () => {
       new Response(JSON.stringify({ slots: mockSlots }), { status: 200 })
     );
 
-    const result = await fetchAvailability(base, {
+    const result = await fetchAvailability(base, token, {
       clinicId: "00000000-0000-0000-0000-000000000001",
       rangeStartUtc: "2025-01-01T00:00:00Z",
       rangeEndUtc: "2025-01-02T00:00:00Z",
@@ -22,7 +23,12 @@ describe("bookingApi", () => {
     expect(result.slots).toEqual(mockSlots);
     expect(fetch).toHaveBeenCalledWith(
       `${base}/api/bookings/availability`,
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-access-token",
+        }),
+      })
     );
   });
 
@@ -39,7 +45,7 @@ describe("bookingApi", () => {
       )
     );
 
-    await bookAppointment(base, {
+    await bookAppointment(base, token, {
       clinicId: "00000000-0000-0000-0000-000000000001",
       startUtc: "2025-01-01T10:00:00Z",
       endUtc: "2025-01-01T11:00:00Z",
@@ -49,5 +55,6 @@ describe("bookingApi", () => {
 
     const call = (fetch as jest.Mock).mock.calls[0];
     expect(call[1].headers["Idempotency-Key"]).toBe("key-123");
+    expect(call[1].headers.Authorization).toBe("Bearer test-access-token");
   });
 });

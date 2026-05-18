@@ -209,8 +209,6 @@ export default function BookVetPickDateTimeScreen() {
     bookingSubmitLockRef.current = true;
     setSubmitting(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user.id;
       const notes = JSON.stringify({ serviceId, serviceLabel });
 
       const booked = await bookAppointment({
@@ -218,7 +216,6 @@ export default function BookVetPickDateTimeScreen() {
         startUtc: selectedApiSlot.startUtc,
         endUtc: selectedApiSlot.endUtc,
         selectionToken: selectedApiSlot.selectionToken ?? "",
-        userId: userId && isUuid(userId) ? userId : undefined,
         petId: petId && isUuid(petId) ? petId : undefined,
         notes,
         idempotencyKey: newIdempotencyKey(),
