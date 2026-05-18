@@ -1,6 +1,7 @@
 import { saveOCRResults } from "../../process-pet-mail/dbPersistence.ts";
 import { classifyAttachment } from "../../process-pet-mail/geminiClassifier.ts";
 import { triggerOCR } from "../../process-pet-mail/ocrTrigger.ts";
+import { loadEmailDocumentVerificationConfig } from "../emailDocumentVerificationConfig.ts";
 import { validatePetFromDocument } from "../../process-pet-mail/petValidator.ts";
 import { uploadAttachment } from "../../process-pet-mail/storageUploader.ts";
 import type {
@@ -101,10 +102,17 @@ async function processOne(
       return skipped(attachment, classification);
     }
 
+    const verificationConfig = await loadEmailDocumentVerificationConfig(
+      pet.country,
+    );
     const petValidation = await validatePetFromDocument(
       attachment,
       emailContext.subject,
       pet,
+      {
+        documentType: classification.type,
+        verificationConfig,
+      },
     );
 
     if (petValidation.microchipMismatchNotify && onMicrochipMismatch) {

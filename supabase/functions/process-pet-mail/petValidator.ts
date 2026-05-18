@@ -1,4 +1,5 @@
 import type {
+  DocumentType,
   ExtractedPetInfo,
   MatchDetails,
   ParsedAttachment,
@@ -9,6 +10,18 @@ import type {
 const FUZZY_MATCH_THRESHOLD = 0.7;
 
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
+import {
+  DEFAULT_EMAIL_DOCUMENT_VERIFICATION,
+  type EmailDocumentVerificationConfig,
+  allowsNameOnlyForDocumentType,
+  breedRequiredForDocumentType,
+} from "../_shared/emailDocumentVerificationConfig.ts";
+import { matchBreeds } from "../_shared/petBreedMatch.ts";
+
+export type ValidatePetFromDocumentOptions = {
+  documentType?: DocumentType;
+  verificationConfig?: EmailDocumentVerificationConfig;
+};
 
 export async function extractPetInfoFromDocument(
   attachment: ParsedAttachment,
@@ -297,19 +310,36 @@ function chipMismatchExtras(
 }
 
 /**
- * Validate pet from document: microchip exact match wins; otherwise require
- * extracted pet name (vs profile first name) and breed to fuzzy-match.
+ * Validate pet from document: microchip exact match wins; otherwise name+breed,
+ * or name-only when country config allows for this document type.
  * Microchip mismatch (both sides present) does not block; it only sets
  * microchipMismatchNotify for a user push.
  */
 export async function validatePetFromDocument(
   attachment: ParsedAttachment,
   emailSubject: string,
-  pet: Pet
+  pet: Pet,
+  options?: ValidatePetFromDocumentOptions,
 ): Promise<PetValidationResult> {
   console.log(`\n=== Validating pet: ${pet.name} (ID: ${pet.id}) ===`);
 
   const extractedInfo = await extractPetInfoFromDocument(attachment, emailSubject);
+  return evaluatePetVerification(extractedInfo, pet, options);
+}
+
+/** Pure validation from OCR extraction (testable without Gemini). */
+export function evaluatePetVerification(
+  extractedInfo: ExtractedPetInfo,
+  pet: Pet,
+  options?: ValidatePetFromDocumentOptions,
+): PetValidationResult {
+  const verificationConfig = options?.verificationConfig ??
+    DEFAULT_EMAIL_DOCUMENT_VERIFICATION;
+  const documentType = options?.documentType;
+  const matchThreshold = verificationConfig.fuzzyMatchThreshold > 0
+    ? verificationConfig.fuzzyMatchThreshold
+    : FUZZY_MATCH_THRESHOLD;
+
   const matchDetails: MatchDetails = {};
   let microchipMismatchNotify = false;
 
@@ -351,10 +381,10 @@ export async function validatePetFromDocument(
     matchDetails.microchipMatch = false;
   }
 
-  console.log("\n--- Name + breed validation ---");
+  console.log("\n--- Name / breed validation ---");
 
-  if (!nonEmpty(extractedInfo.name) || !nonEmpty(extractedInfo.breed)) {
-    console.log("❌ Document must include both pet name and breed for verification");
+  if (!nonEmpty(extractedInfo.name)) {
+    console.log("❌ Document must include pet name for verification");
     return {
       isValid: false,
       method: microchipMismatchNotify ? "microchip" : "attributes",
@@ -366,17 +396,89 @@ export async function validatePetFromDocument(
   }
 
   const first = petFirstName(pet.name);
-  const nameMatch = fuzzyMatch(extractedInfo.name, first, FUZZY_MATCH_THRESHOLD, "name");
-  const breedMatch = fuzzyMatch(extractedInfo.breed, pet.breed ?? "", FUZZY_MATCH_THRESHOLD, "breed");
+  const nameMatch = fuzzyMatch(extractedInfo.name, first, matchThreshold, "name");
   matchDetails.nameMatch = nameMatch;
+
+  if (!nameMatch.matches) {
+    console.log("❌ First name does not match profile");
+    return {
+      isValid: false,
+      method: "attributes",
+      extractedInfo,
+      matchDetails,
+      skipReason: "attributes_mismatch",
+      ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
+    };
+  }
+
+  const hasBreedOnDoc = nonEmpty(extractedInfo.breed);
+
+  if (
+    !hasBreedOnDoc &&
+    documentType &&
+    breedRequiredForDocumentType(verificationConfig, documentType)
+  ) {
+    console.log(
+      `❌ Breed required on document for type ${documentType} (country: ${verificationConfig.country})`,
+    );
+    return {
+      isValid: false,
+      method: "attributes",
+      extractedInfo,
+      matchDetails,
+      skipReason: "breed_required_on_document",
+      ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
+    };
+  }
+
+  if (
+    !hasBreedOnDoc &&
+    documentType &&
+    allowsNameOnlyForDocumentType(verificationConfig, documentType)
+  ) {
+    console.log(
+      `✅ Name-only verification (${documentType}, country: ${verificationConfig.country})`,
+    );
+    return {
+      isValid: true,
+      method: "name_only",
+      extractedInfo,
+      matchDetails,
+      ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
+    };
+  }
+
+  if (!hasBreedOnDoc) {
+    console.log("❌ Breed missing on document and name-only not allowed for this type");
+    return {
+      isValid: false,
+      method: "attributes",
+      extractedInfo,
+      matchDetails,
+      skipReason: "no_pet_info",
+      ...(microchipMismatchNotify ? chipMismatchExtras(extractedInfo, pet) : {}),
+    };
+  }
+
+  const breedMatch = matchBreeds(
+    extractedInfo.breed,
+    pet.breed ?? "",
+    similarityRatio,
+    matchThreshold,
+  );
+  console.log(
+    `Breed match: "${extractedInfo.breed}" vs profile "${pet.breed}" = ` +
+      `${(breedMatch.similarity * 100).toFixed(1)}% (matches: ${breedMatch.matches}` +
+      `${breedMatch.isLikelyVariation ? ", cross/mixed component" : ""})`,
+  );
   matchDetails.breedMatch = breedMatch;
 
-  const isValid = nameMatch.matches && breedMatch.matches;
+  const isValid = breedMatch.matches;
 
   if (isValid) {
     console.log("✅ First name and breed validated successfully");
   } else {
-    console.log("❌ First name and/or breed do not match profile");
+    console.log("❌ Breed does not match profile");
   }
 
   return {
@@ -399,12 +501,16 @@ export function formatDetailedError(
     return `Validation passed for ${pet.name}`;
   }
 
+  if (skipReason === "breed_required_on_document") {
+    return `Could not verify ${pet.name}: this document type requires breed on the PDF, but no breed was found. Add breed to the document or adjust country rules in admin.`;
+  }
+
   if (skipReason === "no_pet_info") {
     const missing: string[] = [];
     if (!nonEmpty(extractedInfo.name)) missing.push("pet name");
     if (!nonEmpty(extractedInfo.breed)) missing.push("breed");
     if (missing.length > 0) {
-      return `Could not verify ${pet.name}: the document must clearly include both pet name and breed (missing: ${missing.join(", ")}).`;
+      return `Could not verify ${pet.name}: the document must clearly include pet identification (missing: ${missing.join(", ")}).`;
     }
     return `No pet identification found in the document for ${pet.name}.`;
   }

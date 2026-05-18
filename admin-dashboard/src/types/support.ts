@@ -14,6 +14,36 @@ export interface PatchSubscriptionFeatureGateBody {
   requiresPremium: boolean;
 }
 
+export type EmailDocumentType =
+  | "medications"
+  | "lab_results"
+  | "clinical_exams"
+  | "vaccinations"
+  | "billing_invoice"
+  | "travel_certificate";
+
+export interface CountryEmailDocumentVerificationRow {
+  country: string;
+  allowNameOnlyDocumentTypes: string[];
+  breedRequiredDocumentTypes: string[];
+  fuzzyMatchThreshold: number;
+  enabled: boolean;
+  notes: string | null;
+  updatedAt: string | null;
+}
+
+export interface CountryEmailDocumentVerificationListResponse {
+  items: CountryEmailDocumentVerificationRow[];
+}
+
+export interface PatchCountryEmailDocumentVerificationBody {
+  allowNameOnlyDocumentTypes?: string[];
+  breedRequiredDocumentTypes?: string[];
+  fuzzyMatchThreshold?: number;
+  enabled?: boolean;
+  notes?: string | null;
+}
+
 export interface SupportDailySignupPoint {
   date: string;
   count: number;

@@ -100,8 +100,16 @@ builder.Services.PostConfigure<SupabaseOptions>(o =>
 {
     if (string.IsNullOrWhiteSpace(o.JwtSecret))
         o.JwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+    if (string.IsNullOrWhiteSpace(o.Url))
+    {
+        o.Url = Environment.GetEnvironmentVariable("SUPABASE_URL")
+                ?? Environment.GetEnvironmentVariable("EXPO_PUBLIC_SUPABASE_URL");
+    }
     if (string.IsNullOrWhiteSpace(o.ServiceRoleKey))
-        o.ServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+    {
+        o.ServiceRoleKey = Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY")
+                           ?? Environment.GetEnvironmentVariable("EXPO_SUPABASE_SERVICE_ROLE_KEY");
+    }
 });
 
 var jwtSecretFromConfig = builder.Configuration["Supabase:JwtSecret"] ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
@@ -220,6 +228,7 @@ builder.Services.AddHostedService<ProactivePetHealthWorker>();
 builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ISubscriptionFeatureGateService, SubscriptionFeatureGateService>();
+builder.Services.AddScoped<ICountryEmailDocumentVerificationService, CountryEmailDocumentVerificationService>();
 builder.Services.AddScoped<IUserEntitlementService, UserEntitlementService>();
 
 // Scheduling / booking (plug-in Vetstoria, EazyVet; extend for grooming/boarding via BookingServiceType)

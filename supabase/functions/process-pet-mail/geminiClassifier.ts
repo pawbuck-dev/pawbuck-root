@@ -38,11 +38,17 @@ export async function classifyAttachment(
           {
             parts: [
               {
-                text: `You are a veterinary records expert. Classify the attached document (which may be an image or a multi-page PDF). 
-                  
+                text: `You are a veterinary records expert. Classify the attached document (which may be an image or a multi-page PDF).
+
                   Context:
                   - Subject: ${emailSubject}
-                  - Filename: ${attachment.filename}`,
+                  - Filename: ${attachment.filename}
+
+                  Guidelines:
+                  - Post-operative instructions, discharge summaries, aftercare sheets, and clinic visit notes → clinical_exams (not irrelevant).
+                  - Prescription labels and medication instructions → medications.
+                  - Vaccination certificates and immunization records → vaccinations.
+                  - Lab reports and bloodwork → lab_results.`,
               },
               {
                 inline_data: {

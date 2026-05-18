@@ -7,6 +7,9 @@ import type {
   MiloJournalChatSmokeBody,
   MiloJournalConfigSnapshot,
   MiloJournalFeedbackAggregates,
+  CountryEmailDocumentVerificationListResponse,
+  CountryEmailDocumentVerificationRow,
+  PatchCountryEmailDocumentVerificationBody,
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
@@ -165,6 +168,20 @@ export function createSupportClient(
           method: "PATCH",
           json: body,
         },
+      ),
+
+    listEmailDocumentVerificationRules: () =>
+      request<CountryEmailDocumentVerificationListResponse>(
+        "/api/support/email-document-verification",
+      ),
+
+    patchEmailDocumentVerificationRule: (
+      country: string,
+      body: PatchCountryEmailDocumentVerificationBody,
+    ) =>
+      request<CountryEmailDocumentVerificationRow>(
+        `/api/support/email-document-verification/${encodeURIComponent(country)}`,
+        { method: "PATCH", json: body },
       ),
 
     /** In-memory Milo document classification only (admin/support only; no storage). */

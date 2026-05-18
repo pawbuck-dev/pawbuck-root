@@ -60,12 +60,12 @@ export interface Pet {
 
 // Pet validation types (defined before ProcessedAttachment which uses them)
 export type SkipReason =
-  | "no_pet_info" // No identifiable info, or missing required name+breed on document
-  /** Legacy: validator no longer skips for chip alone; kept for old rows / notifications */
+  | "no_pet_info"
+  | "breed_required_on_document"
   | "microchip_mismatch"
-  | "attributes_mismatch"; // First name or breed on document does not match profile
+  | "attributes_mismatch";
 
-export type ValidationMethod = "microchip" | "attributes" | "none";
+export type ValidationMethod = "microchip" | "attributes" | "name_only" | "none";
 
 export interface ExtractedPetInfo {
   microchip: string | null;

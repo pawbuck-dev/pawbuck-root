@@ -2,6 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupportClient, normalizePawbuckApiBase, SupportApiError } from "@/api/supportClient";
 import { AdminHeaderBar } from "@/components/AdminHeaderBar";
+import { EmailDocumentVerificationPanel } from "@/components/EmailDocumentVerificationPanel";
 import { FeatureGatesPanel } from "@/components/FeatureGatesPanel";
 import { MiloClassifyHarness } from "@/components/MiloClassifyHarness";
 import { MiloJournalPanel } from "@/components/MiloJournalPanel";
@@ -334,7 +335,7 @@ export function App() {
           className={tab === "gates" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
           onClick={() => setTab("gates")}
         >
-          Paywall
+          Settings
         </button>
       </nav>
 
@@ -433,7 +434,12 @@ export function App() {
 
       {tab === "mail" ? <ProcessedEmailsPanel client={client} /> : null}
 
-      {tab === "gates" ? <FeatureGatesPanel client={client} /> : null}
+      {tab === "gates" ? (
+        <>
+          <FeatureGatesPanel client={client} />
+          <EmailDocumentVerificationPanel client={client} />
+        </>
+      ) : null}
 
       {tab === "milo" ? (
         <>
