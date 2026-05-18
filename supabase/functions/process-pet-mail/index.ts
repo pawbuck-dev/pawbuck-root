@@ -35,6 +35,7 @@ import {
   importIcsAttachmentsToVetBookings,
   isCalendarAttachment,
 } from "./icsVetBookingImport.ts";
+import { runNlpAppointmentImportIfEligible } from "./nlpAppointmentImport.ts";
 import type { EmailContext, EmailInfo, Pet, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
@@ -245,6 +246,8 @@ Deno.serve(async (req) => {
     const icsAttachments = allAttachments.filter(isCalendarAttachment);
     const otherAttachments = allAttachments.filter((a) => !isCalendarAttachment(a));
 
+    let calendarImportsInserted = 0;
+
     if (icsAttachments.length > 0) {
       try {
         const batch = await importIcsAttachmentsToVetBookings({
@@ -253,15 +256,32 @@ Deno.serve(async (req) => {
           fileKey: s3Config.fileKey,
           threadMessageId: lastInboundMessageId,
         });
-        if (batch.newlyInsertedCount > 0) {
-          await sendCalendarImportsPendingNotification(
-            pet,
-            batch.newlyInsertedCount
-          );
-        }
+        calendarImportsInserted += batch.newlyInsertedCount;
       } catch (icsErr) {
         console.error("[MONITORING] ICS import failed:", icsErr);
       }
+    } else {
+      try {
+        const nlpBatch = await runNlpAppointmentImportIfEligible({
+          parsedEmail,
+          pet,
+          senderEmail,
+          fileKey: s3Config.fileKey,
+          threadMessageId: lastInboundMessageId,
+          hasCalendarAttachments: false,
+          referenceYear: 2026,
+        });
+        calendarImportsInserted += nlpBatch.newlyInsertedCount;
+        if (nlpBatch.skippedReason && nlpBatch.skippedReason !== "not_eligible") {
+          console.log(`[MONITORING] NLP calendar import skipped: ${nlpBatch.skippedReason}`);
+        }
+      } catch (nlpErr) {
+        console.error("[MONITORING] NLP appointment import failed:", nlpErr);
+      }
+    }
+
+    if (calendarImportsInserted > 0) {
+      await sendCalendarImportsPendingNotification(pet, calendarImportsInserted);
     }
 
     // Step 9: No file attachments at all

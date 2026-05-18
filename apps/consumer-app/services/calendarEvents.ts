@@ -19,8 +19,10 @@ export function inferCalendarEventCategory(
     .join(" ")
     .toLowerCase();
 
-  if (/\b(groom|grooming|bath|nail|salon|spa)\b/.test(text)) return "grooming";
+  if (/\b(groom|grooming|bath|nail|salon|spa|deshed)\b/.test(text)) return "grooming";
   if (/\b(walk|walker|dog\s*walk|pawthon)\b/.test(text)) return "walk";
+  if (/\b(board|boarding|kennel|daycare)\b/.test(text)) return "other";
+  if (/\b(train|training|obedience|trainer)\b/.test(text)) return "other";
   if (/\b(vet|vaccine|wellness|clinic|hospital|exam|checkup|surgery)\b/.test(text)) {
     return "vet";
   }

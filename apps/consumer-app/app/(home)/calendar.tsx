@@ -121,7 +121,8 @@ export default function CalendarScreen() {
     const petLabel = event.petId ? petNameById.get(event.petId) : null;
     const timeRange = `${moment(event.startUtc).format("h:mm A")} – ${moment(event.endUtc).format("h:mm A")}`;
     const isEmailImport =
-      isVetBookingEvent(event) && event.raw.booking_source === "email_ics";
+      isVetBookingEvent(event) &&
+      (event.raw.booking_source === "email_ics" || event.raw.booking_source === "email_nlp");
     const dotColor = CATEGORY_DOT_COLORS[event.category];
 
     return (

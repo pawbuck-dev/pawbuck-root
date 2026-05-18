@@ -1600,6 +1600,7 @@ export type Database = {
           date_of_birth: string | null
           deleted_at: string | null
           email_id: string
+          home_timezone: string | null
           id: string
           intake_grams_per_meal: number | null
           intake_meals_per_day: number | null
@@ -1626,6 +1627,7 @@ export type Database = {
           date_of_birth?: string | null
           deleted_at?: string | null
           email_id: string
+          home_timezone?: string | null
           id?: string
           intake_grams_per_meal?: number | null
           intake_meals_per_day?: number | null
@@ -1652,6 +1654,7 @@ export type Database = {
           date_of_birth?: string | null
           deleted_at?: string | null
           email_id?: string
+          home_timezone?: string | null
           id?: string
           intake_grams_per_meal?: number | null
           intake_meals_per_day?: number | null

@@ -23,6 +23,11 @@ describe("inferCalendarEventCategory", () => {
   it("defaults to other", () => {
     expect(inferCalendarEventCategory("Playdate")).toBe("other");
   });
+
+  it("detects boarding and training keywords as other", () => {
+    expect(inferCalendarEventCategory("[Boarding] Kennel stay")).toBe("other");
+    expect(inferCalendarEventCategory("[Training] Obedience class")).toBe("other");
+  });
 });
 
 describe("vetBookingToCalendarEvent", () => {
