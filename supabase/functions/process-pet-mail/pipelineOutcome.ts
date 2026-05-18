@@ -69,13 +69,23 @@ export function tallyAttachmentOutcomes(
   let hardFailures = 0;
   let skippedValid = 0;
 
+  const validationSkipReasons = new Set([
+    "no_pet_info",
+    "attributes_mismatch",
+    "microchip_mismatch",
+  ]);
+
   for (const a of processed) {
     if (a.dbInserted || a.vaultPersisted) {
       dbInserted++;
       continue;
     }
     if (a.skippedReason) {
-      skippedValid++;
+      if (validationSkipReasons.has(a.skippedReason)) {
+        hardFailures++;
+      } else {
+        skippedValid++;
+      }
       continue;
     }
     if (a.classification?.type === "irrelevant") continue;

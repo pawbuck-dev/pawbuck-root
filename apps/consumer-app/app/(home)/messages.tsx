@@ -447,6 +447,9 @@ export default function MessagesScreen() {
           onBack={() => setSelectedThread(null)}
           hideHeader
           isTrash={false}
+          onProcessingFailurePress={(failure) => {
+            setResolutionEmail(failure);
+          }}
           onRestore={() => {
             refetchThreads();
           }}
@@ -858,6 +861,9 @@ export default function MessagesScreen() {
           Alert.alert("Record filed!", `${petName}'s ${docLabel} has been updated.`);
           void queryClient.invalidateQueries({ queryKey: ["reviewInbox"] });
           void queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
+          void queryClient.invalidateQueries({
+            queryKey: ["threadAttachmentFailures"],
+          });
         }}
       />
     </View>

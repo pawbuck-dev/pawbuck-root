@@ -77,12 +77,13 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
         string? s3Key;
         bool? success;
         string? reviewStatus;
+        string? failureReason;
 
         await using (var conn = CreateConnection())
         {
             await conn.OpenAsync(cancellationToken);
             const string sql = """
-                SELECT pe.s3_key, pe.success, pe.review_status
+                SELECT pe.s3_key, pe.success, pe.review_status, pe.failure_reason
                 FROM public.processed_emails pe
                 INNER JOIN public.pets p ON p.id = pe.pet_id
                 WHERE pe.id = @id
@@ -100,9 +101,20 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             s3Key = reader.GetString(0);
             success = reader.IsDBNull(1) ? null : reader.GetBoolean(1);
             reviewStatus = reader.IsDBNull(2) ? null : reader.GetString(2);
+            failureReason = reader.IsDBNull(3) ? null : reader.GetString(3);
         }
 
-        if (success == true)
+        if (reviewStatus is { } rs && rs == "dismissed")
+        {
+            return new MailInboxResolveResult
+            {
+                Ok = false,
+                StatusCode = 409,
+                Error = "This item was already dismissed from the review queue.",
+            };
+        }
+
+        if (!CanResolveProcessedEmail(success, failureReason, reviewStatus))
         {
             return new MailInboxResolveResult
             {
@@ -115,17 +127,6 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
         if (string.IsNullOrEmpty(s3Key))
         {
             return new MailInboxResolveResult { Ok = false, StatusCode = 400, Error = "email record has no s3_key" };
-        }
-
-        // Optional: only allow if still in review queue
-        if (reviewStatus is { } rs && rs == "dismissed")
-        {
-            return new MailInboxResolveResult
-            {
-                Ok = false,
-                StatusCode = 409,
-                Error = "This item was already dismissed from the review queue.",
-            };
         }
 
         var baseUrl = _options.Value.Url?.TrimEnd('/');
@@ -181,5 +182,25 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
         }
 
         return new MailInboxResolveResult { Ok = true, StatusCode = 200 };
+    }
+
+    /// <summary>
+    /// Allows Review Inbox resolve when processing failed or is pending, including legacy rows
+    /// where <c>success</c> was true but <c>failure_reason</c> was still set.
+    /// </summary>
+    internal static bool CanResolveProcessedEmail(
+        bool? success,
+        string? failureReason,
+        string? reviewStatus)
+    {
+        if (reviewStatus == "dismissed")
+            return false;
+        if (success != true)
+            return true;
+        if (!string.IsNullOrWhiteSpace(failureReason))
+            return true;
+        if (reviewStatus == "pending")
+            return true;
+        return false;
     }
 }

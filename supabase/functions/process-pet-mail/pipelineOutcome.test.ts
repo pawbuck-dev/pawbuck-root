@@ -54,6 +54,24 @@ Deno.test("tallyAttachmentOutcomes counts hard failures", () => {
   assertEquals(tally.hardFailures, 1);
 });
 
+Deno.test("tallyAttachmentOutcomes counts pet validation skips as hard failures", () => {
+  const tally = tallyAttachmentOutcomes([
+    {
+      filename: "vax.pdf",
+      mimeType: "application/pdf",
+      size: 1,
+      classification: { type: "vaccinations", confidence: 0.9 },
+      uploaded: false,
+      ocrTriggered: false,
+      ocrSuccess: false,
+      dbInserted: false,
+      skippedReason: "no_pet_info",
+    },
+  ]);
+  assertEquals(tally.hardFailures, 1);
+  assertEquals(tally.skippedValid, 0);
+});
+
 Deno.test("summarizePipelineFailure joins reasons", () => {
   const o = createInitialPipelineOutcome();
   o.attachments.hardFailures = 2;

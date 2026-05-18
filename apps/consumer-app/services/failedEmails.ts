@@ -23,8 +23,21 @@ export interface FailedEmail {
 
 export type ReviewInboxItem = FailedEmail;
 
+/** Rows that need owner attention in Messages / Review Inbox. */
+export function isReviewInboxCandidate(row: {
+  success: boolean | null;
+  failure_reason: string | null;
+  review_status: string | null;
+}): boolean {
+  if (row.review_status === "dismissed" || row.review_status === "resolved") {
+    return false;
+  }
+  if (row.success === false) return true;
+  return Boolean(row.failure_reason?.trim());
+}
+
 /**
- * Fetch all Review Inbox items for the current user's pets (success = false, not dismissed).
+ * Fetch all Review Inbox items for the current user's pets (failed processing, not dismissed).
  */
 export const getReviewInbox = async (): Promise<ReviewInboxItem[]> => {
   // First get the user's pets
@@ -60,6 +73,7 @@ export const getReviewInbox = async (): Promise<ReviewInboxItem[]> => {
       completed_at,
       started_at,
       review_status,
+      success,
       pets (
         name,
         breed
@@ -68,7 +82,7 @@ export const getReviewInbox = async (): Promise<ReviewInboxItem[]> => {
     )
     .in("pet_id", petIds)
     .eq("status", "completed")
-    .eq("success", false)
+    .or("success.eq.false,failure_reason.not.is.null")
     .order("completed_at", { ascending: false });
 
   if (error) {
@@ -77,10 +91,71 @@ export const getReviewInbox = async (): Promise<ReviewInboxItem[]> => {
   }
 
   const rows = (data as ReviewInboxItem[]) ?? [];
-  return rows.filter(
-    (r) => r.review_status == null || r.review_status === "pending"
-  );
+  return rows.filter(isReviewInboxCandidate);
 };
+
+/**
+ * Attachment processing issues for a message thread (same sender + pet, pending review).
+ */
+export const getThreadProcessingFailures = async (
+  petId: string,
+  senderEmail: string,
+  subject?: string
+): Promise<ReviewInboxItem[]> => {
+  const normalizedSender = senderEmail.toLowerCase().trim();
+  const { data, error } = await supabase
+    .from("processed_emails")
+    .select(
+      `
+      id,
+      s3_key,
+      pet_id,
+      sender_email,
+      subject,
+      document_type,
+      failure_reason,
+      completed_at,
+      started_at,
+      review_status,
+      success,
+      pets (
+        name,
+        breed
+      )
+    `
+    )
+    .eq("pet_id", petId)
+    .eq("status", "completed")
+    .eq("sender_email", normalizedSender)
+    .not("failure_reason", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.error("Error fetching thread processing failures:", error);
+    return [];
+  }
+
+  let rows = ((data ?? []) as ReviewInboxItem[]).filter(isReviewInboxCandidate);
+  if (subject?.trim()) {
+    const normalizedSubject = subject.trim().toLowerCase();
+    const subjectMatches = rows.filter(
+      (r) => (r.subject ?? "").trim().toLowerCase() === normalizedSubject
+    );
+    if (subjectMatches.length > 0) {
+      rows = subjectMatches;
+    }
+  }
+  return rows;
+};
+
+/** User-facing summary from processed_emails.failure_reason. */
+export function summarizeAttachmentFailureReason(failureReason: string): string {
+  const docMatch = failureReason.match(/Document '[^']+':\s*(.+)$/i);
+  if (docMatch?.[1]) return docMatch[1].trim();
+  const failedPrefix = /^Failed to process \d+ document\(s\):\s*/i;
+  return failureReason.replace(failedPrefix, "").trim() || failureReason;
+}
 
 /** @deprecated use {@link getReviewInbox} */
 export const getFailedEmails = getReviewInbox;
@@ -105,6 +180,7 @@ export const getFailedEmailById = async (
       completed_at,
       started_at,
       review_status,
+      success,
       pets (
         name,
         breed
@@ -112,7 +188,6 @@ export const getFailedEmailById = async (
     `
     )
     .eq("id", id)
-    .eq("success", false)
     .single();
 
   if (error) {
@@ -123,43 +198,19 @@ export const getFailedEmailById = async (
     throw error;
   }
 
-  return data as FailedEmail;
+  const row = data as FailedEmail & { success?: boolean | null };
+  if (!isReviewInboxCandidate(row)) {
+    return null;
+  }
+  return row;
 };
 
 /**
  * Get count of failed emails for the current user
  */
 export const getFailedEmailsCount = async (): Promise<number> => {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) {
-    return 0;
-  }
-
-  // Get pet IDs for this user
-  const { data: pets, error: petsError } = await supabase
-    .from("pets")
-    .select("id")
-    .eq("user_id", userData.user.id);
-
-  if (petsError || !pets || pets.length === 0) {
-    return 0;
-  }
-
-  const petIds = pets.map((p) => p.id);
-
-  const { count, error } = await supabase
-    .from("processed_emails")
-    .select("*", { count: "exact", head: true })
-    .in("pet_id", petIds)
-    .eq("status", "completed")
-    .eq("success", false);
-
-  if (error) {
-    console.error("Error counting failed emails:", error);
-    return 0;
-  }
-
-  return count ?? 0;
+  const items = await getReviewInbox();
+  return items.length;
 };
 
 /**
@@ -169,9 +220,11 @@ export const getFailedEmailsCount = async (): Promise<number> => {
 export const dismissFailedEmail = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from("processed_emails")
-    .delete()
-    .eq("id", id)
-    .eq("success", false);
+    .update({
+      review_status: "dismissed",
+      success: false,
+    })
+    .eq("id", id);
 
   if (error) {
     console.error("Error dismissing failed email:", error);

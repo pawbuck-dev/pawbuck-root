@@ -7,6 +7,11 @@ import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToAllUserPets } from "@/services/careTeamMembers";
+import ThreadAttachmentFailureBanner from "@/components/messages/ThreadAttachmentFailureBanner";
+import {
+  FailedEmail,
+  getThreadProcessingFailures,
+} from "@/services/failedEmails";
 import {
   fetchThreadMessages,
   markThreadAsRead,
@@ -51,6 +56,8 @@ interface ThreadDetailViewProps {
   onRestore?: () => void;
   /** Called after delete so parent can refresh and go back */
   onDeleted?: () => void;
+  /** Open Review Inbox / failure details for an attachment processing issue */
+  onProcessingFailurePress?: (failure: FailedEmail) => void;
 }
 
 export default function ThreadDetailView({
@@ -61,6 +68,7 @@ export default function ThreadDetailView({
   isTrash = false,
   onRestore,
   onDeleted,
+  onProcessingFailurePress,
 }: ThreadDetailViewProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
@@ -85,6 +93,22 @@ export default function ThreadDetailView({
   } = useQuery({
     queryKey: ["threadMessages", threadId],
     queryFn: () => fetchThreadMessages(threadId),
+  });
+
+  const { data: attachmentFailures = [] } = useQuery({
+    queryKey: [
+      "threadAttachmentFailures",
+      thread.pet_id,
+      thread.recipient_email,
+      thread.subject,
+    ],
+    queryFn: () =>
+      getThreadProcessingFailures(
+        thread.pet_id,
+        thread.recipient_email,
+        thread.subject
+      ),
+    enabled: !isTrash,
   });
 
   // Scroll to bottom when messages load
@@ -485,6 +509,14 @@ export default function ThreadDetailView({
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      {!isTrash && attachmentFailures.length > 0 && onProcessingFailurePress && (
+        <ThreadAttachmentFailureBanner
+          failures={attachmentFailures}
+          petName={thread.pets?.name}
+          onPress={onProcessingFailurePress}
+        />
       )}
 
       {/* Add to Care Team Button - show only if not already in care team */}
