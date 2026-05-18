@@ -1,6 +1,5 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
 import DailyGoalWalkCard from "@/components/home/DailyGoalWalkCard";
-import MiloHomeLeadCard from "@/components/home/MiloHomeLeadCard";
 import PetEmailMoatCard from "@/components/home/PetEmailMoatCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
@@ -17,7 +16,6 @@ import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
 import { useAuth } from "@/context/authContext";
-import { useChat } from "@/context/chatContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -81,7 +79,6 @@ export default function Home() {
   const { user } = useAuth();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
   const { ensurePremium } = useSubscription();
-  const { openChat } = useChat();
   const queryClient = useQueryClient();
 
   const [emailCopied, setEmailCopied] = useState(false);
@@ -426,11 +423,12 @@ export default function Home() {
             </View>
           )}
 
-          {/* Lead: Talk to Milo */}
-          <MiloHomeLeadCard
-            petName={selectedPet?.name}
-            onOpenMilo={() => openChat()}
-          />
+          {/* Pet Journal — primary home entry (Milo via bottom nav) */}
+          {selectedPet && (
+            <View style={{ marginBottom: 20, paddingHorizontal: 20 }}>
+              <PetJournalHomeCard pet={selectedPet} />
+            </View>
+          )}
 
           {/* Health Briefing + journal continuity */}
           {selectedPet && (
@@ -461,13 +459,6 @@ export default function Home() {
               copied={emailCopied}
             />
           ) : null}
-
-          {/* Pet Journal */}
-          {selectedPet && (
-            <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
-              <PetJournalHomeCard pet={selectedPet} />
-            </View>
-          )}
 
           {/* Catch up */}
           {selectedPet && (

@@ -1,15 +1,21 @@
+import PetCalendarMonthGrid, { CATEGORY_DOT_COLORS } from "@/components/calendar/PetCalendarMonthGrid";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import {
+  categoryDisplayLabel,
+  fetchCalendarEvents,
+  isVetBookingEvent,
+} from "@/services/calendarEvents";
 import { addEventToDeviceCalendar } from "@/services/deviceCalendar";
-import type { VetBookingRow } from "@/services/vetBookings";
 import {
   confirmVetBookingImport,
   dismissVetBookingImport,
-  fetchVetBookings,
 } from "@/services/vetBookings";
+import type { CalendarEvent } from "@/types/calendarEvent";
+import { eventsOnDate } from "@/utils/petCalendarGrid";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -27,17 +33,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function groupByDay(rows: VetBookingRow[]) {
-  const map = new Map<string, VetBookingRow[]>();
-  for (const r of rows) {
-    const key = moment(r.start_utc).format("YYYY-MM-DD");
-    const list = map.get(key) ?? [];
-    list.push(r);
-    map.set(key, list);
-  }
-  return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-}
-
 export default function CalendarScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -48,16 +43,19 @@ export default function CalendarScreen() {
   const queryClient = useQueryClient();
   const [filterThisPetOnly, setFilterThisPetOnly] = useState(false);
 
+  const [visibleMonth, setVisibleMonth] = useState(() => moment());
+  const [selectedDay, setSelectedDay] = useState(() => moment().format("YYYY-MM-DD"));
+
   const petIdFilter = filterThisPetOnly && selectedPetId ? selectedPetId : undefined;
   const startAfterIso = useMemo(
     () => moment().subtract(14, "days").startOf("day").toISOString(),
     []
   );
 
-  const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ["vetBookings", petIdFilter ?? "all", startAfterIso],
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ["calendarEvents", petIdFilter ?? "all", startAfterIso],
     queryFn: () =>
-      fetchVetBookings({
+      fetchCalendarEvents({
         petId: petIdFilter,
         startAfterIso,
       }),
@@ -70,19 +68,26 @@ export default function CalendarScreen() {
   }, [pets]);
 
   const pending = useMemo(
-    () => bookings.filter((b) => b.status === "pending_confirmation"),
-    [bookings]
-  );
-  const active = useMemo(
-    () => bookings.filter((b) => b.status === "confirmed"),
-    [bookings]
+    () =>
+      events.filter(
+        (e) => isVetBookingEvent(e) && e.status === "pending_confirmation"
+      ),
+    [events]
   );
 
-  const grouped = useMemo(() => groupByDay(active), [active]);
+  const scheduleDayEvents = useMemo(
+    () =>
+      eventsOnDate(
+        events.filter((e) => e.status !== "pending_confirmation"),
+        selectedDay
+      ),
+    [events, selectedDay]
+  );
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) => confirmVetBookingImport(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["vetBookings"] });
     },
   });
@@ -90,15 +95,18 @@ export default function CalendarScreen() {
   const dismissMutation = useMutation({
     mutationFn: (id: string) => dismissVetBookingImport(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["vetBookings"] });
     },
   });
 
-  const onAddToDevice = async (b: VetBookingRow) => {
+  const onAddToDevice = async (event: CalendarEvent) => {
+    if (!isVetBookingEvent(event)) return;
+    const b = event.raw;
     const start = new Date(b.start_utc);
     const end = new Date(b.end_utc);
     const ok = await addEventToDeviceCalendar({
-      title: b.service_label ?? "Vet appointment",
+      title: b.service_label ?? event.title,
       startDate: start,
       endDate: end,
       location: b.clinic_name,
@@ -109,14 +117,16 @@ export default function CalendarScreen() {
     }
   };
 
-  const renderRow = (b: VetBookingRow, showPet: boolean) => {
-    const petLabel = b.pet_id ? petNameById.get(b.pet_id) : null;
-    const timeRange = `${moment(b.start_utc).format("h:mm A")} – ${moment(b.end_utc).format("h:mm A")}`;
-    const isEmailImport = b.booking_source === "email_ics";
+  const renderEventRow = (event: CalendarEvent, showPet: boolean) => {
+    const petLabel = event.petId ? petNameById.get(event.petId) : null;
+    const timeRange = `${moment(event.startUtc).format("h:mm A")} – ${moment(event.endUtc).format("h:mm A")}`;
+    const isEmailImport =
+      isVetBookingEvent(event) && event.raw.booking_source === "email_ics";
+    const dotColor = CATEGORY_DOT_COLORS[event.category];
 
     return (
       <View
-        key={b.id}
+        key={event.id}
         style={{
           marginBottom: 12,
           padding: 14,
@@ -126,27 +136,41 @@ export default function CalendarScreen() {
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
         }}
       >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <View
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 8,
+              backgroundColor: `${dotColor}22`,
+            }}
+          >
+            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 11, color: dotColor }}>
+              {categoryDisplayLabel(event.category)}
+            </Text>
+          </View>
+        </View>
         <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground }}>
-          {b.service_label ?? "Appointment"}
+          {event.title}
         </Text>
         <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: theme.secondary, marginTop: 4 }}>
           {timeRange}
-          {b.clinic_name ? ` · ${b.clinic_name}` : ""}
+          {event.subtitle ? ` · ${event.subtitle}` : ""}
         </Text>
         {showPet && petLabel ? (
           <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: theme.secondary, marginTop: 4 }}>
             {petLabel}
           </Text>
         ) : null}
-        {isEmailImport && b.status === "pending_confirmation" ? (
+        {isEmailImport && event.status === "pending_confirmation" ? (
           <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "#B45309", marginTop: 6 }}>
             From email — confirm this time is correct
           </Text>
         ) : null}
-        {b.status === "pending_confirmation" ? (
+        {isVetBookingEvent(event) && event.status === "pending_confirmation" ? (
           <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
             <Pressable
-              onPress={() => confirmMutation.mutate(b.id)}
+              onPress={() => confirmMutation.mutate(event.raw.id)}
               disabled={confirmMutation.isPending}
               style={{
                 flex: 1,
@@ -159,7 +183,7 @@ export default function CalendarScreen() {
               <Text style={{ fontFamily: "Poppins_600SemiBold", color: "#FFFFFF" }}>Confirm</Text>
             </Pressable>
             <Pressable
-              onPress={() => dismissMutation.mutate(b.id)}
+              onPress={() => dismissMutation.mutate(event.raw.id)}
               disabled={dismissMutation.isPending}
               style={{
                 flex: 1,
@@ -172,9 +196,9 @@ export default function CalendarScreen() {
               <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground }}>Dismiss</Text>
             </Pressable>
           </View>
-        ) : (
+        ) : isVetBookingEvent(event) ? (
           <Pressable
-            onPress={() => onAddToDevice(b)}
+            onPress={() => onAddToDevice(event)}
             style={{
               marginTop: 12,
               flexDirection: "row",
@@ -188,10 +212,14 @@ export default function CalendarScreen() {
               Add to phone calendar
             </Text>
           </Pressable>
-        )}
+        ) : null}
       </View>
     );
   };
+
+  const emptyRangeHelper = SHOW_VET_BOOKING_UI
+    ? "Vet visits, grooming, and walks appear here when you book in PawBuck or confirm calendar invites from your pet’s inbox."
+    : "Pet events from email calendar invites (vet, grooming, walks) appear here after you confirm them.";
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -243,7 +271,7 @@ export default function CalendarScreen() {
               padding: 14,
               borderRadius: 14,
               backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "rgba(59,208,210,0.15)",
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
             <Ionicons name="add-circle-outline" size={22} color="#3BD0D2" />
@@ -254,25 +282,44 @@ export default function CalendarScreen() {
           </Pressable>
         ) : null}
 
+        <PetCalendarMonthGrid
+          year={visibleMonth.year()}
+          month={visibleMonth.month()}
+          selectedDay={selectedDay}
+          events={events}
+          onSelectDay={setSelectedDay}
+          onPrevMonth={() =>
+            setVisibleMonth((m) => {
+              const next = m.clone().subtract(1, "month");
+              return next;
+            })
+          }
+          onNextMonth={() =>
+            setVisibleMonth((m) => {
+              const next = m.clone().add(1, "month");
+              return next;
+            })
+          }
+        />
+
         {isLoading ? (
-          <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
-        ) : bookings.length === 0 ? (
-          <View style={{ paddingTop: 40, alignItems: "center" }}>
-            <Ionicons name="calendar-outline" size={48} color={theme.secondary} />
-            <Text
-              style={{
-                fontFamily: "Poppins_500Medium",
-                color: theme.secondary,
-                textAlign: "center",
-                marginTop: 16,
-                paddingHorizontal: 24,
-              }}
-            >
-              {SHOW_VET_BOOKING_UI
-                ? "No appointments yet. Book in the app or confirm calendar invites sent to your pet’s inbox."
-                : "No appointments yet. Confirm calendar invites sent to your pet’s inbox when you receive them."}
-            </Text>
-          </View>
+          <ActivityIndicator color={theme.primary} style={{ marginBottom: 16 }} />
+        ) : null}
+
+        {!isLoading && events.length === 0 ? (
+          <Text
+            style={{
+              fontFamily: "Poppins_400Regular",
+              fontSize: 13,
+              color: theme.secondary,
+              textAlign: "center",
+              marginBottom: 20,
+              paddingHorizontal: 8,
+              lineHeight: 20,
+            }}
+          >
+            {emptyRangeHelper}
+          </Text>
         ) : null}
 
         {pending.length > 0 ? (
@@ -280,32 +327,29 @@ export default function CalendarScreen() {
             <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground, marginBottom: 10 }}>
               Needs confirmation
             </Text>
-            {pending.map((b) => renderRow(b, true))}
+            {pending.map((e) => renderEventRow(e, true))}
           </View>
         ) : null}
 
-        {grouped.length > 0 ? (
-          <View>
-            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground, marginBottom: 10 }}>
-              Schedule
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground, marginBottom: 4 }}>
+            {moment(selectedDay, "YYYY-MM-DD").format("dddd, MMM D")}
+          </Text>
+          {!isLoading && scheduleDayEvents.length === 0 ? (
+            <Text
+              style={{
+                fontFamily: "Poppins_400Regular",
+                fontSize: 13,
+                color: theme.secondary,
+                marginBottom: 10,
+                marginTop: 4,
+              }}
+            >
+              No events on this day.
             </Text>
-            {grouped.map(([day, list]) => (
-              <View key={day} style={{ marginBottom: 18 }}>
-                <Text
-                  style={{
-                    fontFamily: "Poppins_600SemiBold",
-                    fontSize: 14,
-                    color: theme.primary,
-                    marginBottom: 8,
-                  }}
-                >
-                  {moment(day, "YYYY-MM-DD").format("dddd, MMM D")}
-                </Text>
-                {list.map((b) => renderRow(b, !petIdFilter))}
-              </View>
-            ))}
-          </View>
-        ) : null}
+          ) : null}
+          {scheduleDayEvents.map((e) => renderEventRow(e, !petIdFilter))}
+        </View>
       </ScrollView>
 
       <BottomNavBar activeTab="home" selectedPetId={selectedPetId ?? undefined} />
