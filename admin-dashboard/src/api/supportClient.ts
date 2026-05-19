@@ -6,6 +6,9 @@ import type {
   MiloChatApiResponse,
   MiloJournalChatSmokeBody,
   MiloJournalConfigSnapshot,
+  MedicationAdrStats,
+  MedicationAdrOverrideRow,
+  CreateMedicationAdrOverrideBody,
   MiloJournalFeedbackAggregates,
   CountryEmailDocumentVerificationListResponse,
   CountryEmailDocumentVerificationRow,
@@ -210,6 +213,31 @@ export function createSupportClient(
 
     getMiloJournalFeedbackAggregates: () =>
       request<MiloJournalFeedbackAggregates>("/api/support/milo/journal/feedback-aggregates"),
+
+    getMedicationAdrStats: () =>
+      request<MedicationAdrStats>("/api/support/medication-adr/stats"),
+
+    runMedicationAdrIngest: (sourceVersion?: string) => {
+      const p = sourceVersion ? `?sourceVersion=${encodeURIComponent(sourceVersion)}` : "";
+      return request<{ status: string; productsUpserted: number; entriesUpserted: number }>(
+        `/api/support/medication-adr/ingest${p}`,
+        { method: "POST" },
+      );
+    },
+
+    listMedicationAdrOverrides: () =>
+      request<MedicationAdrOverrideRow[]>("/api/support/medication-adr/overrides"),
+
+    createMedicationAdrOverride: (body: CreateMedicationAdrOverrideBody) =>
+      request<MedicationAdrOverrideRow>("/api/support/medication-adr/overrides", {
+        method: "POST",
+        json: body,
+      }),
+
+    deactivateMedicationAdrOverride: (id: string) =>
+      request<{ ok: boolean }>(`/api/support/medication-adr/overrides/${id}/deactivate`, {
+        method: "POST",
+      }),
 
     /** Same Milo chat pipeline as the consumer app for a verified user/pet (AdminSupport only; no subscription gate). */
     postMiloJournalChatSmoke: (body: MiloJournalChatSmokeBody) =>

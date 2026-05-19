@@ -5,6 +5,7 @@ import { AdminHeaderBar } from "@/components/AdminHeaderBar";
 import { EmailDocumentVerificationPanel } from "@/components/EmailDocumentVerificationPanel";
 import { FeatureGatesPanel } from "@/components/FeatureGatesPanel";
 import { MiloClassifyHarness } from "@/components/MiloClassifyHarness";
+import { MedicationAdrPanel } from "@/components/MedicationAdrPanel";
 import { MiloJournalPanel } from "@/components/MiloJournalPanel";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
@@ -444,6 +445,7 @@ export function App() {
       {tab === "milo" ? (
         <>
           <MiloJournalPanel client={client} />
+          <MedicationAdrPanel client={client} />
           <MiloClassifyHarness client={client} />
         </>
       ) : null}

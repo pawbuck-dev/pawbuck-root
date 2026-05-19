@@ -49,6 +49,10 @@ public sealed class MiloJournalConfigSnapshot
     [JsonPropertyName("journalMaxOutputTokens")]
     public int JournalMaxOutputTokens { get; set; } = 1024;
 
+    /// <summary>When true, journal mode uses JSON decision-tree interviews instead of the legacy LLM checklist.</summary>
+    [JsonPropertyName("journalTreeInterviewEnabled")]
+    public bool JournalTreeInterviewEnabled { get; set; } = true;
+
     public static MiloJournalConfigSnapshot Defaults() => new();
 
     /// <summary>Merge JSON-overridden fields from <paramref name="overrides"/> into a copy of defaults.</summary>
@@ -82,6 +86,8 @@ public sealed class MiloJournalConfigSnapshot
             d.JournalTemperature = overrides.JournalTemperature;
         if (overrides.JournalMaxOutputTokens is >= 256 and <= 8192)
             d.JournalMaxOutputTokens = overrides.JournalMaxOutputTokens;
+
+        d.JournalTreeInterviewEnabled = overrides.JournalTreeInterviewEnabled;
 
         return d;
     }

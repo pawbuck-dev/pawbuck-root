@@ -8,6 +8,12 @@
     <InternalsVisibleTo Include="PawBuck.API.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\packages\milo-journal-trees\trees\**\*.json" Link="JournalTrees\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PawBuck.MedicationAdr\PawBuck.MedicationAdr.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.0.0" />

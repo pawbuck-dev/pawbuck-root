@@ -85,11 +85,22 @@ public class MiloReasoningServiceJournalTests
         kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyList<string>>()))
             .ReturnsAsync(Array.Empty<DocumentationChunk>());
 
+        var treeInterview = new Mock<IJournalTreeInterviewService>();
+        treeInterview
+            .Setup(t => t.TryRunTurnAsync(
+                It.IsAny<MiloChatRequest>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<MiloJournalConfigSnapshot>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MiloChatResponse?)null);
+
         return new MiloReasoningService(
             petFacts.Object,
             conversationalContext.Object,
             journalConfig.Object,
             journalTurns.Object,
+            treeInterview.Object,
             kb.Object,
             factory.Object,
             Options.Create(new GeminiOptions { ApiKey = geminiApiKey, Model = "gemini-2.5-flash" }),
@@ -105,6 +116,7 @@ public class MiloReasoningServiceJournalTests
             PromptVersion = promptVersion,
             JournalTemperature = 0.65,
             JournalMaxOutputTokens = 1024,
+            JournalTreeInterviewEnabled = false,
         });
         return m;
     }
@@ -234,11 +246,22 @@ public class MiloReasoningServiceJournalTests
         var context = ContextMock();
         var turns = TurnMock();
 
+        var treeInterview = new Mock<IJournalTreeInterviewService>();
+        treeInterview
+            .Setup(t => t.TryRunTurnAsync(
+                It.IsAny<MiloChatRequest>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<MiloJournalConfigSnapshot>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MiloChatResponse?)null);
+
         var sut = new MiloReasoningService(
             petFacts.Object,
             context.Object,
             journalConfig.Object,
             turns.Object,
+            treeInterview.Object,
             kb.Object,
             factoryNeverUsed.Object,
             Options.Create(new GeminiOptions { ApiKey = "", Model = "gemini-2.5-flash" }),

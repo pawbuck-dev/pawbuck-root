@@ -1,0 +1,115 @@
+{
+  "treeId": "behavior_change_v1.5",
+  "topic": "Behavior change",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["behavior", "anxiety", "aggression", "cognitive"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "age",
+      "behavior_baseline",
+      "recent_stressors",
+      "current_medications"
+    ],
+    "adrSymptomKeys": ["behavior", "anxiety"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_type",
+      "step": 2,
+      "prompt": "What kind of change have you noticed?",
+      "type": "single",
+      "options": [
+        { "id": "anxious", "label": "More anxious / scared" },
+        { "id": "aggressive", "label": "More aggressive / reactive" },
+        { "id": "withdrawn", "label": "Hiding / withdrawn" },
+        { "id": "restless", "label": "Restless / pacing" },
+        { "id": "confused", "label": "Confused / disoriented" },
+        { "id": "toilet_accidents", "label": "Toilet accidents" },
+        { "id": "vocalizing", "label": "Excessive vocalizing" },
+        { "id": "repetitive", "label": "Doing repetitive things (licking, spinning)" },
+        { "id": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q_onset_intensity",
+      "step": 3,
+      "prompt": "When did this start and how big a change is it?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Today" },
+        { "id": "few_days", "label": "Few days" },
+        { "id": "weeks", "label": "Weeks" },
+        { "id": "months", "label": "Months / gradual" }
+      ],
+      "stage2Options": [
+        { "id": "mild", "label": "Mild / occasional" },
+        { "id": "frequent", "label": "Frequent" },
+        { "id": "severe", "label": "Pretty severe" },
+        { "id": "constant", "label": "Constant" }
+      ]
+    },
+    {
+      "id": "q_associated",
+      "step": 4,
+      "prompt": "Anything else changed alongside this?",
+      "type": "multi",
+      "options": [
+        { "id": "sleep", "label": "Sleep pattern" },
+        { "id": "eating_drinking", "label": "Eating / drinking" },
+        { "id": "energy", "label": "Energy level" },
+        { "id": "recognition", "label": "Recognition of family / routines" },
+        { "id": "physical", "label": "Physical signs (limping, shaking)" },
+        { "id": "nothing_physical", "label": "Nothing physical noticed" }
+      ]
+    },
+    {
+      "id": "q_triggers",
+      "step": 5,
+      "prompt": "Anything happened recently that could connect?",
+      "type": "multi",
+      "options": [
+        { "id": "new_person_pet", "label": "New person or pet in home" },
+        { "id": "move_travel", "label": "Move / travel / boarding" },
+        { "id": "routine_change", "label": "Routine change (work, schedule)" },
+        { "id": "loud_event", "label": "Loud event (fireworks, storm)" },
+        { "id": "med_change", "label": "Medication change" },
+        { "id": "vet_visit", "label": "Vet visit recent" },
+        { "id": "nothing", "label": "Nothing obvious" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "One more check — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "snapping", "label": "Snapping at family for the first time" },
+        { "id": "no_recognition", "label": "Doesn't recognize home or family" },
+        { "id": "stuck_corners", "label": "Walks into walls or gets stuck in corners" },
+        { "id": "self_harm", "label": "Self-harm (chewing self raw)" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["snapping", "no_recognition", "stuck_corners"], "level": "urgent" },
+    { "ifAnyAnswerIds": ["self_harm"], "level": "emergency" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Behavior change",
+    "CHANGE_TYPE": "{q_type}",
+    "ONSET": "{q_onset_intensity}",
+    "INTENSITY": "{q_onset_intensity}",
+    "ASSOCIATED": "{q_associated}",
+    "TRIGGERS": "{q_triggers}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "treeId": "behavior_log_v1.5",
+  "topic": "Behavior log",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["behavior", "routine"],
+  "contextSurface": {
+    "alwaysSurface": ["behavior_baseline"]
+  },
+  "maxQuestions": 3,
+  "questions": [
+    {
+      "id": "q_notice",
+      "step": 2,
+      "prompt": "What did you notice?",
+      "type": "single",
+      "options": [
+        { "id": "energy", "label": "Energy level" },
+        { "id": "social", "label": "Social / interaction" },
+        { "id": "food_motivation", "label": "Food motivation" },
+        { "id": "sleep", "label": "Sleep / rest" },
+        { "id": "vocalization", "label": "Vocalization" },
+        { "id": "stress_trigger", "label": "Reaction to a stress trigger" },
+        { "id": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "q_when",
+      "step": 3,
+      "prompt": "When and how often?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Today" },
+        { "id": "yesterday", "label": "Yesterday" },
+        { "id": "few_days", "label": "Past few days" },
+        { "id": "ongoing", "label": "Ongoing / recurring" }
+      ],
+      "stage2Options": [
+        { "id": "once", "label": "Once" },
+        { "id": "few_times", "label": "A few times" },
+        { "id": "often", "label": "Often" },
+        { "id": "constant", "label": "Most of the time" }
+      ]
+    },
+    {
+      "id": "q_trigger",
+      "step": 4,
+      "prompt": "Anything that seemed to trigger it?",
+      "type": "multi",
+      "options": [
+        { "id": "thunder", "label": "Thunder / storms" },
+        { "id": "fireworks", "label": "Fireworks / loud noises" },
+        { "id": "vet_visit", "label": "Vet visit" },
+        { "id": "strangers", "label": "Strangers / visitors" },
+        { "id": "other_pets", "label": "Other pets" },
+        { "id": "routine_change", "label": "Routine change" },
+        { "id": "nothing", "label": "Nothing obvious" }
+      ]
+    }
+  ],
+  "redFlagTriggers": [],
+  "summaryFieldMap": {
+    "ACTIVITY": "Behavior",
+    "NOTICE": "{q_notice}",
+    "WHEN": "{q_when}",
+    "TRIGGER": "{q_trigger}"
+  }
+}

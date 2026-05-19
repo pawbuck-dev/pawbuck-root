@@ -16,5 +16,9 @@ public interface IMiloJournalTurnService
         Guid userId,
         Guid turnId,
         string rating,
+        string? feedbackReason = null,
+        string? treeVersion = null,
+        int? questionsAsked = null,
+        string? feedbackStage = null,
         CancellationToken cancellationToken = default);
 }

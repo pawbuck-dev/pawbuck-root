@@ -15,8 +15,12 @@ export type VetCareTeamRow = {
   type: string | null;
 };
 
+export type VetAskKind = "fyi" | "advise" | "urgent";
+
 export type BuildVetJournalMessageInput = {
   pet: Pet;
+  /** Owner-selected ask when composing from journal (spec §12). */
+  vetAsk?: VetAskKind | null;
   /** Owner-typed lines from the Milo journal session (chronological). */
   userTurns: readonly string[];
   /** API structured summary when the journal session completed (may contain Markdown). */
@@ -58,8 +62,27 @@ export function shouldSuppressVetEmailCompose(
 /**
  * Strips common Markdown used in journal summaries (**bold**, bullets) for clinic plain-text email.
  */
+const VET_BODY_CHIP_LINES = [
+  "looks right — save",
+  "looks right — continue",
+  "edit a field",
+  "start over",
+  "not sure",
+  "+ add details",
+];
+
+export function stripJournalChipLinesFromVetBody(raw: string): string {
+  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const kept = lines.filter((line) => {
+    const t = line.trim().toLowerCase();
+    return t.length > 0 && !VET_BODY_CHIP_LINES.includes(t);
+  });
+  return kept.join("\n").trim();
+}
+
 export function stripMarkdownForVetEmail(raw: string): string {
-  let s = raw.replace(/\r\n/g, "\n");
+  let s = stripJournalChipLinesFromVetBody(raw);
+  s = s.replace(/\r\n/g, "\n");
   // **Label:** or **text**
   s = s.replace(/\*\*([^*]+)\*\*/g, "$1");
   s = s.replace(/\*([^*]+)\*/g, "$1");
@@ -149,8 +172,12 @@ function buildOneLineClinicalSummary(petName: string, userTurns: string[], journ
 
 function subjectUrgencyTag(
   triage: VetNotificationPayload["triage"] | undefined,
-  severity: PetLogSeverity | null | undefined
+  severity: PetLogSeverity | null | undefined,
+  vetAsk?: VetAskKind | null
 ): string {
+  if (vetAsk === "fyi") return "FYI";
+  if (vetAsk === "advise") return "Please advise within 24h";
+  if (vetAsk === "urgent") return "Urgent — please advise";
   const level = triage?.level;
   if (level === "emergency") return "Sameday callback requested";
   if (level === "fyi") return "FYI";
@@ -170,8 +197,12 @@ function subjectUrgencyTag(
 
 function bodyUrgencyLine(
   triage: VetNotificationPayload["triage"] | undefined,
-  severity: PetLogSeverity | null | undefined
+  severity: PetLogSeverity | null | undefined,
+  vetAsk?: VetAskKind | null
 ): string {
+  if (vetAsk === "fyi") return "FYI — routine owner update.";
+  if (vetAsk === "advise") return "Please advise — owner seeks guidance.";
+  if (vetAsk === "urgent") return "Urgent — owner requests timely veterinary guidance.";
   const rationaleRaw = triage?.rationale?.trim();
   const rationale = rationaleRaw
     ? truncateChars(rationaleRaw, URGENCY_RATIONALE_MAX)
@@ -254,7 +285,7 @@ export function buildVetMessageSubject(input: BuildVetJournalMessageInput): stri
   const age = formatAgeCompactFromDob(pet.date_of_birth);
   const sex = formatSexAbbrev(pet);
   const headCompact = `${pet.name} (${breed}, ${age} ${sex})`;
-  const tag = subjectUrgencyTag(input.vetNotificationPayload?.triage, input.severity ?? null);
+  const tag = subjectUrgencyTag(input.vetNotificationPayload?.triage, input.severity ?? null, input.vetAsk);
   const journalPlain = stripMarkdownForVetEmail(input.journalSummary?.trim() ?? "");
   const oneLine = buildOneLineClinicalSummary(pet.name, trimLines(input.userTurns), journalPlain);
   const sep = " · ";
@@ -289,7 +320,7 @@ export function buildVetMessageFromJournalSession(input: BuildVetJournalMessageI
     input.vetOwnerContact?.preferredContactLine?.trim() || "Email reply";
 
   const logged = formatLoggedLine(input);
-  const urgencyLine = bodyUrgencyLine(input.vetNotificationPayload?.triage, input.severity ?? null);
+  const urgencyLine = bodyUrgencyLine(input.vetNotificationPayload?.triage, input.severity ?? null, input.vetAsk);
 
   const journalPlain = stripMarkdownForVetEmail(input.journalSummary?.trim() ?? "");
   const user = trimLines(input.userTurns);

@@ -1,0 +1,124 @@
+{
+  "treeId": "itching_v1.5",
+  "topic": "Itching / scratching",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["itching", "pruritus", "dermatology", "skin"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "flea_tick_preventive",
+      "current_medications",
+      "known_allergies",
+      "recent_skin_journal"
+    ],
+    "adrSymptomKeys": ["pruritus", "skin"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_onset_pattern",
+      "step": 2,
+      "prompt": "How long has {petName} been scratching, and is it constant or comes and goes?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Just today" },
+        { "id": "few_days", "label": "Few days" },
+        { "id": "week_plus", "label": "Week+" },
+        { "id": "months", "label": "On and off for months" }
+      ],
+      "stage2Options": [
+        { "id": "constant", "label": "Constant" },
+        { "id": "worse_night", "label": "Worse at night" },
+        { "id": "worse_walks", "label": "Worse after walks" },
+        { "id": "comes_goes", "label": "Comes and goes" }
+      ]
+    },
+    {
+      "id": "q_character",
+      "step": 3,
+      "prompt": "Where is {petName} scratching, and what does the skin look like? 📸 If you can, a photo helps your vet a lot — tap to add.",
+      "type": "multi",
+      "options": [
+        { "id": "ears", "label": "Ears" },
+        { "id": "paws", "label": "Paws / licking feet" },
+        { "id": "belly", "label": "Belly / armpits" },
+        { "id": "rear", "label": "Rear end / tail base" },
+        { "id": "face", "label": "Face / muzzle" },
+        { "id": "all_over", "label": "All over" },
+        { "id": "red_inflamed", "label": "Red / inflamed" },
+        { "id": "hot_spots", "label": "Hot spots / wet patches" },
+        { "id": "hair_loss", "label": "Hair loss / bald patches" },
+        { "id": "scabs", "label": "Scabs or sores" },
+        { "id": "flea_dirt", "label": "Black specks (flea dirt)" },
+        { "id": "dandruff", "label": "Dandruff / flaky" },
+        { "id": "normal_itchy", "label": "Looks normal but itchy" },
+        { "id": "not_sure", "label": "Not sure" }
+      ]
+    },
+    {
+      "id": "q_behavior",
+      "step": 4,
+      "prompt": "Anything else going on?",
+      "type": "multi",
+      "options": [
+        { "id": "head_shaking", "label": "Head shaking" },
+        { "id": "chewing_paws", "label": "Chewing paws constantly" },
+        { "id": "scooting", "label": "Scooting on rear" },
+        { "id": "skin_smell", "label": "Smell from skin or ears" },
+        { "id": "sleep_disturbed", "label": "Sleep disturbed by itching" },
+        { "id": "nothing_else", "label": "Nothing else" }
+      ]
+    },
+    {
+      "id": "q_exposures",
+      "step": 5,
+      "prompt": "In the last 2 weeks, anything new in {petName}'s environment?",
+      "type": "multi",
+      "options": [
+        { "id": "new_food", "label": "New food or treats", "drilldownPrompt": "What did you switch to?" },
+        { "id": "new_shampoo", "label": "New shampoo / grooming product" },
+        { "id": "new_cleaning", "label": "New cleaning product at home" },
+        { "id": "long_grass", "label": "Long grass / new yard / walks in nature" },
+        { "id": "travel_boarding", "label": "Travel / boarding" },
+        { "id": "season_change", "label": "Season change" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "Anything like this?",
+      "type": "multi",
+      "options": [
+        { "id": "open_sores", "label": "Open or bleeding sores" },
+        { "id": "face_swelling", "label": "Face / muzzle swelling" },
+        { "id": "hives", "label": "Hives / bumps appearing fast" },
+        { "id": "breathing_difficulty", "label": "Difficulty breathing" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    {
+      "ifAllAnswerIds": ["face_swelling", "hives"],
+      "level": "emergency"
+    },
+    { "ifAnyAnswerIds": ["breathing_difficulty"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["hives"], "level": "urgent" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Itching / scratching",
+    "ONSET": "{q_onset_pattern}",
+    "PATTERN": "{q_onset_pattern}",
+    "LOCATION_APPEARANCE": "{q_character}",
+    "BEHAVIOR": "{q_behavior}",
+    "EXPOSURES": "{q_exposures}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

@@ -209,6 +209,17 @@ builder.Services.AddScoped<IMiloJournalTurnService>(sp => sp.GetRequiredService<
 builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
 builder.Services.AddScoped<IMiloHealthBundleService, MiloHealthBundleService>();
+builder.Services.AddSingleton<IJournalTreeCatalog, JournalTreeCatalog>();
+builder.Services.AddScoped<IMedicationAdrService, MedicationAdrService>();
+builder.Services.AddHttpClient<PawBuck.MedicationAdr.IDailyMedSplClient, PawBuck.MedicationAdr.DailyMedSplClient>(client =>
+{
+    client.BaseAddress = new Uri("https://dailymed.nlm.nih.gov/dailymed/services/v2/");
+    client.Timeout = TimeSpan.FromMinutes(2);
+});
+builder.Services.AddScoped<PawBuck.MedicationAdr.IMedicationAdrIngestRunner, PawBuck.MedicationAdr.MedicationAdrIngestRunner>();
+builder.Services.AddScoped<IMedicationAdrIngestionService, MedicationAdrIngestionService>();
+builder.Services.AddScoped<IJournalTreeGeminiHelper, JournalTreeGeminiHelper>();
+builder.Services.AddScoped<IJournalTreeInterviewService, JournalTreeInterviewService>();
 builder.Services.AddScoped<IMiloReasoningService, MiloReasoningService>();
 
 builder.Services.AddHttpClient(nameof(MailInboxResolveService), client =>

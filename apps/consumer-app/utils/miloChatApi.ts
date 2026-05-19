@@ -1,4 +1,10 @@
 import { Pet } from "@/context/petsContext";
+import type {
+  JournalContextSurface,
+  JournalCurrentQuestion,
+  JournalInterviewPhase,
+  JournalStructuredSummary,
+} from "@/types/journalInterview";
 import type { VetMedicalContext, VetNotificationPayload } from "@/types/vetNotification";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
@@ -53,6 +59,24 @@ export type MiloChatApiResult = {
   fileAttachments?: MiloChatFileAttachment[];
   usedPetData?: boolean;
   usedRag?: boolean;
+  interviewPhase?: JournalInterviewPhase;
+  treeId?: string;
+  treeVersion?: string;
+  journalSessionId?: string;
+  questionsAskedCount?: number;
+  contextSurface?: JournalContextSurface;
+  structuredSummary?: JournalStructuredSummary;
+  emergencyDetected?: boolean;
+  confidenceScore?: number;
+  currentQuestion?: JournalCurrentQuestion;
+};
+
+export type JournalActiveSession = {
+  sessionId: string;
+  treeId: string;
+  treeVersion: string;
+  phase: string;
+  questionsAskedCount: number;
 };
 
 function parseVetMedicalContext(raw: unknown): VetMedicalContext | undefined {
@@ -123,8 +147,23 @@ export async function fetchMiloChat(params: {
   /** Prior turns only; do not include the current user message. */
   history: MiloChatHistoryItem[];
   journalMode?: boolean;
+  journalTreeId?: string;
+  journalSessionId?: string;
+  journalChipIds?: string[];
+  journalAction?: string;
+  journalSummaryFields?: Record<string, string>;
 }): Promise<MiloChatApiResult> {
-  const { message, pet, history, journalMode } = params;
+  const {
+    message,
+    pet,
+    history,
+    journalMode,
+    journalTreeId,
+    journalSessionId,
+    journalChipIds,
+    journalAction,
+    journalSummaryFields,
+  } = params;
 
   const {
     data: { session },
@@ -144,6 +183,11 @@ export async function fetchMiloChat(params: {
     pet: pet ? petToMiloApiContext(pet) : null,
     history,
     journalMode: journalMode ?? false,
+    journalTreeId: journalTreeId ?? undefined,
+    journalSessionId: journalSessionId ?? undefined,
+    journalChipIds: journalChipIds ?? undefined,
+    journalAction: journalAction ?? undefined,
+    journalSummaryFields: journalSummaryFields ?? undefined,
   };
 
   miloDebug("POST", chatUrl, {
@@ -200,6 +244,16 @@ export async function fetchMiloChat(params: {
     usedPetData?: boolean;
     usedRag?: boolean;
     fileAttachments?: unknown;
+    interviewPhase?: JournalInterviewPhase;
+    treeId?: string;
+    treeVersion?: string;
+    journalSessionId?: string;
+    questionsAskedCount?: number;
+    contextSurface?: JournalContextSurface;
+    structuredSummary?: JournalStructuredSummary;
+    emergencyDetected?: boolean;
+    confidenceScore?: number;
+    currentQuestion?: JournalCurrentQuestion;
   };
   if (!data?.answer) {
     miloDebug("error: JSON had no answer field", data);
@@ -262,7 +316,77 @@ export async function fetchMiloChat(params: {
     fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
     usedPetData: data.usedPetData,
     usedRag: data.usedRag,
+    interviewPhase: data.interviewPhase,
+    treeId: data.treeId,
+    treeVersion: data.treeVersion,
+    journalSessionId: data.journalSessionId,
+    questionsAskedCount: data.questionsAskedCount,
+    contextSurface: data.contextSurface,
+    structuredSummary: data.structuredSummary,
+    emergencyDetected: data.emergencyDetected,
+    confidenceScore: data.confidenceScore,
+    currentQuestion: data.currentQuestion,
   };
+}
+
+export async function fetchActiveJournalSession(petId: string): Promise<JournalActiveSession | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+
+  const baseUrl = getPawbuckApiBaseUrl();
+  if (!baseUrl) return null;
+
+  const url = `${baseUrl}/api/milo/journal/sessions/active?petId=${encodeURIComponent(petId)}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as {
+    sessionId?: string;
+    treeId?: string;
+    treeVersion?: string;
+    phase?: string;
+    questionsAskedCount?: number;
+  };
+  if (!data.sessionId) return null;
+  return {
+    sessionId: data.sessionId,
+    treeId: data.treeId ?? "",
+    treeVersion: data.treeVersion ?? "",
+    phase: data.phase ?? "",
+    questionsAskedCount: data.questionsAskedCount ?? 0,
+  };
+}
+
+export async function linkJournalSessionEntry(params: {
+  sessionId: string;
+  petId: string;
+  journalEntryId: string;
+}): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return;
+
+  const baseUrl = getPawbuckApiBaseUrl();
+  if (!baseUrl) return;
+
+  const url = `${baseUrl}/api/milo/journal/sessions/${encodeURIComponent(params.sessionId)}/link-entry`;
+  await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      petId: params.petId,
+      journalEntryId: params.journalEntryId,
+    }),
+  });
 }
 
 /** Thumbs up/down for a Milo assistant turn (general or journal). */
@@ -271,6 +395,10 @@ export async function submitMiloJournalFeedback(params: {
   /** @deprecated use turnId */
   responseId?: string;
   rating: "up" | "down";
+  feedbackReason?: string;
+  treeVersion?: string;
+  questionsAsked?: number;
+  feedbackStage?: string;
 }): Promise<void> {
   const {
     data: { session },
@@ -301,6 +429,10 @@ export async function submitMiloJournalFeedback(params: {
     body: JSON.stringify({
       turnId: id,
       rating: params.rating,
+      feedbackReason: params.feedbackReason,
+      treeVersion: params.treeVersion,
+      questionsAsked: params.questionsAsked,
+      feedbackStage: params.feedbackStage,
     }),
   });
 

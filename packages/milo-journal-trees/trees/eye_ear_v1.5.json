@@ -1,0 +1,156 @@
+{
+  "treeId": "eye_ear_v1.5",
+  "topic": "Eye or ear issue",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["eye", "ear", "ophthalmology", "otitis"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "breed_ear_risk",
+      "prior_eye_ear_entries",
+      "current_medications",
+      "recent_grooming"
+    ],
+    "adrSymptomKeys": ["eye", "ear"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_type",
+      "step": 2,
+      "prompt": "Is this an eye or ear issue?",
+      "type": "single",
+      "options": [
+        { "id": "eye", "label": "Eye(s)" },
+        { "id": "ear", "label": "Ear(s)" },
+        { "id": "both", "label": "Both" }
+      ]
+    },
+    {
+      "id": "q_character_eye",
+      "step": 3,
+      "prompt": "What's happening with the eye? 📸 A photo helps your vet a lot.",
+      "type": "multi",
+      "conditionalOn": "eye_or_both",
+      "options": [
+        { "id": "redness", "label": "Redness" },
+        { "id": "discharge_clear", "label": "Discharge — clear" },
+        { "id": "discharge_yellow", "label": "Discharge — yellow/green" },
+        { "id": "swelling", "label": "Swelling around eye" },
+        { "id": "squinting", "label": "Squinting or holding shut" },
+        { "id": "cloudy", "label": "Cloudy / hazy" },
+        { "id": "rubbing", "label": "Rubbing or pawing at it" },
+        { "id": "not_sure", "label": "Not sure" },
+        { "id": "left", "label": "Left eye" },
+        { "id": "right", "label": "Right eye" },
+        { "id": "both_eyes", "label": "Both eyes" }
+      ]
+    },
+    {
+      "id": "q_character_ear",
+      "step": 3,
+      "prompt": "What's going on with the ear?",
+      "type": "multi",
+      "conditionalOn": "ear_or_both",
+      "options": [
+        { "id": "head_shaking", "label": "Head shaking" },
+        { "id": "scratching", "label": "Scratching the ear" },
+        { "id": "head_tilt", "label": "Tilting head one way" },
+        { "id": "smell", "label": "Smell from the ear" },
+        { "id": "discharge", "label": "Discharge / wax visible" },
+        { "id": "redness_inside", "label": "Redness inside" },
+        { "id": "pain_touch", "label": "Whining when touched" },
+        { "id": "left", "label": "Left ear" },
+        { "id": "right", "label": "Right ear" },
+        { "id": "both_ears", "label": "Both ears" }
+      ]
+    },
+    {
+      "id": "q_onset_behavior",
+      "step": 4,
+      "prompt": "When did you first notice, and how is {petName} otherwise?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Today" },
+        { "id": "yesterday", "label": "Yesterday" },
+        { "id": "few_days", "label": "Few days" },
+        { "id": "week_plus", "label": "Week+" }
+      ],
+      "stage2Options": [
+        { "id": "acting_normal", "label": "Acting normally" },
+        { "id": "less_playful", "label": "Less playful" },
+        { "id": "light_sensitive", "label": "Sensitive to light" },
+        { "id": "not_eating", "label": "Not eating" },
+        { "id": "wont_touch_ear", "label": "Won't let me touch the ear" },
+        { "id": "balance_issues", "label": "Walking in circles / loss of balance" },
+        { "id": "nothing_else", "label": "Nothing else" }
+      ]
+    },
+    {
+      "id": "q_recent_event",
+      "step": 5,
+      "prompt": "Anything that might have caused it?",
+      "type": "multi",
+      "options": [
+        { "id": "outdoor_brush", "label": "Outdoor activity / brush exposure" },
+        { "id": "rough_play", "label": "Rough play with other dog" },
+        { "id": "grooming", "label": "New shampoo or grooming" },
+        { "id": "something_in_eye", "label": "Got something in the eye" },
+        { "id": "swimming_bath", "label": "Swimming / bath in last week" },
+        { "id": "ear_cleaning", "label": "New grooming / ear cleaning" },
+        { "id": "flea_product", "label": "New flea product" },
+        { "id": "long_grass", "label": "Long grass / outdoor exposure" },
+        { "id": "dont_know", "label": "Don't know" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags_eye",
+      "step": 6,
+      "prompt": "Quick safety check for the eye — any of these?",
+      "type": "multi",
+      "conditionalOn": "eye_or_both",
+      "options": [
+        { "id": "bulging", "label": "Eye looks bigger / bulging" },
+        { "id": "wont_open", "label": "Won't open at all" },
+        { "id": "blood_inside", "label": "Blood visible inside eye" },
+        { "id": "scratch_object", "label": "Visible scratch or object" },
+        { "id": "vision_loss", "label": "Sudden vision loss" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_red_flags_ear",
+      "step": 6,
+      "prompt": "Quick safety check for the ear — any of these?",
+      "type": "multi",
+      "conditionalOn": "ear_or_both",
+      "options": [
+        { "id": "head_tilt_balance", "label": "Tilting head + walking in circles or wobbling" },
+        { "id": "ear_swelling", "label": "Sudden swelling of ear flap" },
+        { "id": "bleeding", "label": "Bleeding from ear" },
+        { "id": "hearing_loss", "label": "Sudden hearing loss" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["bulging", "wont_open", "blood_inside"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["head_tilt_balance", "ear_swelling"], "level": "urgent" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Eye or ear issue",
+    "TYPE": "{q_type}",
+    "EYE_SIGNS": "{q_character_eye}",
+    "EAR_SIGNS": "{q_character_ear}",
+    "ONSET_BEHAVIOR": "{q_onset_behavior}",
+    "RECENT_EVENT": "{q_recent_event}",
+    "RED_FLAGS": "{q_red_flags_eye} {q_red_flags_ear}",
+    "NOTE": "{q_freeform}"
+  }
+}

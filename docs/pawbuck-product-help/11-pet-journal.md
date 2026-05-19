@@ -29,8 +29,21 @@ Saving stores one baseline per pet. PawBuck and Milo use this to **notice change
 
 ## Milo journal mode
 
-When you open **Milo** for a journal check-in, the assistant runs a short **structured interview**. It introduces itself as **Milo AI** (or **Milo**) only when your **pet's name is Milo**; otherwise it uses **PawBuck's journal helper**. The interview follows **five phases in order**: frame what you noticed, symptom detail, a **contextual scan** (meds, recent vaccines, vet visits, diet, travel, household changes—some items are filled from records when available), a **red-flag** safety screen, then a **confirm** step before anything is saved.
+When you open **Milo** for a journal check-in, the assistant runs a short **structured interview**. It introduces itself as **Milo AI** (or **Milo**) only when your **pet's name is Milo**; otherwise it uses **PawBuck's journal helper**.
 
-- Each step offers **quick-reply chips**; every chip set includes **Not sure** and **+ Add details** (you can always type more on the next line).
-- If you select something that indicates an **emergency**, the app stops the interview and tells you to seek **in-person emergency vet care**—**no journal entry is saved** on that turn.
-- After you **confirm** the draft, the saved note uses **everyday wording** on your journal card; clinical wording for your vet is handled separately when you use vet messaging features.
+### Tree-driven interviews (v1.5, when enabled)
+
+1. **Context surfacing** — Milo shows what it already knows from your pet's record (vaccines, meds, prior notes) and any medication flags. Tap **Looks right — continue** to start questions.
+2. **Clinical questions** (about 4–6) — Topic-specific chips (e.g. vomiting: timing, what it looks like, appetite, triggers).
+3. **Structured summary** — SOAP-style fields you can review and edit before save.
+4. **Share with vet** — Teal action to email your vet with an ask (FYI / please advise / urgent).
+
+Enable via admin **Milo journal** settings: **tree-driven journal interviews**. The app also respects `EXPO_PUBLIC_JOURNAL_TREE_INTERVIEW=true` for early testing.
+
+### Legacy checklist mode (fallback)
+
+If tree mode is off, the interview follows **five phases**: frame, symptom detail, contextual scan, red-flag screen, confirm.
+
+- Each step offers **quick-reply chips**; every chip set includes **Not sure** and **+ Add details**.
+- Emergencies stop the interview without saving until you seek care.
+- After **confirm**, the saved note uses everyday wording; vet messaging uses separate clinical copy.

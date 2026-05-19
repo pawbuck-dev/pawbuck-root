@@ -257,6 +257,37 @@ export default function PetJournalHomeCard({ pet }: Props) {
         </Text>
       ) : null}
 
+      <Pressable
+        onPress={() =>
+          withPremium(() =>
+            router.push({
+              pathname: "/(home)/milo",
+              params: { pet: pet.id, journalDomain: "health" },
+            } as any)
+          )
+        }
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderRadius: 14,
+          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+          marginBottom: 14,
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`Tell Milo what's happening with ${pet.name}`}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.primary} />
+        <Text style={{ flex: 1, fontSize: 15, color: theme.secondary }}>
+          Tell Milo what&apos;s happening with {pet.name}…
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+      </Pressable>
+
       <Text
         style={{
           fontSize: 11,
@@ -266,7 +297,7 @@ export default function PetJournalHomeCard({ pet }: Props) {
           marginBottom: 8,
         }}
       >
-        ADD TO JOURNAL
+        QUICK LOG
       </Text>
       <ScrollView
         horizontal

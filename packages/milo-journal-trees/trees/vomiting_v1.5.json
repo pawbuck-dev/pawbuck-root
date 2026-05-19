@@ -1,0 +1,138 @@
+{
+  "treeId": "vomiting_v1.5",
+  "topic": "Vomiting / diarrhea",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["vomiting", "diarrhea", "gi"],
+  "contextSurface": {
+    "alwaysSurface": ["vaccines_status", "age", "weight", "current_medications", "prior_gi_episodes"],
+    "adrSymptomKeys": ["vomiting", "gi", "diarrhea"],
+    "puppyGiWarning": true
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_type",
+      "step": 2,
+      "prompt": "Is this vomiting, diarrhea, or both?",
+      "type": "multi",
+      "options": [
+        { "id": "vomiting", "label": "Vomiting" },
+        { "id": "diarrhea", "label": "Diarrhea" },
+        { "id": "both", "label": "Both" }
+      ]
+    },
+    {
+      "id": "q_timing",
+      "step": 2,
+      "prompt": "When did it start, and how many times so far?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Just started today" },
+        { "id": "yesterday", "label": "Started yesterday" },
+        { "id": "2_3_days", "label": "2–3 days" },
+        { "id": "longer", "label": "Longer than 3 days" }
+      ],
+      "stage2Options": [
+        { "id": "once", "label": "Once" },
+        { "id": "2_3", "label": "2–3 times" },
+        { "id": "4_6", "label": "4–6 times" },
+        { "id": "many", "label": "Many times" }
+      ]
+    },
+    {
+      "id": "q_character_vomit",
+      "step": 3,
+      "prompt": "What does it look like?",
+      "type": "multi",
+      "conditionalOn": "vomiting_or_both",
+      "options": [
+        { "id": "food", "label": "Food" },
+        { "id": "bile", "label": "Yellow bile" },
+        { "id": "foam", "label": "Foam/liquid" },
+        { "id": "blood_red", "label": "Blood (red)" },
+        { "id": "coffee_ground", "label": "Coffee-ground (dark)" },
+        { "id": "not_sure", "label": "Not sure" }
+      ]
+    },
+    {
+      "id": "q_character_stool",
+      "step": 3,
+      "prompt": "What does the stool look like?",
+      "type": "multi",
+      "conditionalOn": "diarrhea_or_both",
+      "options": [
+        { "id": "soft", "label": "Soft / pudding" },
+        { "id": "watery", "label": "Watery" },
+        { "id": "blood_red", "label": "Red blood" },
+        { "id": "black_tarry", "label": "Black/tarry" },
+        { "id": "mucus", "label": "Mucus" },
+        { "id": "not_sure", "label": "Not sure" }
+      ]
+    },
+    {
+      "id": "q_systemic",
+      "step": 4,
+      "prompt": "How is {petName} otherwise?",
+      "type": "multi",
+      "options": [
+        { "id": "eating_ok", "label": "Eating normally" },
+        { "id": "off_food", "label": "Off food" },
+        { "id": "drinking_ok", "label": "Drinking normally" },
+        { "id": "drinking_less", "label": "Drinking less" },
+        { "id": "energy_ok", "label": "Normal energy" },
+        { "id": "tired", "label": "Tired / sleeping more" },
+        { "id": "hiding", "label": "Hiding" },
+        { "id": "belly_pain", "label": "Belly seems painful" }
+      ]
+    },
+    {
+      "id": "q_triggers",
+      "step": 5,
+      "prompt": "In the last 2 days, anything different for {petName}?",
+      "type": "multi",
+      "options": [
+        { "id": "new_food", "label": "New food or treat", "drilldownPrompt": "What did you switch to?" },
+        { "id": "table_scraps", "label": "Table scraps or human food", "drilldownPrompt": "What did they eat?" },
+        { "id": "got_into_something", "label": "Might have gotten into something", "drilldownPrompt": "Any idea what?", "drilldownOptional": true },
+        { "id": "stress", "label": "Stressful event (boarding/travel/new pet)", "drilldownPrompt": "What changed?" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "One more check — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "blood", "label": "Blood in vomit or stool" },
+        { "id": "cant_keep_water", "label": "Can't keep water down >12h" },
+        { "id": "very_weak", "label": "Very weak / hard to wake" },
+        { "id": "bloated", "label": "Bloated belly" },
+        { "id": "pale_gums", "label": "Pale or white gums" },
+        { "id": "none", "label": "None of these" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["coffee_ground", "black_tarry"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["bloated"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["pale_gums", "very_weak"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["blood", "cant_keep_water"], "level": "urgent" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Vomiting / diarrhea",
+    "ONSET": "{q_timing}",
+    "PATTERN": "{q_character_vomit} {q_character_stool}",
+    "APPETITE": "{q_systemic}",
+    "ENERGY": "{q_systemic}",
+    "TRIGGERS": "{q_triggers}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

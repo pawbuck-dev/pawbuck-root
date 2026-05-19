@@ -1,0 +1,40 @@
+{
+  "treeId": "meal_v1.5",
+  "topic": "Meal log",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["meal", "feeding", "appetite"],
+  "contextSurface": {
+    "alwaysSurface": ["current_diet"]
+  },
+  "maxQuestions": 3,
+  "questions": [
+    {
+      "id": "q_meal",
+      "step": 2,
+      "prompt": "Anything different about this meal?",
+      "type": "multi",
+      "options": [
+        { "id": "normal", "label": "Normal full bowl" },
+        { "id": "slower", "label": "Ate slower" },
+        { "id": "refused", "label": "Refused or left some" },
+        { "id": "different_food", "label": "Different food than usual" },
+        { "id": "treats_included", "label": "Treats / human food included" },
+        { "id": "vomited_after", "label": "Vomited after" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 3,
+      "prompt": "Anything else about this meal?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["vomited_after"], "level": "urgent" }
+  ],
+  "summaryFieldMap": {
+    "ACTIVITY": "Meal",
+    "MEAL": "{q_meal}",
+    "NOTE": "{q_freeform}"
+  }
+}

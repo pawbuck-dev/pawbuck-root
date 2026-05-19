@@ -70,6 +70,7 @@ export default function MessagesScreen() {
     composeMessage?: string;
     composeSubject?: string;
     composePetId?: string;
+    composeTo?: string;
   }>();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
@@ -140,14 +141,18 @@ export default function MessagesScreen() {
       if (params.composePetId) {
         setComposeInitialPetId(String(params.composePetId));
       }
+      if (params.composeTo) {
+        setInitialRecipientEmail(String(params.composeTo));
+      }
       setShowNewMessageModal(true);
       router.setParams({
         composeMessage: undefined,
         composeSubject: undefined,
         composePetId: undefined,
+        composeTo: undefined,
       });
     }
-  }, [params.composeMessage, params.composeSubject, params.composePetId]);
+  }, [params.composeMessage, params.composeSubject, params.composePetId, params.composeTo]);
 
   // Handle refresh
   const handleRefresh = async () => {

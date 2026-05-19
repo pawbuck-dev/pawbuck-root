@@ -1,0 +1,122 @@
+{
+  "treeId": "lethargy_v1.5",
+  "topic": "Lethargy / low energy",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["lethargy", "low_energy", "tired"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "vaccines_status",
+      "age",
+      "weight",
+      "current_medications",
+      "last_walk_activity",
+      "recent_journal_7d"
+    ],
+    "adrSymptomKeys": ["lethargy", "sedation"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_onset_severity",
+      "step": 2,
+      "prompt": "How long has {petName} been low-energy, and how different from normal?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Today only" },
+        { "id": "yesterday", "label": "Since yesterday" },
+        { "id": "2_3_days", "label": "2–3 days" },
+        { "id": "week_plus", "label": "Building over a week+" }
+      ],
+      "stage2Options": [
+        { "id": "little_quiet", "label": "A little quiet" },
+        { "id": "noticeably_tired", "label": "Noticeably tired" },
+        { "id": "wont_get_up", "label": "Won't get up much" },
+        { "id": "barely_responsive", "label": "Barely responsive" }
+      ]
+    },
+    {
+      "id": "q_engagement",
+      "step": 3,
+      "prompt": "Is {petName} acting like themselves otherwise — interested in food, you, the world?",
+      "type": "single",
+      "options": [
+        { "id": "yes_just_tired", "label": "Yes, just tired" },
+        { "id": "less_interested", "label": "Less interested than usual" },
+        { "id": "withdrawn", "label": "Withdrawn / hiding" },
+        { "id": "no_routine_cues", "label": "Doesn't recognize routine cues" }
+      ]
+    },
+    {
+      "id": "q_body_signs",
+      "step": 4,
+      "prompt": "Have you noticed any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "eating_less", "label": "Eating less" },
+        { "id": "drinking_less", "label": "Drinking less" },
+        { "id": "drinking_more", "label": "Drinking more" },
+        { "id": "limping_stiff", "label": "Limping / stiff" },
+        { "id": "warm_panting", "label": "Warm to touch / panting" },
+        { "id": "shivering", "label": "Shivering" },
+        { "id": "vomiting_diarrhea", "label": "Vomiting / diarrhea" },
+        { "id": "nothing_else", "label": "Nothing else obvious" }
+      ]
+    },
+    {
+      "id": "q_recent",
+      "step": 5,
+      "prompt": "Anything happen recently that could be related?",
+      "type": "multi",
+      "options": [
+        { "id": "hard_play", "label": "Long walk / hard play yesterday" },
+        { "id": "vet_vaccines", "label": "Vet visit or vaccines in last 48h" },
+        { "id": "new_medication", "label": "New medication" },
+        { "id": "stressful_event", "label": "Stressful event" },
+        { "id": "heat_exposure", "label": "Hot weather / overheated" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "Quick safety check — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "pale_gums", "label": "Pale, white, or blue gums" },
+        { "id": "collapsed", "label": "Collapsed or fainted" },
+        { "id": "painful_belly", "label": "Hard, painful, or bloated belly" },
+        { "id": "labored_breathing", "label": "Very rapid or labored breathing" },
+        { "id": "seizure", "label": "Seizure / twitching" },
+        { "id": "none", "label": "None of these" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["barely_responsive"], "level": "emergency" },
+    { "ifAnyAnswerIds": ["pale_gums", "collapsed", "painful_belly", "labored_breathing", "seizure"], "level": "emergency" },
+    {
+      "ifAllAnswerIds": ["drinking_more", "eating_less", "noticeably_tired"],
+      "level": "urgent"
+    },
+    {
+      "ifAllAnswerIds": ["heat_exposure", "warm_panting", "noticeably_tired"],
+      "level": "emergency"
+    }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Lethargy / low energy",
+    "ONSET": "{q_onset_severity}",
+    "SEVERITY": "{q_onset_severity}",
+    "ENGAGEMENT": "{q_engagement}",
+    "ASSOCIATED": "{q_body_signs}",
+    "RECENT": "{q_recent}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

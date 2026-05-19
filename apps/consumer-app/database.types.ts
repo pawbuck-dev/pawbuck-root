@@ -1385,6 +1385,7 @@ export type Database = {
           domain: string
           entry_date: string
           id: string
+          interview_metadata: Json | null
           linked_clinical_exam_id: string | null
           milo_idempotency_key: string | null
           note: string | null
@@ -1400,6 +1401,7 @@ export type Database = {
           domain: string
           entry_date?: string
           id?: string
+          interview_metadata?: Json | null
           linked_clinical_exam_id?: string | null
           milo_idempotency_key?: string | null
           note?: string | null
@@ -1415,6 +1417,7 @@ export type Database = {
           domain?: string
           entry_date?: string
           id?: string
+          interview_metadata?: Json | null
           linked_clinical_exam_id?: string | null
           milo_idempotency_key?: string | null
           note?: string | null

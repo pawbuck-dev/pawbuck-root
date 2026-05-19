@@ -22,6 +22,7 @@ public class MiloReasoningService : IMiloReasoningService
     private readonly IPetConversationalContextService _petConversationalContext;
     private readonly IMiloJournalConfigProvider _journalConfig;
     private readonly IMiloJournalTurnService _journalTurns;
+    private readonly IJournalTreeInterviewService _journalTreeInterview;
     private readonly IKnowledgeBaseService _knowledgeBase;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<GeminiOptions> _geminiOptions;
@@ -33,6 +34,7 @@ public class MiloReasoningService : IMiloReasoningService
         IPetConversationalContextService petConversationalContext,
         IMiloJournalConfigProvider journalConfig,
         IMiloJournalTurnService journalTurns,
+        IJournalTreeInterviewService journalTreeInterview,
         IKnowledgeBaseService knowledgeBase,
         IHttpClientFactory httpClientFactory,
         IOptions<GeminiOptions> geminiOptions,
@@ -43,6 +45,7 @@ public class MiloReasoningService : IMiloReasoningService
         _petConversationalContext = petConversationalContext;
         _journalConfig = journalConfig;
         _journalTurns = journalTurns;
+        _journalTreeInterview = journalTreeInterview;
         _knowledgeBase = knowledgeBase;
         _httpClientFactory = httpClientFactory;
         _geminiOptions = geminiOptions;
@@ -105,6 +108,38 @@ public class MiloReasoningService : IMiloReasoningService
 
         if (request.JournalMode && petId.HasValue && petHasAccess)
         {
+            var journalConfig = await _journalConfig.GetAsync(cancellationToken);
+            var treeResponse = await _journalTreeInterview.TryRunTurnAsync(
+                request,
+                userId,
+                petId.Value,
+                journalConfig,
+                cancellationToken);
+            if (treeResponse != null)
+                return treeResponse;
+
+            if (journalConfig.JournalTreeInterviewEnabled
+                && !Guid.TryParse(request.JournalSessionId, out _))
+            {
+                return new MiloChatResponse
+                {
+                    Answer =
+                        $"Tell me what's going on with {request.Pet?.Name?.Trim() ?? "your pet"} — pick a topic or describe it in your own words.",
+                    SuggestedReplies =
+                    [
+                        "Vomiting or diarrhea",
+                        "Lethargic today",
+                        "Changed appetite",
+                        "Scratching a lot",
+                        "Limping",
+                        "Coughing",
+                        "Eye or ear issue",
+                    ],
+                    JournalStatus = "CONTINUE",
+                    PromptVersion = journalConfig.PromptVersion,
+                };
+            }
+
             var journalResponse = await RunJournalInterviewAsync(
                 apiKey,
                 request,

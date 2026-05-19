@@ -20,6 +20,7 @@ const defaultConfig = (): MiloJournalConfigSnapshot => ({
   promptVersion: "v1",
   journalTemperature: 0.65,
   journalMaxOutputTokens: 1024,
+  journalTreeInterviewEnabled: true,
 });
 
 export function MiloJournalPanel({ client }: MiloJournalPanelProps) {
@@ -99,6 +100,29 @@ export function MiloJournalPanel({ client }: MiloJournalPanelProps) {
           <p className="muted">
             Total: {aggregates.totalFeedback} · Up: {aggregates.upCount} · Down: {aggregates.downCount}
           </p>
+          {aggregates.byTreeVersion?.length > 0 ? (
+            <div className="table-scroll" style={{ marginTop: 12 }}>
+              <h4 style={{ fontSize: "0.9rem", marginBottom: 6 }}>By tree version</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tree version</th>
+                    <th>Up</th>
+                    <th>Down</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aggregates.byTreeVersion.map((row) => (
+                    <tr key={row.promptVersion}>
+                      <td>{row.promptVersion}</td>
+                      <td>{row.upCount}</td>
+                      <td>{row.downCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {aggregates.byPromptVersion.length > 0 ? (
             <div className="table-scroll">
               <table>
@@ -198,6 +222,16 @@ export function MiloJournalPanel({ client }: MiloJournalPanelProps) {
             value={config.promptVersion}
             onChange={(e) => setConfig((p) => ({ ...p, promptVersion: e.target.value }))}
           />
+        </label>
+        <label style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={config.journalTreeInterviewEnabled === true}
+            onChange={(e) =>
+              setConfig((p) => ({ ...p, journalTreeInterviewEnabled: e.target.checked }))
+            }
+          />
+          <span>Enable tree-driven journal interviews (v1.5)</span>
         </label>
         <label>
           <span className="muted" style={{ display: "block", fontSize: "0.85rem" }}>

@@ -3,13 +3,11 @@ import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 
 describe("getOfflineJournalTurn", () => {
   it("first turn asks duration with chips", () => {
-    const r = getOfflineJournalTurn(0, "Benji");
+    const r = getOfflineJournalTurn(0, "Benji", "vomiting");
     expect(r.journalSessionComplete).toBe(false);
-    expect(r.suggestedReplies).toHaveLength(6);
+    expect(r.suggestedReplies.length).toBeGreaterThanOrEqual(4);
     expect(r.suggestedReplies).toContain("Not sure");
-    expect(r.suggestedReplies).toContain("+ Add details");
     expect(r.answer).toContain("Benji");
-    expect(r.answer).toMatch(/how long/i);
   });
 
   it("second turn asks follow-up", () => {
@@ -18,30 +16,16 @@ describe("getOfflineJournalTurn", () => {
     expect(r.suggestedReplies.length).toBeGreaterThan(0);
   });
 
-  it("third turn completes with no chips", () => {
-    const r = getOfflineJournalTurn(2, "Luna");
+  it("vomiting tree completes after appetite step", () => {
+    const r = getOfflineJournalTurn(3, "Luna", "vomiting");
     expect(r.journalSessionComplete).toBe(true);
-    expect(r.suggestedReplies).toHaveLength(0);
+    expect(r.structuredFields?.SYMPTOM).toBeDefined();
   });
 
-  it.each([
-    [0, false, 6, /how long/i],
-    [1, false, 6, /anything else/i],
-    [2, true, 0, /All information recorded/i],
-  ] as const)(
-    "priorUserLineCount %i → complete=%s, chipCount=%i (matches journalMode shape)",
-    (priorCount, complete, chipCount, answerPattern) => {
-      const r = getOfflineJournalTurn(priorCount, "Rex");
-      expect(r.journalSessionComplete).toBe(complete);
-      expect(r.suggestedReplies).toHaveLength(chipCount);
-      expect(r.answer).toMatch(answerPattern);
-      expect(r.answer).toContain("Rex");
-    }
-  );
-
-  it("clamps priorUserLineCount below 0 and above 2", () => {
-    expect(getOfflineJournalTurn(-5, "A").answer).toEqual(getOfflineJournalTurn(0, "A").answer);
-    expect(getOfflineJournalTurn(99, "B").answer).toEqual(getOfflineJournalTurn(2, "B").answer);
+  it("generic flow completes on third turn", () => {
+    const r = getOfflineJournalTurn(2, "Rex", "something vague");
+    expect(r.journalSessionComplete).toBe(true);
+    expect(r.suggestedReplies).toHaveLength(0);
   });
 });
 

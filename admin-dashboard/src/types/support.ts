@@ -186,6 +186,14 @@ export interface MiloJournalConfigSnapshot {
   promptVersion: string;
   journalTemperature: number;
   journalMaxOutputTokens: number;
+  journalTreeInterviewEnabled?: boolean;
+}
+
+export interface MedicationAdrStats {
+  productCount: number;
+  entryCount: number;
+  overrideCount: number;
+  lastIngestionRun: string | null;
 }
 
 export interface MiloJournalFeedbackByVersionRow {
@@ -199,6 +207,24 @@ export interface MiloJournalFeedbackAggregates {
   upCount: number;
   downCount: number;
   byPromptVersion: MiloJournalFeedbackByVersionRow[];
+  byTreeVersion: MiloJournalFeedbackByVersionRow[];
+}
+
+export interface MedicationAdrOverrideRow {
+  id: string;
+  genericName: string | null;
+  labelText: string;
+  symptomTaxonomy: string[];
+  confidence: number;
+  active: boolean;
+}
+
+export interface CreateMedicationAdrOverrideBody {
+  genericName?: string;
+  labelText: string;
+  symptomTaxonomy: string[];
+  confidence?: number;
+  notes?: string;
 }
 
 /** POST /api/support/milo/journal/chat-smoke */

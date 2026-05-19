@@ -4,7 +4,8 @@ using PawBuck.API.Models;
 namespace PawBuck.API.Services;
 
 /// <summary>
-/// Turn budget, contextual-scan gaps, and chip templates for Milo journal interviews.
+/// Legacy LLM checklist orchestration (med/vaccine contextual-scan turns).
+/// Superseded by <see cref="JournalTreeInterviewService"/> when <c>journalTreeInterviewEnabled</c> is true; scheduled for removal after one release.
 /// </summary>
 public static class JournalInterviewOrchestration
 {

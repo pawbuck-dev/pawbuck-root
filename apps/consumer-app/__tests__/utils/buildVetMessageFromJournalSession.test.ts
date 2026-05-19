@@ -2,6 +2,7 @@ import type { Pet } from "@/context/petsContext";
 import {
   buildVetMessageFromJournalSession,
   buildVetMessageSubject,
+  stripJournalChipLinesFromVetBody,
   pickPrimaryVetGreetingName,
   shouldSuppressVetEmailCompose,
   stripMarkdownForVetEmail,
@@ -133,5 +134,25 @@ describe("buildVetMessageSubject", () => {
     expect(subject).toContain("FYI");
     expect(subject).toMatch(/·/);
     expect(subject).not.toContain("!");
+  });
+
+  it("uses vetAsk when provided", () => {
+    const subject = buildVetMessageSubject({
+      pet: mockPet(),
+      userTurns: ["Coughing"],
+      journalSummary: null,
+      ownerSigningName: "Sam",
+      sessionDateLabel: "May 10, 2026",
+      severity: "low",
+      vetAsk: "urgent",
+    });
+    expect(subject).toContain("Urgent");
+  });
+});
+
+describe("stripJournalChipLinesFromVetBody", () => {
+  it("removes confirm chip lines from body", () => {
+    const body = "SYMPTOM: Cough\n\nLooks right — save\nEdit a field";
+    expect(stripJournalChipLinesFromVetBody(body)).toBe("SYMPTOM: Cough");
   });
 });

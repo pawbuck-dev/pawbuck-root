@@ -112,11 +112,22 @@ public class MiloReasoningServiceChatTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(generalTurnId);
 
+        var treeInterview = new Mock<IJournalTreeInterviewService>();
+        treeInterview
+            .Setup(t => t.TryRunTurnAsync(
+                It.IsAny<MiloChatRequest>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<MiloJournalConfigSnapshot>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MiloChatResponse?)null);
+
         var sut = new MiloReasoningService(
             petFacts.Object,
             context.Object,
             journalConfig.Object,
             turns.Object,
+            treeInterview.Object,
             kb.Object,
             factory.Object,
             Options.Create(new GeminiOptions { ApiKey = "k", Model = "gemini-2.5-flash" }),
@@ -236,11 +247,22 @@ public class MiloReasoningServiceChatTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(generalTurnId);
 
+        var treeInterviewDoc = new Mock<IJournalTreeInterviewService>();
+        treeInterviewDoc
+            .Setup(t => t.TryRunTurnAsync(
+                It.IsAny<MiloChatRequest>(),
+                It.IsAny<Guid>(),
+                It.IsAny<Guid>(),
+                It.IsAny<MiloJournalConfigSnapshot>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MiloChatResponse?)null);
+
         var sut = new MiloReasoningService(
             petFacts.Object,
             context.Object,
             journalConfig.Object,
             turns.Object,
+            treeInterviewDoc.Object,
             kb.Object,
             factory.Object,
             Options.Create(new GeminiOptions { ApiKey = "k", Model = "gemini-2.5-flash" }),

@@ -48,6 +48,12 @@ pnpm run test:all
 
 In the **admin dashboard** (Milo tab), use **Live journal test**: search by account email, pick the user and pet, enter a message, and send. That calls `POST /api/support/milo/journal/chat-smoke` on PawBuck.API (AdminSupport only) — same [`IMiloReasoningService.ChatAsync`](../backend/PawBuck.API/Services/MiloReasoningService.cs) pipeline as the consumer app, without subscription gating. Implementation: [`MiloJournalChatSmoke.tsx`](../admin-dashboard/src/components/MiloJournalChatSmoke.tsx), [`SupportMiloJournalController`](../backend/PawBuck.API/Controllers/SupportMiloJournalController.cs) `chat-smoke` action.
 
+### Journal tree interviews (v1.5)
+
+- **Tree JSON schema:** `pnpm milo-journal-trees:test` (or `pnpm --filter @pawbuck/milo-journal-trees test`) validates all files under `packages/milo-journal-trees/trees/`.
+- **API:** `dotnet test backend/PawBuck.API.Tests --filter "FullyQualifiedName~JournalTree"` for catalog + interview DTO tests.
+- **Flag:** API reads `journalTreeInterviewEnabled` from `milo_journal_config`; consumer can set `EXPO_PUBLIC_JOURNAL_TREE_INTERVIEW=true` for early testing.
+
 ### Manual API (curl / automation)
 
 Use the same request shape as [`MiloChatRequest`](../backend/PawBuck.API/Models/MiloChatModels.cs) and the consumer [`fetchMiloChat`](../apps/consumer-app/utils/miloChatApi.ts) payload (`message`, `pet`, `history`, `journalMode`) when hitting **`POST /api/milo/chat`** with a user JWT.

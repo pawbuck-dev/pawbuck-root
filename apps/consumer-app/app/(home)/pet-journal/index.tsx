@@ -1,5 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
+import { JournalEntryInterviewDetail } from "@/components/journalInterview/JournalEntryInterviewDetail";
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
@@ -19,6 +20,7 @@ import {
 import type { PetJournalEntry } from "@/services/petJournal";
 import { fetchJournalEntries, fetchTransferHighlightEntries } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
+import { parseInterviewMetadata } from "@/types/journalInterview";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { loadPetLogsForPet } from "@/utils/miloJournalStorage";
 import { Ionicons } from "@expo/vector-icons";
@@ -257,7 +259,7 @@ export default function PetJournalScreen() {
               Pet Journal
             </Text>
             <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
-              Health, behavior & environment
+              Structured notes with Milo · health, behavior & environment
             </Text>
           </View>
           <TouchableOpacity
@@ -517,6 +519,9 @@ export default function PetJournalScreen() {
                     </Text>
                   </View>
                   {e.note ? <JournalNoteText text={e.note} /> : null}
+                  <JournalEntryInterviewDetail
+                    metadata={parseInterviewMetadata(e.interview_metadata)}
+                  />
                 </View>
               );
             }
@@ -579,6 +584,10 @@ export default function PetJournalScreen() {
                   </View>
                 )}
                 {journal.note ? <JournalNoteText text={journal.note} /> : null}
+                <JournalEntryInterviewDetail
+                  metadata={parseInterviewMetadata(journal.interview_metadata)}
+                  showPostVetFeedback={journal.vet_flagged === true}
+                />
               </View>
             );
           }}

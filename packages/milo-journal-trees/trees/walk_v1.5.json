@@ -1,0 +1,55 @@
+{
+  "treeId": "walk_v1.5",
+  "topic": "Walk log",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["walk", "activity"],
+  "contextSurface": {
+    "alwaysSurface": ["last_walk_journal"]
+  },
+  "maxQuestions": 3,
+  "questions": [
+    {
+      "id": "q_duration",
+      "step": 2,
+      "prompt": "How long was the walk, roughly?",
+      "type": "single",
+      "options": [
+        { "id": "under_15", "label": "<15 min" },
+        { "id": "15_30", "label": "15–30 min" },
+        { "id": "30_60", "label": "30–60 min" },
+        { "id": "over_60", "label": "1h+" }
+      ]
+    },
+    {
+      "id": "q_how",
+      "step": 3,
+      "prompt": "How did it go?",
+      "type": "multi",
+      "options": [
+        { "id": "energetic", "label": "Energetic" },
+        { "id": "normal", "label": "Normal" },
+        { "id": "tired_faster", "label": "Tired faster than usual" },
+        { "id": "pulled_reactive", "label": "Pulled / reactive" },
+        { "id": "limp_stiff", "label": "Limp or stiffness during/after" },
+        { "id": "bathroom_solid", "label": "Bathroom — solid" },
+        { "id": "bathroom_soft", "label": "Bathroom — soft" },
+        { "id": "refused", "label": "Refused to go" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 4,
+      "prompt": "Anything else about this walk?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [],
+  "summaryFieldMap": {
+    "ACTIVITY": "Walk",
+    "DURATION": "{q_duration}",
+    "ENERGY": "{q_how}",
+    "BEHAVIOR": "{q_how}",
+    "BATHROOM": "{q_how}",
+    "NOTE": "{q_freeform}"
+  }
+}

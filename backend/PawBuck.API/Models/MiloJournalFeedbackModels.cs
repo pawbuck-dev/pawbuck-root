@@ -14,6 +14,18 @@ public sealed class MiloJournalFeedbackRequest
     /// <summary>"up" or "down"</summary>
     [JsonPropertyName("rating")]
     public string Rating { get; set; } = "";
+
+    [JsonPropertyName("feedbackReason")]
+    public string? FeedbackReason { get; set; }
+
+    [JsonPropertyName("treeVersion")]
+    public string? TreeVersion { get; set; }
+
+    [JsonPropertyName("questionsAsked")]
+    public int? QuestionsAsked { get; set; }
+
+    [JsonPropertyName("feedbackStage")]
+    public string? FeedbackStage { get; set; }
 }
 
 public sealed class MiloJournalConfigPatchRequest
@@ -35,6 +47,9 @@ public sealed class MiloJournalFeedbackAggregatesDto
 
     [JsonPropertyName("byPromptVersion")]
     public List<MiloJournalFeedbackByVersionDto> ByPromptVersion { get; set; } = new();
+
+    [JsonPropertyName("byTreeVersion")]
+    public List<MiloJournalFeedbackByVersionDto> ByTreeVersion { get; set; } = new();
 }
 
 public sealed class MiloJournalFeedbackByVersionDto

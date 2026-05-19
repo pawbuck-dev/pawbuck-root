@@ -20,4 +20,6 @@ export interface PetLogEntry {
   synced_to_server?: boolean;
   /** Dedupes duplicate Milo triage completes (matches pet_journal_entries.milo_idempotency_key). */
   milo_idempotency_key?: string;
+  /** Tree interview metadata when saved from v1.5 flow. */
+  interview_metadata?: Record<string, unknown>;
 }

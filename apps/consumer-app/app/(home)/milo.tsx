@@ -1,4 +1,11 @@
 import { ChatMessage } from "@/components/chat/ChatMessage";
+import { ContextSurfaceBubble } from "@/components/journalInterview/ContextSurfaceBubble";
+import { TreeQuestionBubble } from "@/components/journalInterview/TreeQuestionBubble";
+import { PostSaveHandoff } from "@/components/journalInterview/PostSaveHandoff";
+import { StructuredSummaryCard } from "@/components/journalInterview/StructuredSummaryCard";
+import { EmergencyBanner } from "@/components/journalInterview/EmergencyBanner";
+import { SummaryEditModal } from "@/components/journalInterview/SummaryEditModal";
+import { VetEmailComposer } from "@/components/journalInterview/VetEmailComposer";
 import { MiloStarterSuggestionPill } from "@/components/chat/MiloStarterSuggestionPill";
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
@@ -25,7 +32,9 @@ import {
   syncPetLogToServer,
 } from "@/utils/miloJournalStorage";
 import {
+  fetchActiveJournalSession,
   fetchMiloChat,
+  linkJournalSessionEntry,
   submitMiloJournalFeedback,
   type MiloChatFileAttachment,
 } from "@/utils/miloChatApi";
@@ -35,7 +44,12 @@ import {
   buildVetMessageFromJournalSession,
   buildVetMessageSubject,
   shouldSuppressVetEmailCompose,
+  type VetAskKind,
 } from "@/utils/buildVetMessageFromJournalSession";
+import {
+  hasSeenMiloJournalOnboarding,
+  setMiloJournalOnboardingSeen,
+} from "@/services/miloJournalOnboarding";
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import {
@@ -47,7 +61,19 @@ import {
   buildMiloSuggestedPrompts,
   MILO_EMPTY_THREAD_PROMPT_COUNT,
 } from "@/services/miloSuggestedPrompts";
+import {
+  isTreeInterviewUxEnabled,
+  JOURNAL_TREE_INTERVIEW_ENABLED,
+  resolveJournalTreeId,
+  type JournalContextSurface,
+  type JournalCurrentQuestion,
+  type JournalInterviewMetadata,
+  type JournalInterviewPhase,
+  type JournalStructuredSummary,
+} from "@/types/journalInterview";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
+import { pickImageFromLibrary } from "@/utils/imagePicker";
+import { uploadFile } from "@/utils/image";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -111,6 +137,16 @@ type Row = CM & {
   /** @deprecated use turnId */
   responseId?: string;
   feedbackRating?: "up" | "down";
+  feedbackReasonPending?: boolean;
+  treeVersion?: string;
+  questionsAskedCount?: number;
+  interviewPhase?: JournalInterviewPhase;
+  contextSurface?: JournalContextSurface;
+  structuredSummary?: JournalStructuredSummary;
+  currentQuestion?: JournalCurrentQuestion;
+  emergencyDetected?: boolean;
+  treeId?: string;
+  treeVersion?: string;
 };
 
 export default function MiloJournalChatScreen() {
@@ -160,6 +196,31 @@ export default function MiloJournalChatScreen() {
   const listRef = useRef<FlatList>(null);
   /** Prevents duplicate Milo journal rows when persist runs twice for the same triage fingerprint. */
   const miloPersistInflightRef = useRef<string | null>(null);
+  const journalSessionIdRef = useRef<string | null>(null);
+  const pendingJournalTreeIdRef = useRef<string | null>(null);
+  const lastTreeVersionRef = useRef<string | undefined>(undefined);
+  const lastQuestionsAskedRef = useRef<number | undefined>(undefined);
+  const [vetComposerVisible, setVetComposerVisible] = useState(false);
+  const [journalOnboardingVisible, setJournalOnboardingVisible] = useState(false);
+  const [feedbackReasonForMessageId, setFeedbackReasonForMessageId] = useState<string | null>(null);
+  const [treeUxActive, setTreeUxActive] = useState(JOURNAL_TREE_INTERVIEW_ENABLED);
+  const [resumeDraft, setResumeDraft] = useState<{
+    sessionId: string;
+    treeId: string;
+    phase: string;
+  } | null>(null);
+  const [summaryEditVisible, setSummaryEditVisible] = useState(false);
+  const [summaryEditFields, setSummaryEditFields] = useState<Record<string, string>>({});
+  const pendingAttachmentPathsRef = useRef<string[]>([]);
+  const [attachmentCount, setAttachmentCount] = useState(0);
+
+  const JOURNAL_FEEDBACK_DOWN_REASONS = [
+    "Wrong questions",
+    "Missed something important",
+    "Too clinical / hard to read",
+    "Didn't match my pet",
+    "Other",
+  ] as const;
 
   const rotationSeed = `${user?.id ?? ""}|${pet?.id ?? ""}`;
 
@@ -181,6 +242,36 @@ export default function MiloJournalChatScreen() {
       cancelled = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (triageDisclaimerStatus !== "accepted") return;
+      try {
+        const seen = await hasSeenMiloJournalOnboarding();
+        if (!cancelled && !seen) setJournalOnboardingVisible(true);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [triageDisclaimerStatus]);
+
+  useEffect(() => {
+    if (!pet?.id || triageDisclaimerStatus !== "accepted") return;
+    void (async () => {
+      const active = await fetchActiveJournalSession(pet.id);
+      if (active?.sessionId) {
+        setResumeDraft({
+          sessionId: active.sessionId,
+          treeId: active.treeId,
+          phase: active.phase,
+        });
+      }
+    })();
+  }, [pet?.id, triageDisclaimerStatus]);
 
   const { data: starterData } = useQuery({
     queryKey: ["miloJournalStarters", pet?.id],
@@ -232,7 +323,8 @@ export default function MiloJournalChatScreen() {
     !busy &&
     lastMessage?.role === "assistant" &&
     (lastMessage.suggestedReplies?.length ?? 0) > 0 &&
-    !lastMessage.journalSessionComplete;
+    !lastMessage.journalSessionComplete &&
+    !lastMessage.currentQuestion;
 
   /** Thumbs-up/down only on the latest journal-complete assistant turn (not on every CONTINUE reply). */
   const journalFeedbackRowIndex = useMemo(() => {
@@ -249,6 +341,13 @@ export default function MiloJournalChatScreen() {
       severity: PetLogSeverity,
       extras?: {
         suggestedReplies?: string[];
+        interviewPhase?: JournalInterviewPhase;
+        contextSurface?: JournalContextSurface;
+        structuredSummary?: JournalStructuredSummary;
+        currentQuestion?: JournalCurrentQuestion;
+        emergencyDetected?: boolean;
+        treeId?: string;
+        treeVersion?: string;
         journalSessionComplete?: boolean;
         offlineFallback?: boolean;
         journalSummary?: string;
@@ -269,6 +368,13 @@ export default function MiloJournalChatScreen() {
         timestamp: new Date(),
         severity,
         suggestedReplies: extras?.suggestedReplies,
+        interviewPhase: extras?.interviewPhase,
+        contextSurface: extras?.contextSurface,
+        structuredSummary: extras?.structuredSummary,
+        currentQuestion: extras?.currentQuestion,
+        emergencyDetected: extras?.emergencyDetected,
+        treeId: extras?.treeId,
+        treeVersion: extras?.treeVersion,
         journalSessionComplete: extras?.journalSessionComplete,
         offlineFallback: extras?.offlineFallback,
         journalSummary: extras?.journalSummary,
@@ -286,12 +392,34 @@ export default function MiloJournalChatScreen() {
   );
 
   const onJournalFeedback = useCallback(
-    async (messageId: string, turnId: string, rating: "up" | "down") => {
+    async (
+      messageId: string,
+      turnId: string,
+      rating: "up" | "down",
+      opts?: { feedbackReason?: string; treeVersion?: string; questionsAsked?: number }
+    ) => {
+      if (rating === "down" && !opts?.feedbackReason) {
+        setFeedbackReasonForMessageId(messageId);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, feedbackReasonPending: true } : m))
+        );
+        return;
+      }
+      setFeedbackReasonForMessageId(null);
       setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, feedbackRating: rating } : m))
+        prev.map((m) =>
+          m.id === messageId ? { ...m, feedbackRating: rating, feedbackReasonPending: false } : m
+        )
       );
       try {
-        await submitMiloJournalFeedback({ turnId, rating });
+        await submitMiloJournalFeedback({
+          turnId,
+          rating,
+          feedbackReason: opts?.feedbackReason,
+          treeVersion: opts?.treeVersion ?? lastTreeVersionRef.current,
+          questionsAsked: opts?.questionsAsked ?? lastQuestionsAskedRef.current,
+          feedbackStage: "journal_chat",
+        });
       } catch (e) {
         console.warn("Journal feedback failed:", e);
       }
@@ -300,7 +428,17 @@ export default function MiloJournalChatScreen() {
   );
 
   const persistJournalEntry = useCallback(
-    async (userTurns: string[], journalSummary?: string | null): Promise<JournalNavTarget | null> => {
+    async (
+      userTurns: string[],
+      journalSummary?: string | null,
+      treeMeta?: {
+        structuredSummary?: JournalStructuredSummary | null;
+        sessionId?: string | null;
+        treeId?: string | null;
+        treeVersion?: string | null;
+        turnId?: string | null;
+      }
+    ): Promise<JournalNavTarget | null> => {
       if (!pet || !user) return null;
       const combined = userTurns.join("\n");
       const finalNote = journalSummary?.trim() || combined;
@@ -312,6 +450,22 @@ export default function MiloJournalChatScreen() {
         triageCtx,
         combined
       );
+      if (treeMeta?.structuredSummary && treeMeta.treeId) {
+        const meta: JournalInterviewMetadata = {
+          tree_id: treeMeta.treeId,
+          tree_version: treeMeta.treeVersion ?? "1.5.0",
+          structured_fields: treeMeta.structuredSummary.fields,
+          ai_confidence: treeMeta.structuredSummary.confidenceScore ?? null,
+          source: "ai_tree_v1.5",
+          session_id: treeMeta.sessionId ?? undefined,
+          turn_id: treeMeta.turnId ?? undefined,
+          attachment_paths:
+            pendingAttachmentPathsRef.current.length > 0
+              ? [...pendingAttachmentPathsRef.current]
+              : undefined,
+        };
+        entry.interview_metadata = meta as unknown as Record<string, unknown>;
+      }
       const idem = entry.milo_idempotency_key;
       if (idem) {
         if (miloPersistInflightRef.current === idem) return null;
@@ -323,8 +477,16 @@ export default function MiloJournalChatScreen() {
         try {
           const serverId = await syncPetLogToServer(entry);
           await queryClient.invalidateQueries({ queryKey: ["pet_journal"] });
+          const resolvedId = serverId ?? entry.id;
+          if (treeMeta?.sessionId && serverId) {
+            void linkJournalSessionEntry({
+              sessionId: treeMeta.sessionId,
+              petId: pet.id,
+              journalEntryId: serverId,
+            });
+          }
           nav = serverId
-            ? { entryId: serverId, kind: "server", domain: entry.domain }
+            ? { entryId: resolvedId, kind: "server", domain: entry.domain }
             : { entryId: entry.id, kind: "milo", domain: entry.domain };
         } catch (e) {
           console.warn("Milo journal sync to server failed (offline ok):", e);
@@ -341,7 +503,7 @@ export default function MiloJournalChatScreen() {
   );
 
   const handleSend = useCallback(
-    async (raw: string) => {
+    async (raw: string, chipIds?: string[]) => {
       const text = raw.trim();
       if (!text || !pet || !user) return;
       if (triageDisclaimerStatus !== "accepted") return;
@@ -365,20 +527,62 @@ export default function MiloJournalChatScreen() {
       const severityForTurn = severityFromConversationText(userTurns, triageCtx);
 
       try {
+        const treeId =
+          pendingJournalTreeIdRef.current ??
+          (treeUxActive || JOURNAL_TREE_INTERVIEW_ENABLED ? resolveJournalTreeId(text) : undefined);
+        if (treeId && !journalSessionIdRef.current) {
+          pendingJournalTreeIdRef.current = treeId;
+        }
+
+        let journalAction: string | undefined;
+        const lower = text.toLowerCase();
+        if (lower.includes("looks right") && lower.includes("continue")) {
+          journalAction = "context_continue";
+        } else if (lower.includes("looks right") && lower.includes("save")) {
+          journalAction = "confirm_summary";
+        } else if (lower === "skip") {
+          journalAction = "answer";
+        }
+
         const result = await fetchMiloChat({
           message: text,
           pet,
           history,
           journalMode: true,
+          journalTreeId: treeId,
+          journalSessionId: journalSessionIdRef.current ?? undefined,
+          journalAction,
+          journalChipIds: chipIds,
         });
+
+        if (result.journalSessionId) {
+          journalSessionIdRef.current = result.journalSessionId;
+          pendingJournalTreeIdRef.current = null;
+        }
+        if (result.treeVersion) lastTreeVersionRef.current = result.treeVersion;
+        if (result.questionsAskedCount != null) {
+          lastQuestionsAskedRef.current = result.questionsAskedCount;
+        }
+        if (isTreeInterviewUxEnabled(JOURNAL_TREE_INTERVIEW_ENABLED, result.treeId, result.interviewPhase)) {
+          setTreeUxActive(true);
+        }
 
         setOfflineJournalActive(false);
 
         const severityOut =
-          result.journalEmergencyStop === true ? ("urgent" as PetLogSeverity) : severityForTurn;
+          result.journalEmergencyStop === true || result.emergencyDetected
+            ? ("urgent" as PetLogSeverity)
+            : severityForTurn;
 
         const assistantMsgId = pushAssistant(result.answer, severityOut, {
           suggestedReplies: result.suggestedReplies,
+          interviewPhase: result.interviewPhase,
+          contextSurface: result.contextSurface,
+          structuredSummary: result.structuredSummary,
+          currentQuestion: result.currentQuestion,
+          emergencyDetected: result.emergencyDetected,
+          treeId: result.treeId,
+          treeVersion: result.treeVersion,
           journalSessionComplete: result.journalSessionComplete,
           journalSummary: result.journalSummary ?? undefined,
           journalEmergencyStop: result.journalEmergencyStop,
@@ -389,7 +593,16 @@ export default function MiloJournalChatScreen() {
         });
 
         if (result.journalSessionComplete && result.journalEmergencyStop !== true) {
-          const nav = await persistJournalEntry(userTurns, result.journalSummary);
+          setResumeDraft(null);
+          pendingAttachmentPathsRef.current = [];
+          setAttachmentCount(0);
+          const nav = await persistJournalEntry(userTurns, result.journalSummary, {
+            structuredSummary: result.structuredSummary ?? null,
+            sessionId: result.journalSessionId ?? journalSessionIdRef.current,
+            treeId: result.treeId ?? null,
+            treeVersion: result.treeVersion ?? null,
+            turnId: result.turnId ?? result.responseId ?? null,
+          });
           if (nav) {
             setMessages((prev) =>
               prev.map((row) => (row.id === assistantMsgId ? { ...row, journalNavTarget: nav } : row))
@@ -399,7 +612,7 @@ export default function MiloJournalChatScreen() {
       } catch (e) {
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
-        const offline = getOfflineJournalTurn(priorUserLines.length, pet.name);
+        const offline = getOfflineJournalTurn(priorUserLines.length, pet.name, text);
         const assistantMsgId = pushAssistant(offline.answer, severityForTurn, {
           suggestedReplies: offline.suggestedReplies,
           journalSessionComplete: offline.journalSessionComplete,
@@ -465,7 +678,72 @@ export default function MiloJournalChatScreen() {
       );
       return;
     }
-    const userTurns = messages.filter((m) => m.role === "user").map((m) => m.content);
+    setVetComposerVisible(true);
+  }, [pet, user, messages]);
+
+  const applySummaryEdits = useCallback(
+    async (fields: Record<string, string>) => {
+      setSummaryEditVisible(false);
+      if (!pet || !user) return;
+      setBusy(true);
+      try {
+        const result = await fetchMiloChat({
+          message: "Edit summary",
+          pet,
+          history: messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+          journalMode: true,
+          journalSessionId: journalSessionIdRef.current ?? undefined,
+          journalAction: "edit_summary",
+          journalSummaryFields: fields,
+        });
+        pushAssistant(result.answer, "medium", {
+          structuredSummary: result.structuredSummary,
+          interviewPhase: result.interviewPhase,
+          treeId: result.treeId,
+          treeVersion: result.treeVersion,
+          emergencyDetected: result.emergencyDetected,
+          turnId: result.turnId ?? result.responseId,
+        });
+      } catch (e) {
+        console.warn("Summary edit failed:", e);
+        Alert.alert("Could not apply edits", "Please try again.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pet, user, messages, pushAssistant]
+  );
+
+  const attachSummaryPhoto = useCallback(async () => {
+    if (!pet || !user) return;
+    const asset = await pickImageFromLibrary();
+    if (!asset) return;
+    try {
+      const ext = asset.mimeType?.split("/")[1] ?? "jpg";
+      const safeName = pet.name.split(" ").join("_");
+      const storagePath = `${user.id}/pet_${safeName}_${pet.id}/journal/${Date.now()}.${ext}`;
+      const data = await uploadFile(asset, storagePath);
+      pendingAttachmentPathsRef.current = [...pendingAttachmentPathsRef.current, data.path];
+      setAttachmentCount(pendingAttachmentPathsRef.current.length);
+    } catch (e) {
+      console.warn("Journal photo attach failed:", e);
+      Alert.alert("Upload failed", "Could not attach the photo. You can still save without it.");
+    }
+  }, [pet, user]);
+
+  const completeVetMessageCompose = useCallback(
+    (vetAsk: VetAskKind, recipientEmail?: string) => {
+      setVetComposerVisible(false);
+      if (!pet || !user) return;
+      let lastComplete: Row | undefined;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const row = messages[i];
+        if (row.role === "assistant" && row.journalSessionComplete) {
+          lastComplete = row;
+          break;
+        }
+      }
+      const userTurns = messages.filter((m) => m.role === "user").map((m) => m.content);
     const journalSummary = lastComplete?.journalSummary?.trim() ?? null;
     const sessionDateLabel = new Date().toLocaleDateString(undefined, {
       year: "numeric",
@@ -498,6 +776,7 @@ export default function MiloJournalChatScreen() {
       vetMedicalContext: lastComplete?.vetMedicalContext ?? null,
       vetOwnerContact,
       journalRecordId,
+      vetAsk,
     };
     const body = buildVetMessageFromJournalSession(composeInput);
     const subject = buildVetMessageSubject(composeInput);
@@ -507,9 +786,12 @@ export default function MiloJournalChatScreen() {
         composeMessage: encodeURIComponent(body),
         composeSubject: encodeURIComponent(subject),
         composePetId: pet.id,
+        ...(recipientEmail ? { composeTo: recipientEmail } : {}),
       },
-    } as any);
-  }, [pet, messages, vetMessageOwnerSignature, user, router]);
+      } as any);
+    },
+    [pet, messages, vetMessageOwnerSignature, user, router]
+  );
 
   const openJournalEntry = useCallback(
     (nav: JournalNavTarget) => {
@@ -622,6 +904,38 @@ export default function MiloJournalChatScreen() {
     );
   };
 
+  const renderFeedbackReasonChips = (m: Row) => {
+    if (feedbackReasonForMessageId !== m.id || !m.feedbackReasonPending) return null;
+    const tid = m.turnId ?? m.responseId;
+    if (!tid) return null;
+    return (
+      <View style={{ marginLeft: 56, marginBottom: 8, gap: 6, maxWidth: "92%" }}>
+        <Text style={{ fontSize: 12, color: theme.secondary }}>What went wrong?</Text>
+        {JOURNAL_FEEDBACK_DOWN_REASONS.map((reason) => (
+          <TouchableOpacity
+            key={reason}
+            onPress={() =>
+              void onJournalFeedback(m.id, tid, "down", {
+                feedbackReason: reason,
+                treeVersion: m.treeVersion ?? lastTreeVersionRef.current,
+                questionsAsked: m.questionsAskedCount ?? lastQuestionsAskedRef.current,
+              })
+            }
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+              alignSelf: "flex-start",
+            }}
+          >
+            <Text style={{ fontSize: 13, color: theme.foreground }}>{reason}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
   const renderActions = (m: Row, index: number) => {
     if (m.role !== "assistant" || !m.severity) return null;
     if (index !== messages.length - 1) return null;
@@ -632,23 +946,42 @@ export default function MiloJournalChatScreen() {
     if (midFlowChips && m.severity === "urgent") {
       return (
         <View style={{ marginLeft: 56, marginBottom: 8, maxWidth: "92%" as const }}>
-          <View
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: "rgba(239,68,68,0.2)",
-              marginBottom: 8,
-            }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#991b1b" }}>
-              Possible emergency — seek immediate veterinary or ER care if your pet is in distress.
-            </Text>
-          </View>
+          <EmergencyBanner showAdrNote={!!m.contextSurface?.adrWarning} />
         </View>
       );
     }
 
     if (m.journalSessionComplete) {
+      if (treeUxActive) {
+        const emergency =
+          m.emergencyDetected === true ||
+          m.journalEmergencyStop === true ||
+          m.severity === "urgent";
+        return (
+          <PostSaveHandoff
+            petName={pet?.name ?? "your pet"}
+            emergency={emergency}
+            showAdrNote={
+              messages.some(
+                (row) => row.contextSurface?.adrWarning && row.role === "assistant"
+              )
+            }
+            onViewJournal={() => {
+              if (m.journalNavTarget) openJournalEntry(m.journalNavTarget);
+            }}
+            onShareVet={() => openVetMessageCompose()}
+            onFindErVet={
+              emergency
+                ? () => {
+                    void Linking.openURL("https://www.google.com/maps/search/emergency+veterinarian+near+me").catch(
+                      () => {}
+                    );
+                  }
+                : undefined
+            }
+          />
+        );
+      }
       switch (m.severity) {
         case "low":
           return <View style={journalCtaTrackStyle}>{journalSavedPill(m)}</View>;
@@ -878,6 +1211,39 @@ export default function MiloJournalChatScreen() {
         </TouchableOpacity>
       </View>
 
+      {resumeDraft && messages.length === 0 ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            padding: 12,
+            borderRadius: 10,
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+          }}
+        >
+          <Text style={{ fontSize: 13, color: theme.foreground, marginBottom: 8 }}>
+            You have a draft journal check-in in progress.
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              journalSessionIdRef.current = resumeDraft.sessionId;
+              setTreeUxActive(true);
+              setResumeDraft(null);
+              void handleSend("Resume draft");
+            }}
+            style={{
+              alignSelf: "flex-start",
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: theme.primary,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700" }}>Resume draft</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {offlineJournalActive ? (
         <View
           style={{
@@ -919,7 +1285,54 @@ export default function MiloJournalChatScreen() {
                 showInlineTurnFeedback={false}
                 journalMode
               />
+              {item.role === "assistant" &&
+              item.interviewPhase === "context_surface" &&
+              item.contextSurface &&
+              pet ? (
+                <ContextSurfaceBubble
+                  petName={pet.name}
+                  intro={item.content}
+                  surface={item.contextSurface}
+                  onAction={(actionId, label) => {
+                    void handleSend(
+                      actionId === "context_continue" ? "Looks right — continue" : label
+                    );
+                  }}
+                />
+              ) : null}
+              {item.role === "assistant" &&
+              item.interviewPhase === "question" &&
+              item.currentQuestion &&
+              pet ? (
+                <TreeQuestionBubble
+                  question={item.currentQuestion}
+                  disabled={busy}
+                  onAnswer={(msg, ids) => void handleSend(msg, ids)}
+                  onSwitchToSymptom={() => {
+                    pendingJournalTreeIdRef.current = "vomiting_v1.5";
+                    journalSessionIdRef.current = null;
+                    void handleSend("I'd like to log a symptom instead");
+                  }}
+                />
+              ) : null}
+              {item.role === "assistant" &&
+              item.interviewPhase === "summary_draft" &&
+              item.structuredSummary &&
+              pet ? (
+                <StructuredSummaryCard
+                  petName={pet.name}
+                  summary={item.structuredSummary}
+                  attachmentCount={attachmentCount}
+                  onAttachPhoto={() => void attachSummaryPhoto()}
+                  onConfirm={() => void handleSend("Looks right — save", undefined)}
+                  onEdit={() => {
+                    setSummaryEditFields({ ...item.structuredSummary!.fields });
+                    setSummaryEditVisible(true);
+                  }}
+                />
+              ) : null}
               {renderJournalFeedback(item, index)}
+              {renderFeedbackReasonChips(item)}
               {renderActions(item, index)}
             </View>
           )}
@@ -1189,6 +1602,67 @@ export default function MiloJournalChatScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={journalOnboardingVisible} animationType="fade" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            paddingHorizontal: 20,
+          }}
+        >
+          <View
+            style={{
+              borderRadius: 16,
+              backgroundColor: theme.card,
+              padding: 20,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "800", color: theme.foreground, marginBottom: 8 }}>
+              Milo journal helper
+            </Text>
+            <Text style={{ fontSize: 14, lineHeight: 21, color: theme.foreground }}>
+              Milo asks a few focused questions and saves a structured note to your pet&apos;s journal. It does not
+              diagnose or prescribe — contact your veterinarian for medical decisions. Never stop a medication without
+              your vet&apos;s guidance.
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                void setMiloJournalOnboardingSeen();
+                setJournalOnboardingVisible(false);
+              }}
+              style={{
+                marginTop: 16,
+                paddingVertical: 14,
+                borderRadius: 12,
+                backgroundColor: theme.primary,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: "#fff" }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {pet ? (
+        <>
+          <SummaryEditModal
+            visible={summaryEditVisible}
+            fields={summaryEditFields}
+            onClose={() => setSummaryEditVisible(false)}
+            onSave={(fields) => void applySummaryEdits(fields)}
+          />
+          <VetEmailComposer
+            visible={vetComposerVisible}
+            petId={pet.id}
+            petName={pet.name}
+            onClose={() => setVetComposerVisible(false)}
+            onConfirm={(ask, email) => completeVetMessageCompose(ask, email)}
+          />
+        </>
+      ) : null}
     </View>
   );
 }

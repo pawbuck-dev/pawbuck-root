@@ -2,6 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace PawBuck.API.Models;
 
+public sealed class LinkJournalEntryRequest
+{
+    [JsonPropertyName("petId")]
+    public Guid PetId { get; set; }
+
+    [JsonPropertyName("journalEntryId")]
+    public Guid JournalEntryId { get; set; }
+}
+
 /// <summary>POST /api/milo/chat request body.</summary>
 public class MiloChatRequest
 {
@@ -20,6 +29,26 @@ public class MiloChatRequest
     /// </summary>
     [JsonPropertyName("journalMode")]
     public bool JournalMode { get; set; }
+
+    /// <summary>Tree-driven journal: e.g. vomiting_v1.5. Required to start a new tree session.</summary>
+    [JsonPropertyName("journalTreeId")]
+    public string? JournalTreeId { get; set; }
+
+    /// <summary>Existing tree interview session (returned on prior turn).</summary>
+    [JsonPropertyName("journalSessionId")]
+    public string? JournalSessionId { get; set; }
+
+    /// <summary>Chip ids selected on the current turn (tree interview).</summary>
+    [JsonPropertyName("journalChipIds")]
+    public IReadOnlyList<string>? JournalChipIds { get; set; }
+
+    /// <summary>context_continue | answer | confirm_summary | edit_summary</summary>
+    [JsonPropertyName("journalAction")]
+    public string? JournalAction { get; set; }
+
+    /// <summary>Pat edited summary fields (summary_draft phase).</summary>
+    [JsonPropertyName("journalSummaryFields")]
+    public IReadOnlyDictionary<string, string>? JournalSummaryFields { get; set; }
 }
 
 public class MiloPetContextDto
@@ -141,6 +170,39 @@ public class MiloChatResponse
     /// <summary>Optional record-backed medical lines for vet compose (server only).</summary>
     [JsonPropertyName("vetMedicalContext")]
     public MiloVetMedicalContextDto? VetMedicalContext { get; set; }
+
+    [JsonPropertyName("interviewPhase")]
+    public string? InterviewPhase { get; set; }
+
+    [JsonPropertyName("treeId")]
+    public string? TreeId { get; set; }
+
+    [JsonPropertyName("treeVersion")]
+    public string? TreeVersion { get; set; }
+
+    [JsonPropertyName("journalSessionId")]
+    public string? JournalSessionId { get; set; }
+
+    [JsonPropertyName("questionIndex")]
+    public int? QuestionIndex { get; set; }
+
+    [JsonPropertyName("questionsAskedCount")]
+    public int? QuestionsAskedCount { get; set; }
+
+    [JsonPropertyName("contextSurface")]
+    public JournalContextSurfaceDto? ContextSurface { get; set; }
+
+    [JsonPropertyName("structuredSummary")]
+    public JournalStructuredSummaryDto? StructuredSummary { get; set; }
+
+    [JsonPropertyName("emergencyDetected")]
+    public bool EmergencyDetected { get; set; }
+
+    [JsonPropertyName("confidenceScore")]
+    public decimal? ConfidenceScore { get; set; }
+
+    [JsonPropertyName("currentQuestion")]
+    public JournalCurrentQuestionDto? CurrentQuestion { get; set; }
 }
 
 /// <summary>Triage block for vet notification JSON (journal Gemini).</summary>

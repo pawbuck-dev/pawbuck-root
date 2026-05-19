@@ -59,6 +59,10 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
         Guid userId,
         Guid turnId,
         string rating,
+        string? feedbackReason = null,
+        string? treeVersion = null,
+        int? questionsAsked = null,
+        string? feedbackStage = null,
         CancellationToken cancellationToken = default)
     {
         var r = rating.Trim().ToLowerInvariant();
@@ -85,16 +89,26 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
             return false;
 
         const string upsert = """
-            INSERT INTO public.milo_journal_message_feedback (id, turn_id, user_id, rating, created_at)
-            VALUES (gen_random_uuid(), @turnId, @userId, @rating, timezone('utc', now()))
+            INSERT INTO public.milo_journal_message_feedback (
+              id, turn_id, user_id, rating, feedback_reason, tree_version, questions_asked, feedback_stage, created_at)
+            VALUES (
+              gen_random_uuid(), @turnId, @userId, @rating, @reason, @treeVersion, @questionsAsked, @stage, timezone('utc', now()))
             ON CONFLICT (turn_id) DO UPDATE SET
               rating = EXCLUDED.rating,
+              feedback_reason = EXCLUDED.feedback_reason,
+              tree_version = EXCLUDED.tree_version,
+              questions_asked = EXCLUDED.questions_asked,
+              feedback_stage = EXCLUDED.feedback_stage,
               created_at = timezone('utc', now())
             """;
         await using var icmd = new NpgsqlCommand(upsert, conn);
         icmd.Parameters.AddWithValue("turnId", turnId);
         icmd.Parameters.AddWithValue("userId", userId);
         icmd.Parameters.AddWithValue("rating", r);
+        icmd.Parameters.AddWithValue("reason", string.IsNullOrWhiteSpace(feedbackReason) ? DBNull.Value : feedbackReason.Trim());
+        icmd.Parameters.AddWithValue("treeVersion", string.IsNullOrWhiteSpace(treeVersion) ? DBNull.Value : treeVersion.Trim());
+        icmd.Parameters.AddWithValue("questionsAsked", questionsAsked.HasValue ? questionsAsked.Value : DBNull.Value);
+        icmd.Parameters.AddWithValue("stage", string.IsNullOrWhiteSpace(feedbackStage) ? DBNull.Value : feedbackStage.Trim());
         await icmd.ExecuteNonQueryAsync(cancellationToken);
         return true;
     }
@@ -143,12 +157,37 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
             });
         }
 
+        var byTree = new List<MiloJournalFeedbackByVersionDto>();
+        const string byTreeSql = """
+            SELECT coalesce(tree_version, 'unknown'),
+              count(*) FILTER (WHERE rating = 'up')::int,
+              count(*) FILTER (WHERE rating = 'down')::int
+            FROM public.milo_journal_message_feedback
+            WHERE tree_version IS NOT NULL AND trim(tree_version) <> ''
+            GROUP BY tree_version
+            ORDER BY tree_version
+            """;
+        await using (var tcmd2 = new NpgsqlCommand(byTreeSql, conn))
+        await using (var tr2 = await tcmd2.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await tr2.ReadAsync(cancellationToken))
+            {
+                byTree.Add(new MiloJournalFeedbackByVersionDto
+                {
+                    PromptVersion = tr2.GetString(0),
+                    UpCount = tr2.GetInt32(1),
+                    DownCount = tr2.GetInt32(2),
+                });
+            }
+        }
+
         return new MiloJournalFeedbackAggregatesDto
         {
             TotalFeedback = total,
             UpCount = up,
             DownCount = down,
             ByPromptVersion = byList,
+            ByTreeVersion = byTree,
         };
     }
 }

@@ -17,9 +17,24 @@ import {
 const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 const QUICK_PROMPTS: Record<JournalDomain, readonly string[]> = {
-  health: ["Lethargic today", "Changed appetite", "Vomiting or diarrhea", "Scratching a lot"],
-  behavioral: ["Unusual barking", "More anxious", "Hiding", "Hyperactive"],
-  environmental: ["Changed food brand", "New pet at home", "Travel stress", "Weather change"],
+  health: [
+    "Lethargic today",
+    "Changed appetite",
+    "Vomiting or diarrhea",
+    "Scratching a lot",
+    "Limping",
+    "Coughing",
+    "Eye or ear issue",
+  ],
+  behavioral: ["Unusual barking", "More anxious", "Hiding", "Hyperactive", "Log behavior note"],
+  environmental: [
+    "Changed food brand",
+    "New pet at home",
+    "Travel stress",
+    "Weather change",
+    "Log a meal",
+    "After our walk",
+  ],
 };
 
 export interface MiloJournalBarProps {
@@ -63,9 +78,14 @@ export const MiloJournalBar: React.FC<MiloJournalBarProps> = ({ pet, domain }) =
           style={{ width: 36, height: 36, borderRadius: 18, marginRight: 10 }}
           contentFit="cover"
         />
-        <Text style={{ flex: 1, fontSize: 13, fontWeight: "700", color: theme.foreground }}>
-          Talk to Milo
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: theme.foreground }}>
+            Talk to Milo
+          </Text>
+          <Text style={{ fontSize: 11, color: theme.secondary, marginTop: 2 }}>
+            I&apos;ll use what&apos;s on {pet.name}&apos;s record to keep questions short.
+          </Text>
+        </View>
         <TouchableOpacity
           onPress={() =>
             router.push({

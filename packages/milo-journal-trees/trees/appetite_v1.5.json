@@ -1,0 +1,133 @@
+{
+  "treeId": "appetite_v1.5",
+  "topic": "Appetite change",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["appetite", "anorexia", "polyphagia"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "weight_trend",
+      "current_diet",
+      "current_medications",
+      "last_dental",
+      "recent_journal"
+    ],
+    "adrSymptomKeys": ["appetite", "gi"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_direction_onset",
+      "step": 2,
+      "prompt": "What's changed about {petName}'s appetite?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "eating_less", "label": "Eating less than usual" },
+        { "id": "wont_eat", "label": "Won't eat at all" },
+        { "id": "picky", "label": "Picky / only eats favorites" },
+        { "id": "eating_more", "label": "Eating more than usual" },
+        { "id": "asking_food", "label": "Asking for food constantly" }
+      ],
+      "stage2Options": [
+        { "id": "today", "label": "Today" },
+        { "id": "2_3_days", "label": "2–3 days" },
+        { "id": "week_plus", "label": "Week+" },
+        { "id": "month_plus", "label": "Gradual over a month+" }
+      ]
+    },
+    {
+      "id": "q_pattern_less",
+      "step": 3,
+      "prompt": "Is {petName} refusing all food, or just some?",
+      "type": "single",
+      "conditionalOn": "eating_less_or_wont_eat",
+      "options": [
+        { "id": "refuses_all", "label": "Refuses everything including treats" },
+        { "id": "treats_only", "label": "Eats treats but not meals" },
+        { "id": "wet_not_dry", "label": "Eats wet but not dry (or reverse)" },
+        { "id": "eats_slowly", "label": "Eats slowly / leaves food" }
+      ]
+    },
+    {
+      "id": "q_pattern_more",
+      "step": 3,
+      "prompt": "What does it look like?",
+      "type": "multi",
+      "conditionalOn": "eating_more_or_asking",
+      "options": [
+        { "id": "hungry_after_meals", "label": "Hungry right after meals" },
+        { "id": "same_amount_more_asking", "label": "Eating same amount, asking more" },
+        { "id": "stealing_food", "label": "Stealing food / counter surfing" },
+        { "id": "pica", "label": "Eating non-food items (pica)" }
+      ]
+    },
+    {
+      "id": "q_associated",
+      "step": 4,
+      "prompt": "Anything else changed alongside the appetite?",
+      "type": "multi",
+      "options": [
+        { "id": "drinking_more", "label": "Drinking more" },
+        { "id": "drinking_less", "label": "Drinking less" },
+        { "id": "weight_loss", "label": "Weight loss visible" },
+        { "id": "weight_gain", "label": "Weight gain visible" },
+        { "id": "energy_lower", "label": "Energy lower" },
+        { "id": "energy_higher", "label": "Energy higher / restless" },
+        { "id": "vomiting_diarrhea", "label": "Vomiting / diarrhea" },
+        { "id": "dental_issues", "label": "Bad breath / dental issues" },
+        { "id": "nothing_else", "label": "Nothing else" }
+      ]
+    },
+    {
+      "id": "q_triggers",
+      "step": 5,
+      "prompt": "Anything new with food or routine in the last week?",
+      "type": "multi",
+      "options": [
+        { "id": "new_food", "label": "New food brand", "drilldownPrompt": "What did you switch to?" },
+        { "id": "new_treats", "label": "New treats" },
+        { "id": "feeding_change", "label": "New feeding location/time" },
+        { "id": "new_feeder", "label": "New person feeding" },
+        { "id": "move_travel", "label": "Moved homes / travel" },
+        { "id": "stress", "label": "Stressful event" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "Worth checking — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "no_food_48h", "label": "Hasn't eaten anything in >48h" },
+        { "id": "weight_loss_30d", "label": "Visible weight loss in <30 days" },
+        { "id": "jaundice", "label": "Yellow tint in eyes/gums (jaundice)" },
+        { "id": "belly_lump", "label": "Lump or swelling in belly" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["no_food_48h", "jaundice"], "level": "emergency" },
+    {
+      "ifAllAnswerIds": ["refuses_all", "vomiting_diarrhea", "energy_lower"],
+      "level": "emergency"
+    },
+    { "ifAllAnswerIds": ["pica", "energy_lower"], "level": "urgent" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Appetite change",
+    "DIRECTION": "{q_direction_onset}",
+    "ONSET": "{q_direction_onset}",
+    "PATTERN": "{q_pattern_less} {q_pattern_more}",
+    "ASSOCIATED": "{q_associated}",
+    "TRIGGERS": "{q_triggers}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

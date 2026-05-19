@@ -67,6 +67,7 @@ export async function syncPetLogToServer(entry: PetLogEntry): Promise<string | n
     vet_flagged: entry.vet_flag,
     entry_date: entryDate,
     milo_idempotency_key: entry.milo_idempotency_key,
+    interview_metadata: entry.interview_metadata ?? null,
   };
   try {
     const created = await createJournalEntry(insertPayload);

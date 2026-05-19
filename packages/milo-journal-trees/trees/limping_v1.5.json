@@ -1,0 +1,118 @@
+{
+  "treeId": "limping_v1.5",
+  "topic": "Limping / mobility issue",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["limping", "lameness", "mobility"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "age",
+      "breed_risk_context",
+      "current_medications",
+      "prior_musculoskeletal",
+      "last_walk_activity"
+    ],
+    "adrSymptomKeys": ["limping", "pain"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_onset_leg",
+      "step": 2,
+      "prompt": "When did it start, and which leg?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Suddenly today" },
+        { "id": "yesterday", "label": "Yesterday" },
+        { "id": "few_days", "label": "Few days" },
+        { "id": "weeks", "label": "Gradually over weeks" }
+      ],
+      "stage2Options": [
+        { "id": "front_left", "label": "Front left" },
+        { "id": "front_right", "label": "Front right" },
+        { "id": "back_left", "label": "Back left" },
+        { "id": "back_right", "label": "Back right" },
+        { "id": "multiple", "label": "Multiple / not sure" }
+      ]
+    },
+    {
+      "id": "q_weight_bearing",
+      "step": 3,
+      "prompt": "Can {petName} put weight on it?",
+      "type": "single",
+      "options": [
+        { "id": "normal_limp", "label": "Yes, walking normally with limp" },
+        { "id": "limp_visible", "label": "Walking, limp visible" },
+        { "id": "touch_down", "label": "Touches down but won't put weight" },
+        { "id": "three_leg", "label": "Won't put it down at all (3-leg)" },
+        { "id": "wont_get_up", "label": "Won't get up" }
+      ]
+    },
+    {
+      "id": "q_activity",
+      "step": 4,
+      "prompt": "Have you noticed any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "worse_after_rest", "label": "Worse after rest, better moving" },
+        { "id": "worse_after_activity", "label": "Worse after activity" },
+        { "id": "yelped", "label": "Yelped or cried out" },
+        { "id": "avoid_jumping", "label": "Doesn't want to jump / climb stairs" },
+        { "id": "licking_leg", "label": "Licking the leg or paw" },
+        { "id": "swelling", "label": "Visible swelling" },
+        { "id": "nothing_else", "label": "Nothing else" }
+      ]
+    },
+    {
+      "id": "q_recent_event",
+      "step": 5,
+      "prompt": "Anything happen that could have caused it?",
+      "type": "multi",
+      "options": [
+        { "id": "hard_play", "label": "Hard play or run yesterday" },
+        { "id": "slipped_fell", "label": "Slipped or fell" },
+        { "id": "landed_wrong", "label": "Saw them land wrong" },
+        { "id": "long_hike", "label": "Long hike or jump" },
+        { "id": "rough_terrain", "label": "Walks in rough terrain" },
+        { "id": "no_idea", "label": "No idea — just noticed" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "One more check — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "deformity", "label": "Leg looks deformed or at wrong angle" },
+        { "id": "wound_bleeding", "label": "Visible wound / bleeding" },
+        { "id": "dragging", "label": "Dragging the leg" },
+        { "id": "both_back_weak", "label": "Both back legs weak / wobbly" },
+        { "id": "cant_stand", "label": "Can't stand at all" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    { "ifAnyAnswerIds": ["deformity", "wound_bleeding", "cant_stand"], "level": "emergency" },
+    {
+      "ifAllAnswerIds": ["three_leg", "today"],
+      "level": "urgent"
+    },
+    { "ifAnyAnswerIds": ["both_back_weak"], "level": "emergency" }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Limping / mobility issue",
+    "ONSET": "{q_onset_leg}",
+    "LEG": "{q_onset_leg}",
+    "WEIGHT_BEARING": "{q_weight_bearing}",
+    "ACTIVITY": "{q_activity}",
+    "RECENT_EVENT": "{q_recent_event}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}

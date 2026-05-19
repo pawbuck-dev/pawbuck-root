@@ -25,6 +25,7 @@ public class MiloController : ControllerBase
     private readonly ISubscriptionFeatureGateService _featureGates;
     private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
     private readonly IMiloJournalTurnService _journalTurns;
+    private readonly IJournalTreeInterviewService _journalTreeInterview;
 
     public MiloController(
         MiloRagService ragService,
@@ -36,7 +37,8 @@ public class MiloController : ControllerBase
         IUserEntitlementService entitlements,
         ISubscriptionFeatureGateService featureGates,
         IOptions<SubscriptionOptions> subscriptionOptions,
-        IMiloJournalTurnService journalTurns)
+        IMiloJournalTurnService journalTurns,
+        IJournalTreeInterviewService journalTreeInterview)
     {
         _ragService = ragService;
         _reasoning = reasoning;
@@ -48,6 +50,7 @@ public class MiloController : ControllerBase
         _featureGates = featureGates;
         _subscriptionOptions = subscriptionOptions;
         _journalTurns = journalTurns;
+        _journalTreeInterview = journalTreeInterview;
     }
 
     /// <summary>
@@ -139,10 +142,59 @@ public class MiloController : ControllerBase
         if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
             return Unauthorized();
 
-        var ok = await _journalTurns.TrySubmitFeedbackAsync(userId, resolvedTurn.Value, r, cancellationToken);
+        var ok = await _journalTurns.TrySubmitFeedbackAsync(
+            userId,
+            resolvedTurn.Value,
+            r,
+            body.FeedbackReason,
+            body.TreeVersion,
+            body.QuestionsAsked,
+            body.FeedbackStage,
+            cancellationToken);
         if (!ok)
             return NotFound(new { error = "Turn not found, expired, or not yours." });
 
+        return Ok(new { ok = true });
+    }
+
+    [Authorize]
+    [HttpGet("journal/sessions/active")]
+    public async Task<ActionResult<JournalActiveSessionDto>> GetActiveJournalSession(
+        [FromQuery] Guid petId,
+        CancellationToken cancellationToken)
+    {
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+        if (petId == Guid.Empty)
+            return BadRequest(new { error = "petId is required" });
+
+        var session = await _journalTreeInterview.GetActiveSessionAsync(userId, petId, cancellationToken);
+        if (session == null)
+            return NotFound();
+        return Ok(session);
+    }
+
+    [Authorize]
+    [HttpPost("journal/sessions/{sessionId:guid}/link-entry")]
+    public async Task<IActionResult> LinkJournalSessionEntry(
+        Guid sessionId,
+        [FromBody] LinkJournalEntryRequest? body,
+        CancellationToken cancellationToken)
+    {
+        if (body == null || body.JournalEntryId == Guid.Empty)
+            return BadRequest(new { error = "journalEntryId is required" });
+
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+        if (body.PetId == Guid.Empty)
+            return BadRequest(new { error = "petId is required" });
+
+        var ok = await _journalTreeInterview.LinkSessionToJournalEntryAsync(
+            userId, body.PetId, sessionId, body.JournalEntryId, cancellationToken);
+        if (!ok)
+            return NotFound(new { error = "Session not found or not linkable." });
         return Ok(new { ok = true });
     }
 

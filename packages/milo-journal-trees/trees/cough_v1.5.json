@@ -1,0 +1,145 @@
+{
+  "treeId": "cough_v1.5",
+  "topic": "Coughing / breathing",
+  "version": "1.5.0",
+  "symptomTaxonomy": ["cough", "respiratory", "breathing"],
+  "contextSurface": {
+    "alwaysSurface": [
+      "vaccines_status",
+      "heart_medications",
+      "brachycephalic_breed",
+      "recent_boarding",
+      "current_medications"
+    ],
+    "adrSymptomKeys": ["cough", "respiratory"]
+  },
+  "maxQuestions": 6,
+  "questions": [
+    {
+      "id": "q_onset_frequency",
+      "step": 2,
+      "prompt": "When did it start, and how often?",
+      "type": "two_stage",
+      "stage1Options": [
+        { "id": "today", "label": "Today" },
+        { "id": "yesterday", "label": "Yesterday" },
+        { "id": "few_days", "label": "Few days" },
+        { "id": "week_plus", "label": "Week+" }
+      ],
+      "stage2Options": [
+        { "id": "once_twice", "label": "Once or twice" },
+        { "id": "several_day", "label": "Several times a day" },
+        { "id": "almost_constant", "label": "Almost constant" },
+        { "id": "episodes", "label": "In episodes / fits" }
+      ]
+    },
+    {
+      "id": "q_sound",
+      "step": 3,
+      "prompt": "Best description of the cough?",
+      "type": "single",
+      "options": [
+        { "id": "honking", "label": "Honking / goose-like" },
+        { "id": "wet", "label": "Wet / phlegmy" },
+        { "id": "dry", "label": "Dry hacking" },
+        { "id": "gagging", "label": "Gagging / retching at the end" },
+        { "id": "wheezing", "label": "Wheezing" },
+        { "id": "reverse_sneeze", "label": "Reverse sneeze (snorting in)" }
+      ]
+    },
+    {
+      "id": "q_brought_up",
+      "step": 3,
+      "prompt": "Has anything come up?",
+      "type": "single",
+      "options": [
+        { "id": "nothing", "label": "Nothing — just cough" },
+        { "id": "foam_mucus", "label": "Foam or mucus" },
+        { "id": "blood_tinged", "label": "Blood-tinged" },
+        { "id": "food", "label": "Brought up food" }
+      ]
+    },
+    {
+      "id": "q_breathing",
+      "step": 4,
+      "prompt": "How is {petName}'s breathing when resting and calm?",
+      "type": "single",
+      "options": [
+        { "id": "normal", "label": "Normal" },
+        { "id": "faster", "label": "Faster than usual" },
+        { "id": "belly_heaving", "label": "Belly heaving / hard work" },
+        { "id": "open_mouth", "label": "Open mouth / panting at rest" },
+        { "id": "pale_gums", "label": "Blue or pale tongue/gums" }
+      ]
+    },
+    {
+      "id": "q_systemic",
+      "step": 4,
+      "prompt": "Energy and appetite?",
+      "type": "multi",
+      "options": [
+        { "id": "eating_ok", "label": "Eating normally" },
+        { "id": "off_food", "label": "Off food" },
+        { "id": "tired", "label": "Tired" },
+        { "id": "restless", "label": "Restless / won't lie down" },
+        { "id": "normal_otherwise", "label": "Normal otherwise" }
+      ]
+    },
+    {
+      "id": "q_exposures",
+      "step": 5,
+      "prompt": "In the last 2 weeks, anything that could be relevant?",
+      "type": "multi",
+      "options": [
+        { "id": "boarding_daycare", "label": "Boarding / daycare" },
+        { "id": "dog_park", "label": "Dog park / group play" },
+        { "id": "travel", "label": "Travel" },
+        { "id": "heat_exposure", "label": "Heat exposure" },
+        { "id": "new_home", "label": "New home / environment" },
+        { "id": "nothing", "label": "Nothing different" }
+      ]
+    },
+    {
+      "id": "q_red_flags",
+      "step": 6,
+      "prompt": "Critical check — is {petName} showing any of these?",
+      "type": "multi",
+      "options": [
+        { "id": "blue_gums", "label": "Blue, purple, or very pale gums" },
+        { "id": "belly_heaving", "label": "Breathing with belly heaving" },
+        { "id": "open_mouth_rest", "label": "Open-mouth panting at rest (in a non-hot setting)" },
+        { "id": "cant_lie_down", "label": "Can't get comfortable lying down" },
+        { "id": "coughing_blood", "label": "Coughing up blood" },
+        { "id": "none", "label": "None" }
+      ]
+    },
+    {
+      "id": "q_freeform",
+      "step": 7,
+      "prompt": "Anything else I should add to the note?",
+      "type": "freeform"
+    }
+  ],
+  "redFlagTriggers": [
+    {
+      "ifAnyAnswerIds": ["blue_gums", "belly_heaving", "open_mouth_rest", "cant_lie_down", "coughing_blood", "pale_gums"],
+      "level": "emergency"
+    },
+    {
+      "ifAllAnswerIds": ["open_mouth", "heat_exposure"],
+      "level": "emergency"
+    }
+  ],
+  "summaryFieldMap": {
+    "SYMPTOM": "Coughing / breathing",
+    "ONSET": "{q_onset_frequency}",
+    "FREQUENCY": "{q_onset_frequency}",
+    "SOUND": "{q_sound}",
+    "BROUGHT_UP": "{q_brought_up}",
+    "BREATHING": "{q_breathing}",
+    "APPETITE_ENERGY": "{q_systemic}",
+    "EXPOSURES": "{q_exposures}",
+    "RED_FLAGS": "{q_red_flags}",
+    "NOTE": "{q_freeform}"
+  }
+}
