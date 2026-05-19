@@ -7,11 +7,15 @@ on:
     paths:
       - "backend/PawBuck.API/**"
       - "backend/PawBuck.API.Tests/**"
+      - "backend/PawBuck.MedicationAdr/**"
+      - "packages/milo-journal-trees/**"
       - ".github/workflows/pawbuck-api-ci.yml"
   pull_request:
     paths:
       - "backend/PawBuck.API/**"
       - "backend/PawBuck.API.Tests/**"
+      - "backend/PawBuck.MedicationAdr/**"
+      - "packages/milo-journal-trees/**"
       - ".github/workflows/pawbuck-api-ci.yml"
 
 concurrency:

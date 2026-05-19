@@ -13,11 +13,11 @@ This matches the **recommended** layout: run the .NET API in containers behind a
 
 ## API container
 
-Build context is **`backend/PawBuck.API/`** (where `Dockerfile` lives):
+Build context is the **repository root** (the API references `PawBuck.MedicationAdr` and `packages/milo-journal-trees`):
 
 ```bash
-cd backend/PawBuck.API
-docker build -t pawbuck-api:latest .
+# from repo root
+docker build -f backend/PawBuck.API/Dockerfile -t pawbuck-api:latest .
 ```
 
 Push to **ECR** and use the image in an ECS task definition:
@@ -317,8 +317,7 @@ Use long-lived keys only if you must: store `AWS_ACCESS_KEY_ID` and `AWS_SECRET_
 ## Local health check (Docker image)
 
 ```bash
-cd backend/PawBuck.API
-docker build -t pawbuck-api:local .
+docker build -f backend/PawBuck.API/Dockerfile -t pawbuck-api:local .
 docker run --rm -p 8080:8080 \
   -e ASPNETCORE_ENVIRONMENT=Development \
   -e Cors__AllowedOrigins__0=http://localhost:5173 \
