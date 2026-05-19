@@ -4,6 +4,7 @@ import { JournalEntryInterviewDetail } from "@/components/journalInterview/Journ
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
 import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
+import { getJournalSurfaceTokens } from "@/components/petJournal/journalSurfaceTokens";
 import {
   JOURNAL_DOMAIN_LABEL,
   subtypeLabel,
@@ -54,6 +55,7 @@ type TimelineRow =
 export default function PetJournalScreen() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
+  const surfaces = getJournalSurfaceTokens(isDark, theme);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -233,7 +235,7 @@ export default function PetJournalScreen() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: isDark ? theme.card : "rgba(0,0,0,0.06)",
+              backgroundColor: surfaces.insetBackground,
               alignItems: "center",
               justifyContent: "center",
               marginRight: 10,
@@ -246,7 +248,7 @@ export default function PetJournalScreen() {
               width: 44,
               height: 44,
               borderRadius: 12,
-              backgroundColor: isDark ? "rgba(59,208,210,0.2)" : "rgba(59,208,210,0.2)",
+              backgroundColor: surfaces.iconBadgeBackground,
               alignItems: "center",
               justifyContent: "center",
               marginRight: 10,
@@ -285,10 +287,12 @@ export default function PetJournalScreen() {
         <View
           style={{
             flexDirection: "row",
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+            backgroundColor: surfaces.insetBackground,
             borderRadius: 14,
             padding: 4,
             gap: 4,
+            borderWidth: 1,
+            borderColor: surfaces.borderColor,
           }}
         >
           {DOMAINS.map((d) => {
@@ -305,11 +309,9 @@ export default function PetJournalScreen() {
                   gap: 6,
                   paddingVertical: 10,
                   borderRadius: 10,
-                  backgroundColor: active
-                    ? isDark
-                      ? theme.card
-                      : "#FFFFFF"
-                    : "transparent",
+                  backgroundColor: active ? surfaces.cardBackground : "transparent",
+                  borderWidth: active ? 1 : 0,
+                  borderColor: active ? surfaces.borderColor : "transparent",
                 }}
               >
                 <Ionicons
@@ -345,10 +347,10 @@ export default function PetJournalScreen() {
               marginTop: 12,
               flexDirection: "row",
               alignItems: "center",
-              backgroundColor: isDark ? theme.card : "#FFFFFF",
+              backgroundColor: surfaces.subduedBackground,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-              borderRadius: 12,
+              borderColor: surfaces.borderColor,
+              borderRadius: 14,
               paddingVertical: 10,
               paddingHorizontal: 12,
               gap: 10,
@@ -418,12 +420,12 @@ export default function PetJournalScreen() {
                       setDomain(entry.domain as JournalDomain);
                     }}
                     style={{
-                      backgroundColor: isDark ? theme.card : "#FFFFFF",
+                      backgroundColor: surfaces.cardBackground,
                       borderRadius: 14,
                       padding: 12,
                       marginBottom: 8,
                       borderWidth: 1,
-                      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                      borderColor: surfaces.borderColor,
                     }}
                   >
                     <Text style={{ fontSize: 11, color: theme.secondary, marginBottom: 4 }}>
@@ -467,16 +469,12 @@ export default function PetJournalScreen() {
               return (
                 <View
                   style={{
-                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    backgroundColor: surfaces.cardBackground,
                     borderRadius: 16,
                     padding: 14,
                     marginBottom: 10,
                     borderWidth: isFocused ? 2 : 1,
-                    borderColor: isFocused
-                      ? theme.primary
-                      : isDark
-                        ? "rgba(255,255,255,0.08)"
-                        : "rgba(0,0,0,0.06)",
+                    borderColor: isFocused ? theme.primary : surfaces.borderColor,
                   }}
                 >
                   <View
@@ -530,16 +528,12 @@ export default function PetJournalScreen() {
             return (
               <View
                 style={{
-                  backgroundColor: isDark ? theme.card : "#FFFFFF",
+                  backgroundColor: surfaces.cardBackground,
                   borderRadius: 16,
                   padding: 14,
                   marginBottom: 10,
                   borderWidth: isFocused ? 2 : 1,
-                  borderColor: isFocused
-                    ? theme.primary
-                    : isDark
-                      ? "rgba(255,255,255,0.08)"
-                      : "rgba(0,0,0,0.06)",
+                  borderColor: isFocused ? theme.primary : surfaces.borderColor,
                 }}
               >
                 <View
