@@ -57,6 +57,12 @@ jest.mock("@/context/themeContext", () => ({
 
 let mockSetSelectedPetId: jest.Mock;
 
+jest.mock("@/context/onboardingContext", () => ({
+  useOnboarding: () => ({
+    resetOnboarding: jest.fn(),
+  }),
+}));
+
 jest.mock("@/context/petsContext", () => ({
   usePets: () => ({
     pets: [{ id: "pet-1", name: "Rex", photo_url: null }],

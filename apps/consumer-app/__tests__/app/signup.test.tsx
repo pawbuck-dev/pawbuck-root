@@ -49,6 +49,10 @@ jest.mock("@/components/OAuth/OAuth", () => ({
   default: () => null,
 }));
 
+jest.mock("@/hooks/useCreatePetFromOnboardingDraft", () => ({
+  useCreatePetFromOnboardingDraft: () => jest.fn().mockResolvedValue(undefined),
+}));
+
 const initialMetrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
@@ -134,6 +138,13 @@ describe("SignUp screen", () => {
   it("navigates to login when tapping Sign in", () => {
     renderSignup();
     fireEvent.press(screen.getByText("Sign in"));
-    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: "/login",
+      params: {
+        returnTo: "",
+        transferCode: "",
+        inviteCode: "",
+      },
+    });
   });
 });

@@ -55,6 +55,12 @@ jest.mock("@/context/themeContext", () => ({
   }),
 }));
 
+jest.mock("@/context/onboardingContext", () => ({
+  useOnboarding: () => ({
+    resetOnboarding: jest.fn(),
+  }),
+}));
+
 jest.mock("@/context/petsContext", () => ({
   usePets: () => ({
     pets: [],
@@ -89,6 +95,6 @@ describe("BookVetVisitScreen (no pets)", () => {
     expect(screen.getByText("Book a visit")).toBeTruthy();
     expect(screen.getByText(/Add a pet to your profile first/)).toBeTruthy();
     fireEvent.press(screen.getByText("Add a pet"));
-    expect(mockPush).toHaveBeenCalledWith("/(home)/add-pet");
+    expect(mockPush).toHaveBeenCalledWith("/onboarding/step1");
   });
 });
