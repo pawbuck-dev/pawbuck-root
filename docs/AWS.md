@@ -23,7 +23,7 @@ docker build -f backend/PawBuck.API/Dockerfile -t pawbuck-api:latest .
 Push to **ECR** and use the image in an ECS task definition:
 
 - **Container port:** `8080`
-- **Health check path (ALB):** `GET /api/health` → `{ "status": "healthy" }`
+- **Health check path (ALB):** `GET /api/health` → `{ "status": "healthy", "mailResolveConfigured": true/false, ... }` (boolean flags only; no secrets). Use `mailResolveConfigured` and `supabaseServiceRoleConfigured` after ECS deploy to confirm Review Inbox (`POST /api/mail/resolve`) can call Supabase Edge Functions.
 - **Environment:** `ASPNETCORE_ENVIRONMENT=Production` (or `Staging`)
 
 ### Required configuration (secrets / env)
