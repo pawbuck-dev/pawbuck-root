@@ -26,6 +26,8 @@ import type {
   SupportProcessedEmailSignedUrlResponse,
   SupportProcessedEmailsListResponse,
   SupportProcessedEmailsSummaryResponse,
+  SupportBulkClearReviewInboxRequest,
+  SupportBulkClearReviewInboxResponse,
   SupportUserDirectoryResponse,
   SupportUserRow,
   SupportVaccinationRow,
@@ -299,5 +301,11 @@ export function createSupportClient(
         `/api/support/processed-emails/${encodeURIComponent(id)}/attachments/${index}/signed-url${qs ? `?${qs}` : ""}`,
       );
     },
+
+    bulkClearReviewInbox: (body: SupportBulkClearReviewInboxRequest) =>
+      request<SupportBulkClearReviewInboxResponse>("/api/support/processed-emails/bulk-clear-review-inbox", {
+        method: "POST",
+        json: body,
+      }),
   };
 }

@@ -156,4 +156,45 @@ public class SupportProcessedEmailsControllerTests
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeSameAs(expected);
     }
+
+    [Fact]
+    public async Task BulkClearReviewInbox_WhenDryRun_ReturnsOk()
+    {
+        var expected = new SupportBulkClearReviewInboxResponse
+        {
+            DryRun = true,
+            Action = "dismiss",
+            MatchingCount = 3,
+            UpdatedCount = 0,
+            Message = "Dry run",
+        };
+        var mock = new Mock<ISupportProcessedEmailsService>();
+        mock
+            .Setup(s => s.BulkClearReviewInboxAsync(It.IsAny<SupportBulkClearReviewInboxRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+        var controller = new SupportProcessedEmailsController(mock.Object);
+
+        var result = await controller.BulkClearReviewInbox(
+            new SupportBulkClearReviewInboxRequest { DryRun = true },
+            CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(expected);
+    }
+
+    [Fact]
+    public async Task BulkClearReviewInbox_WhenInvalidAction_ReturnsBadRequest()
+    {
+        var mock = new Mock<ISupportProcessedEmailsService>();
+        mock
+            .Setup(s => s.BulkClearReviewInboxAsync(It.IsAny<SupportBulkClearReviewInboxRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("action must be 'dismiss' or 'resolve'"));
+        var controller = new SupportProcessedEmailsController(mock.Object);
+
+        var result = await controller.BulkClearReviewInbox(
+            new SupportBulkClearReviewInboxRequest { Action = "invalid", DryRun = false },
+            CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 }

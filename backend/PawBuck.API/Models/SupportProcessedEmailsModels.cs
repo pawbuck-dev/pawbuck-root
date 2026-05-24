@@ -164,3 +164,51 @@ public class SupportProcessedEmailSignedUrlResponse
     [JsonPropertyName("errorMessage")]
     public string? ErrorMessage { get; set; }
 }
+
+public class SupportBulkClearReviewInboxRequest
+{
+    /// <summary><c>dismiss</c> (default) or <c>resolve</c>.</summary>
+    [JsonPropertyName("action")]
+    public string Action { get; set; } = "dismiss";
+
+    /// <summary>When true (default), returns matching count without updating rows.</summary>
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; } = true;
+
+    [JsonPropertyName("ownerUserId")]
+    public Guid? OwnerUserId { get; set; }
+
+    [JsonPropertyName("ownerEmail")]
+    public string? OwnerEmail { get; set; }
+
+    [JsonPropertyName("from")]
+    public DateTimeOffset? From { get; set; }
+
+    [JsonPropertyName("to")]
+    public DateTimeOffset? To { get; set; }
+
+    [JsonPropertyName("emailIds")]
+    public IReadOnlyList<Guid>? EmailIds { get; set; }
+
+    /// <summary>Max rows to update per call (1–5000, default 500).</summary>
+    [JsonPropertyName("maxRows")]
+    public int MaxRows { get; set; } = 500;
+}
+
+public class SupportBulkClearReviewInboxResponse
+{
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; }
+
+    [JsonPropertyName("action")]
+    public string Action { get; set; } = "";
+
+    [JsonPropertyName("matchingCount")]
+    public int MatchingCount { get; set; }
+
+    [JsonPropertyName("updatedCount")]
+    public int UpdatedCount { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+}

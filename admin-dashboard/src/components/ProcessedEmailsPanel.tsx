@@ -65,6 +65,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
   });
   const [attachWarning, setAttachWarning] = useState<string | null>(null);
   const [openBusy, setOpenBusy] = useState<number | null>(null);
+  const [bulkClearOwnerEmail, setBulkClearOwnerEmail] = useState("");
+  const [bulkClearMessage, setBulkClearMessage] = useState<string | null>(null);
+  const [bulkClearBusy, setBulkClearBusy] = useState(false);
 
   const fromIso = useMemo(() => `${dateFrom}T00:00:00.000Z`, [dateFrom]);
   const toIso = useMemo(() => exclusiveEndIsoFromYmd(dateTo), [dateTo]);
@@ -170,6 +173,42 @@ export function ProcessedEmailsPanel({ client }: Props) {
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const bulkClearFilters = useMemo(
+    () => ({
+      from: fromIso,
+      to: toIso,
+      ownerEmail: bulkClearOwnerEmail.trim() || undefined,
+      maxRows: 500,
+    }),
+    [fromIso, toIso, bulkClearOwnerEmail],
+  );
+
+  const runBulkClear = async (dryRun: boolean) => {
+    if (!dryRun) {
+      const ok = window.confirm(
+        "Dismiss all matching Review Inbox rows for consumer Messages? Health records already saved are not deleted.",
+      );
+      if (!ok) return;
+    }
+    setBulkClearBusy(true);
+    setBulkClearMessage(null);
+    try {
+      const res = await client.bulkClearReviewInbox({
+        action: "dismiss",
+        dryRun,
+        ...bulkClearFilters,
+      });
+      setBulkClearMessage(res.message);
+      if (!dryRun && res.updatedCount > 0) {
+        await loadList();
+      }
+    } catch (e) {
+      setBulkClearMessage(e instanceof SupportApiError ? e.message : "Bulk clear failed");
+    } finally {
+      setBulkClearBusy(false);
+    }
+  };
 
   return (
     <div className="layout layout--support">
@@ -283,6 +322,44 @@ export function ProcessedEmailsPanel({ client }: Props) {
             Refresh
           </button>
         </div>
+
+        <div
+          className="directory__toolbar"
+          style={{ marginTop: "0.75rem", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
+        >
+          <span className="muted" style={{ fontWeight: 600 }}>
+            Review Inbox cleanup
+          </span>
+          <input
+            className="directory__search"
+            style={{ minWidth: "10rem", flex: "1 1 10rem" }}
+            placeholder="Owner email (optional)"
+            value={bulkClearOwnerEmail}
+            onChange={(e) => setBulkClearOwnerEmail(e.target.value)}
+            aria-label="Owner email for bulk clear"
+          />
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkClear(true)}
+          >
+            Preview dismiss
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkClear(false)}
+          >
+            Dismiss matching
+          </button>
+        </div>
+        {bulkClearMessage ? (
+          <p className="muted" style={{ marginTop: "0.5rem" }}>
+            {bulkClearMessage}
+          </p>
+        ) : null}
 
         {listError ? <div className="error directory__err">{listError}</div> : null}
         {listLoading ? <p className="muted">Loading…</p> : null}

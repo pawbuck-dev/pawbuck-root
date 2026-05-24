@@ -30,4 +30,11 @@ public interface ISupportProcessedEmailsService
         int index,
         int ttlSeconds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bulk dismiss or resolve Review Inbox rows (<c>processed_emails</c> still shown in consumer Messages).
+    /// </summary>
+    Task<SupportBulkClearReviewInboxResponse> BulkClearReviewInboxAsync(
+        SupportBulkClearReviewInboxRequest request,
+        CancellationToken cancellationToken = default);
 }

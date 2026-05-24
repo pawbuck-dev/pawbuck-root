@@ -75,6 +75,36 @@ public class SupportProcessedEmailsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Bulk dismiss or resolve consumer Review Inbox rows still shown under Processing errors.
+    /// Defaults to <c>dryRun=true</c>; set <c>dryRun=false</c> to apply.
+    /// </summary>
+    [HttpPost("bulk-clear-review-inbox")]
+    [ProducesResponseType(typeof(SupportBulkClearReviewInboxResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> BulkClearReviewInbox(
+        [FromBody] SupportBulkClearReviewInboxRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+            return BadRequest(new { error = "Request body is required" });
+
+        try
+        {
+            var result = await _processedEmails.BulkClearReviewInboxAsync(request, cancellationToken);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(SupportProcessedEmailDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

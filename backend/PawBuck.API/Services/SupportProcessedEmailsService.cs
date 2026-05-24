@@ -767,6 +767,153 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         return (string.Join(" AND ", parts), parameters);
     }
 
+    /// <inheritdoc />
+    public async Task<SupportBulkClearReviewInboxResponse> BulkClearReviewInboxAsync(
+        SupportBulkClearReviewInboxRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var action = (request.Action ?? "dismiss").Trim().ToLowerInvariant();
+        if (action is not ("dismiss" or "resolve"))
+        {
+            throw new ArgumentException("action must be 'dismiss' or 'resolve'");
+        }
+
+        var maxRows = Math.Clamp(request.MaxRows <= 0 ? 500 : request.MaxRows, 1, 5000);
+        var (whereSql, parameters) = BuildReviewInboxClearFilter(request);
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        var countSql = $"""
+            SELECT COUNT(*)
+            FROM public.processed_emails pe
+            LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+            LEFT JOIN auth.users u ON u.id = p.user_id
+            WHERE {whereSql}
+            """;
+
+        int matchingCount;
+        await using (var countCmd = new NpgsqlCommand(countSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                countCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            var scalar = await countCmd.ExecuteScalarAsync(cancellationToken);
+            matchingCount = scalar is long l ? (int)l : Convert.ToInt32(scalar ?? 0);
+        }
+
+        if (request.DryRun)
+        {
+            return new SupportBulkClearReviewInboxResponse
+            {
+                DryRun = true,
+                Action = action,
+                MatchingCount = matchingCount,
+                UpdatedCount = 0,
+                Message =
+                    $"Dry run: {matchingCount} Review Inbox row(s) match. Re-send with dryRun=false to {action} up to {maxRows} row(s).",
+            };
+        }
+
+        var setSql = action == "resolve"
+            ? """
+              review_status = 'resolved',
+              failure_reason = NULL,
+              success = TRUE
+              """
+            : """
+              review_status = 'dismissed',
+              success = FALSE
+              """;
+
+        var updateSql = $"""
+            WITH candidates AS (
+              SELECT pe.id
+              FROM public.processed_emails pe
+              LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+              LEFT JOIN auth.users u ON u.id = p.user_id
+              WHERE {whereSql}
+              ORDER BY pe.completed_at DESC NULLS LAST
+              LIMIT @maxRows
+            )
+            UPDATE public.processed_emails pe
+            SET {setSql}
+            FROM candidates c
+            WHERE pe.id = c.id
+            """;
+
+        int updatedCount;
+        await using (var updateCmd = new NpgsqlCommand(updateSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                updateCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            updateCmd.Parameters.AddWithValue("maxRows", maxRows);
+            updatedCount = await updateCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Support bulk Review Inbox {Action}: updated {UpdatedCount}/{MatchingCount} row(s) (maxRows={MaxRows})",
+            action,
+            updatedCount,
+            matchingCount,
+            maxRows);
+
+        return new SupportBulkClearReviewInboxResponse
+        {
+            DryRun = false,
+            Action = action,
+            MatchingCount = matchingCount,
+            UpdatedCount = updatedCount,
+            Message =
+                $"Marked {updatedCount} row(s) as {action}. {Math.Max(0, matchingCount - updatedCount)} additional row(s) still match (re-run or raise maxRows).",
+        };
+    }
+
+    /// <summary>Same visibility rules as consumer Review Inbox (<c>isReviewInboxCandidate</c>).</summary>
+    internal static (string WhereSql, List<(string Name, object? Value)> Parameters) BuildReviewInboxClearFilter(
+        SupportBulkClearReviewInboxRequest request)
+    {
+        var parts = new List<string>
+        {
+            "pe.status = 'completed'",
+            "COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')",
+            "(pe.success = false OR NULLIF(trim(pe.failure_reason), '') IS NOT NULL)",
+        };
+        var parameters = new List<(string Name, object? Value)>();
+
+        if (request.OwnerUserId is { } ownerUserId)
+        {
+            parts.Add("p.user_id = @ownerUserId");
+            parameters.Add(("ownerUserId", ownerUserId));
+        }
+
+        var ownerEmail = (request.OwnerEmail ?? "").Trim();
+        if (ownerEmail.Length > 0)
+        {
+            parts.Add("lower(u.email) = lower(@ownerEmail)");
+            parameters.Add(("ownerEmail", ownerEmail));
+        }
+
+        if (request.From is { } from)
+        {
+            parts.Add("pe.completed_at >= @from");
+            parameters.Add(("from", from));
+        }
+
+        if (request.To is { } to)
+        {
+            parts.Add("pe.completed_at < @to");
+            parameters.Add(("to", to));
+        }
+
+        if (request.EmailIds is { Count: > 0 } ids)
+        {
+            parts.Add("pe.id = ANY(@emailIds)");
+            parameters.Add(("emailIds", ids.ToArray()));
+        }
+
+        return (string.Join(" AND ", parts), parameters);
+    }
+
     private static string EscapeForLike(string value)
     {
         return value.Replace("\\", "\\\\", StringComparison.Ordinal)

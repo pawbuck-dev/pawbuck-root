@@ -293,6 +293,25 @@ export interface SupportProcessedEmailsSummaryResponse {
   byDocumentType: SupportProcessedEmailsSummaryBucket[];
 }
 
+export interface SupportBulkClearReviewInboxRequest {
+  action?: "dismiss" | "resolve";
+  dryRun?: boolean;
+  ownerUserId?: string;
+  ownerEmail?: string;
+  from?: string;
+  to?: string;
+  emailIds?: string[];
+  maxRows?: number;
+}
+
+export interface SupportBulkClearReviewInboxResponse {
+  dryRun: boolean;
+  action: string;
+  matchingCount: number;
+  updatedCount: number;
+  message: string;
+}
+
 export interface SupportProcessedEmailAttachment {
   index: number;
   filename: string;
