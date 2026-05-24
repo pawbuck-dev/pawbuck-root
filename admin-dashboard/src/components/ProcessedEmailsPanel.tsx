@@ -184,24 +184,31 @@ export function ProcessedEmailsPanel({ client }: Props) {
     [fromIso, toIso, bulkClearOwnerEmail],
   );
 
-  const runBulkClear = async (dryRun: boolean) => {
+  const runBulkClear = async (action: "dismiss" | "resolve", dryRun: boolean, emailIds?: string[]) => {
     if (!dryRun) {
-      const ok = window.confirm(
-        "Dismiss all matching Review Inbox rows for consumer Messages? Health records already saved are not deleted.",
-      );
+      const verb = action === "resolve" ? "Resolve" : "Dismiss";
+      const detail =
+        action === "resolve"
+          ? "Marks matching rows as handled (clears failure_reason). Use when health data is already filed or the error is environmental."
+          : "Removes matching rows from consumer Processing errors. Health records already saved are not deleted.";
+      const ok = window.confirm(`${verb} ${emailIds?.length === 1 ? "this" : "all matching"} Review Inbox row(s)?\n\n${detail}`);
       if (!ok) return;
     }
     setBulkClearBusy(true);
     setBulkClearMessage(null);
     try {
       const res = await client.bulkClearReviewInbox({
-        action: "dismiss",
+        action,
         dryRun,
         ...bulkClearFilters,
+        emailIds,
       });
       setBulkClearMessage(res.message);
       if (!dryRun && res.updatedCount > 0) {
         await loadList();
+        if (emailIds?.length === 1 && selected?.id === emailIds[0]) {
+          setSelected(null);
+        }
       }
     } catch (e) {
       setBulkClearMessage(e instanceof SupportApiError ? e.message : "Bulk clear failed");
@@ -342,7 +349,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
             type="button"
             className="btn btn-secondary btn--sm"
             disabled={bulkClearBusy}
-            onClick={() => void runBulkClear(true)}
+            onClick={() => void runBulkClear("dismiss", true)}
           >
             Preview dismiss
           </button>
@@ -350,11 +357,32 @@ export function ProcessedEmailsPanel({ client }: Props) {
             type="button"
             className="btn btn-secondary btn--sm"
             disabled={bulkClearBusy}
-            onClick={() => void runBulkClear(false)}
+            onClick={() => void runBulkClear("dismiss", false)}
           >
             Dismiss matching
           </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkClear("resolve", true)}
+          >
+            Preview resolve
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkClear("resolve", false)}
+          >
+            Resolve matching
+          </button>
         </div>
+        <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
+          <strong>Dismiss</strong> removes items from the owner&apos;s Processing errors list.{" "}
+          <strong>Resolve</strong> marks them handled and clears <code>failure_reason</code> (use when records are
+          already saved or the failure was infra-only, e.g. missing API keys).
+        </p>
         {bulkClearMessage ? (
           <p className="muted" style={{ marginTop: "0.5rem" }}>
             {bulkClearMessage}
@@ -475,6 +503,27 @@ export function ProcessedEmailsPanel({ client }: Props) {
               <strong>s3_key:</strong>{" "}
               <code style={{ wordBreak: "break-all", fontSize: "0.8rem" }}>{selected.s3Key}</code>
             </p>
+            <p>
+              <strong>Review status:</strong> {selected.reviewStatus ?? "—"}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+              <button
+                type="button"
+                className="btn btn-primary btn--sm"
+                disabled={bulkClearBusy || selected.reviewStatus === "resolved"}
+                onClick={() => void runBulkClear("resolve", false, [selected.id])}
+              >
+                Resolve this row
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn--sm"
+                disabled={bulkClearBusy || selected.reviewStatus === "dismissed"}
+                onClick={() => void runBulkClear("dismiss", false, [selected.id])}
+              >
+                Dismiss this row
+              </button>
+            </div>
             <h3 className="panel-sub">failure_reason (full)</h3>
             <pre
               style={{
