@@ -142,6 +142,10 @@ public class SupportProcessedEmailsSummaryResponse
     [JsonPropertyName("totalStuckProcessing")]
     public int TotalStuckProcessing { get; set; }
 
+    /// <summary><c>success=false</c> rows dismissed/resolved — hidden from consumer Processing errors.</summary>
+    [JsonPropertyName("totalHardFailuresClearedFromInbox")]
+    public int TotalHardFailuresClearedFromInbox { get; set; }
+
     [JsonPropertyName("byDocumentType")]
     public IReadOnlyList<SupportProcessedEmailsSummaryBucketDto> ByDocumentType { get; set; } =
         Array.Empty<SupportProcessedEmailsSummaryBucketDto>();

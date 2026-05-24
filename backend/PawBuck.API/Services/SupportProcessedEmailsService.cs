@@ -299,6 +299,24 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             stuckCount = Convert.ToInt32(await stuckCmd.ExecuteScalarAsync(cancellationToken) ?? 0);
         }
 
+        const string clearedSql = """
+            SELECT COUNT(*)::int
+            FROM public.processed_emails pe
+            WHERE pe.status = 'completed'
+              AND pe.success = false
+              AND COALESCE(pe.review_status, 'pending') IN ('dismissed', 'resolved')
+              AND pe.completed_at >= @from
+              AND pe.completed_at < @to
+            """;
+
+        int clearedCount;
+        await using (var clearedCmd = new NpgsqlCommand(clearedSql, conn))
+        {
+            clearedCmd.Parameters.AddWithValue("from", fromInclusive);
+            clearedCmd.Parameters.AddWithValue("to", toExclusive);
+            clearedCount = Convert.ToInt32(await clearedCmd.ExecuteScalarAsync(cancellationToken) ?? 0);
+        }
+
         return new SupportProcessedEmailsSummaryResponse
         {
             From = fromInclusive,
@@ -306,6 +324,7 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             TotalFailures = total,
             TotalReviewInboxCandidates = reviewInboxCount,
             TotalStuckProcessing = stuckCount,
+            TotalHardFailuresClearedFromInbox = clearedCount,
             ByDocumentType = buckets,
         };
     }

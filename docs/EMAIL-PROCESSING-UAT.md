@@ -107,6 +107,7 @@ Vet/care-team sender emails **auto-pass** sender verification (no approval row).
 |--------|----------------|
 | `Supabase:ConnectionString` | Resolve, mark resolved |
 | `Supabase:Url` + `Supabase:ServiceRoleKey` | Invoke edge; admin attachment preview |
+| `Milo:InternalServiceKey` (`Milo__InternalServiceKey` on ECS) | **Must match** Edge `MILO_INTERNAL_SERVICE_KEY` — `POST /api/milo/documents/analyze-internal` (email vault filing) |
 
 ### Consumer app
 

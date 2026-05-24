@@ -273,10 +273,16 @@ export function ProcessedEmailsPanel({ client }: Props) {
 
         {summary ? (
           <p className="muted" style={{ marginTop: "0.75rem" }}>
-            <strong>{summary.totalReviewInboxCandidates ?? 0}</strong> consumer Review Inbox ·{" "}
-            <strong>{summary.totalStuckProcessing ?? 0}</strong> stuck processing ·{" "}
-            <strong>{summary.totalFailures}</strong> hard failures (
-            <code>success=false</code>) · Top types:{" "}
+            <strong>{summary.totalReviewInboxCandidates ?? 0}</strong> in consumer Review Inbox ·{" "}
+            <strong>{summary.totalStuckProcessing ?? 0}</strong> stuck processing
+            {(summary.totalHardFailuresClearedFromInbox ?? 0) > 0 ? (
+              <>
+                {" "}
+                · <strong>{summary.totalHardFailuresClearedFromInbox}</strong> hard failures cleared
+                (dismissed/resolved)
+              </>
+            ) : null}{" "}
+            · Top failure types:{" "}
             {summary.byDocumentType.slice(0, 6).map((b) => (
               <span key={b.documentType || "empty"} style={{ marginRight: "0.75rem" }}>
                 {(b.documentType || "(none)").slice(0, 24)} ({b.count})
@@ -508,9 +514,29 @@ export function ProcessedEmailsPanel({ client }: Props) {
         {listLoading ? <p className="muted">Loading…</p> : null}
 
         {!listLoading && list.length === 0 && !listError ? (
-          <p className="muted" style={{ marginTop: "1rem" }}>
-            No rows match.
-          </p>
+          <div style={{ marginTop: "1rem" }}>
+            <p className="muted">No rows match the current view and filters.</p>
+            {listViewMode === "reviewInbox" &&
+            summary &&
+            (summary.totalReviewInboxCandidates ?? 0) === 0 &&
+            (summary.totalHardFailuresClearedFromInbox ?? 0) > 0 ? (
+              <p className="muted" style={{ marginTop: "0.5rem", maxWidth: "44rem" }}>
+                <strong>{summary.totalHardFailuresClearedFromInbox}</strong> hard failure(s) in this date range
+                are dismissed or resolved — they no longer appear in the consumer app. Switch to{" "}
+                <strong>View: success=false only</strong> to inspect them, or enable{" "}
+                <strong>Include dismissed</strong> before reprocess.
+              </p>
+            ) : listViewMode === "reviewInbox" &&
+              summary &&
+              (summary.totalReviewInboxCandidates ?? 0) === 0 &&
+              (summary.totalStuckProcessing ?? 0) === 0 ? (
+              <p className="muted" style={{ marginTop: "0.5rem", maxWidth: "44rem" }}>
+                Nothing is waiting in Messages → Processing errors for this range. If the app still shows an
+                item, widen to <strong>90d</strong>, clear owner email filter, or check the owner is on the
+                same Supabase project as this API.
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {list.length > 0 ? (

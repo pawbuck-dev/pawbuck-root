@@ -299,6 +299,7 @@ export interface SupportProcessedEmailsSummaryResponse {
   totalFailures: number;
   totalReviewInboxCandidates: number;
   totalStuckProcessing: number;
+  totalHardFailuresClearedFromInbox?: number;
   byDocumentType: SupportProcessedEmailsSummaryBucket[];
 }
 
