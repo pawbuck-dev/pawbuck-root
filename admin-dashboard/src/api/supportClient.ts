@@ -259,6 +259,8 @@ export function createSupportClient(
       reviewStatus?: string;
       q?: string;
       failuresOnly?: boolean;
+      reviewInboxOnly?: boolean;
+      ownerEmail?: string;
     }) => {
       const p = new URLSearchParams();
       if (params.page != null) p.set("page", String(params.page));
@@ -271,6 +273,8 @@ export function createSupportClient(
         p.set("reviewStatus", params.reviewStatus);
       if (params.q != null && params.q.trim()) p.set("q", params.q.trim());
       if (params.failuresOnly === false) p.set("failuresOnly", "false");
+      if (params.reviewInboxOnly) p.set("reviewInboxOnly", "true");
+      if (params.ownerEmail?.trim()) p.set("ownerEmail", params.ownerEmail.trim());
       const qs = p.toString();
       return request<SupportProcessedEmailsListResponse>(
         `/api/support/processed-emails${qs ? `?${qs}` : ""}`,

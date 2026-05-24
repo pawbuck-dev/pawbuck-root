@@ -38,13 +38,16 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+type ListViewMode = "reviewInbox" | "failuresOnly" | "all";
+
 export function ProcessedEmailsPanel({ client }: Props) {
-  const [dateFrom, setDateFrom] = useState(() => startOfUtcDayYmd(7));
+  const [dateFrom, setDateFrom] = useState(() => startOfUtcDayYmd(30));
   const [dateTo, setDateTo] = useState(() => toYmd(new Date()));
   const [documentType, setDocumentType] = useState("all");
   const [reviewStatus, setReviewStatus] = useState("all");
   const [q, setQ] = useState("");
-  const [failuresOnly, setFailuresOnly] = useState(true);
+  const [listViewMode, setListViewMode] = useState<ListViewMode>("reviewInbox");
+  const [ownerEmailFilter, setOwnerEmailFilter] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 25;
 
@@ -87,7 +90,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
         documentType: documentType.trim() || "all",
         reviewStatus: reviewStatus.trim() || "all",
         q: q.trim() || undefined,
-        failuresOnly,
+        reviewInboxOnly: listViewMode === "reviewInbox",
+        failuresOnly: listViewMode === "failuresOnly",
+        ownerEmail: ownerEmailFilter.trim() || undefined,
       });
       setList(res.items);
       setTotalCount(res.totalCount);
@@ -98,7 +103,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
     } finally {
       setListLoading(false);
     }
-  }, [client, page, pageSize, fromIso, toIso, documentType, reviewStatus, q, failuresOnly]);
+  }, [client, page, pageSize, fromIso, toIso, documentType, reviewStatus, q, listViewMode, ownerEmailFilter]);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -181,9 +186,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
     () => ({
       from: fromIso,
       to: toIso,
-      ownerEmail: bulkClearOwnerEmail.trim() || undefined,
+      ownerEmail: (bulkClearOwnerEmail.trim() || ownerEmailFilter.trim()) || undefined,
     }),
-    [fromIso, toIso, bulkClearOwnerEmail],
+    [fromIso, toIso, bulkClearOwnerEmail, ownerEmailFilter],
   );
 
   const runBulkReprocess = async (dryRun: boolean, emailIds?: string[]) => {
@@ -261,15 +266,17 @@ export function ProcessedEmailsPanel({ client }: Props) {
       <section className="panel panel--flush" style={{ minWidth: 0 }}>
         <h2 className="panel__title">Inbound mail errors</h2>
         <p className="muted" style={{ maxWidth: "44rem" }}>
-          Failed rows from <code>processed_emails</code> (Mailgun pipeline). Search <code>q</code> matches{" "}
-          <strong>failure_reason</strong> and <strong>subject</strong> (OCR / extract / billing text, etc.). Opening
-          attachments requires the API to have <code>Supabase:Url</code> and <code>Supabase:ServiceRoleKey</code> (or{" "}
-          <code>SUPABASE_SERVICE_ROLE_KEY</code>).
+          Debug consumer <strong>Messages → Processing errors</strong> without SQL. Default view matches the app
+          Review Inbox (includes legacy <code>success=true</code> + <code>failure_reason</code> rows and stuck{" "}
+          <code>status=processing</code> locks).
         </p>
 
         {summary ? (
           <p className="muted" style={{ marginTop: "0.75rem" }}>
-            <strong>{summary.totalFailures}</strong> failures in range · Top types:{" "}
+            <strong>{summary.totalReviewInboxCandidates ?? 0}</strong> consumer Review Inbox ·{" "}
+            <strong>{summary.totalStuckProcessing ?? 0}</strong> stuck processing ·{" "}
+            <strong>{summary.totalFailures}</strong> hard failures (
+            <code>success=false</code>) · Top types:{" "}
             {summary.byDocumentType.slice(0, 6).map((b) => (
               <span key={b.documentType || "empty"} style={{ marginRight: "0.75rem" }}>
                 {(b.documentType || "(none)").slice(0, 24)} ({b.count})
@@ -288,6 +295,34 @@ export function ProcessedEmailsPanel({ client }: Props) {
           <button type="button" className="btn btn-secondary btn--sm" onClick={() => applyPreset(30)}>
             30d
           </button>
+          <button type="button" className="btn btn-secondary btn--sm" onClick={() => applyPreset(90)}>
+            90d
+          </button>
+          <select
+            className="directory__search"
+            style={{ width: "auto" }}
+            value={listViewMode}
+            onChange={(e) => {
+              setListViewMode(e.target.value as ListViewMode);
+              setPage(1);
+            }}
+            aria-label="List view"
+          >
+            <option value="reviewInbox">View: Consumer Review Inbox</option>
+            <option value="failuresOnly">View: success=false only</option>
+            <option value="all">View: All completed</option>
+          </select>
+          <input
+            className="directory__search"
+            style={{ minWidth: "10rem", flex: "1 1 10rem" }}
+            placeholder="Owner email filter"
+            value={ownerEmailFilter}
+            onChange={(e) => {
+              setOwnerEmailFilter(e.target.value);
+              setPage(1);
+            }}
+            aria-label="Owner email filter"
+          />
           <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
             From
             <input
@@ -340,17 +375,6 @@ export function ProcessedEmailsPanel({ client }: Props) {
             <option value="resolved">resolved</option>
             <option value="dismissed">dismissed</option>
           </select>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", whiteSpace: "nowrap" }}>
-            <input
-              type="checkbox"
-              checked={!failuresOnly}
-              onChange={(e) => {
-                setFailuresOnly(!e.target.checked);
-                setPage(1);
-              }}
-            />
-            <span className="muted">Show successful</span>
-          </label>
         </div>
         <div className="directory__toolbar" style={{ marginTop: "0.5rem" }}>
           <input
@@ -494,7 +518,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
             <table>
               <thead>
                 <tr>
-                  <th>Completed</th>
+                  <th>When</th>
+                  <th>Status</th>
+                  <th>OK</th>
                   <th>Doc type</th>
                   <th>Review</th>
                   <th>Pet</th>
@@ -511,7 +537,11 @@ export function ProcessedEmailsPanel({ client }: Props) {
                     className={`clickable ${selected?.id === row.id ? "selected" : ""}`}
                     onClick={() => void openRow(row)}
                   >
-                    <td className="muted">{(row.completedAt ?? "").slice(0, 16).replace("T", " ") || "—"}</td>
+                    <td className="muted">
+                      {(row.completedAt ?? row.startedAt ?? "").slice(0, 16).replace("T", " ") || "—"}
+                    </td>
+                    <td>{row.status}</td>
+                    <td>{row.success == null ? "—" : row.success ? "yes" : "no"}</td>
                     <td>{row.documentType ?? "—"}</td>
                     <td>{row.reviewStatus ?? "—"}</td>
                     <td>
@@ -595,8 +625,49 @@ export function ProcessedEmailsPanel({ client }: Props) {
               <code style={{ wordBreak: "break-all", fontSize: "0.8rem" }}>{selected.s3Key}</code>
             </p>
             <p>
+              <strong>Pipeline status:</strong> {selected.status}{" "}
+              <span className="muted">
+                · success={selected.success == null ? "null" : String(selected.success)}
+              </span>
+            </p>
+            <p>
               <strong>Review status:</strong> {selected.reviewStatus ?? "—"}
             </p>
+
+            <h3 className="panel-sub">Diagnostics (no SQL)</h3>
+            <div
+              style={{
+                fontSize: "0.85rem",
+                padding: "0.75rem",
+                marginBottom: "1rem",
+                background: "var(--panel-subtle-bg, rgba(0,0,0,0.04))",
+                borderRadius: "6px",
+              }}
+            >
+              <p style={{ margin: "0 0 0.35rem" }}>
+                <strong>Consumer Processing errors:</strong>{" "}
+                {selected.consumerInboxVisible ? "visible" : "hidden"}
+                {selected.consumerInboxHiddenReason ? (
+                  <span className="muted"> — {selected.consumerInboxHiddenReason}</span>
+                ) : null}
+              </p>
+              <p style={{ margin: "0 0 0.35rem" }}>
+                <strong>Owner Confirm allowed:</strong> {selected.canOwnerResolve ? "yes" : "no"}
+              </p>
+              <p style={{ margin: "0 0 0.35rem" }}>
+                <strong>pending-emails archive:</strong>{" "}
+                <code>{selected.storedArchiveStatus ?? "—"}</code>
+                {selected.storedArchiveMessage ? (
+                  <span className="muted"> — {selected.storedArchiveMessage}</span>
+                ) : null}
+              </p>
+              {selected.recommendedAction ? (
+                <p style={{ margin: "0.5rem 0 0" }}>
+                  <strong>Recommended:</strong> {selected.recommendedAction}
+                </p>
+              ) : null}
+            </div>
+
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
               <button
                 type="button"

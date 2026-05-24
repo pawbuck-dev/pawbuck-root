@@ -114,7 +114,7 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
             LEFT JOIN auth.users u ON u.id = p.user_id
             WHERE {whereSql}
-            ORDER BY pe.completed_at DESC NULLS LAST
+            ORDER BY COALESCE(pe.completed_at, pe.started_at) DESC NULLS LAST
             LIMIT @pageSize OFFSET @offset
             """;
 
@@ -198,7 +198,8 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             return null;
 
         var failureReason = reader.IsDBNull(13) ? null : reader.GetString(13);
-        return new SupportProcessedEmailDetailDto
+        var reviewStatus = reader.IsDBNull(14) ? null : reader.GetString(14);
+        var detail = new SupportProcessedEmailDetailDto
         {
             Id = reader.GetGuid(0),
             S3Key = reader.GetString(1),
@@ -215,8 +216,11 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             DocumentType = reader.IsDBNull(12) ? null : reader.GetString(12),
             FailureReason = failureReason,
             FailureReasonSnippet = Snippet(failureReason),
-            ReviewStatus = reader.IsDBNull(14) ? null : reader.GetString(14),
+            ReviewStatus = reviewStatus,
         };
+
+        await PopulateDiagnosticsAsync(detail, cancellationToken);
+        return detail;
     }
 
     /// <inheritdoc />
@@ -259,11 +263,49 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         }
 
         var total = buckets.Sum(b => b.Count);
+
+        const string reviewInboxSql = """
+            SELECT COUNT(*)::int
+            FROM public.processed_emails pe
+            WHERE pe.status = 'completed'
+              AND COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')
+              AND (pe.success = false OR NULLIF(trim(pe.failure_reason), '') IS NOT NULL)
+              AND pe.completed_at >= @from
+              AND pe.completed_at < @to
+            """;
+
+        const string stuckSql = """
+            SELECT COUNT(*)::int
+            FROM public.processed_emails pe
+            WHERE pe.status = 'processing'
+              AND COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')
+              AND pe.started_at >= @from
+              AND pe.started_at < @to
+            """;
+
+        int reviewInboxCount;
+        await using (var reviewCmd = new NpgsqlCommand(reviewInboxSql, conn))
+        {
+            reviewCmd.Parameters.AddWithValue("from", fromInclusive);
+            reviewCmd.Parameters.AddWithValue("to", toExclusive);
+            reviewInboxCount = Convert.ToInt32(await reviewCmd.ExecuteScalarAsync(cancellationToken) ?? 0);
+        }
+
+        int stuckCount;
+        await using (var stuckCmd = new NpgsqlCommand(stuckSql, conn))
+        {
+            stuckCmd.Parameters.AddWithValue("from", fromInclusive);
+            stuckCmd.Parameters.AddWithValue("to", toExclusive);
+            stuckCount = Convert.ToInt32(await stuckCmd.ExecuteScalarAsync(cancellationToken) ?? 0);
+        }
+
         return new SupportProcessedEmailsSummaryResponse
         {
             From = fromInclusive,
             To = toExclusive,
             TotalFailures = total,
+            TotalReviewInboxCandidates = reviewInboxCount,
+            TotalStuckProcessing = stuckCount,
             ByDocumentType = buckets,
         };
     }
@@ -722,24 +764,54 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             : failureReason[..SnippetMaxChars] + "…";
     }
 
-    private static (string WhereSql, List<(string Name, object? Value)> Parameters) BuildListFilter(SupportProcessedEmailsListQuery query)
+    internal static (string WhereSql, List<(string Name, object? Value)> Parameters) BuildListFilter(
+        SupportProcessedEmailsListQuery query)
     {
-        var parts = new List<string> { "pe.status = 'completed'" };
+        var parts = new List<string>();
         var parameters = new List<(string Name, object? Value)>();
 
-        if (query.FailuresOnly)
-            parts.Add("pe.success = false");
+        if (query.ReviewInboxOnly)
+        {
+            parts.Add(
+                """
+                (
+                  (pe.status = 'completed'
+                    AND COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')
+                    AND (pe.success = false OR NULLIF(trim(pe.failure_reason), '') IS NOT NULL))
+                  OR pe.status = 'processing'
+                )
+                """);
+        }
+        else
+        {
+            parts.Add("pe.status = 'completed'");
+            if (query.FailuresOnly)
+                parts.Add("pe.success = false");
+        }
 
         if (query.From is { } from)
         {
-            parts.Add("pe.completed_at >= @from");
+            parts.Add(
+                query.ReviewInboxOnly
+                    ? "(pe.completed_at >= @from OR (pe.status = 'processing' AND pe.started_at >= @from))"
+                    : "pe.completed_at >= @from");
             parameters.Add(("from", from));
         }
 
         if (query.To is { } to)
         {
-            parts.Add("pe.completed_at < @to");
+            parts.Add(
+                query.ReviewInboxOnly
+                    ? "(pe.completed_at < @to OR (pe.status = 'processing' AND pe.started_at < @to) OR pe.completed_at IS NULL)"
+                    : "pe.completed_at < @to");
             parameters.Add(("to", to));
+        }
+
+        var ownerEmail = (query.OwnerEmail ?? "").Trim();
+        if (ownerEmail.Length > 0)
+        {
+            parts.Add("lower(u.email) = lower(@ownerEmail)");
+            parameters.Add(("ownerEmail", ownerEmail));
         }
 
         var docType = (query.DocumentType ?? "").Trim();
@@ -1123,6 +1195,119 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         }
 
         return (string.Join(" AND ", parts), parameters);
+    }
+
+    private async Task PopulateDiagnosticsAsync(
+        SupportProcessedEmailDetailDto detail,
+        CancellationToken cancellationToken)
+    {
+        var (visible, hiddenReason) = GetConsumerInboxVisibility(
+            detail.Status,
+            detail.Success,
+            detail.FailureReason,
+            detail.ReviewStatus);
+        detail.ConsumerInboxVisible = visible;
+        detail.ConsumerInboxHiddenReason = hiddenReason;
+        detail.CanOwnerResolve = MailInboxResolveService.CanResolveProcessedEmail(
+            detail.Success,
+            detail.FailureReason,
+            detail.ReviewStatus);
+
+        if (!IsSupabaseStorageConfigured())
+        {
+            detail.StoredArchiveStatus = "storage_not_configured";
+            detail.StoredArchiveMessage =
+                "Set Supabase__Url and Supabase__ServiceRoleKey on PawBuck.API to check pending-emails archive.";
+        }
+        else if (string.IsNullOrWhiteSpace(detail.S3Key))
+        {
+            detail.StoredArchiveStatus = "missing";
+            detail.StoredArchiveMessage = "Row has no s3_key (Message-Id). Cannot reprocess.";
+        }
+        else
+        {
+            var archive = await TryLoadPendingEmailAsync(detail.S3Key, cancellationToken);
+            if (!string.IsNullOrEmpty(archive.ErrorCode))
+            {
+                detail.StoredArchiveStatus = archive.ErrorCode == ErrorAttachmentNotStored ? "missing" : "invalid_json";
+                detail.StoredArchiveMessage = archive.ErrorMessage;
+            }
+            else if (archive.Attachments is null || archive.Attachments.Count == 0)
+            {
+                detail.StoredArchiveStatus = "missing";
+                detail.StoredArchiveMessage = "Archive JSON exists but lists no attachments.";
+            }
+            else
+            {
+                var bodiesMissing = archive.Attachments.All(a =>
+                    string.IsNullOrWhiteSpace(a.Content) ||
+                    a.ContentWasStrippedForArchive == true);
+                if (bodiesMissing)
+                {
+                    detail.StoredArchiveStatus = "metadata_only";
+                    detail.StoredArchiveMessage =
+                        "Archive JSON exists but attachment bytes were stripped (size cap). Reprocess likely fails.";
+                }
+                else
+                {
+                    detail.StoredArchiveStatus = "stored";
+                    detail.StoredArchiveMessage =
+                        $"Archive JSON OK ({archive.Attachments.Count} attachment(s) with bodies).";
+                }
+            }
+        }
+
+        detail.RecommendedAction = BuildRecommendedAction(detail);
+    }
+
+  internal static (bool Visible, string? HiddenReason) GetConsumerInboxVisibility(
+        string status,
+        bool? success,
+        string? failureReason,
+        string? reviewStatus)
+    {
+        if (reviewStatus is "dismissed" or "resolved")
+            return (false, $"Hidden: review_status={reviewStatus}");
+        if (!string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+        {
+            return (false,
+                $"Hidden from consumer app: status={status}. Stuck processing locks often cause Confirm 502/409.");
+        }
+
+        if (success == false)
+            return (true, null);
+        if (!string.IsNullOrWhiteSpace(failureReason))
+            return (true, null);
+        return (false, "Hidden: no failure signal (success=true, no failure_reason).");
+    }
+
+    internal static string BuildRecommendedAction(SupportProcessedEmailDetailDto detail)
+    {
+        if (string.Equals(detail.Status, "processing", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Stuck lock: set status=completed in DB or deploy API+edge lock fix, then Reprocess & file.";
+        }
+
+        if (detail.StoredArchiveStatus == "storage_not_configured")
+            return "Configure API Supabase URL + service role key, then refresh detail.";
+
+        if (detail.StoredArchiveStatus is "missing" or "invalid_json")
+            return "Cannot reprocess: no usable pending-emails JSON. Owner must re-send the email or add records manually.";
+
+        if (detail.StoredArchiveStatus == "metadata_only")
+            return "Reprocess may fail without PDF bytes. Re-send email or use manual health record entry.";
+
+        if (!detail.CanOwnerResolve)
+            return detail.ReviewStatus is "dismissed" or "resolved"
+                ? "Already cleared from Review Inbox. Use Reprocess only if records are still missing."
+                : "Row not eligible for owner Confirm.";
+
+        if (detail.ConsumerInboxVisible)
+        {
+            return "Use Reprocess & file (same as owner Confirm). Ensure edge secrets PAWBUCK_API_URL + MILO_INTERNAL_SERVICE_KEY.";
+        }
+
+        return "Not shown in consumer Processing errors; inspect failure_reason and review_status.";
     }
 
     private static string EscapeForLike(string value)

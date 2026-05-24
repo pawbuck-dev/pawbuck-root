@@ -270,6 +270,13 @@ export interface SupportProcessedEmailListItem {
   failureReason: string | null;
   failureReasonSnippet: string | null;
   reviewStatus: string | null;
+  /** Detail-only diagnostics (GET by id). */
+  consumerInboxVisible?: boolean;
+  consumerInboxHiddenReason?: string | null;
+  canOwnerResolve?: boolean;
+  storedArchiveStatus?: string | null;
+  storedArchiveMessage?: string | null;
+  recommendedAction?: string | null;
 }
 
 export type SupportProcessedEmailDetail = SupportProcessedEmailListItem;
@@ -290,6 +297,8 @@ export interface SupportProcessedEmailsSummaryResponse {
   from: string;
   to: string;
   totalFailures: number;
+  totalReviewInboxCandidates: number;
+  totalStuckProcessing: number;
   byDocumentType: SupportProcessedEmailsSummaryBucket[];
 }
 

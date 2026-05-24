@@ -15,6 +15,15 @@ public class SupportProcessedEmailsListQuery
     public string? Q { get; set; }
     /// <summary>When true (default), only <c>success = false</c> rows.</summary>
     public bool FailuresOnly { get; set; } = true;
+
+    /// <summary>
+    /// When true, match rows visible in the consumer Messages → Processing errors list (plus stuck
+    /// <c>status=processing</c> rows for support). Overrides <see cref="FailuresOnly"/>.
+    /// </summary>
+    public bool ReviewInboxOnly { get; set; }
+
+    /// <summary>Filter by pet owner email (exact, case-insensitive).</summary>
+    public string? OwnerEmail { get; set; }
 }
 
 public class SupportProcessedEmailListItemDto
@@ -70,6 +79,25 @@ public class SupportProcessedEmailListItemDto
 
 public class SupportProcessedEmailDetailDto : SupportProcessedEmailListItemDto
 {
+    /// <summary>Same rules as consumer <c>isReviewInboxCandidate</c> (requires status=completed).</summary>
+    [JsonPropertyName("consumerInboxVisible")]
+    public bool ConsumerInboxVisible { get; set; }
+
+    [JsonPropertyName("consumerInboxHiddenReason")]
+    public string? ConsumerInboxHiddenReason { get; set; }
+
+    [JsonPropertyName("canOwnerResolve")]
+    public bool CanOwnerResolve { get; set; }
+
+    /// <summary>stored | missing | metadata_only | storage_not_configured | invalid_json</summary>
+    [JsonPropertyName("storedArchiveStatus")]
+    public string? StoredArchiveStatus { get; set; }
+
+    [JsonPropertyName("storedArchiveMessage")]
+    public string? StoredArchiveMessage { get; set; }
+
+    [JsonPropertyName("recommendedAction")]
+    public string? RecommendedAction { get; set; }
 }
 
 public class SupportProcessedEmailsListResponse
@@ -106,6 +134,13 @@ public class SupportProcessedEmailsSummaryResponse
 
     [JsonPropertyName("totalFailures")]
     public int TotalFailures { get; set; }
+
+    /// <summary>Rows matching consumer Review Inbox visibility (completed failures + legacy flagged).</summary>
+    [JsonPropertyName("totalReviewInboxCandidates")]
+    public int TotalReviewInboxCandidates { get; set; }
+
+    [JsonPropertyName("totalStuckProcessing")]
+    public int TotalStuckProcessing { get; set; }
 
     [JsonPropertyName("byDocumentType")]
     public IReadOnlyList<SupportProcessedEmailsSummaryBucketDto> ByDocumentType { get; set; } =
