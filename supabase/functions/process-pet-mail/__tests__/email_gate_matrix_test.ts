@@ -102,8 +102,7 @@ Deno.test("gate matrix — document validation pass cases", () => {
     breed: "Labrador",
     microchip: "123456789012345",
   }));
-  expectGate
-Only clinical", "PASS", "clinical_exams", ext({ breed: null }));
+  expectGate("name-only clinical", "PASS", "clinical_exams", ext({ breed: null }));
   expectGate("name-only medication", "PASS", "medications", ext({ breed: null }));
   expectGate("nickname Maximus", "PASS", "clinical_exams", ext({ name: "Maximus", breed: null }));
   expectGate("travel cert", "PASS", "travel_certificate", ext({}));
