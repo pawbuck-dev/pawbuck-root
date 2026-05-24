@@ -19,13 +19,34 @@ public class JournalTreeCatalogTests
         tree!.TreeId.Should().Be("vomiting_v1.5");
     }
 
+    private static string ResolveApiContentRootWithJournalTrees()
+    {
+        foreach (var configuration in new[] { "Release", "Debug" })
+        {
+            var candidate = Path.GetFullPath(
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    "..",
+                    "..",
+                    "..",
+                    "..",
+                    "PawBuck.API",
+                    "bin",
+                    configuration,
+                    "net8.0"));
+            if (Directory.Exists(Path.Combine(candidate, "JournalTrees")))
+                return candidate;
+        }
+
+        throw new InvalidOperationException(
+            "JournalTrees not found under PawBuck.API bin output. Build PawBuck.API before running this test.");
+    }
+
     private sealed class TestWebHostEnvironment : IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = "PawBuck.API.Tests";
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
-        public string ContentRootPath { get; set; } =
-            Path.GetFullPath(
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "PawBuck.API", "bin", "Debug", "net8.0"));
+        public string ContentRootPath { get; set; } = ResolveApiContentRootWithJournalTrees();
         public string EnvironmentName { get; set; } = "Development";
         public string WebRootPath { get; set; } = "";
         public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
