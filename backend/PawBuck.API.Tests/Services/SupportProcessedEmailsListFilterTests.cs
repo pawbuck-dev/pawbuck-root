@@ -53,4 +53,20 @@ public class SupportProcessedEmailsListFilterTests
 
         Assert.Contains("Cannot reprocess", action, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void BuildRecommendedAction_AnalyzeInternalNotConfigured_PointsAtApiEcsKey()
+    {
+        var action = SupportProcessedEmailsService.BuildRecommendedAction(new SupportProcessedEmailDetailDto
+        {
+            Status = "completed",
+            StoredArchiveStatus = "stored",
+            CanOwnerResolve = true,
+            ConsumerInboxVisible = true,
+            FailureReason = """Failed to process 1 document(s): {"error":"analyze-internal not configured"}""",
+        });
+
+        Assert.Contains("Milo__InternalServiceKey", action, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("miloAnalyzeInternalConfigured", action, StringComparison.OrdinalIgnoreCase);
+    }
 }

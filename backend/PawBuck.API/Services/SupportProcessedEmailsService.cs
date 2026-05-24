@@ -1323,7 +1323,15 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
 
         if (detail.ConsumerInboxVisible)
         {
-            return "Use Reprocess & file (same as owner Confirm). Ensure edge secrets PAWBUCK_API_URL + MILO_INTERNAL_SERVICE_KEY.";
+            if (detail.FailureReason?.Contains("analyze-internal not configured", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return "PawBuck.API is missing Milo__InternalServiceKey on running ECS tasks (GET /api/health → miloAnalyzeInternalConfigured=false). "
+                    + "Set GitHub secret MILO_INTERNAL_SERVICE_KEY (same value as Supabase Edge MILO_INTERNAL_SERVICE_KEY), redeploy API, "
+                    + "confirm health, then Reprocess & file. Edge PAWBUCK_API_URL must be https://api.pawbuck.com (no trailing slash).";
+            }
+
+            return "Use Reprocess & file (same as owner Confirm). Ensure edge secrets PAWBUCK_API_URL + MILO_INTERNAL_SERVICE_KEY "
+                + "and API Milo__InternalServiceKey (must match).";
         }
 
         return "Not shown in consumer Processing errors; inspect failure_reason and review_status.";

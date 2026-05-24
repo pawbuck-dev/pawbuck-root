@@ -458,7 +458,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
         <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
           <strong>Reprocess</strong> re-runs the Mailgun pipeline, extracts PDFs, and files health records — then clears
           the owner&apos;s Review Inbox. Fix edge secrets first (
-          <code>PAWBUCK_API_URL</code>, <code>MILO_INTERNAL_SERVICE_KEY</code>). Re-run until eligible count is 0.
+          <code>PAWBUCK_API_URL</code>, <code>MILO_INTERNAL_SERVICE_KEY</code>) and API{" "}
+          <code>Milo__InternalServiceKey</code> (must match). Check{" "}
+          <code>GET /api/health</code> → <code>miloAnalyzeInternalConfigured: true</code> before reprocess.
         </p>
 
         <div
