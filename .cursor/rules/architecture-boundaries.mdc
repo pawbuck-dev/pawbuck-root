@@ -20,7 +20,7 @@ Follow this for any feature that touches **APIs, Supabase, mobile apps, or share
 | Consumer app | `apps/consumer-app` | Pet owners; primary UX for health records, messages, walks, vet booking UI |
 | Provider app | `apps/provider-app` | Service providers; marketplace profile/offers/bookings (RLS); **same** Supabase project |
 | Scheduling & AI API | `backend/PawBuck.API` | **Only** hub for Vetstoria/EazyVet/demo; Milo/RAG/classification; clinic routing from `clinic_scheduling_config` + appsettings fallback |
-| Support / call-center API | **`backend/PawBuck.API`** (`/api/support/*`, Supabase JWT + `app_metadata.role`) | Same host as booking/Milo; privileged Postgres for support — not a substitute for mobile calling vendors directly |
+| Support / call-center API | **`backend/PawBuck.API`** (`/api/support/*`, Supabase JWT + `app_metadata.role`) | Same host as booking/Milo; privileged Postgres for support — not a substitute for mobile calling vendors directly. **Admin portal rules:** `.cursor/rules/admin-support-portal.mdc` |
 | Postgres migrations | `supabase/migrations/` (repo root) | **Authoritative** — do not add new schema under `apps/consumer-app/supabase/migrations/` |
 
 ## Domain separation (do not conflate)
@@ -48,3 +48,4 @@ When changing **account deletion**, **exports**, **Pawthon/location**, **health 
 2. Migrations only under root `supabase/migrations/` + mitigation if destructive (see database-migrations rule).
 3. Tests added/updated; `pnpm run test:all` (or scoped suites) green when feasible.
 4. **Consumer UX / Milo:** If the change adds or renames owner-visible flows in `apps/consumer-app`, keep Milo accurate: update `docs/pawbuck-product-help/`, `INVENTORY.md`, and `productHelpStarters.ts` when needed; re-seed `documentation` per `docs/MILO_RAG.md`. See `.cursor/rules/milo-product-help.mdc`.
+5. **Admin / support ops:** If the change adds consumer queues, resolve flows, or support triage (Review Inbox, processed emails, account/pet support), follow `.cursor/rules/admin-support-portal.mdc` — admin parity, detail diagnostics, tests, UAT doc.

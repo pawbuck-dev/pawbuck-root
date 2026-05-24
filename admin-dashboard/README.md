@@ -2,6 +2,8 @@
 
 Support console (Vite + React) for metrics and vaccination records. It calls **PawBuck.API** (`/api/support/*`) only—never Supabase PostgREST for privileged data.
 
+**AI / contributor conventions:** `.cursor/rules/admin-support-portal.mdc` (consumer parity, detail diagnostics, tests). Email UAT: `docs/EMAIL-PROCESSING-UAT.md`.
+
 ## Auth
 
 Support routes require a **Supabase access token** with `app_metadata.role` matching the API’s `Admin:RequiredAppMetadataRole` (default **`admin`**). The SPA uses `@supabase/supabase-js` for sign-in and sends `Authorization: Bearer <token>`.

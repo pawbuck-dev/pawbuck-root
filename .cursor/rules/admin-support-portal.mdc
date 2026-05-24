@@ -1,0 +1,82 @@
+---
+description: Admin support portal — debug parity with consumer, support API conventions, no SQL-only ops
+globs:
+  - admin-dashboard/**/*
+  - backend/PawBuck.API/Controllers/Support*.cs
+  - backend/PawBuck.API/Services/Support*.cs
+  - backend/PawBuck.API/Models/Support*.cs
+  - backend/PawBuck.API.Tests/**/*Support*
+  - docs/EMAIL-PROCESSING-UAT.md
+alwaysApply: false
+---
+
+# Admin support portal (PawBuck admin + `/api/support/*`)
+
+The admin SPA (`admin-dashboard/`) is the **primary ops/debug console**. Support must **not** depend on ad-hoc Supabase SQL for routine triage.
+
+**Canonical email pipeline UAT:** [`docs/EMAIL-PROCESSING-UAT.md`](../../docs/EMAIL-PROCESSING-UAT.md)
+
+## Boundaries
+
+- Admin calls **only PawBuck.API** `/api/support/*` with Supabase JWT (`app_metadata.role` = admin). **Never** expose service role to the browser.
+- Privileged Postgres lives in **`Support*Service`** (`SupportDirectoryService`, `SupportProcessedEmailsService`, etc.) — not in React components.
+- Consumer apps still use Supabase RLS; admin list filters must **mirror consumer rules**, not narrower SQL.
+
+## Non-negotiables when adding/changing support features
+
+### 1. Consumer parity for “inbox” and error lists
+
+If the consumer app shows a queue (e.g. Messages → **Processing errors**, pending sender approvals):
+
+- Admin **default view** must match the **same visibility rules** (include legacy rows like `success=true` + `failure_reason`, and stuck `status=processing` when relevant).
+- Do **not** default admin to `success=false` only unless explicitly labeled as a sub-filter.
+- Share filter logic: extract SQL/helpers in API (e.g. `BuildReviewInboxClearFilter`, `GetConsumerInboxVisibility`) and add **xUnit tests** when rules change.
+
+### 2. Detail panels must answer “why” without SQL
+
+For each support list row, the detail view should expose **actionable diagnostics**, not only raw DB fields:
+
+- Visible in consumer UI? (yes/no + reason)
+- Owner action allowed? (e.g. Confirm / resolve eligibility)
+- External prerequisites (e.g. `pending-emails` archive: `stored` | `missing` | `metadata_only` | `storage_not_configured`)
+- **Recommended next step** (reprocess, fix secrets, dismiss, re-send email)
+
+Prefer extending **`Support*DetailDto`** + API over documenting “run this query.”
+
+### 3. Postgres mapping safety
+
+- Pets use **`deleted_at`**, not `deleted`.
+- Nullable columns after migrations (e.g. `pets.date_of_birth`, `weight_*`) — use `IsDBNull` in Npgsql readers; nullable DTOs. **Never** `GetString`/`GetFieldValue` on nullable columns without checks.
+- When schema nullability changes, update **Support** readers and **`admin-dashboard/src/types/support.ts`**.
+
+### 4. Same PR as consumer-facing ops flows
+
+Changes to Review Inbox, email resolve, bulk reprocess/clear, or support account/pet views should ship together:
+
+| Layer | Path |
+|-------|------|
+| Consumer UX | `apps/consumer-app/` (messages, resolve modal, services) |
+| Support API | `backend/PawBuck.API/Controllers/Support*.cs`, `Services/Support*.cs` |
+| Admin UI | `admin-dashboard/src/components/*Panel.tsx`, `App.tsx` |
+| Tests | `backend/PawBuck.API.Tests/**/*Support*` |
+| UAT doc | `docs/EMAIL-PROCESSING-UAT.md` when behavior changes |
+
+### 5. Destructive vs healing actions (label clearly)
+
+- **Reprocess & file** — runs edge pipeline, creates health records.
+- **Dismiss / resolve only** — inbox state only; **does not** extract or file documents. UI copy must say so.
+
+## Checklist before merging admin/support work
+
+1. Default admin list matches consumer queue rules (or is explicitly named otherwise).
+2. Row detail includes diagnostics sufficient for support without SQL.
+3. Support API handles nullable / soft-deleted rows; build passes.
+4. xUnit tests for non-trivial filters or visibility helpers.
+5. `docs/EMAIL-PROCESSING-UAT.md` updated if email/review behavior changed.
+
+## Anti-patterns
+
+- Admin filter that hides rows the consumer app still shows.
+- “Debug by running SQL in Supabase” as the only documented path.
+- Generic production `"An error occurred."` with no server-side log context when adding new support endpoints.
+- Support UI that calls Supabase PostgREST or Edge directly with privileged keys.
