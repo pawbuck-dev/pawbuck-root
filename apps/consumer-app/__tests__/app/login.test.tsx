@@ -4,10 +4,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import { Alert } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+const mockReplace = jest.fn();
+
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     back: jest.fn(),
-    replace: jest.fn(),
+    replace: mockReplace,
     dismissAll: jest.fn(),
   }),
   useLocalSearchParams: () => ({}),
@@ -32,6 +34,10 @@ jest.mock("@/context/themeContext", () => ({
     },
     mode: "light",
   }),
+}));
+
+jest.mock("@/hooks/useCreatePetFromOnboardingDraft", () => ({
+  useCreatePetFromOnboardingDraft: () => jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/components/OAuth/OAuth", () => ({
@@ -62,6 +68,21 @@ describe("Login screen", () => {
     renderLogin();
     expect(screen.getByText("Welcome Back")).toBeTruthy();
     expect(screen.getByText("Sign in to manage your pets")).toBeTruthy();
+    expect(screen.getByText("Don't have an account?")).toBeTruthy();
+  });
+
+  it("navigates to signup when sign up link is pressed", () => {
+    renderLogin();
+    fireEvent.press(screen.getByText("Sign up"));
+
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: "/signup",
+      params: {
+        returnTo: "",
+        transferCode: "",
+        inviteCode: "",
+      },
+    });
   });
 
   it("alerts when email or password is missing", () => {

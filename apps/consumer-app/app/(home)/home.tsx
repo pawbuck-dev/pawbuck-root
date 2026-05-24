@@ -16,6 +16,7 @@ import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
 import { useAuth } from "@/context/authContext";
+import { useOnboarding } from "@/context/onboardingContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -33,6 +34,7 @@ import {
   fetchMyWeeklyWalkerRank,
   fetchPawthonDashboardStats,
 } from "@/services/walkSessions";
+import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
@@ -77,6 +79,7 @@ export default function Home() {
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
+  const { resetOnboarding } = useOnboarding();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
   const { ensurePremium } = useSubscription();
   const queryClient = useQueryClient();
@@ -348,7 +351,13 @@ export default function Home() {
             Add your first furry friend to get started
           </Text>
           <TouchableOpacity
-            onPress={() => router.push("/(home)/add-pet")}
+            onPress={() => {
+              navigateToAddPetFlow({
+                router,
+                hasExistingPets: false,
+                resetOnboarding,
+              });
+            }}
             style={{
               width: "100%",
               maxWidth: 320,

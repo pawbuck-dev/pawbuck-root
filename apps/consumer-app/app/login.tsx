@@ -1,5 +1,6 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
 import { useTheme } from "@/context/themeContext";
+import { useCreatePetFromOnboardingDraft } from "@/hooks/useCreatePetFromOnboardingDraft";
 import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
@@ -7,48 +8,29 @@ import type { User } from "@supabase/supabase-js";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 
-/**
- * Login page — matches Figma PawBuck App Redesign:
- * Light: sign in 1386:42086, sign up 1386:42025 (bg #F2F8F8, white card).
- * Dark: sign in 1340:31106, sign up 1340:31045 (bg #182424, card white 6%).
- */
-const FIGMA_LOGIN_LIGHT = {
-  pageBg: "#F2F8F8",
-  cardBg: "#FFFFFF",
-  cardRadius: 28,
-  padding: 20,
-} as const;
-
-const FIGMA_LOGIN_DARK = {
-  pageBg: "#182424",
-  cardBg: "rgba(255,255,255,0.06)",
-  cardRadius: 28,
-  padding: 20,
-} as const;
-
 function Login() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
+  const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{
+    returnTo?: string;
+    transferCode?: string;
+    inviteCode?: string;
+  }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const insets = useSafeAreaInsets();
-  const isDark = mode === "dark";
-  const figma = isDark ? FIGMA_LOGIN_DARK : FIGMA_LOGIN_LIGHT;
+  const createPetIfNeeded = useCreatePetFromOnboardingDraft();
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -62,6 +44,7 @@ function Login() {
         password,
       });
       if (error) throw error;
+      await createPetIfNeeded();
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
@@ -76,6 +59,17 @@ function Login() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSignUp = () => {
+    router.replace({
+      pathname: "/signup",
+      params: {
+        returnTo: returnTo ? String(returnTo) : "",
+        transferCode: transferCode ? String(transferCode) : "",
+        inviteCode: inviteCode ? String(inviteCode) : "",
+      },
+    });
   };
 
   const onOAuthSuccess = async (user: User) => {
@@ -98,6 +92,7 @@ function Login() {
         return;
       }
 
+      await createPetIfNeeded();
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
@@ -114,136 +109,152 @@ function Login() {
   };
 
   return (
-    <View style={styles.root}>
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: figma.pageBg }]} />
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.flex1}
+        className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerClassName="flex-grow"
           keyboardShouldPersistTaps="handled"
         >
-          {/* Top spacer (status + header area) */}
-          <View style={{ height: 104 }} />
-          <View style={{ paddingHorizontal: figma.padding, marginBottom: 24 }}>
-            <Pressable onPress={() => router.back()} style={{ alignSelf: "flex-start" }}>
-              <Text style={{ fontSize: 16, color: theme.secondary }}>← Back</Text>
-            </Pressable>
-          </View>
-
-            {/* Bottom card — sign in form (Figma: white / white 6% dark, radius 28) */}
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: figma.cardBg,
-                borderTopLeftRadius: figma.cardRadius,
-                borderTopRightRadius: figma.cardRadius,
-                paddingHorizontal: figma.padding,
-                paddingTop: 24,
-                paddingBottom: Math.max(40, insets.bottom),
-              }}
-            >
-              <View style={{ gap: 24 }}>
-                <View style={{ alignItems: "center", marginBottom: 8 }}>
-                  <Text style={{ fontSize: 30, fontWeight: "700", color: theme.foreground }}>
-                    Welcome Back
-                  </Text>
-                  <Text style={{ fontSize: 16, color: theme.secondary, marginTop: 8, textAlign: "center" }}>
-                    Sign in to manage your pets
-                  </Text>
-                </View>
-
-                <OAuthLogins onSuccess={onOAuthSuccess} />
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginVertical: 8 }}>
-                  <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-                  <Text style={{ fontSize: 12, textTransform: "uppercase", color: theme.secondary, opacity: 0.8 }}>
-                    Or continue with email
-                  </Text>
-                  <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
-                </View>
-
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: "500", color: theme.foreground, marginBottom: 8 }}>
-                    Email
-                  </Text>
-                  <TextInput
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="you@example.com"
-                    placeholderTextColor={theme.secondary}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    editable={!isLoading}
-                    style={{
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                      color: theme.foreground,
-                      borderRadius: 12,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: "500", color: theme.foreground, marginBottom: 8 }}>
-                    Password
-                  </Text>
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="••••••••"
-                    placeholderTextColor={theme.secondary}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    editable={!isLoading}
-                    onSubmitEditing={handleEmailLogin}
-                    style={{
-                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                      color: theme.foreground,
-                      borderRadius: 12,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      fontSize: 16,
-                    }}
-                  />
-                </View>
-
-                <Pressable
-                  onPress={handleEmailLogin}
-                  disabled={isLoading}
-                  style={{
-                    backgroundColor: theme.primary,
-                    borderRadius: 12,
-                    paddingVertical: 16,
-                    alignItems: "center",
-                    opacity: isLoading ? 0.7 : 1,
-                  }}
+          <View className="flex-1 items-center justify-center px-6 py-12">
+            <View className="w-full max-w-md">
+              <View className="mb-12 items-center">
+                <Text
+                  className="text-4xl font-bold text-center mb-3"
+                  style={{ color: theme.foreground }}
                 >
-                  <Text style={{ fontSize: 18, fontWeight: "600", color: theme.primaryForeground }}>
-                    {isLoading ? "Signing In..." : "Sign In"}
+                  Welcome Back
+                </Text>
+                <Text
+                  className="text-lg text-center"
+                  style={{ color: theme.foreground, opacity: 0.7 }}
+                >
+                  Sign in to manage your pets
+                </Text>
+              </View>
+
+              <OAuthLogins onSuccess={onOAuthSuccess} />
+
+              <View className="flex-row items-center gap-4 my-6">
+                <View
+                  className="flex-1 h-px"
+                  style={{ backgroundColor: theme.foreground, opacity: 0.2 }}
+                />
+                <Text
+                  className="text-sm uppercase"
+                  style={{ color: theme.foreground, opacity: 0.5 }}
+                >
+                  Or continue with email
+                </Text>
+                <View
+                  className="flex-1 h-px"
+                  style={{ backgroundColor: theme.foreground, opacity: 0.2 }}
+                />
+              </View>
+
+              <View className="mb-4">
+                <Text
+                  className="text-start font-medium mb-2"
+                  style={{ color: theme.foreground }}
+                >
+                  Email
+                </Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={
+                    mode === "dark"
+                      ? "rgba(255,255,255,0.4)"
+                      : "rgba(0,0,0,0.4)"
+                  }
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  className="w-full rounded-xl py-4 px-4 text-start"
+                  style={{
+                    backgroundColor:
+                      mode === "dark"
+                        ? "rgba(255,255,255,0.1)"
+                        : "rgba(0,0,0,0.05)",
+                    color: theme.foreground,
+                  }}
+                  editable={!isLoading}
+                />
+              </View>
+
+              <View className="mb-6">
+                <Text
+                  className="text-start font-medium mb-2"
+                  style={{ color: theme.foreground }}
+                >
+                  Password
+                </Text>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={
+                    mode === "dark"
+                      ? "rgba(255,255,255,0.4)"
+                      : "rgba(0,0,0,0.4)"
+                  }
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  className="w-full rounded-xl py-4 px-4 text-start"
+                  style={{
+                    backgroundColor:
+                      mode === "dark"
+                        ? "rgba(255,255,255,0.1)"
+                        : "rgba(0,0,0,0.05)",
+                    color: theme.foreground,
+                  }}
+                  editable={!isLoading}
+                  onSubmitEditing={handleEmailLogin}
+                />
+              </View>
+
+              <Pressable
+                onPress={handleEmailLogin}
+                disabled={isLoading}
+                className="w-full rounded-xl py-4 items-center active:opacity-80 mb-6"
+                style={{
+                  backgroundColor: isLoading ? theme.primary + "80" : "#5EEAD4",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                <Text className="text-lg font-semibold text-gray-900">
+                  {isLoading ? "Signing In..." : "Sign In"}
+                </Text>
+              </Pressable>
+
+              <View className="flex-row items-center justify-center gap-2">
+                <Text
+                  className="text-start"
+                  style={{ color: theme.foreground, opacity: 0.7 }}
+                >
+                  Don't have an account?
+                </Text>
+                <Pressable onPress={handleSignUp} disabled={isLoading}>
+                  <Text
+                    className="text-start font-semibold"
+                    style={{ color: theme.primary }}
+                  >
+                    Sign up
                   </Text>
                 </Pressable>
               </View>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    );
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  flex1: {
-    flex: 1,
-  },
-});
 
 export default Login;

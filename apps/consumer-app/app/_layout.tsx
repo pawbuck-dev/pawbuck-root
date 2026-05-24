@@ -1,6 +1,7 @@
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { EmailApprovalModal } from "@/components/email-approval/EmailApprovalModal";
 import { AuthProvider } from "@/context/authContext";
+import { OnboardingProvider } from "@/context/onboardingContext";
 import { ChatProvider } from "@/context/chatContext";
 import { SubscriptionProvider } from "@/context/subscriptionContext";
 import { configureRevenueCat } from "@/services/revenuecat";
@@ -135,6 +136,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <EmailApprovalProvider>
+            <OnboardingProvider>
             <PetsProvider>
               <SelectedPetProvider>
                 <UserPreferencesProvider>
@@ -155,6 +157,7 @@ export default function RootLayout() {
                 </UserPreferencesProvider>
               </SelectedPetProvider>
             </PetsProvider>
+            </OnboardingProvider>
           </EmailApprovalProvider>
         </AuthProvider>
       </ThemeProvider>

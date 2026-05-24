@@ -12,9 +12,11 @@ import {
   type MockNearbyVet,
   type NearbyVetRadiusKm,
 } from "@/constants/mockVancouverVets";
+import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -42,6 +44,7 @@ export default function BookVetVisitScreen() {
   const isDark = mode === "dark";
   const insets = useSafeAreaInsets();
   const { pets, loadingPets } = usePets();
+  const { resetOnboarding } = useOnboarding();
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const [bookingPetId, setBookingPetId] = useState<string | null>(selectedPetId ?? null);
   const [viewMode, setViewMode] = useState<BookingViewMode>("list");
@@ -279,7 +282,13 @@ export default function BookVetVisitScreen() {
             Add a pet to your profile first, then you can book a vet visit.
           </Text>
           <Pressable
-            onPress={() => router.push("/(home)/add-pet")}
+            onPress={() => {
+              navigateToAddPetFlow({
+                router,
+                hasExistingPets: false,
+                resetOnboarding,
+              });
+            }}
             className="mt-6 py-3 px-6 rounded-full self-start"
             style={{ backgroundColor: "#3BD0D2" }}
           >

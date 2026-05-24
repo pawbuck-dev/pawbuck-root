@@ -78,12 +78,21 @@ export default function TransferPetStep2() {
     if (!authLoading && !isAuthenticated && transferCode) {
       Alert.alert(
         "Authentication Required",
-        "You need to sign in or create an account to accept a pet transfer. Would you like to sign in now?",
+        "You need to sign in or create an account to accept a pet transfer.",
         [
           {
             text: "Cancel",
             style: "cancel",
             onPress: () => router.back(),
+          },
+          {
+            text: "Sign Up",
+            onPress: () => {
+              router.replace({
+                pathname: "/signup",
+                params: { returnTo: "/transfer-pet/step2", transferCode },
+              });
+            },
           },
           {
             text: "Sign In",

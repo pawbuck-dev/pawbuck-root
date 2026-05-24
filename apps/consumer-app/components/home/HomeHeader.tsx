@@ -1,6 +1,9 @@
+import { useOnboarding } from "@/context/onboardingContext";
 import { useAuth } from "@/context/authContext";
+import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { resolveHomeCareHeadline } from "@/utils/userDisplayIdentity";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -24,6 +27,8 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const { user } = useAuth();
+  const { pets } = usePets();
+  const { resetOnboarding } = useOnboarding();
   const { selectedPet } = useSelectedPet();
   const router = useRouter();
   const greeting = useMemo(() => getGreeting(), []);
@@ -86,7 +91,11 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TouchableOpacity
             onPress={() => {
-              router.push("/(home)/add-pet");
+              navigateToAddPetFlow({
+                router,
+                hasExistingPets: pets.length > 0,
+                resetOnboarding,
+              });
             }}
             activeOpacity={0.7}
             style={btnStyle}

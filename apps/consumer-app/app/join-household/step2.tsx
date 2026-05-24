@@ -29,7 +29,7 @@ export default function JoinHouseholdStep2() {
     if (!authLoading && !isAuthenticated && inviteCode) {
       Alert.alert(
         "Authentication Required",
-        "You need to sign in or create an account to join a household. Would you like to sign in now?",
+        "You need to sign in or create an account to join a household.",
         [
           {
             text: "Cancel",
@@ -37,9 +37,17 @@ export default function JoinHouseholdStep2() {
             onPress: () => router.back(),
           },
           {
+            text: "Sign Up",
+            onPress: () => {
+              router.replace({
+                pathname: "/signup",
+                params: { returnTo: "/join-household/step2", inviteCode },
+              });
+            },
+          },
+          {
             text: "Sign In",
             onPress: () => {
-              // Store invite code in params to resume after login
               router.replace({
                 pathname: "/login",
                 params: { returnTo: "/join-household/step2", inviteCode },

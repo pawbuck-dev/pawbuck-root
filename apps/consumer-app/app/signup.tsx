@@ -1,5 +1,6 @@
 import OAuthLogins from "@/components/OAuth/OAuth";
 import { useTheme } from "@/context/themeContext";
+import { useCreatePetFromOnboardingDraft } from "@/hooks/useCreatePetFromOnboardingDraft";
 import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
@@ -26,6 +27,7 @@ function SignUp() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const createPetIfNeeded = useCreatePetFromOnboardingDraft();
 
   const handleEmailSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -69,6 +71,8 @@ function SignUp() {
         return;
       }
 
+      await createPetIfNeeded();
+
       if (returnTo && (transferCode || inviteCode)) {
         router.replace({
           pathname: returnTo as any,
@@ -86,7 +90,14 @@ function SignUp() {
   };
 
   const handleSignIn = () => {
-    router.replace("/login");
+    router.replace({
+      pathname: "/login",
+      params: {
+        returnTo: returnTo ? String(returnTo) : "",
+        transferCode: transferCode ? String(transferCode) : "",
+        inviteCode: inviteCode ? String(inviteCode) : "",
+      },
+    });
   };
 
   return (
@@ -140,6 +151,8 @@ function SignUp() {
                       });
                       return;
                     }
+
+                    await createPetIfNeeded();
 
                     if (returnTo && (transferCode || inviteCode)) {
                       router.replace({

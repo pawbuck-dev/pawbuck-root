@@ -12,8 +12,8 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     id: "add",
     icon: "plus-circle-outline",
     title: "Add New Pet",
-    subtitle: "Create a profile for another pet",
-    href: "/(home)/add-pet",
+    subtitle: "Guided questions to create a profile",
+    href: "/onboarding/step2",
   },
   {
     id: "claim",

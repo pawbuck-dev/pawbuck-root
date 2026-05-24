@@ -1,4 +1,6 @@
+import { useOnboarding } from "@/context/onboardingContext";
 import { useTheme } from "@/context/themeContext";
+import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
@@ -6,9 +8,14 @@ import { Text, TouchableOpacity, View } from "react-native";
 export default function AddPetCard() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { resetOnboarding } = useOnboarding();
 
   const handleAddPet = () => {
-    router.push("/(home)/add-pet");
+    navigateToAddPetFlow({
+      router,
+      hasExistingPets: true,
+      resetOnboarding,
+    });
   };
 
   return (
