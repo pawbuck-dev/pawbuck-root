@@ -962,7 +962,6 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
 
             try
             {
-                await _edgeReprocess.ReopenProcessedEmailRowAsync(row.Id, cancellationToken);
                 var edge = await _edgeReprocess.ReprocessStoredEmailAsync(
                     row.S3Key,
                     row.PetId,

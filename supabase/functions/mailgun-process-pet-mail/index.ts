@@ -21,6 +21,7 @@ import {
 import {
   markEmailAsCompleted,
   markEmailAsFailed,
+  isReprocessLockAlreadyHeld,
   resetFailedRowForReprocess,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
@@ -254,9 +255,13 @@ Deno.serve(async (req) => {
 
     if (isReprocessing) {
       const reopened = await resetFailedRowForReprocess(messageId);
-      if (reopened) {
+      const lockAlreadyHeld =
+        !reopened && (await isReprocessLockAlreadyHeld(messageId));
+      if (reopened || lockAlreadyHeld) {
         console.log(
-          `Reprocess: reopened failed row for ${messageId}, continuing without new lock`
+          reopened
+            ? `Reprocess: reopened failed row for ${messageId}, continuing without new lock`
+            : `Reprocess: continuing with existing processing lock for ${messageId}`,
         );
       } else {
         // Row may already be successful, or only webhook path (no prior row for this key)

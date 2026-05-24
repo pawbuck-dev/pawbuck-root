@@ -264,3 +264,29 @@ export async function resetFailedRowForReprocess(
   }
   return n > 0;
 }
+
+/**
+ * True when a Review Inbox reprocess already holds the row lock (status=processing).
+ * Covers rows pre-opened by PawBuck.API before the edge runs; without this, the edge
+ * tries tryAcquireProcessingLock and returns "Email is currently being processed".
+ */
+export async function isReprocessLockAlreadyHeld(
+  emailKey: string,
+): Promise<boolean> {
+  const supabase = createSupabaseClient();
+
+  const { data: existing, error: selectError } = await supabase
+    .from("processed_emails")
+    .select("status, success, failure_reason, review_status")
+    .eq("s3_key", emailKey)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error("isReprocessLockAlreadyHeld select error:", selectError);
+    return false;
+  }
+  if (!existing || existing.status !== "processing") {
+    return false;
+  }
+  return isReviewInboxRow(existing);
+}

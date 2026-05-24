@@ -261,8 +261,8 @@ export default function PetJournalHomeCard({ pet }: Props) {
         onPress={() =>
           withPremium(() =>
             router.push({
-              pathname: "/(home)/milo",
-              params: { pet: pet.id, journalDomain: "health" },
+              pathname: "/(home)/pet-journal",
+              params: { petId: pet.id, domain: "health" },
             } as any)
           )
         }

@@ -122,8 +122,6 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             request.SelectedPetId,
             docNorm);
 
-        await _edgeReprocess.ReopenProcessedEmailRowAsync(request.EmailId, cancellationToken);
-
         var edge = await _edgeReprocess.ReprocessStoredEmailAsync(
             s3Key,
             request.SelectedPetId,
