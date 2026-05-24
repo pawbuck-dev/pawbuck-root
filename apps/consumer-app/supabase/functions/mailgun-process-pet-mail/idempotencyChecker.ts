@@ -137,7 +137,9 @@ export async function markEmailAsCompleted(
   if (options?.documentType) {
     updateData.document_type = options.documentType;
   }
-  if (options?.failureReason) {
+  if (options?.reviewStatus === "resolved") {
+    updateData.failure_reason = null;
+  } else if (options?.failureReason) {
     updateData.failure_reason = options.failureReason;
   }
   if (options?.reviewStatus) {
@@ -200,14 +202,42 @@ export async function markEmailAsFailed(
   }
 }
 
+/** Same rules as consumer Review Inbox (`isReviewInboxCandidate`). */
+function isReviewInboxRow(row: {
+  success?: boolean | null;
+  failure_reason?: string | null;
+  review_status?: string | null;
+}): boolean {
+  if (row.review_status === "dismissed" || row.review_status === "resolved") {
+    return false;
+  }
+  if (row.success === false) return true;
+  return Boolean(row.failure_reason?.trim());
+}
+
 /**
- * Re-open a previously failed (success=false) completed run so attachment processing can run again
- * (Review Inbox resolution / manual reprocess).
+ * Re-open a completed Review Inbox row so attachment processing can run again.
+ * Includes legacy rows where success=true but failure_reason is still set.
  */
 export async function resetFailedRowForReprocess(
   emailKey: string
 ): Promise<boolean> {
   const supabase = createSupabaseClient();
+
+  const { data: existing, error: selectError } = await supabase
+    .from("processed_emails")
+    .select("id, success, failure_reason, review_status")
+    .eq("s3_key", emailKey)
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (selectError) {
+    console.error("resetFailedRowForReprocess select error:", selectError);
+    return false;
+  }
+  if (!existing || !isReviewInboxRow(existing)) {
+    return false;
+  }
 
   const { data, error } = await supabase
     .from("processed_emails")
@@ -218,7 +248,7 @@ export async function resetFailedRowForReprocess(
       failure_reason: null,
     })
     .eq("s3_key", emailKey)
-    .eq("success", false)
+    .eq("status", "completed")
     .select("id");
 
   if (error) {
@@ -227,7 +257,7 @@ export async function resetFailedRowForReprocess(
   }
   const n = data?.length ?? 0;
   if (n > 0) {
-    console.log(`Re-opened failed row for reprocess: ${emailKey}`);
+    console.log(`Re-opened Review Inbox row for reprocess: ${emailKey}`);
   }
   return n > 0;
 }

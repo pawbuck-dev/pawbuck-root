@@ -192,7 +192,153 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             };
         }
 
+        var edgeOutcome = ParseEdgeResolveOutcome(text);
+        if (!edgeOutcome.Reprocessed)
+        {
+            _logger.LogWarning(
+                "Edge mailgun skipped reprocess for email_id={EmailId}: {Message}",
+                request.EmailId,
+                edgeOutcome.Message ?? text);
+            return new MailInboxResolveResult
+            {
+                Ok = false,
+                StatusCode = 409,
+                Error = edgeOutcome.Message ??
+                        "Could not reprocess this email. Please try again or remove it from the review list.",
+            };
+        }
+
+        if (!edgeOutcome.RecordsInserted)
+        {
+            return new MailInboxResolveResult
+            {
+                Ok = false,
+                StatusCode = 422,
+                Error =
+                    "We couldn't save a health record from this email. Check the document and try again, or add the record manually.",
+            };
+        }
+
+        await MarkReviewInboxResolvedAsync(
+            request.EmailId,
+            request.SelectedPetId,
+            userId,
+            cancellationToken);
+
         return new MailInboxResolveResult { Ok = true, StatusCode = 200 };
+    }
+
+    internal sealed record EdgeResolveOutcome(
+        bool Reprocessed,
+        bool RecordsInserted,
+        string? Message);
+
+    internal static EdgeResolveOutcome ParseEdgeResolveOutcome(string responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+            return new EdgeResolveOutcome(false, false, "Empty response from document processor");
+
+        try
+        {
+            using var doc = JsonDocument.Parse(responseBody);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("message", out var messageProp))
+            {
+                var message = messageProp.GetString() ?? "";
+                if (message.Contains("already processed", StringComparison.OrdinalIgnoreCase) ||
+                    message.Contains("currently being processed", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new EdgeResolveOutcome(false, false, message);
+                }
+            }
+
+            if (root.TryGetProperty("success", out var successProp) &&
+                successProp.ValueKind == JsonValueKind.False)
+            {
+                var err = root.TryGetProperty("error", out var errProp)
+                    ? errProp.GetString()
+                    : "Document reprocessing failed";
+                return new EdgeResolveOutcome(false, false, err);
+            }
+
+            var inserted = false;
+            if (root.TryGetProperty("processedAttachments", out var attachments) &&
+                attachments.ValueKind == JsonValueKind.Array)
+            {
+                if (attachments.GetArrayLength() == 0)
+                {
+                    inserted = true;
+                }
+                else
+                {
+                    foreach (var attachment in attachments.EnumerateArray())
+                    {
+                        if (attachment.TryGetProperty("dbInserted", out var dbInserted) &&
+                            dbInserted.ValueKind == JsonValueKind.True)
+                        {
+                            inserted = true;
+                            break;
+                        }
+                        if (attachment.TryGetProperty("vaultPersisted", out var vaultPersisted) &&
+                            vaultPersisted.ValueKind == JsonValueKind.True)
+                        {
+                            inserted = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Legacy / minimal success payloads without attachment details.
+                inserted = true;
+            }
+
+            return new EdgeResolveOutcome(true, inserted, null);
+        }
+        catch (JsonException)
+        {
+            return new EdgeResolveOutcome(true, true, null);
+        }
+    }
+
+    private async Task MarkReviewInboxResolvedAsync(
+        Guid emailId,
+        Guid petId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        const string sql = """
+            UPDATE public.processed_emails pe
+            SET review_status = 'resolved',
+                failure_reason = NULL,
+                success = TRUE,
+                pet_id = @petId
+            WHERE pe.id = @id
+              AND COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')
+              AND EXISTS (
+                SELECT 1 FROM public.pets owner_pet
+                WHERE owner_pet.id = pe.pet_id AND owner_pet.user_id = @userId
+              )
+              AND EXISTS (
+                SELECT 1 FROM public.pets selected_pet
+                WHERE selected_pet.id = @petId AND selected_pet.user_id = @userId
+              )
+            """;
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("id", emailId);
+        cmd.Parameters.AddWithValue("petId", petId);
+        cmd.Parameters.AddWithValue("userId", userId);
+        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
+        if (rows == 0)
+        {
+            _logger.LogWarning(
+                "MarkReviewInboxResolved updated 0 rows for email_id={EmailId} (may already be resolved)",
+                emailId);
+        }
     }
 
     /// <summary>

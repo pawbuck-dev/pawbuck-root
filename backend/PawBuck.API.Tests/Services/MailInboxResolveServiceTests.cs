@@ -44,4 +44,37 @@ public class MailInboxResolveServiceTests
                 failureReason: "x",
                 reviewStatus: "dismissed"));
     }
+
+    [Fact]
+    public void ParseEdgeResolveOutcome_RejectsAlreadyProcessedSkip()
+    {
+        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+            {"success":true,"message":"Email already processed","status":"completed"}
+            """);
+
+        Assert.False(outcome.Reprocessed);
+        Assert.False(outcome.RecordsInserted);
+    }
+
+    [Fact]
+    public void ParseEdgeResolveOutcome_AcceptsInsertedAttachment()
+    {
+        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+            {"success":true,"processedAttachments":[{"dbInserted":true}]}
+            """);
+
+        Assert.True(outcome.Reprocessed);
+        Assert.True(outcome.RecordsInserted);
+    }
+
+    [Fact]
+    public void ParseEdgeResolveOutcome_RejectsFailedAttachments()
+    {
+        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+            {"success":true,"processedAttachments":[{"dbInserted":false}]}
+            """);
+
+        Assert.True(outcome.Reprocessed);
+        Assert.False(outcome.RecordsInserted);
+    }
 }

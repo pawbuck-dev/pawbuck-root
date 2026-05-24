@@ -256,15 +256,17 @@ Deno.serve(async (req) => {
               : "Email is currently being processed";
 
           console.log(`${message}: ${messageId} - skipping`);
+          const statusCode =
+            isReprocessing && lockResult.status === "completed" ? 409 : 200;
           return new Response(
             JSON.stringify({
-              success: true,
+              success: statusCode === 200,
               message,
               status: lockResult.status,
               messageId,
             }),
             {
-              status: 200,
+              status: statusCode,
               headers: { "Content-Type": "application/json" },
             }
           );
