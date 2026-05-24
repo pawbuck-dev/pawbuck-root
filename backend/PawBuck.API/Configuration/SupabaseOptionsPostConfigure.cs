@@ -33,6 +33,23 @@ public sealed class SupabaseOptionsPostConfigure(
                               ?? Environment.GetEnvironmentVariable("EXPO_PUBLIC_SUPABASE_KEY");
         }
 
+        if (string.IsNullOrWhiteSpace(options.ServiceRoleKey))
+        {
+            options.ServiceRoleKey = configuration["Supabase:ServiceRoleKey"]
+                                     ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY")
+                                     ?? Environment.GetEnvironmentVariable("EXPO_SUPABASE_SERVICE_ROLE_KEY");
+        }
+
+        var urlConfigured = !string.IsNullOrWhiteSpace(options.Url);
+        var serviceRoleConfigured = !string.IsNullOrWhiteSpace(options.ServiceRoleKey);
+        if (!urlConfigured || !serviceRoleConfigured)
+        {
+            logger.LogWarning(
+                "Review Inbox (POST /api/mail/resolve) unavailable: Supabase:Url configured={UrlConfigured}, Supabase:ServiceRoleKey configured={ServiceRoleConfigured}. On ECS set Supabase__Url + Supabase__ServiceRoleKey or SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (service_role JWT from Supabase Dashboard).",
+                urlConfigured,
+                serviceRoleConfigured);
+        }
+
         string? npgsqlSource = null;
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
         {

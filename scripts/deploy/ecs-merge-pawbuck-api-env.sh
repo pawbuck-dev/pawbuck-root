@@ -50,6 +50,7 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             .name != "Supabase__JwtSecret" and
             .name != "ASPNETCORE_URLS" and
             .name != "Supabase__Url" and
+            .name != "SUPABASE_URL" and
             .name != "SUPABASE_SERVICE_ROLE_KEY" and
             .name != "Supabase__ServiceRoleKey" and
             (.name | test("^Cors__AllowedOrigins__") | not) and
@@ -61,8 +62,8 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             {"name":"Supabase__JwtSecret","value":$jwt},
             {"name":"ASPNETCORE_URLS","value":"http://+:8080"}
           ] +
-          (if ($supUrl | length) > 0 then [{"name":"Supabase__Url","value":$supUrl}] else [] end) +
-          (if ($serviceRole | length) > 0 then [{"name":"Supabase__ServiceRoleKey","value":$serviceRole}] else [] end) +
+          (if ($supUrl | length) > 0 then [{"name":"Supabase__Url","value":$supUrl},{"name":"SUPABASE_URL","value":$supUrl}] else [] end) +
+          (if ($serviceRole | length) > 0 then [{"name":"Supabase__ServiceRoleKey","value":$serviceRole},{"name":"SUPABASE_SERVICE_ROLE_KEY","value":$serviceRole}] else [] end) +
           (if ($corsOrigin | length) > 0 then [{"name":"Cors__AllowedOrigins__0","value":$corsOrigin}] else [] end)
         )
         | if ($gem | length) > 0 then

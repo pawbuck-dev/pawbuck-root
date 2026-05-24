@@ -131,14 +131,25 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
 
         var baseUrl = _options.Value.Url?.TrimEnd('/');
         var serviceKey = _options.Value.ServiceRoleKey?.Trim();
-        if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(serviceKey))
+        if (string.IsNullOrEmpty(baseUrl))
         {
-            _logger.LogError("Supabase:Url or ServiceRoleKey not configured; cannot invoke mailgun-process-pet-mail");
+            _logger.LogError("Supabase:Url not configured; cannot invoke mailgun-process-pet-mail");
             return new MailInboxResolveResult
             {
                 Ok = false,
                 StatusCode = 503,
-                Error = "Server is not configured for inbox resolution (Supabase URL / service key).",
+                Error = "Server is not configured for inbox resolution (Supabase URL missing).",
+            };
+        }
+
+        if (string.IsNullOrEmpty(serviceKey))
+        {
+            _logger.LogError("Supabase:ServiceRoleKey not configured; cannot invoke mailgun-process-pet-mail");
+            return new MailInboxResolveResult
+            {
+                Ok = false,
+                StatusCode = 503,
+                Error = "Server is not configured for inbox resolution (Supabase service key missing).",
             };
         }
 
