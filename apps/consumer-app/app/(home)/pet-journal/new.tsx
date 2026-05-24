@@ -2,6 +2,7 @@ import {
   JOURNAL_DOMAIN_LABEL,
   subtypesForDomain,
   type JournalDomain,
+  type JournalSubtype,
 } from "@/constants/petJournal";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -46,7 +47,7 @@ export default function PetJournalNewScreen() {
   }, [domainParam]);
 
   const [domain, setDomain] = useState<JournalDomain>(initialDomain);
-  const [subtype, setSubtype] = useState<string>(
+  const [subtype, setSubtype] = useState<JournalSubtype>(
     subtypesForDomain(initialDomain)[0].id
   );
   const [note, setNote] = useState("");
@@ -65,7 +66,9 @@ export default function PetJournalNewScreen() {
     const d = domainParam as JournalDomain;
     if (!DOMAINS.includes(d)) return;
     const allowed = subtypesForDomain(d).map((s) => s.id);
-    if (allowed.includes(subtypeParam)) setSubtype(subtypeParam);
+    if (allowed.includes(subtypeParam as JournalSubtype)) {
+      setSubtype(subtypeParam as JournalSubtype);
+    }
   }, [subtypeParam, domainParam]);
 
   const mutation = useMutation({

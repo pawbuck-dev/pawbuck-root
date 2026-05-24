@@ -146,7 +146,6 @@ type Row = CM & {
   currentQuestion?: JournalCurrentQuestion;
   emergencyDetected?: boolean;
   treeId?: string;
-  treeVersion?: string;
 };
 
 export default function MiloJournalChatScreen() {

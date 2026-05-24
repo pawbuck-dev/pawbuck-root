@@ -1,3 +1,4 @@
+import type { Json } from "@/database.types";
 import { createJournalEntry } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
 import { supabase } from "@/utils/supabase";
@@ -67,7 +68,7 @@ export async function syncPetLogToServer(entry: PetLogEntry): Promise<string | n
     vet_flagged: entry.vet_flag,
     entry_date: entryDate,
     milo_idempotency_key: entry.milo_idempotency_key,
-    interview_metadata: entry.interview_metadata ?? null,
+    interview_metadata: (entry.interview_metadata ?? null) as Json,
   };
   try {
     const created = await createJournalEntry(insertPayload);

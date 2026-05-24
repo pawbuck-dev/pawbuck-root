@@ -15,6 +15,7 @@ export interface FailedEmail {
   completed_at: string | null;
   started_at: string | null;
   review_status: "pending" | "resolved" | "dismissed" | null;
+  success?: boolean | null;
   pets?: {
     name: string;
     breed: string | null;
@@ -25,7 +26,7 @@ export type ReviewInboxItem = FailedEmail;
 
 /** Rows that need owner attention in Messages / Review Inbox. */
 export function isReviewInboxCandidate(row: {
-  success: boolean | null;
+  success?: boolean | null;
   failure_reason: string | null;
   review_status: string | null;
 }): boolean {
@@ -198,7 +199,7 @@ export const getFailedEmailById = async (
     throw error;
   }
 
-  const row = data as FailedEmail & { success?: boolean | null };
+  const row = data as FailedEmail;
   if (!isReviewInboxCandidate(row)) {
     return null;
   }

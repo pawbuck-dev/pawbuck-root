@@ -2328,6 +2328,10 @@ export type Database = {
         Args: { p_code: string; p_pet_parent_display_name?: string }
         Returns: string
       }
+      app_registered_user_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       auth_user_passes_premium_gate: {
         Args: { p_feature_key: string }
         Returns: boolean

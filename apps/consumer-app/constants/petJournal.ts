@@ -35,6 +35,11 @@ export const JOURNAL_ENVIRONMENTAL_SUBTYPES = [
   { id: "other", label: "Other" },
 ] as const;
 
+export type JournalSubtype =
+  | (typeof JOURNAL_HEALTH_SUBTYPES)[number]["id"]
+  | (typeof JOURNAL_BEHAVIORAL_SUBTYPES)[number]["id"]
+  | (typeof JOURNAL_ENVIRONMENTAL_SUBTYPES)[number]["id"];
+
 export function subtypesForDomain(domain: JournalDomain) {
   switch (domain) {
     case "health":
