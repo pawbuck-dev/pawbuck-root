@@ -3,6 +3,7 @@
 # Requires: aws, jq. Env: AWS_ECS_CLUSTER, AWS_ECS_SERVICE, AWS_REGION, SUPABASE_JWT_SECRET (GitHub secret value; written to ECS as Supabase__JwtSecret).
 # Optional: AWS_ECS_CONTAINER_NAME (defaults to first container in the task definition).
 # Optional: SUPABASE_PROJECT_URL — maps to Supabase__Url (same as project URL, e.g. https://REF.supabase.co). Often set from GitHub Variable VITE_SUPABASE_URL in deploy-aws.yml.
+# Optional: SUPABASE_SERVICE_ROLE_KEY — maps to Supabase__ServiceRoleKey (server-only; invokes Edge Functions e.g. mailgun-process-pet-mail for Review Inbox). GitHub Actions secret.
 # Optional: ADMIN_CORS_ORIGIN — e.g. https://d123.cloudfront.net — sets Cors__AllowedOrigins__0 so the hosted admin SPA can call the API (browser CORS).
 # Optional: GEMINI_SECRET_ARN — full Secrets Manager secret ARN for the Gemini API key. When set, adds container secret Gemini__ApiKey (valueFrom) and removes plaintext Gemini env vars from the merged environment. See docs/AWS.md (Gemini + ECS).
 # Optional: GEMINI_SECRET_JSON_KEY — when set with GEMINI_SECRET_ARN, appends :KEY:: to valueFrom for JSON-shaped secrets (e.g. ApiKey). Leave empty when the secret stores the raw key string only.
@@ -16,6 +17,8 @@ CONTAINER_NAME="${AWS_ECS_CONTAINER_NAME:-}"
 # Trim and strip trailing slash for Supabase project URL
 SUPABASE_PROJECT_URL="${SUPABASE_PROJECT_URL:-}"
 SUPABASE_PROJECT_URL="$(echo -n "$SUPABASE_PROJECT_URL" | tr -d '\r' | sed 's/[[:space:]]*$//' | sed 's#/*$##')"
+SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
+SUPABASE_SERVICE_ROLE_KEY="$(echo -n "$SUPABASE_SERVICE_ROLE_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 ADMIN_CORS_ORIGIN="${ADMIN_CORS_ORIGIN:-}"
 ADMIN_CORS_ORIGIN="$(echo -n "$ADMIN_CORS_ORIGIN" | tr -d '\r' | sed 's/[[:space:]]*$//' | sed 's#/*$##')"
 
@@ -35,7 +38,7 @@ if [ -z "$CONTAINER_NAME" ]; then
   CONTAINER_NAME="$(jq -r '.containerDefinitions[0].name' /tmp/td-full.json)"
 fi
 
-jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" '
+jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" '
   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
   | .containerDefinitions |= map(
       if .name == $cname then
@@ -47,6 +50,8 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             .name != "Supabase__JwtSecret" and
             .name != "ASPNETCORE_URLS" and
             .name != "Supabase__Url" and
+            .name != "SUPABASE_SERVICE_ROLE_KEY" and
+            .name != "Supabase__ServiceRoleKey" and
             (.name | test("^Cors__AllowedOrigins__") | not) and
             (($gem | length) == 0 or (.name != "Gemini__ApiKey" and .name != "GOOGLE_GEMINI_API_KEY"))
           ))) +
@@ -57,6 +62,7 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             {"name":"ASPNETCORE_URLS","value":"http://+:8080"}
           ] +
           (if ($supUrl | length) > 0 then [{"name":"Supabase__Url","value":$supUrl}] else [] end) +
+          (if ($serviceRole | length) > 0 then [{"name":"Supabase__ServiceRoleKey","value":$serviceRole}] else [] end) +
           (if ($corsOrigin | length) > 0 then [{"name":"Cors__AllowedOrigins__0","value":$corsOrigin}] else [] end)
         )
         | if ($gem | length) > 0 then

@@ -73,6 +73,8 @@ jobs:
           AWS_ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
           AWS_ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          # Server-only Supabase service role — Review Inbox resolve, support attachment preview, Milo analyze-internal Storage.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Optional: full Secrets Manager ARN for Gemini; merge script injects container secret Gemini__ApiKey. See docs/AWS.md.
           GEMINI_SECRET_ARN: ${{ secrets.GEMINI_SECRET_ARN }}
           GEMINI_SECRET_JSON_KEY: ${{ vars.GEMINI_SECRET_JSON_KEY }}
@@ -94,6 +96,9 @@ jobs:
             export ADMIN_CORS_ORIGIN="${{ vars.ADMIN_DASHBOARD_ORIGIN }}"
             if [ -z "$(echo -n "${SUPABASE_PROJECT_URL:-}" | tr -d '[:space:]')" ]; then
               echo "::warning::Variable VITE_SUPABASE_URL is empty — ECS merge will not set Supabase__Url. Set it to https://YOUR_REF.supabase.co (same as admin build) so JWT issuer validation matches Supabase tokens."
+            fi
+            if [ -z "$(echo -n "${SUPABASE_SERVICE_ROLE_KEY:-}" | tr -d '[:space:]')" ]; then
+              echo "::warning::Repository secret SUPABASE_SERVICE_ROLE_KEY is empty — ECS merge will not set Supabase__ServiceRoleKey. Review Inbox (POST /api/mail/resolve) and support attachment preview will fail until you add the service_role JWT from Supabase Dashboard → Project Settings → API."
             fi
             if [ -z "$(echo -n "${ADMIN_CORS_ORIGIN:-}" | tr -d '[:space:]')" ]; then
               echo "::warning::Variable ADMIN_DASHBOARD_ORIGIN is empty — ECS merge will not set Cors__AllowedOrigins__0. Set it to your admin CloudFront URL (e.g. https://dxxxx.cloudfront.net) so the browser allows api.pawbuck.com from that origin."

@@ -106,6 +106,7 @@ For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
 
 | Input | Type | Purpose |
 |-------|------|---------|
+| `SUPABASE_SERVICE_ROLE_KEY` | GitHub **Actions secret** (recommended) | Supabase **service_role** JWT. Written to ECS as **`Supabase__ServiceRoleKey`**. Required for Review Inbox resolve and support attachment preview. |
 | `GEMINI_SECRET_ARN` | GitHub **Actions secret** (optional) | Full Secrets Manager ARN for the Gemini key (plaintext secret). When set, the script adds/replaces container secret **`Gemini__ApiKey`** and removes plaintext **`Gemini__ApiKey`** / **`GOOGLE_GEMINI_API_KEY`** from the merged **environment** so the key is not duplicated in the task definition JSON. |
 | `GEMINI_SECRET_JSON_KEY` | GitHub **Actions variable** (optional) | e.g. `ApiKey` — appended as `:KEY::` to `GEMINI_SECRET_ARN` for JSON-shaped secrets. Leave empty when the secret stores the raw key only. |
 
@@ -196,6 +197,7 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 4. In the GitHub repo → **Settings → Secrets and variables → Actions**:
    - **Secret:** `AWS_ROLE_ARN` = role ARN from step 2.
    - **Secret (recommended):** `SUPABASE_JWT_SECRET` = Supabase **JWT secret** (Dashboard → Project Settings → API). If set, the **Deploy AWS** API job merges it (and related env) into the ECS task definition. If omitted, the workflow only **forces a new deployment** (you can keep JWT set manually on the task definition).
+   - **Secret (recommended):** `SUPABASE_SERVICE_ROLE_KEY` = Supabase **service_role** JWT (Dashboard → Project Settings → API). Merged as **`Supabase__ServiceRoleKey`** on each deploy. Required for **Review Inbox** reprocessing (`POST /api/mail/resolve`), support attachment preview, and server-side Storage access. **Never** expose this to mobile clients or commit it.
    - **Secret (optional):** `GEMINI_SECRET_ARN` = full ARN of the Secrets Manager secret for the Gemini API key. When set (with `SUPABASE_JWT_SECRET` so the merge script runs), the deploy injects **`Gemini__ApiKey`** as an ECS container secret. See **Gemini API key (Secrets Manager + ECS)** above.
 
 ### Repository Variables (Settings → Secrets and variables → Actions → Variables)
