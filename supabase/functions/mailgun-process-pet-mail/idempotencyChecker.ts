@@ -252,8 +252,11 @@ function isReviewInboxRow(row: {
   failure_reason?: string | null;
   review_status?: string | null;
 }): boolean {
-  if (row.review_status === "dismissed" || row.review_status === "resolved") {
+  if (row.review_status === "resolved") {
     return false;
+  }
+  if (row.review_status === "dismissed") {
+    return Boolean(row.failure_reason?.trim()) || row.success === false;
   }
   if (row.success === false) return true;
   return Boolean(row.failure_reason?.trim());

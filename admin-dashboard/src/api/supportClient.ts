@@ -28,6 +28,8 @@ import type {
   SupportProcessedEmailsSummaryResponse,
   SupportBulkClearReviewInboxRequest,
   SupportBulkClearReviewInboxResponse,
+  SupportBulkReprocessReviewInboxRequest,
+  SupportBulkReprocessReviewInboxResponse,
   SupportUserDirectoryResponse,
   SupportUserRow,
   SupportVaccinationRow,
@@ -307,5 +309,11 @@ export function createSupportClient(
         method: "POST",
         json: body,
       }),
+
+    bulkReprocessReviewInbox: (body: SupportBulkReprocessReviewInboxRequest) =>
+      request<SupportBulkReprocessReviewInboxResponse>(
+        "/api/support/processed-emails/bulk-reprocess-review-inbox",
+        { method: "POST", json: body },
+      ),
   };
 }

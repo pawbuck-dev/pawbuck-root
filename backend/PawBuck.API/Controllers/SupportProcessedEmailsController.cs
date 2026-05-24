@@ -105,6 +105,31 @@ public class SupportProcessedEmailsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Re-run mailgun attachment processing for Review Inbox failures (files health records + marks resolved).
+    /// Defaults to <c>dryRun=true</c>.
+    /// </summary>
+    [HttpPost("bulk-reprocess-review-inbox")]
+    [ProducesResponseType(typeof(SupportBulkReprocessReviewInboxResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> BulkReprocessReviewInbox(
+        [FromBody] SupportBulkReprocessReviewInboxRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+            return BadRequest(new { error = "Request body is required" });
+
+        try
+        {
+            var result = await _processedEmails.BulkReprocessReviewInboxAsync(request, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { error = ex.Message });
+        }
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(SupportProcessedEmailDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

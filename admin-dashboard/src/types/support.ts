@@ -312,6 +312,36 @@ export interface SupportBulkClearReviewInboxResponse {
   message: string;
 }
 
+export interface SupportBulkReprocessReviewInboxRequest {
+  dryRun?: boolean;
+  defaultDocType?: "vaccinations" | "medications" | "lab_results" | "clinical_exams";
+  includeDismissed?: boolean;
+  ownerUserId?: string;
+  ownerEmail?: string;
+  from?: string;
+  to?: string;
+  emailIds?: string[];
+  maxRows?: number;
+}
+
+export interface SupportBulkReprocessRowResult {
+  emailId: string;
+  subject: string | null;
+  status: string;
+  message: string | null;
+}
+
+export interface SupportBulkReprocessReviewInboxResponse {
+  dryRun: boolean;
+  eligibleCount: number;
+  attemptedCount: number;
+  succeededCount: number;
+  failedCount: number;
+  skippedCount: number;
+  message: string;
+  results: SupportBulkReprocessRowResult[];
+}
+
 export interface SupportProcessedEmailAttachment {
   index: number;
   filename: string;

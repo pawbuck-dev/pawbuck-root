@@ -1,7 +1,4 @@
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using PawBuck.API.Models;
@@ -12,18 +9,18 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
 {
     private readonly IOptions<SupabaseOptions> _options;
     private readonly IMiloPetFactsService _petFacts;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMailgunEdgeReprocessService _edgeReprocess;
     private readonly ILogger<MailInboxResolveService> _logger;
 
     public MailInboxResolveService(
         IOptions<SupabaseOptions> options,
         IMiloPetFactsService petFacts,
-        IHttpClientFactory httpClientFactory,
+        IMailgunEdgeReprocessService edgeReprocess,
         ILogger<MailInboxResolveService> logger)
     {
         _options = options;
         _petFacts = petFacts;
-        _httpClientFactory = httpClientFactory;
+        _edgeReprocess = edgeReprocess;
         _logger = logger;
     }
 
@@ -35,18 +32,8 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
         return new NpgsqlConnection(cs);
     }
 
-    private static string NormalizeDocumentType(string raw)
-    {
-        var n = raw.Trim().ToLowerInvariant().Replace('-', '_');
-        return n switch
-        {
-            "vaccine" or "vaccination" or "vaccinations" => "vaccinations",
-            "medication" or "medications" => "medications",
-            "lab" or "lab_result" or "lab_results" => "lab_results",
-            "clinical_visit" or "clinical_exam" or "clinical_exams" or "exam" => "clinical_exams",
-            _ => n
-        };
-    }
+    private static string NormalizeDocumentType(string raw) =>
+        MailgunEdgeReprocessService.NormalizeDocumentType(raw);
 
     /// <inheritdoc />
     public async Task<MailInboxResolveResult> ResolveAsync(
@@ -129,86 +116,48 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             return new MailInboxResolveResult { Ok = false, StatusCode = 400, Error = "email record has no s3_key" };
         }
 
-        var baseUrl = _options.Value.Url?.TrimEnd('/');
-        var serviceKey = _options.Value.ServiceRoleKey?.Trim();
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            _logger.LogError("Supabase:Url not configured; cannot invoke mailgun-process-pet-mail");
-            return new MailInboxResolveResult
-            {
-                Ok = false,
-                StatusCode = 503,
-                Error = "Server is not configured for inbox resolution (Supabase URL missing).",
-            };
-        }
-
-        if (string.IsNullOrEmpty(serviceKey))
-        {
-            _logger.LogError("Supabase:ServiceRoleKey not configured; cannot invoke mailgun-process-pet-mail");
-            return new MailInboxResolveResult
-            {
-                Ok = false,
-                StatusCode = 503,
-                Error = "Server is not configured for inbox resolution (Supabase service key missing).",
-            };
-        }
-
-        var edgeUrl = $"{baseUrl}/functions/v1/mailgun-process-pet-mail";
-        var payload = new
-        {
-            fileKey = s3Key,
-            overridePetId = request.SelectedPetId.ToString(),
-            documentTypeOverride = docNorm,
-        };
-
-        var client = _httpClientFactory.CreateClient(nameof(MailInboxResolveService));
-        using var httpReq = new HttpRequestMessage(HttpMethod.Post, edgeUrl);
-        httpReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceKey);
-        httpReq.Content = new StringContent(
-            JsonSerializer.Serialize(payload, new JsonSerializerOptions
-            {
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            }),
-            Encoding.UTF8,
-            "application/json");
-
         _logger.LogInformation(
             "Invoking mailgun-process-pet-mail for Review Inbox email_id={EmailId} pet_id={PetId} docType={DocType}",
             request.EmailId,
             request.SelectedPetId,
             docNorm);
 
-        using var res = await client.SendAsync(httpReq, cancellationToken);
-        var text = await res.Content.ReadAsStringAsync(cancellationToken);
-        if (!res.IsSuccessStatusCode)
+        await _edgeReprocess.ReopenProcessedEmailRowAsync(request.EmailId, cancellationToken);
+
+        var edge = await _edgeReprocess.ReprocessStoredEmailAsync(
+            s3Key,
+            request.SelectedPetId,
+            docNorm,
+            cancellationToken);
+
+        if (!edge.HttpOk)
         {
-            _logger.LogWarning("Edge mailgun failed: {Status} {Body}", (int)res.StatusCode, text);
+            _logger.LogWarning("Edge mailgun failed: {Body}", edge.RawBody);
             return new MailInboxResolveResult
             {
                 Ok = false,
                 StatusCode = 502,
                 Error = "Document reprocessing failed. Please try again later.",
-                BodySnippet = text.Length > 500 ? text[..500] : text,
+                BodySnippet = edge.RawBody,
             };
         }
 
-        var edgeOutcome = ParseEdgeResolveOutcome(text);
-        if (!edgeOutcome.Reprocessed)
+        if (!edge.Outcome.Reprocessed)
         {
             _logger.LogWarning(
                 "Edge mailgun skipped reprocess for email_id={EmailId}: {Message}",
                 request.EmailId,
-                edgeOutcome.Message ?? text);
+                edge.Outcome.Message ?? edge.RawBody);
             return new MailInboxResolveResult
             {
                 Ok = false,
                 StatusCode = 409,
-                Error = edgeOutcome.Message ??
+                Error = edge.Outcome.Message ??
                         "Could not reprocess this email. Please try again or remove it from the review list.",
             };
         }
 
-        if (!edgeOutcome.RecordsInserted)
+        if (!edge.Outcome.RecordsInserted)
         {
             return new MailInboxResolveResult
             {
@@ -219,7 +168,7 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             };
         }
 
-        await MarkReviewInboxResolvedAsync(
+        await MarkReviewInboxResolvedForOwnerAsync(
             request.EmailId,
             request.SelectedPetId,
             userId,
@@ -228,82 +177,7 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
         return new MailInboxResolveResult { Ok = true, StatusCode = 200 };
     }
 
-    internal sealed record EdgeResolveOutcome(
-        bool Reprocessed,
-        bool RecordsInserted,
-        string? Message);
-
-    internal static EdgeResolveOutcome ParseEdgeResolveOutcome(string responseBody)
-    {
-        if (string.IsNullOrWhiteSpace(responseBody))
-            return new EdgeResolveOutcome(false, false, "Empty response from document processor");
-
-        try
-        {
-            using var doc = JsonDocument.Parse(responseBody);
-            var root = doc.RootElement;
-
-            if (root.TryGetProperty("message", out var messageProp))
-            {
-                var message = messageProp.GetString() ?? "";
-                if (message.Contains("already processed", StringComparison.OrdinalIgnoreCase) ||
-                    message.Contains("currently being processed", StringComparison.OrdinalIgnoreCase))
-                {
-                    return new EdgeResolveOutcome(false, false, message);
-                }
-            }
-
-            if (root.TryGetProperty("success", out var successProp) &&
-                successProp.ValueKind == JsonValueKind.False)
-            {
-                var err = root.TryGetProperty("error", out var errProp)
-                    ? errProp.GetString()
-                    : "Document reprocessing failed";
-                return new EdgeResolveOutcome(false, false, err);
-            }
-
-            var inserted = false;
-            if (root.TryGetProperty("processedAttachments", out var attachments) &&
-                attachments.ValueKind == JsonValueKind.Array)
-            {
-                if (attachments.GetArrayLength() == 0)
-                {
-                    inserted = true;
-                }
-                else
-                {
-                    foreach (var attachment in attachments.EnumerateArray())
-                    {
-                        if (attachment.TryGetProperty("dbInserted", out var dbInserted) &&
-                            dbInserted.ValueKind == JsonValueKind.True)
-                        {
-                            inserted = true;
-                            break;
-                        }
-                        if (attachment.TryGetProperty("vaultPersisted", out var vaultPersisted) &&
-                            vaultPersisted.ValueKind == JsonValueKind.True)
-                        {
-                            inserted = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Legacy / minimal success payloads without attachment details.
-                inserted = true;
-            }
-
-            return new EdgeResolveOutcome(true, inserted, null);
-        }
-        catch (JsonException)
-        {
-            return new EdgeResolveOutcome(true, true, null);
-        }
-    }
-
-    private async Task MarkReviewInboxResolvedAsync(
+    private async Task MarkReviewInboxResolvedForOwnerAsync(
         Guid emailId,
         Guid petId,
         Guid userId,

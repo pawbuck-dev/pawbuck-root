@@ -197,4 +197,27 @@ public class SupportProcessedEmailsControllerTests
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
+
+    [Fact]
+    public async Task BulkReprocessReviewInbox_WhenDryRun_ReturnsOk()
+    {
+        var expected = new SupportBulkReprocessReviewInboxResponse
+        {
+            DryRun = true,
+            EligibleCount = 5,
+            Message = "Dry run",
+        };
+        var mock = new Mock<ISupportProcessedEmailsService>();
+        mock
+            .Setup(s => s.BulkReprocessReviewInboxAsync(It.IsAny<SupportBulkReprocessReviewInboxRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+        var controller = new SupportProcessedEmailsController(mock.Object);
+
+        var result = await controller.BulkReprocessReviewInbox(
+            new SupportBulkReprocessReviewInboxRequest { DryRun = true },
+            CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(expected);
+    }
 }

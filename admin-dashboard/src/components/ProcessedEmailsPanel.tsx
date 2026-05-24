@@ -68,6 +68,9 @@ export function ProcessedEmailsPanel({ client }: Props) {
   const [bulkClearOwnerEmail, setBulkClearOwnerEmail] = useState("");
   const [bulkClearMessage, setBulkClearMessage] = useState<string | null>(null);
   const [bulkClearBusy, setBulkClearBusy] = useState(false);
+  const [reprocessDocType, setReprocessDocType] =
+    useState<"vaccinations" | "medications" | "lab_results" | "clinical_exams">("vaccinations");
+  const [includeDismissed, setIncludeDismissed] = useState(true);
 
   const fromIso = useMemo(() => `${dateFrom}T00:00:00.000Z`, [dateFrom]);
   const toIso = useMemo(() => exclusiveEndIsoFromYmd(dateTo), [dateTo]);
@@ -174,15 +177,50 @@ export function ProcessedEmailsPanel({ client }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const bulkClearFilters = useMemo(
+  const bulkActionFilters = useMemo(
     () => ({
       from: fromIso,
       to: toIso,
       ownerEmail: bulkClearOwnerEmail.trim() || undefined,
-      maxRows: 500,
     }),
     [fromIso, toIso, bulkClearOwnerEmail],
   );
+
+  const runBulkReprocess = async (dryRun: boolean, emailIds?: string[]) => {
+    if (!dryRun) {
+      const ok = window.confirm(
+        "Reprocess matching emails via mailgun-process-pet-mail?\n\nThis extracts attachments and files health records, then marks rows resolved. Requires edge secrets (PAWBUCK_API_URL, MILO_INTERNAL_SERVICE_KEY) and stored email JSON in pending-emails.",
+      );
+      if (!ok) return;
+    }
+    setBulkClearBusy(true);
+    setBulkClearMessage(null);
+    try {
+      const res = await client.bulkReprocessReviewInbox({
+        dryRun,
+        defaultDocType: reprocessDocType,
+        includeDismissed,
+        maxRows: emailIds?.length === 1 ? 1 : 10,
+        ...bulkActionFilters,
+        emailIds,
+      });
+      const detail =
+        res.results?.length > 0
+          ? ` · ${res.results.map((r) => `${r.status}: ${r.subject ?? r.emailId}`).join("; ")}`
+          : "";
+      setBulkClearMessage(`${res.message}${detail}`);
+      if (!dryRun && res.succeededCount > 0) {
+        await loadList();
+        if (emailIds?.length === 1 && selected?.id === emailIds[0]) {
+          await openRow(selected);
+        }
+      }
+    } catch (e) {
+      setBulkClearMessage(e instanceof SupportApiError ? e.message : "Bulk reprocess failed");
+    } finally {
+      setBulkClearBusy(false);
+    }
+  };
 
   const runBulkClear = async (action: "dismiss" | "resolve", dryRun: boolean, emailIds?: string[]) => {
     if (!dryRun) {
@@ -200,7 +238,8 @@ export function ProcessedEmailsPanel({ client }: Props) {
       const res = await client.bulkClearReviewInbox({
         action,
         dryRun,
-        ...bulkClearFilters,
+        ...bulkActionFilters,
+        maxRows: 500,
         emailIds,
       });
       setBulkClearMessage(res.message);
@@ -335,16 +374,70 @@ export function ProcessedEmailsPanel({ client }: Props) {
           style={{ marginTop: "0.75rem", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
         >
           <span className="muted" style={{ fontWeight: 600 }}>
-            Review Inbox cleanup
+            Reprocess &amp; file records
           </span>
+          <select
+            className="directory__search"
+            style={{ width: "auto" }}
+            value={reprocessDocType}
+            onChange={(e) =>
+              setReprocessDocType(
+                e.target.value as "vaccinations" | "medications" | "lab_results" | "clinical_exams",
+              )
+            }
+            aria-label="Default document type when row has none"
+          >
+            <option value="vaccinations">Default: Vaccine</option>
+            <option value="medications">Default: Medication</option>
+            <option value="lab_results">Default: Lab</option>
+            <option value="clinical_exams">Default: Clinical visit</option>
+          </select>
           <input
             className="directory__search"
             style={{ minWidth: "10rem", flex: "1 1 10rem" }}
             placeholder="Owner email (optional)"
             value={bulkClearOwnerEmail}
             onChange={(e) => setBulkClearOwnerEmail(e.target.value)}
-            aria-label="Owner email for bulk clear"
+            aria-label="Owner email filter"
           />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", whiteSpace: "nowrap" }}>
+            <input
+              type="checkbox"
+              checked={includeDismissed}
+              onChange={(e) => setIncludeDismissed(e.target.checked)}
+            />
+            <span className="muted">Include dismissed</span>
+          </label>
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkReprocess(true)}
+          >
+            Preview reprocess
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkReprocess(false)}
+          >
+            Reprocess matching (10/batch)
+          </button>
+        </div>
+        <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
+          <strong>Reprocess</strong> re-runs the Mailgun pipeline, extracts PDFs, and files health records — then clears
+          the owner&apos;s Review Inbox. Fix edge secrets first (
+          <code>PAWBUCK_API_URL</code>, <code>MILO_INTERNAL_SERVICE_KEY</code>). Re-run until eligible count is 0.
+        </p>
+
+        <div
+          className="directory__toolbar"
+          style={{ marginTop: "0.75rem", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
+        >
+          <span className="muted" style={{ fontWeight: 600 }}>
+            Inbox-only cleanup (no reprocess)
+          </span>
           <button
             type="button"
             className="btn btn-secondary btn--sm"
@@ -371,7 +464,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
           </button>
           <button
             type="button"
-            className="btn btn-primary btn--sm"
+            className="btn btn-secondary btn--sm"
             disabled={bulkClearBusy}
             onClick={() => void runBulkClear("resolve", false)}
           >
@@ -379,9 +472,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
           </button>
         </div>
         <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
-          <strong>Dismiss</strong> removes items from the owner&apos;s Processing errors list.{" "}
-          <strong>Resolve</strong> marks them handled and clears <code>failure_reason</code> (use when records are
-          already saved or the failure was infra-only, e.g. missing API keys).
+          <strong>Dismiss / resolve</strong> only update inbox state — they do not extract or file documents.
         </p>
         {bulkClearMessage ? (
           <p className="muted" style={{ marginTop: "0.5rem" }}>
@@ -510,10 +601,18 @@ export function ProcessedEmailsPanel({ client }: Props) {
               <button
                 type="button"
                 className="btn btn-primary btn--sm"
+                disabled={bulkClearBusy}
+                onClick={() => void runBulkReprocess(false, [selected.id])}
+              >
+                Reprocess &amp; file
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn--sm"
                 disabled={bulkClearBusy || selected.reviewStatus === "resolved"}
                 onClick={() => void runBulkClear("resolve", false, [selected.id])}
               >
-                Resolve this row
+                Mark resolved only
               </button>
               <button
                 type="button"
@@ -521,7 +620,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
                 disabled={bulkClearBusy || selected.reviewStatus === "dismissed"}
                 onClick={() => void runBulkClear("dismiss", false, [selected.id])}
               >
-                Dismiss this row
+                Dismiss
               </button>
             </div>
             <h3 className="panel-sub">failure_reason (full)</h3>

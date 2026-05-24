@@ -37,4 +37,11 @@ public interface ISupportProcessedEmailsService
     Task<SupportBulkClearReviewInboxResponse> BulkClearReviewInboxAsync(
         SupportBulkClearReviewInboxRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-run mailgun attachment processing for Review Inbox rows and file health records.
+    /// </summary>
+    Task<SupportBulkReprocessReviewInboxResponse> BulkReprocessReviewInboxAsync(
+        SupportBulkReprocessReviewInboxRequest request,
+        CancellationToken cancellationToken = default);
 }

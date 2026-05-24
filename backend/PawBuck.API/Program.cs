@@ -226,6 +226,11 @@ builder.Services.AddHttpClient(nameof(MailInboxResolveService), client =>
 {
     client.Timeout = TimeSpan.FromMinutes(5);
 });
+builder.Services.AddHttpClient(nameof(MailgunEdgeReprocessService), client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+builder.Services.AddScoped<IMailgunEdgeReprocessService, MailgunEdgeReprocessService>();
 builder.Services.AddScoped<IMailInboxResolveService, MailInboxResolveService>();
 
 builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection(DocumentSyncOptions.SectionName));

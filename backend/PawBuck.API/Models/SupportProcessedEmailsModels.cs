@@ -212,3 +212,79 @@ public class SupportBulkClearReviewInboxResponse
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
 }
+
+public class SupportBulkReprocessReviewInboxRequest
+{
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; } = true;
+
+    /// <summary>Used when a row has no mappable <c>document_type</c> (default vaccinations).</summary>
+    [JsonPropertyName("defaultDocType")]
+    public string DefaultDocType { get; set; } = "vaccinations";
+
+    /// <summary>Include rows already dismissed from the consumer Review Inbox.</summary>
+    [JsonPropertyName("includeDismissed")]
+    public bool IncludeDismissed { get; set; } = true;
+
+    [JsonPropertyName("ownerUserId")]
+    public Guid? OwnerUserId { get; set; }
+
+    [JsonPropertyName("ownerEmail")]
+    public string? OwnerEmail { get; set; }
+
+    [JsonPropertyName("from")]
+    public DateTimeOffset? From { get; set; }
+
+    [JsonPropertyName("to")]
+    public DateTimeOffset? To { get; set; }
+
+    [JsonPropertyName("emailIds")]
+    public IReadOnlyList<Guid>? EmailIds { get; set; }
+
+    /// <summary>Max rows to reprocess per call (1–50, default 10).</summary>
+    [JsonPropertyName("maxRows")]
+    public int MaxRows { get; set; } = 10;
+}
+
+public class SupportBulkReprocessRowResultDto
+{
+    [JsonPropertyName("emailId")]
+    public Guid EmailId { get; set; }
+
+    [JsonPropertyName("subject")]
+    public string? Subject { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+public class SupportBulkReprocessReviewInboxResponse
+{
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; }
+
+    [JsonPropertyName("eligibleCount")]
+    public int EligibleCount { get; set; }
+
+    [JsonPropertyName("attemptedCount")]
+    public int AttemptedCount { get; set; }
+
+    [JsonPropertyName("succeededCount")]
+    public int SucceededCount { get; set; }
+
+    [JsonPropertyName("failedCount")]
+    public int FailedCount { get; set; }
+
+    [JsonPropertyName("skippedCount")]
+    public int SkippedCount { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+
+    [JsonPropertyName("results")]
+    public IReadOnlyList<SupportBulkReprocessRowResultDto> Results { get; set; } =
+        Array.Empty<SupportBulkReprocessRowResultDto>();
+}

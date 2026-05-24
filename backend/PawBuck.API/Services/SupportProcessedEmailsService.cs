@@ -33,15 +33,18 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
 
     private readonly IOptions<SupabaseOptions> _options;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMailgunEdgeReprocessService _edgeReprocess;
     private readonly ILogger<SupportProcessedEmailsService> _logger;
 
     public SupportProcessedEmailsService(
         IOptions<SupabaseOptions> options,
         IHttpClientFactory httpClientFactory,
+        IMailgunEdgeReprocessService edgeReprocess,
         ILogger<SupportProcessedEmailsService> logger)
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
+        _edgeReprocess = edgeReprocess;
         _logger = logger;
     }
 
@@ -866,6 +869,215 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             Message =
                 $"Marked {updatedCount} row(s) as {action}. {Math.Max(0, matchingCount - updatedCount)} additional row(s) still match (re-run or raise maxRows).",
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<SupportBulkReprocessReviewInboxResponse> BulkReprocessReviewInboxAsync(
+        SupportBulkReprocessReviewInboxRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var maxRows = Math.Clamp(request.MaxRows <= 0 ? 10 : request.MaxRows, 1, 50);
+        var (whereSql, parameters) = BuildReviewInboxReprocessFilter(request);
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        var countSql = $"""
+            SELECT COUNT(*)
+            FROM public.processed_emails pe
+            LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+            LEFT JOIN auth.users u ON u.id = p.user_id
+            WHERE {whereSql}
+            """;
+
+        int eligibleCount;
+        await using (var countCmd = new NpgsqlCommand(countSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                countCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            var scalar = await countCmd.ExecuteScalarAsync(cancellationToken);
+            eligibleCount = scalar is long l ? (int)l : Convert.ToInt32(scalar ?? 0);
+        }
+
+        if (request.DryRun)
+        {
+            return new SupportBulkReprocessReviewInboxResponse
+            {
+                DryRun = true,
+                EligibleCount = eligibleCount,
+                Message =
+                    $"Dry run: {eligibleCount} row(s) can be reprocessed (up to {maxRows} per call). " +
+                    "Set dryRun=false to invoke mailgun-process-pet-mail and file health records.",
+            };
+        }
+
+        var selectSql = $"""
+            SELECT pe.id, pe.s3_key, pe.pet_id, pe.document_type, pe.subject
+            FROM public.processed_emails pe
+            LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+            LEFT JOIN auth.users u ON u.id = p.user_id
+            WHERE {whereSql}
+            ORDER BY pe.completed_at DESC NULLS LAST
+            LIMIT @maxRows
+            """;
+
+        var candidates = new List<(Guid Id, string S3Key, Guid PetId, string? DocumentType, string? Subject)>();
+        await using (var selectCmd = new NpgsqlCommand(selectSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                selectCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            selectCmd.Parameters.AddWithValue("maxRows", maxRows);
+            await using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                candidates.Add((
+                    reader.GetGuid(0),
+                    reader.GetString(1),
+                    reader.GetGuid(2),
+                    reader.IsDBNull(3) ? null : reader.GetString(3),
+                    reader.IsDBNull(4) ? null : reader.GetString(4)));
+            }
+        }
+
+        var results = new List<SupportBulkReprocessRowResultDto>();
+        var succeeded = 0;
+        var failed = 0;
+        var skipped = 0;
+
+        foreach (var row in candidates)
+        {
+            var docType = _edgeReprocess.MapPipelineDocumentType(row.DocumentType, request.DefaultDocType);
+            if (docType is null)
+            {
+                skipped++;
+                results.Add(new SupportBulkReprocessRowResultDto
+                {
+                    EmailId = row.Id,
+                    Subject = row.Subject,
+                    Status = "skipped",
+                    Message = "No mappable document_type for reprocessing",
+                });
+                continue;
+            }
+
+            try
+            {
+                await _edgeReprocess.ReopenProcessedEmailRowAsync(row.Id, cancellationToken);
+                var edge = await _edgeReprocess.ReprocessStoredEmailAsync(
+                    row.S3Key,
+                    row.PetId,
+                    docType,
+                    cancellationToken);
+
+                if (!edge.HttpOk || !edge.Outcome.Reprocessed || !edge.Outcome.RecordsInserted)
+                {
+                    failed++;
+                    results.Add(new SupportBulkReprocessRowResultDto
+                    {
+                        EmailId = row.Id,
+                        Subject = row.Subject,
+                        Status = "failed",
+                        Message = edge.Outcome.Message ?? edge.RawBody ?? "Reprocessing failed",
+                    });
+                    continue;
+                }
+
+                await _edgeReprocess.MarkReviewInboxResolvedAsync(row.Id, row.PetId, cancellationToken);
+                succeeded++;
+                results.Add(new SupportBulkReprocessRowResultDto
+                {
+                    EmailId = row.Id,
+                    Subject = row.Subject,
+                    Status = "succeeded",
+                    Message = $"Filed as {docType}",
+                });
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogWarning(ex, "Support reprocess failed for processed_email id={EmailId}", row.Id);
+                results.Add(new SupportBulkReprocessRowResultDto
+                {
+                    EmailId = row.Id,
+                    Subject = row.Subject,
+                    Status = "failed",
+                    Message = ex.Message,
+                });
+            }
+        }
+
+        _logger.LogInformation(
+            "Support bulk reprocess Review Inbox: {Succeeded}/{Attempted} succeeded (eligible={Eligible})",
+            succeeded,
+            candidates.Count,
+            eligibleCount);
+
+        return new SupportBulkReprocessReviewInboxResponse
+        {
+            DryRun = false,
+            EligibleCount = eligibleCount,
+            AttemptedCount = candidates.Count,
+            SucceededCount = succeeded,
+            FailedCount = failed,
+            SkippedCount = skipped,
+            Results = results,
+            Message =
+                $"Reprocessed {candidates.Count} row(s): {succeeded} succeeded, {failed} failed, {skipped} skipped. " +
+                $"{Math.Max(0, eligibleCount - candidates.Count)} more row(s) match — re-run to continue.",
+        };
+    }
+
+    internal static (string WhereSql, List<(string Name, object? Value)> Parameters) BuildReviewInboxReprocessFilter(
+        SupportBulkReprocessReviewInboxRequest request)
+    {
+        var parts = new List<string>
+        {
+            "pe.status = 'completed'",
+            "pe.pet_id IS NOT NULL",
+            "pe.s3_key IS NOT NULL",
+            "length(trim(pe.s3_key)) > 0",
+            "(pe.success = false OR NULLIF(trim(pe.failure_reason), '') IS NOT NULL OR COALESCE(pe.review_status, 'pending') = 'pending')",
+            "NOT (COALESCE(pe.review_status, '') = 'resolved' AND pe.success = true AND NULLIF(trim(pe.failure_reason), '') IS NULL)",
+        };
+        var parameters = new List<(string Name, object? Value)>();
+
+        if (!request.IncludeDismissed)
+        {
+            parts.Add("COALESCE(pe.review_status, 'pending') NOT IN ('dismissed', 'resolved')");
+        }
+
+        if (request.OwnerUserId is { } ownerUserId)
+        {
+            parts.Add("p.user_id = @ownerUserId");
+            parameters.Add(("ownerUserId", ownerUserId));
+        }
+
+        var ownerEmail = (request.OwnerEmail ?? "").Trim();
+        if (ownerEmail.Length > 0)
+        {
+            parts.Add("lower(u.email) = lower(@ownerEmail)");
+            parameters.Add(("ownerEmail", ownerEmail));
+        }
+
+        if (request.From is { } from)
+        {
+            parts.Add("pe.completed_at >= @from");
+            parameters.Add(("from", from));
+        }
+
+        if (request.To is { } to)
+        {
+            parts.Add("pe.completed_at < @to");
+            parameters.Add(("to", to));
+        }
+
+        if (request.EmailIds is { Count: > 0 } ids)
+        {
+            parts.Add("pe.id = ANY(@emailIds)");
+            parameters.Add(("emailIds", ids.ToArray()));
+        }
+
+        return (string.Join(" AND ", parts), parameters);
     }
 
     /// <summary>Same visibility rules as consumer Review Inbox (<c>isReviewInboxCandidate</c>).</summary>

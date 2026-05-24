@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using PawBuck.API.Models;
 using PawBuck.API.Services;
 using Xunit;
 
@@ -46,9 +48,13 @@ public class MailInboxResolveServiceTests
     }
 
     [Fact]
-    public void ParseEdgeResolveOutcome_RejectsAlreadyProcessedSkip()
+    public void ParseEdgeResponse_RejectsAlreadyProcessedSkip()
     {
-        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+        var svc = new MailgunEdgeReprocessService(
+            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions()),
+            new MockHttpClientFactory(),
+            NullLogger<MailgunEdgeReprocessService>.Instance);
+        var outcome = svc.ParseEdgeResponse("""
             {"success":true,"message":"Email already processed","status":"completed"}
             """);
 
@@ -57,9 +63,13 @@ public class MailInboxResolveServiceTests
     }
 
     [Fact]
-    public void ParseEdgeResolveOutcome_AcceptsInsertedAttachment()
+    public void ParseEdgeResponse_AcceptsInsertedAttachment()
     {
-        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+        var svc = new MailgunEdgeReprocessService(
+            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions()),
+            new MockHttpClientFactory(),
+            NullLogger<MailgunEdgeReprocessService>.Instance);
+        var outcome = svc.ParseEdgeResponse("""
             {"success":true,"processedAttachments":[{"dbInserted":true}]}
             """);
 
@@ -68,13 +78,34 @@ public class MailInboxResolveServiceTests
     }
 
     [Fact]
-    public void ParseEdgeResolveOutcome_RejectsFailedAttachments()
+    public void ParseEdgeResponse_RejectsFailedAttachments()
     {
-        var outcome = MailInboxResolveService.ParseEdgeResolveOutcome("""
+        var svc = new MailgunEdgeReprocessService(
+            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions()),
+            new MockHttpClientFactory(),
+            NullLogger<MailgunEdgeReprocessService>.Instance);
+        var outcome = svc.ParseEdgeResponse("""
             {"success":true,"processedAttachments":[{"dbInserted":false}]}
             """);
 
         Assert.True(outcome.Reprocessed);
         Assert.False(outcome.RecordsInserted);
     }
+
+    [Fact]
+    public void MapPipelineDocumentType_MapsVaccinationAndTravelCertificate()
+    {
+        var svc = new MailgunEdgeReprocessService(
+            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions()),
+            new MockHttpClientFactory(),
+            NullLogger<MailgunEdgeReprocessService>.Instance);
+        Assert.Equal("vaccinations", svc.MapPipelineDocumentType("vaccination", null));
+        Assert.Equal("clinical_exams", svc.MapPipelineDocumentType("travel_certificate", null));
+        Assert.Equal("vaccinations", svc.MapPipelineDocumentType(null, "vaccinations"));
+    }
+}
+
+internal sealed class MockHttpClientFactory : IHttpClientFactory
+{
+    public HttpClient CreateClient(string name) => new HttpClient();
 }
