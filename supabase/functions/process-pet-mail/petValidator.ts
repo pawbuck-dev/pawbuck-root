@@ -16,6 +16,11 @@ import {
   allowsNameOnlyForDocumentType,
   breedRequiredForDocumentType,
 } from "../_shared/emailDocumentVerificationConfig.ts";
+import {
+  extractPetInfoViaFlexibleVault,
+  mergePetInfoFields,
+  petInfoNeedsFallback,
+} from "../_shared/flexiblePetInfoFromDocument.ts";
 import { matchBreeds } from "../_shared/petBreedMatch.ts";
 
 export type ValidatePetFromDocumentOptions = {
@@ -25,7 +30,8 @@ export type ValidatePetFromDocumentOptions = {
 
 export async function extractPetInfoFromDocument(
   attachment: ParsedAttachment,
-  emailSubject: string
+  emailSubject: string,
+  documentType?: DocumentType,
 ): Promise<ExtractedPetInfo> {
   const responseSchema = {
     type: "object",
@@ -123,7 +129,7 @@ Provide an overall confidence score (0-100) based on how clearly the information
 
     console.log(`Pet info extraction result:`, result);
 
-    return {
+    let extracted: ExtractedPetInfo = {
       microchip: result.microchip || null,
       name: result.name || null,
       age: result.age || null,
@@ -131,6 +137,20 @@ Provide an overall confidence score (0-100) based on how clearly the information
       gender: result.gender || null,
       confidence: result.confidence || 0,
     };
+
+    if (petInfoNeedsFallback(extracted)) {
+      console.log(
+        "Legacy pet-id extraction missing name/breed; trying flexible vault fallback",
+      );
+      const fallback = await extractPetInfoViaFlexibleVault(
+        attachment,
+        emailSubject,
+        documentType ?? "vaccinations",
+      );
+      extracted = mergePetInfoFields(extracted, fallback);
+    }
+
+    return extracted;
   } catch (error) {
     console.error("Error extracting pet info from document:", error);
     return createEmptyExtraction();
@@ -247,6 +267,35 @@ function isBreedAbbreviation(breed1: string, breed2: string): boolean {
   return shorter.every((word) => longer.some((lw) => lw.includes(word) || word.includes(lw)));
 }
 
+function namesMatchProfile(
+  extractedName: string,
+  profilePetName: string,
+  threshold: number,
+): { similarity: number; matches: boolean; isLikelyVariation?: boolean } {
+  const profileFirst = petFirstName(profilePetName);
+  const extractedFirst = petFirstName(extractedName);
+
+  const direct = fuzzyMatch(extractedName, profileFirst, threshold, "name");
+  if (direct.matches) return direct;
+
+  if (extractedFirst && extractedFirst !== extractedName) {
+    const firstOnly = fuzzyMatch(extractedFirst, profileFirst, threshold, "name");
+    if (firstOnly.matches) return firstOnly;
+  }
+
+  if (profileFirst.length >= 2) {
+    const wordBoundary = new RegExp(
+      `\\b${profileFirst.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i",
+    );
+    if (wordBoundary.test(extractedName)) {
+      return { similarity: 1, matches: true, isLikelyVariation: true };
+    }
+  }
+
+  return direct;
+}
+
 function fuzzyMatch(
   extracted: string | null,
   expected: string,
@@ -323,7 +372,11 @@ export async function validatePetFromDocument(
 ): Promise<PetValidationResult> {
   console.log(`\n=== Validating pet: ${pet.name} (ID: ${pet.id}) ===`);
 
-  const extractedInfo = await extractPetInfoFromDocument(attachment, emailSubject);
+  const extractedInfo = await extractPetInfoFromDocument(
+    attachment,
+    emailSubject,
+    options?.documentType,
+  );
   return evaluatePetVerification(extractedInfo, pet, options);
 }
 
@@ -396,7 +449,7 @@ export function evaluatePetVerification(
   }
 
   const first = petFirstName(pet.name);
-  const nameMatch = fuzzyMatch(extractedInfo.name, first, matchThreshold, "name");
+  const nameMatch = namesMatchProfile(extractedInfo.name, pet.name, matchThreshold);
   matchDetails.nameMatch = nameMatch;
 
   if (!nameMatch.matches) {
