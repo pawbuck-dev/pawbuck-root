@@ -245,11 +245,12 @@ Deno.serve(async (req) => {
     // Re-open failed rows for JSON reprocess (Review Inbox) so we don't hit "already completed"
     const forcedPipelineType = mapDocumentTypeOverride(documentTypeOverride);
     const processOptions: ProcessAttachmentsOptions | undefined =
-      forcedPipelineType || documentTypeOverride
+      forcedPipelineType || documentTypeOverride || isReprocessing
         ? {
             forcedDocumentType: forcedPipelineType,
             apiDocumentTypeOverride: documentTypeOverride,
             forcedAttachmentIndexLimit: 1,
+            skipPetVerification: isReprocessing && !!overridePetId,
           }
         : undefined;
 

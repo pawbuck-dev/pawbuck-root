@@ -7,7 +7,10 @@ import type { EmailContext, ParsedAttachment, Pet, ProcessedAttachment } from ".
 
 export type ProcessAttachmentsOptions = Pick<
   ProcessHealthAttachmentsOptions,
-  "forcedDocumentType" | "forcedAttachmentIndexLimit" | "apiDocumentTypeOverride"
+  | "forcedDocumentType"
+  | "forcedAttachmentIndexLimit"
+  | "apiDocumentTypeOverride"
+  | "skipPetVerification"
 >;
 
 export async function processAttachments(
@@ -22,5 +25,6 @@ export async function processAttachments(
     forcedAttachmentIndexLimit: options?.forcedAttachmentIndexLimit,
     apiDocumentTypeOverride: options?.apiDocumentTypeOverride,
     onMicrochipMismatch: sendMicrochipMismatchNotification,
+    skipPetVerification: options?.skipPetVerification,
   });
 }

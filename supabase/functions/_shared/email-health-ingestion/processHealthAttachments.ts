@@ -28,6 +28,8 @@ export type ProcessHealthAttachmentsOptions = {
   apiDocumentTypeOverride?: string;
   forcedDocumentType?: ForcedDocumentPipelineType;
   forcedAttachmentIndexLimit?: number;
+  /** Owner/admin Confirm: skip Gemini pet-id gate (user already picked pet + doc type). */
+  skipPetVerification?: boolean;
   onMicrochipMismatch?: (
     pet: Pet,
     validation: PetValidationResult,
@@ -70,6 +72,7 @@ export async function processHealthAttachments(
         forced,
         apiOverride,
         options.onMicrochipMismatch,
+        options.skipPetVerification,
       ),
     );
   }
@@ -84,6 +87,7 @@ async function processOne(
   forcedDocumentType?: ForcedDocumentPipelineType,
   apiDocumentTypeOverride?: string,
   onMicrochipMismatch?: ProcessHealthAttachmentsOptions["onMicrochipMismatch"],
+  skipPetVerification?: boolean,
 ): Promise<ProcessedAttachment> {
   try {
     const classification: DocumentClassification = forcedDocumentType
@@ -105,15 +109,29 @@ async function processOne(
     const verificationConfig = await loadEmailDocumentVerificationConfig(
       pet.country,
     );
-    const petValidation = await validatePetFromDocument(
-      attachment,
-      emailContext.subject,
-      pet,
-      {
-        documentType: classification.type,
-        verificationConfig,
-      },
-    );
+    const petValidation = skipPetVerification
+      ? {
+          isValid: true,
+          method: "owner_confirmed" as const,
+          extractedInfo: {
+            microchip: null,
+            name: null,
+            age: null,
+            breed: null,
+            gender: null,
+            confidence: 0,
+          },
+          matchDetails: {},
+        }
+      : await validatePetFromDocument(
+          attachment,
+          emailContext.subject,
+          pet,
+          {
+            documentType: classification.type,
+            verificationConfig,
+          },
+        );
 
     if (petValidation.microchipMismatchNotify && onMicrochipMismatch) {
       try {

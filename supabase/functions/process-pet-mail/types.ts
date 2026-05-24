@@ -58,7 +58,12 @@ export type SkipReason =
   | "microchip_mismatch"
   | "attributes_mismatch"; // First name or breed on document does not match profile
 
-export type ValidationMethod = "microchip" | "attributes" | "name_only" | "none";
+export type ValidationMethod =
+  | "microchip"
+  | "attributes"
+  | "name_only"
+  | "owner_confirmed"
+  | "none";
 
 export interface ExtractedPetInfo {
   microchip: string | null;

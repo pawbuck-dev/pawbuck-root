@@ -171,6 +171,7 @@ public sealed class MailgunEdgeReprocessService : IMailgunEdgeReprocessService
             }
 
             var inserted = false;
+            string? attachmentFailure = null;
             if (root.TryGetProperty("processedAttachments", out var attachments) &&
                 attachments.ValueKind == JsonValueKind.Array)
             {
@@ -194,6 +195,8 @@ public sealed class MailgunEdgeReprocessService : IMailgunEdgeReprocessService
                             inserted = true;
                             break;
                         }
+
+                        attachmentFailure ??= TryReadAttachmentFailure(attachment);
                     }
                 }
             }
@@ -202,12 +205,41 @@ public sealed class MailgunEdgeReprocessService : IMailgunEdgeReprocessService
                 inserted = true;
             }
 
-            return new MailgunEdgeParseOutcome(true, inserted, null);
+            return new MailgunEdgeParseOutcome(true, inserted, attachmentFailure);
         }
         catch (JsonException)
         {
             return new MailgunEdgeParseOutcome(true, true, null);
         }
+    }
+
+    private static string? TryReadAttachmentFailure(JsonElement attachment)
+    {
+        if (attachment.TryGetProperty("error", out var errProp) &&
+            errProp.ValueKind == JsonValueKind.String)
+        {
+            var err = errProp.GetString()?.Trim();
+            if (!string.IsNullOrEmpty(err))
+            {
+                if (attachment.TryGetProperty("filename", out var fnProp) &&
+                    fnProp.ValueKind == JsonValueKind.String)
+                {
+                    var fn = fnProp.GetString()?.Trim();
+                    if (!string.IsNullOrEmpty(fn))
+                        return $"Document '{fn}': {err}";
+                }
+
+                return err;
+            }
+        }
+
+        if (attachment.TryGetProperty("failureReason", out var frProp) &&
+            frProp.ValueKind == JsonValueKind.String)
+        {
+            return frProp.GetString()?.Trim();
+        }
+
+        return null;
     }
 
     /// <inheritdoc />

@@ -93,6 +93,23 @@ public class MailInboxResolveServiceTests
     }
 
     [Fact]
+    public void ParseEdgeResponse_SurfacesAttachmentErrorMessage()
+    {
+        var svc = new MailgunEdgeReprocessService(
+            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions()),
+            new MockHttpClientFactory(),
+            NullLogger<MailgunEdgeReprocessService>.Instance);
+        var outcome = svc.ParseEdgeResponse("""
+            {"success":true,"processedAttachments":[{"filename":"vaccinationrecord.pdf","dbInserted":false,"error":"analyze-internal not configured"}]}
+            """);
+
+        Assert.True(outcome.Reprocessed);
+        Assert.False(outcome.RecordsInserted);
+        Assert.Contains("vaccinationrecord.pdf", outcome.Message, StringComparison.Ordinal);
+        Assert.Contains("analyze-internal not configured", outcome.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MapPipelineDocumentType_MapsVaccinationAndTravelCertificate()
     {
         var svc = new MailgunEdgeReprocessService(

@@ -161,8 +161,8 @@ public sealed class MailInboxResolveService : IMailInboxResolveService
             {
                 Ok = false,
                 StatusCode = 422,
-                Error =
-                    "We couldn't save a health record from this email. Check the document and try again, or add the record manually.",
+                Error = edge.Outcome.Message ??
+                        "We couldn't save a health record from this email. Check the document and try again, or add the record manually.",
             };
         }
 
