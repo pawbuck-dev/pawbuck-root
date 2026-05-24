@@ -76,7 +76,7 @@ public class SupportPetRow
     public string Name { get; set; } = "";
     public string Breed { get; set; } = "";
     public string AnimalType { get; set; } = "";
-    public DateTime DateOfBirth { get; set; }
+    public DateTime? DateOfBirth { get; set; }
     public string Sex { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
 }

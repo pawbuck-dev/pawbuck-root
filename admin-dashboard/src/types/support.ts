@@ -91,7 +91,7 @@ export interface SupportPetRow {
   name: string;
   breed: string;
   animalType: string;
-  dateOfBirth: string;
+  dateOfBirth: string | null;
   sex: string;
   createdAt: string;
 }

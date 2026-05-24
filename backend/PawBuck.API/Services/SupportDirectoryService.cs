@@ -179,10 +179,10 @@ public class SupportDirectoryService : ISupportDirectoryService
             Id = reader.GetGuid(0),
             UserId = reader.GetGuid(1),
             Name = reader.GetString(2),
-            Breed = reader.GetString(3),
-            AnimalType = reader.GetString(4),
-            DateOfBirth = reader.GetFieldValue<DateTime>(5),
-            Sex = reader.GetString(6),
+            Breed = reader.IsDBNull(3) ? "" : reader.GetString(3),
+            AnimalType = reader.IsDBNull(4) ? "" : reader.GetString(4),
+            DateOfBirth = reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTime>(5),
+            Sex = reader.IsDBNull(6) ? "" : reader.GetString(6),
             CreatedAt = reader.GetFieldValue<DateTimeOffset>(7),
         };
     }

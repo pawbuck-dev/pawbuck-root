@@ -113,7 +113,7 @@ public class SupportMiloJournalController : ControllerBase
 
     private static MiloPetContextDto MapSupportPetToMiloContext(SupportPetRow pet)
     {
-        var dob = pet.DateOfBirth.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var dob = pet.DateOfBirth?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         return new MiloPetContextDto
         {
             Id = pet.Id.ToString(),
