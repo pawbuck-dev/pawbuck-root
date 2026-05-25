@@ -176,11 +176,32 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
 
         if (session.Phase == JournalInterviewPhases.ContextSurface)
         {
-            if (action is "context_continue" or "answer" or "")
+            if (action is "add_medication")
             {
-                await UpdateSessionPhaseAsync(cs, session.Id, JournalInterviewPhases.Question, GetFirstQuestionId(tree), cancellationToken);
-                session = await LoadSessionAsync(cs, session.Id, userId, petId, cancellationToken) ?? session;
+                return await BuildContextSurfaceRecordLinkResponseAsync(
+                    cs, session, tree, petName, userId, petId, config, "medication", cancellationToken);
             }
+
+            if (action is "add_vaccines" or "add_vaccination" or "update_vaccines")
+            {
+                return await BuildContextSurfaceRecordLinkResponseAsync(
+                    cs, session, tree, petName, userId, petId, config, "vaccination", cancellationToken);
+            }
+
+            if (action is "context_continue")
+            {
+                await UpdateSessionPhaseAsync(
+                    cs, session.Id, JournalInterviewPhases.Question, GetFirstQuestionId(tree), cancellationToken);
+                session = await LoadSessionAsync(cs, session.Id, userId, petId, cancellationToken) ?? session;
+                var first = tree.Questions.OrderBy(q => q.Step).FirstOrDefault();
+                if (first != null)
+                {
+                    return BuildQuestionResponse(session, tree, first, petName, session.EmergencyDetected);
+                }
+            }
+
+            return await BuildContextSurfaceResponseAsync(
+                cs, session, tree, petName, userId, petId, config, cancellationToken);
         }
 
         if (session.Phase == JournalInterviewPhases.Question && !string.IsNullOrEmpty(session.CurrentQuestionId))
@@ -357,11 +378,32 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             JournalSessionId = session.Id.ToString(),
             QuestionsAskedCount = 0,
             ConfidenceScore = confidence,
-            SuggestedReplies = surface.Actions.Select(a => a.Label).ToList(),
+            SuggestedReplies = Array.Empty<string>(),
             JournalStatus = "CONTINUE",
             PromptVersion = config.PromptVersion,
             UsedPetData = true,
         };
+    }
+
+    private async Task<MiloChatResponse> BuildContextSurfaceRecordLinkResponseAsync(
+        string cs,
+        SessionRow session,
+        JournalTreeDefinitionDto tree,
+        string petName,
+        Guid userId,
+        Guid petId,
+        MiloJournalConfigSnapshot config,
+        string deepLinkKind,
+        CancellationToken cancellationToken)
+    {
+        var surfaceResponse = await BuildContextSurfaceResponseAsync(
+            cs, session, tree, petName, userId, petId, config, cancellationToken);
+
+        surfaceResponse.JournalHealthDeepLink = deepLinkKind;
+        surfaceResponse.Answer = deepLinkKind == "vaccination"
+            ? $"To update {petName}'s vaccines, open Health Records — I've opened that flow for you. When you're ready, come back and tap Looks right — continue to log today's symptoms."
+            : $"To add a medication for {petName}, open Health Records — I've opened that flow for you. When you're ready, come back and tap Looks right — continue here.";
+        return surfaceResponse;
     }
 
     private static MiloChatResponse BuildQuestionResponse(
@@ -517,7 +559,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             var q = ordered[i];
             if (q.Step == 6 && !ShouldAskRedFlagScreen(tree, answers, emergency))
                 continue;
-            if (!PassesConditional(q, answers))
+            if (!JournalTreeConditionals.PassesConditional(q.ConditionalOn, answers))
                 continue;
             return q.Id;
         }
@@ -535,40 +577,11 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         return !answers.ContainsKey("q_red_flags");
     }
 
-    private static bool PassesConditional(JournalTreeQuestionDto q, Dictionary<string, JsonElement> answers)
-    {
-        if (string.IsNullOrEmpty(q.ConditionalOn))
-            return true;
-        if (q.ConditionalOn == "vomiting_or_both")
-        {
-            return HasChip(answers, "q_type", "vomiting", "both");
-        }
-        if (q.ConditionalOn == "diarrhea_or_both")
-        {
-            return HasChip(answers, "q_type", "diarrhea", "both");
-        }
-        if (q.ConditionalOn == "eye_branch")
-        {
-            return HasChip(answers, "q_eye_or_ear", "eye", "both_eyes");
-        }
-        if (q.ConditionalOn == "ear_branch")
-        {
-            return HasChip(answers, "q_eye_or_ear", "ear", "both_ears");
-        }
-        return true;
-    }
-
-    private static bool HasChip(Dictionary<string, JsonElement> answers, string questionId, params string[] chipIds)
-    {
-        if (!answers.TryGetValue(questionId, out var el))
-            return false;
-        var chips = ExtractChipIds(el);
-        return chipIds.Any(id => chips.Contains(id, StringComparer.OrdinalIgnoreCase));
-    }
-
     private static bool EvaluateRedFlags(JournalTreeDefinitionDto tree, Dictionary<string, JsonElement> answers)
     {
-        var allChips = answers.Values.SelectMany(ExtractChipIds).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allChips = answers.Values
+            .SelectMany(JournalTreeConditionals.ExtractChipIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var trigger in tree.RedFlagTriggers)
         {
             if (trigger.IfAnyAnswerIds?.Any(id => allChips.Contains(id)) == true &&
@@ -583,21 +596,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         Dictionary<string, JsonElement> answers,
         string petName)
     {
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (key, template) in tree.SummaryFieldMap)
-        {
-            var value = template;
-            foreach (var answerKey in answers.Keys)
-            {
-                var replacement = FormatAnswerForSummary(answers[answerKey]);
-                value = value.Replace($"{{{answerKey}}}", replacement, StringComparison.OrdinalIgnoreCase);
-            }
-            value = value.Replace("{petName}", petName, StringComparison.OrdinalIgnoreCase);
-            value = UnresolvedPlaceholder.Replace(value, "Not specified");
-            fields[key] = string.IsNullOrWhiteSpace(value) ? "Not specified" : value.Trim();
-        }
-
-        MergeConflictingSummaryFields(fields);
+        var fields = JournalTreeSummaryBuilder.BuildFields(tree, answers, petName);
 
         var redFlags = new List<string>();
         if (EvaluateRedFlags(tree, answers))
@@ -612,24 +611,6 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             ConfidenceScore = 0.9m,
             LowConfidence = false,
         };
-    }
-
-    private static readonly Regex UnresolvedPlaceholder = new(@"\{[^}]+\}", RegexOptions.Compiled);
-
-    private static void MergeConflictingSummaryFields(Dictionary<string, string> fields)
-    {
-        foreach (var key in fields.Keys.ToList())
-        {
-            var value = fields[key];
-            if (value.Contains("Not specified", StringComparison.OrdinalIgnoreCase) &&
-                value.Contains('/', StringComparison.Ordinal))
-            {
-                var parts = value.Split('/').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
-                var concrete = parts.Where(p => !p.Contains("Not specified", StringComparison.OrdinalIgnoreCase)).ToList();
-                if (concrete.Count > 0)
-                    fields[key] = string.Join(" / ", concrete);
-            }
-        }
     }
 
     private static bool IsBrachycephalicBreed(string? breed)
@@ -700,33 +681,6 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             return false;
         var pattern = $@"\b{Regex.Escape(word)}\b";
         return Regex.IsMatch(haystack, pattern, RegexOptions.IgnoreCase);
-    }
-
-    private static string FormatAnswerForSummary(JsonElement el)
-    {
-        if (el.ValueKind == JsonValueKind.Object)
-        {
-            if (el.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
-                return text.GetString() ?? "";
-            if (el.TryGetProperty("chips", out var chips) && chips.ValueKind == JsonValueKind.Array)
-                return string.Join(", ", chips.EnumerateArray().Select(c => c.GetString()).Where(s => s != null));
-        }
-        return el.ToString();
-    }
-
-    private static List<string> ExtractChipIds(JsonElement el)
-    {
-        var list = new List<string>();
-        if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("chips", out var chips) && chips.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var c in chips.EnumerateArray())
-            {
-                var s = c.GetString();
-                if (!string.IsNullOrEmpty(s))
-                    list.Add(s);
-            }
-        }
-        return list;
     }
 
     private static void StoreAnswer(

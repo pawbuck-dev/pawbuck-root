@@ -129,8 +129,8 @@
     "SYMPTOM": "Vomiting / diarrhea",
     "ONSET": "{q_timing}",
     "PATTERN": "{q_character_vomit} {q_character_stool}",
-    "APPETITE": "{q_systemic}",
-    "ENERGY": "{q_systemic}",
+    "APPETITE": "{q_systemic:appetite}",
+    "ENERGY": "{q_systemic:energy}",
     "TRIGGERS": "{q_triggers}",
     "RED_FLAGS": "{q_red_flags}",
     "NOTE": "{q_freeform}"

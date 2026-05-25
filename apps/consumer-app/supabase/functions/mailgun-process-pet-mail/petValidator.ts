@@ -72,7 +72,7 @@ Extract ALL of the following information if present in the document:
    - Return as a readable string (e.g., "3 years", "6 months", "2 years 4 months")
    - If DOB is given, calculate age from current date
 
-4. BREED: Look for "Breed", "Species/Breed"
+4. BREED: Look for "Breed" only — not standalone "Species" (e.g. "Maltese", not "Canine (Dog)")
    - Include the full breed name (e.g., "Golden Retriever", "Domestic Shorthair")
 
 5. GENDER/SEX: Look for "Sex", "Gender"

@@ -118,3 +118,16 @@ export function resolveJournalTreeId(text: string): string | undefined {
 
 export const JOURNAL_TREE_INTERVIEW_ENABLED =
   process.env.EXPO_PUBLIC_JOURNAL_TREE_INTERVIEW === "true";
+
+/** Map context-surface button label (or id) to API journalAction. */
+export function resolveContextSurfaceJournalAction(
+  text: string,
+  surface?: JournalContextSurface | null
+): string | undefined {
+  if (!surface?.actions?.length) return undefined;
+  const t = text.trim().toLowerCase();
+  const match = surface.actions.find(
+    (a) => a.id.toLowerCase() === t || a.label.trim().toLowerCase() === t
+  );
+  return match?.id;
+}

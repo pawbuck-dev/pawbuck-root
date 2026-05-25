@@ -64,6 +64,7 @@ import {
 import {
   isTreeInterviewUxEnabled,
   JOURNAL_TREE_INTERVIEW_ENABLED,
+  resolveContextSurfaceJournalAction,
   resolveJournalTreeId,
   type JournalContextSurface,
   type JournalCurrentQuestion,
@@ -501,8 +502,21 @@ export default function MiloJournalChatScreen() {
     [pet, user, journalDomain, triageCtx, queryClient]
   );
 
+  const openJournalHealthDeepLink = useCallback(
+    (kind: "vaccination" | "medication") => {
+      if (!pet?.id) return;
+      const pid = pet.id;
+      if (kind === "vaccination") {
+        router.push(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=library` as never);
+      } else {
+        router.push(`/(home)/health-record/${pid}/medication-upload-modal?upload=library` as never);
+      }
+    },
+    [pet?.id, router]
+  );
+
   const handleSend = useCallback(
-    async (raw: string, chipIds?: string[]) => {
+    async (raw: string, chipIds?: string[], explicitJournalAction?: string) => {
       const text = raw.trim();
       if (!text || !pet || !user) return;
       if (triageDisclaimerStatus !== "accepted") return;
@@ -533,14 +547,20 @@ export default function MiloJournalChatScreen() {
           pendingJournalTreeIdRef.current = treeId;
         }
 
-        let journalAction: string | undefined;
+        const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+        let journalAction =
+          explicitJournalAction ??
+          resolveContextSurfaceJournalAction(text, lastAssistant?.contextSurface);
+
         const lower = text.toLowerCase();
-        if (lower.includes("looks right") && lower.includes("continue")) {
-          journalAction = "context_continue";
-        } else if (lower.includes("looks right") && lower.includes("save")) {
-          journalAction = "confirm_summary";
-        } else if (lower === "skip") {
-          journalAction = "answer";
+        if (!journalAction) {
+          if (lower.includes("looks right") && lower.includes("continue")) {
+            journalAction = "context_continue";
+          } else if (lower.includes("looks right") && lower.includes("save")) {
+            journalAction = "confirm_summary";
+          } else if (lower === "skip") {
+            journalAction = "answer";
+          }
         }
 
         const result = await fetchMiloChat({
@@ -572,6 +592,10 @@ export default function MiloJournalChatScreen() {
           result.journalEmergencyStop === true || result.emergencyDetected
             ? ("urgent" as PetLogSeverity)
             : severityForTurn;
+
+        if (result.journalHealthDeepLink) {
+          openJournalHealthDeepLink(result.journalHealthDeepLink);
+        }
 
         const assistantMsgId = pushAssistant(result.answer, severityOut, {
           suggestedReplies: result.suggestedReplies,
@@ -638,6 +662,7 @@ export default function MiloJournalChatScreen() {
       messages,
       persistJournalEntry,
       triageDisclaimerStatus,
+      openJournalHealthDeepLink,
     ]
   );
 
@@ -1279,7 +1304,13 @@ export default function MiloJournalChatScreen() {
           renderItem={({ item, index }) => (
             <View>
               <ChatMessage
-                message={item}
+                message={
+                  item.role === "assistant" &&
+                  item.interviewPhase === "context_surface" &&
+                  item.contextSurface
+                    ? { ...item, content: "" }
+                    : item
+                }
                 isNew={index === messages.length - 1}
                 showInlineTurnFeedback={false}
                 journalMode
@@ -1290,11 +1321,16 @@ export default function MiloJournalChatScreen() {
               pet ? (
                 <ContextSurfaceBubble
                   petName={pet.name}
-                  intro={item.content}
+                  intro={
+                    item.content.trim() ||
+                    `Before we start, quick context I have on ${pet.name}:`
+                  }
                   surface={item.contextSurface}
                   onAction={(actionId, label) => {
                     void handleSend(
-                      actionId === "context_continue" ? "Looks right — continue" : label
+                      actionId === "context_continue" ? "Looks right — continue" : label,
+                      undefined,
+                      actionId
                     );
                   }}
                 />
@@ -1447,7 +1483,9 @@ export default function MiloJournalChatScreen() {
                 textColor={tokens.textPrimary}
                 screenHorizontalPaddingPx={16}
                 onPress={() => {
-                  void handleSend(label);
+                  const ctx = lastMessage?.contextSurface;
+                  const actionId = resolveContextSurfaceJournalAction(label, ctx);
+                  void handleSend(label, undefined, actionId);
                   setInput("");
                 }}
               />

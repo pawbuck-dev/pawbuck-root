@@ -20,7 +20,7 @@ export default function HomeLayout() {
     if (loading) return;
     const inHomeGroup = segments[0] === "(home)";
     if (inHomeGroup && !isAuthenticated) {
-      router.replace("/login");
+      router.replace("/");
     }
   }, [loading, isAuthenticated, segments, router]);
 

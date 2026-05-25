@@ -69,6 +69,13 @@ export function TreeQuestionBubble({
       setTwoStage(2);
       return;
     }
+    if (question.type === "two_stage" && twoStage === 2 && stage1Ids.length > 0) {
+      const stage1Label =
+        question.stage1Options?.find((o) => o.id === stage1Ids[0])?.label ?? "";
+      const combined = stage1Label ? `${stage1Label} · ${opt.label}` : opt.label;
+      onAnswer(combined, [...stage1Ids, opt.id]);
+      return;
+    }
     onAnswer(opt.label, [opt.id]);
   };
 

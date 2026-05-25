@@ -69,6 +69,8 @@ export type MiloChatApiResult = {
   emergencyDetected?: boolean;
   confidenceScore?: number;
   currentQuestion?: JournalCurrentQuestion;
+  /** Opens Health Records upload from context_surface (vaccination | medication). */
+  journalHealthDeepLink?: "vaccination" | "medication";
 };
 
 export type JournalActiveSession = {
@@ -254,6 +256,7 @@ export async function fetchMiloChat(params: {
     emergencyDetected?: boolean;
     confidenceScore?: number;
     currentQuestion?: JournalCurrentQuestion;
+    journalHealthDeepLink?: string;
   };
   if (!data?.answer) {
     miloDebug("error: JSON had no answer field", data);
@@ -326,6 +329,10 @@ export async function fetchMiloChat(params: {
     emergencyDetected: data.emergencyDetected,
     confidenceScore: data.confidenceScore,
     currentQuestion: data.currentQuestion,
+    journalHealthDeepLink:
+      data.journalHealthDeepLink === "vaccination" || data.journalHealthDeepLink === "medication"
+        ? data.journalHealthDeepLink
+        : undefined,
   };
 }
 

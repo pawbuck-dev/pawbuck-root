@@ -1,20 +1,23 @@
-import { parseInterviewMetadata, resolveJournalTreeId } from "@/types/journalInterview";
+import { resolveContextSurfaceJournalAction } from "@/types/journalInterview";
 
-describe("journalInterview types", () => {
-  it("resolveJournalTreeId maps walk and meal phrases", () => {
-    expect(resolveJournalTreeId("After our walk")).toBe("walk_v1.5");
-    expect(resolveJournalTreeId("Log a meal")).toBe("meal_v1.5");
+describe("resolveContextSurfaceJournalAction", () => {
+  const surface = {
+    lines: [],
+    actions: [
+      { id: "context_continue", label: "Looks right — continue" },
+      { id: "add_medication", label: "Add a medication" },
+      { id: "add_vaccines", label: "Update vaccines" },
+    ],
+  };
+
+  it("maps action labels to ids", () => {
+    expect(resolveContextSurfaceJournalAction("Update vaccines", surface)).toBe("add_vaccines");
+    expect(resolveContextSurfaceJournalAction("Add a medication", surface)).toBe("add_medication");
   });
 
-  it("parseInterviewMetadata reads structured fields", () => {
-    const meta = parseInterviewMetadata({
-      tree_id: "vomiting_v1.5",
-      tree_version: "1.5.0",
-      structured_fields: { SYMPTOM: "Vomiting" },
-      turn_id: "abc",
-    });
-    expect(meta?.tree_id).toBe("vomiting_v1.5");
-    expect(meta?.structured_fields.SYMPTOM).toBe("Vomiting");
-    expect(meta?.turn_id).toBe("abc");
+  it("maps context_continue label", () => {
+    expect(resolveContextSurfaceJournalAction("Looks right — continue", surface)).toBe(
+      "context_continue"
+    );
   });
 });

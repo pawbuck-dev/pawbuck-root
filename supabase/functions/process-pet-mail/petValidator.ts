@@ -19,6 +19,7 @@ import {
 import {
   extractPetInfoViaFlexibleVault,
   mergePetInfoFields,
+  normalizeDocumentBreed,
   petInfoNeedsFallback,
 } from "../_shared/flexiblePetInfoFromDocument.ts";
 import { matchBreeds } from "../_shared/petBreedMatch.ts";
@@ -32,6 +33,38 @@ export async function extractPetInfoFromDocument(
   attachment: ParsedAttachment,
   emailSubject: string,
   documentType?: DocumentType,
+): Promise<ExtractedPetInfo> {
+  const docType = documentType ?? "vaccinations";
+
+  try {
+    // Same flexible vault shape as Milo document classifier — best for vet PDFs.
+    console.log("Pet-id extraction: trying flexible vault first (Milo classifier shape)");
+    const flexible = await extractPetInfoViaFlexibleVault(
+      attachment,
+      emailSubject,
+      docType,
+    );
+
+    if (!petInfoNeedsFallback(flexible)) {
+      console.log("Flexible vault has name+breed; using as primary extraction");
+      return flexible;
+    }
+
+    console.log(
+      "Flexible vault missing name/breed; supplementing with legacy pet-id extraction",
+    );
+    const legacy = await extractLegacyPetInfoFromDocument(attachment, emailSubject);
+    return mergePetInfoFields(legacy, flexible);
+  } catch (error) {
+    console.error("Error extracting pet info from document:", error);
+    return createEmptyExtraction();
+  }
+}
+
+/** Legacy structured Gemini extraction (microchip-focused); used after flexible vault or to fill gaps. */
+async function extractLegacyPetInfoFromDocument(
+  attachment: ParsedAttachment,
+  emailSubject: string,
 ): Promise<ExtractedPetInfo> {
   const responseSchema = {
     type: "object",
@@ -64,14 +97,13 @@ export async function extractPetInfoFromDocument(
     required: ["confidence"],
   };
 
-  try {
-    const apiResult = await callGeminiAPI(
-      {
-        contents: [
-          {
-            parts: [
-              {
-                text: `You are analyzing a veterinary document to extract pet identification information.
+  const apiResult = await callGeminiAPI(
+    {
+      contents: [
+        {
+          parts: [
+            {
+              text: `You are analyzing a veterinary document to extract pet identification information.
 
 Context:
 - Email Subject: ${emailSubject}
@@ -83,7 +115,7 @@ Extract ALL of the following information if present in the document:
    - Usually a 15-digit number (e.g., "123456789012345")
    - This is the most reliable identifier
 
-2. PET NAME: Look for "Patient Name", "Pet Name", "Animal Name", "Name"
+2. PET NAME: Look for "Patient Name", "Pet Name", "Animal Name", "Patient", "Animal", "Name"
    - Usually a single word or short phrase (e.g., "Fluffy", "Max")
    - Do NOT confuse with owner name or clinic name
 
@@ -91,70 +123,52 @@ Extract ALL of the following information if present in the document:
    - Return as a readable string (e.g., "3 years", "6 months", "2 years 4 months")
    - If DOB is given, calculate age from current date
 
-4. BREED: Look for "Breed", "Species/Breed"
-   - Include the full breed name (e.g., "Golden Retriever", "Domestic Shorthair")
+4. BREED: Look for "Breed" only — not standalone "Species" (e.g. "Maltese", not "Canine (Dog)")
+   - If the form lists Species and Breed separately, return only the Breed value
 
 5. GENDER/SEX: Look for "Sex", "Gender"
    - Return as found (Male, Female, M, F, Neutered Male, Spayed Female, etc.)
 
 Return null for any field that is not clearly visible in the document.
 Provide an overall confidence score (0-100) based on how clearly the information was extracted.`,
+            },
+            {
+              inline_data: {
+                mime_type: attachment.mimeType,
+                data: attachment.content,
               },
-              {
-                inline_data: {
-                  mime_type: attachment.mimeType,
-                  data: attachment.content,
-                },
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          response_mime_type: "application/json",
-          response_schema: responseSchema,
+            },
+          ],
         },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        response_mime_type: "application/json",
+        response_schema: responseSchema,
       },
-      "extractPetInfoFromDocument"
-    );
+    },
+    "extractLegacyPetInfoFromDocument",
+  );
 
-    const result = JSON.parse(apiResult.data.candidates[0].content.parts[0].text);
+  const result = JSON.parse(apiResult.data.candidates[0].content.parts[0].text);
 
-    result.microchip = result.microchip === "null" || result.microchip === "undefined" ? null : result.microchip;
-    result.name = result.name === "null" || result.name === "undefined" ? null : result.name;
-    result.age = result.age === "null" || result.age === "undefined" ? null : result.age;
-    result.breed = result.breed === "null" || result.breed === "undefined" ? null : result.breed;
-    result.gender = result.gender === "null" || result.gender === "undefined" ? null : result.gender;
-    result.confidence = result.confidence === "null" || result.confidence === "undefined" ? 0 : result.confidence;
+  result.microchip = result.microchip === "null" || result.microchip === "undefined" ? null : result.microchip;
+  result.name = result.name === "null" || result.name === "undefined" ? null : result.name;
+  result.age = result.age === "null" || result.age === "undefined" ? null : result.age;
+  result.breed = result.breed === "null" || result.breed === "undefined" ? null : result.breed;
+  result.gender = result.gender === "null" || result.gender === "undefined" ? null : result.gender;
+  result.confidence = result.confidence === "null" || result.confidence === "undefined" ? 0 : result.confidence;
 
-    console.log(`Pet info extraction result:`, result);
+  console.log(`Legacy pet info extraction result:`, result);
 
-    let extracted: ExtractedPetInfo = {
-      microchip: result.microchip || null,
-      name: result.name || null,
-      age: result.age || null,
-      breed: result.breed || null,
-      gender: result.gender || null,
-      confidence: result.confidence || 0,
-    };
-
-    if (petInfoNeedsFallback(extracted)) {
-      console.log(
-        "Legacy pet-id extraction missing name/breed; trying flexible vault fallback",
-      );
-      const fallback = await extractPetInfoViaFlexibleVault(
-        attachment,
-        emailSubject,
-        documentType ?? "vaccinations",
-      );
-      extracted = mergePetInfoFields(extracted, fallback);
-    }
-
-    return extracted;
-  } catch (error) {
-    console.error("Error extracting pet info from document:", error);
-    return createEmptyExtraction();
-  }
+  return {
+    microchip: result.microchip || null,
+    name: result.name || null,
+    age: result.age || null,
+    breed: normalizeDocumentBreed(result.breed),
+    gender: result.gender || null,
+    confidence: result.confidence || 0,
+  };
 }
 
 function createEmptyExtraction(): ExtractedPetInfo {
@@ -386,6 +400,11 @@ export function evaluatePetVerification(
   pet: Pet,
   options?: ValidatePetFromDocumentOptions,
 ): PetValidationResult {
+  const normalizedBreed = normalizeDocumentBreed(extractedInfo.breed);
+  if (normalizedBreed !== extractedInfo.breed) {
+    extractedInfo = { ...extractedInfo, breed: normalizedBreed };
+  }
+
   const verificationConfig = options?.verificationConfig ??
     DEFAULT_EMAIL_DOCUMENT_VERIFICATION;
   const documentType = options?.documentType;

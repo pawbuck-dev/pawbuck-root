@@ -17,8 +17,28 @@ export type LegacyPetInfoFields = {
   confidence: number;
 };
 
-const PET_NAME_LABELS = ["pet name", "patient name", "animal name", "name"];
-const BREED_LABELS = ["breed", "species/breed", "species"];
+const PET_NAME_LABELS = [
+  "pet name",
+  "patient name",
+  "animal name",
+  "patient",
+  "animal",
+  "name",
+];
+/** Labels for actual breed fields — never match standalone "Species" (see pickBreedFromKeyFacts). */
+const BREED_LABEL_HINTS = ["breed", "species/breed", "breed/species"];
+const MICROCHIP_LABELS = [
+  "microchip",
+  "microchip #",
+  "chip",
+  "chip #",
+  "microchip number",
+  "id chip",
+];
+
+function labelMatchesHint(label: string, hint: string): boolean {
+  return label === hint || label.includes(hint);
+}
 
 function pickKeyFact(
   keyFacts: { label: string; value: string }[],
@@ -27,10 +47,38 @@ function pickKeyFact(
   for (const fact of keyFacts) {
     const label = fact.label.trim().toLowerCase();
     if (!label) continue;
-    if (labelHints.some((hint) => label === hint || label.includes(hint))) {
+    if (labelHints.some((hint) => labelMatchesHint(label, hint))) {
       const value = fact.value?.trim();
       if (value) return value;
     }
+  }
+  return null;
+}
+
+/** Species-only values are not breeds (e.g. "Canine (Dog)", "Dog", "Feline"). */
+export function isSpeciesOnlyBreedValue(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  if (!v) return true;
+  const speciesOnly = [
+    /^(canine|feline|dog|cat)$/,
+    /^(canine|feline)\s*\(\s*(dog|cat)\s*\)$/,
+    /^(canine|feline)\s*\(\s*dog\s*\)$/,
+    /^domestic\s+(dog|cat)$/,
+  ];
+  return speciesOnly.some((p) => p.test(v));
+}
+
+function pickBreedFromKeyFacts(
+  keyFacts: { label: string; value: string }[],
+): string | null {
+  for (const fact of keyFacts) {
+    const label = fact.label.trim().toLowerCase();
+    if (!label) continue;
+    if (!BREED_LABEL_HINTS.some((hint) => labelMatchesHint(label, hint))) continue;
+    const value = fact.value?.trim();
+    if (!value) continue;
+    const normalized = normalizeDocumentBreed(value);
+    if (normalized) return normalized;
   }
   return null;
 }
@@ -43,12 +91,14 @@ export function parsePetNameFromTitle(title: string | undefined | null): string 
   return null;
 }
 
-/** Strip leading species prefix ("Canine - …", "Feline - …"). */
+/** Strip leading species prefix ("Canine - …"); drop species-only values. */
 export function normalizeDocumentBreed(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   const trimmed = raw.trim();
   const speciesPrefix = trimmed.match(/^(canine|feline|dog|cat)\s*[-–—]\s*(.+)$/i);
-  return (speciesPrefix?.[2] ?? trimmed).trim() || null;
+  const candidate = (speciesPrefix?.[2] ?? trimmed).trim();
+  if (!candidate || isSpeciesOnlyBreedValue(candidate)) return null;
+  return candidate;
 }
 
 /** Map Milo flexible vault fields to legacy pet-verification shape. */
@@ -56,13 +106,13 @@ export function mapFlexibleVaultToPetInfo(flexible: FlexibleVaultLike): LegacyPe
   const keyFacts = flexible.keyFacts ?? [];
   const name =
     pickKeyFact(keyFacts, PET_NAME_LABELS) ?? parsePetNameFromTitle(flexible.title);
-  const breed = normalizeDocumentBreed(pickKeyFact(keyFacts, BREED_LABELS));
+  const breed = pickBreedFromKeyFacts(keyFacts);
   const confidence = typeof flexible.confidenceScore === "number"
     ? flexible.confidenceScore
     : 0;
 
   return {
-    microchip: pickKeyFact(keyFacts, ["microchip", "chip", "chip #", "microchip number"]),
+    microchip: pickKeyFact(keyFacts, MICROCHIP_LABELS),
     name,
     age: pickKeyFact(keyFacts, ["age", "date of birth", "dob"]),
     breed,
@@ -156,7 +206,9 @@ Return ONLY valid JSON (no markdown):
 }
 
 Rules:
-- keyFacts MUST include pet name and breed when visible (labels like "Pet Name", "Breed", "Species/Breed").
+- keyFacts MUST include pet/animal name and breed when visible. Use labels such as "Pet Name", "Patient Name", "Animal Name", "Breed".
+- When the form has both Species and Breed, use separate keyFacts (e.g. Species: "Canine (Dog)", Breed: "Maltese"). Never put species-only text in the Breed field.
+- Do NOT put the owner/client name in the pet name field.
 - Use ISO-8601 dates (YYYY-MM-DD) only for primaryDate.
 - keyFacts: 3-12 entries when possible.
 - Do not invent data.`,

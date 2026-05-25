@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       // Any non-initial transition to "no session" (sign-out, refresh failure, revoked JWT).
       if (event !== "INITIAL_SESSION" && !session?.user) {
-        router.replace("/login");
+        router.replace("/");
       }
     });
 

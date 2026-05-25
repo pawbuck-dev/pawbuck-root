@@ -1,4 +1,5 @@
 import SplashScreen from "@/components/layout/SplashScreen";
+import InitialWelcomeScreen from "@/components/onboarding/InitialWelcomeScreen";
 import { useAuth } from "@/context/authContext";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -10,12 +11,8 @@ export default function Index() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    if (loading || !splashDone) return;
-    if (isAuthenticated) {
-      router.replace("/(home)/home");
-    } else {
-      router.replace("/login");
-    }
+    if (loading || !splashDone || !isAuthenticated) return;
+    router.replace("/(home)/home");
   }, [isAuthenticated, loading, splashDone, router]);
 
   if (loading || !splashDone) {
@@ -26,5 +23,9 @@ export default function Index() {
     );
   }
 
-  return null;
+  if (isAuthenticated) {
+    return null;
+  }
+
+  return <InitialWelcomeScreen />;
 }

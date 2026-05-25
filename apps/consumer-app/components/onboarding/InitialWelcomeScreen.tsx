@@ -1,7 +1,7 @@
 /**
  * Welcome screen matching provided design:
  * Dark teal background, "PawBuck" + "Pet Life. Simplified." top-left,
- * central dog+cat illustration, "Get Started" (primary) + "Sign In" (outline) at bottom.
+ * central dog+cat illustration, "Sign Up" (primary) + "Sign In" (outline) at bottom.
  * Uses CTA component from Figma Elements (44:408).
  */
 import { CTA } from "@/components/ui";
@@ -47,13 +47,13 @@ export default function InitialWelcomeScreen() {
         />
       </View>
 
-      {/* Bottom: Figma CTA — Get Started (Solid) + Sign In (Outline), full-width */}
+      {/* Bottom: Figma CTA — Sign Up (Solid) + Sign In (Outline), full-width */}
       <View style={[styles.footer, { paddingBottom: Math.max(24, insets.bottom), paddingHorizontal: 24 }]}>
         <CTA
-          label="Get Started"
+          label="Sign Up"
           size="LG"
           style="Solid"
-          onPress={() => router.push("/onboarding/step2")}
+          onPress={() => router.push("/signup")}
           containerStyle={styles.ctaBtn}
         />
         <CTA

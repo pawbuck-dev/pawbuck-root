@@ -42,7 +42,7 @@ public class MiloChatRequest
     [JsonPropertyName("journalChipIds")]
     public IReadOnlyList<string>? JournalChipIds { get; set; }
 
-    /// <summary>context_continue | answer | confirm_summary | edit_summary</summary>
+    /// <summary>context_continue | add_medication | add_vaccines | answer | confirm_summary | edit_summary</summary>
     [JsonPropertyName("journalAction")]
     public string? JournalAction { get; set; }
 
@@ -203,6 +203,10 @@ public class MiloChatResponse
 
     [JsonPropertyName("currentQuestion")]
     public JournalCurrentQuestionDto? CurrentQuestion { get; set; }
+
+    /// <summary>When set from context_surface actions, client opens Health Records upload (vaccination | medication).</summary>
+    [JsonPropertyName("journalHealthDeepLink")]
+    public string? JournalHealthDeepLink { get; set; }
 }
 
 /// <summary>Triage block for vet notification JSON (journal Gemini).</summary>
