@@ -2,18 +2,16 @@
 name: Consumer app CI
 
 on:
+  # Every merge to main runs CI (avoids missing runs when path filters skip unrelated-looking commits).
   push:
     branches: [main]
-    paths:
-      - "apps/consumer-app/**"
-      - "packages/pawbuck-api-client/**"
-      - "packages/milo-core/**"
-      - ".github/workflows/consumer-app-ci.yml"
   pull_request:
     paths:
       - "apps/consumer-app/**"
       - "packages/pawbuck-api-client/**"
       - "packages/milo-core/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
       - ".github/workflows/consumer-app-ci.yml"
 
 concurrency:
