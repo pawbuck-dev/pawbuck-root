@@ -133,7 +133,7 @@ describe("sessionManagement", () => {
   });
 
   describe("AuthProvider + onAuthStateChange", () => {
-    it("redirects to login on SIGNED_OUT (forced logout)", async () => {
+    it("redirects to welcome on SIGNED_OUT (forced logout)", async () => {
       authBus().nextInitial = { user: { id: "550e8400-e29b-41d4-a716-446655440099" } };
       render(
         <SafeAreaProvider initialMetrics={initialMetrics}>
@@ -154,7 +154,7 @@ describe("sessionManagement", () => {
       await waitFor(() => {
         expect(screen.getByText("signed-out")).toBeTruthy();
       });
-      expect(testNav().replace).toHaveBeenCalledWith("/login");
+      expect(testNav().replace).toHaveBeenCalledWith("/");
     });
 
     it("redirects when TOKEN_REFRESHED delivers no session (refresh token failure)", async () => {
@@ -179,14 +179,14 @@ describe("sessionManagement", () => {
       await waitFor(() => {
         expect(screen.getByText("signed-out")).toBeTruthy();
       });
-      expect(testNav().replace).toHaveBeenCalledWith("/login");
+      expect(testNav().replace).toHaveBeenCalledWith("/");
     });
 
     /**
      * Mid-action (e.g. vet booking): the app does not persist draft booking params today;
-     * losing auth navigates to login so the user is not left on a broken authenticated shell.
+     * losing auth navigates to welcome so the user is not left on a broken authenticated shell.
      */
-    it("still forces login when session ends while user is on a deep home-stack route", async () => {
+    it("still redirects to welcome when session ends while user is on a deep home-stack route", async () => {
       authBus().nextInitial = { user: { id: "550e8400-e29b-41d4-a716-446655440099" } };
       setTestSegments(["(home)", "book-vet-visit", "pick-datetime"]);
 
@@ -210,12 +210,12 @@ describe("sessionManagement", () => {
       await waitFor(() => {
         expect(screen.getByText("signed-out")).toBeTruthy();
       });
-      expect(testNav().replace).toHaveBeenCalledWith("/login");
+      expect(testNav().replace).toHaveBeenCalledWith("/");
     });
   });
 
   describe("(home) layout guard", () => {
-    it("redirects unauthenticated users who land in the home group", async () => {
+    it("redirects unauthenticated users who land in the home group to welcome", async () => {
       authBus().nextInitial = null;
       setTestSegments(["(home)", "home"]);
 
@@ -228,7 +228,7 @@ describe("sessionManagement", () => {
       );
 
       await waitFor(() => {
-        expect(testNav().replace).toHaveBeenCalledWith("/login");
+        expect(testNav().replace).toHaveBeenCalledWith("/");
       });
     });
   });
