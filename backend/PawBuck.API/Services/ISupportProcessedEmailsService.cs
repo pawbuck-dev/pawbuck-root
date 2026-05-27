@@ -44,4 +44,12 @@ public interface ISupportProcessedEmailsService
     Task<SupportBulkReprocessReviewInboxResponse> BulkReprocessReviewInboxAsync(
         SupportBulkReprocessReviewInboxRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Release a stuck <c>status=processing</c> lock so the row can be reprocessed or dismissed.
+    /// Returns <c>null</c> when no row exists.
+    /// </summary>
+    Task<SupportReleaseStuckLockResponse?> ReleaseStuckLockAsync(
+        Guid processedEmailId,
+        CancellationToken cancellationToken = default);
 }

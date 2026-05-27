@@ -31,6 +31,8 @@ import type {
   SupportBulkClearReviewInboxResponse,
   SupportBulkReprocessReviewInboxRequest,
   SupportBulkReprocessReviewInboxResponse,
+  SupportOpsHealthResponse,
+  SupportReleaseStuckLockResponse,
   SupportUserDirectoryResponse,
   SupportUserRow,
   SupportVaccinationRow,
@@ -329,6 +331,14 @@ export function createSupportClient(
       request<SupportBulkReprocessReviewInboxResponse>(
         "/api/support/processed-emails/bulk-reprocess-review-inbox",
         { method: "POST", json: body },
+      ),
+
+    getOpsHealth: () => request<SupportOpsHealthResponse>("/api/support/ops-health"),
+
+    releaseStuckLock: (processedEmailId: string) =>
+      request<SupportReleaseStuckLockResponse>(
+        `/api/support/processed-emails/${encodeURIComponent(processedEmailId)}/release-stuck-lock`,
+        { method: "POST" },
       ),
   };
 }

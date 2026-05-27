@@ -1216,6 +1216,77 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         return (string.Join(" AND ", parts), parameters);
     }
 
+    /// <inheritdoc />
+    public async Task<SupportReleaseStuckLockResponse?> ReleaseStuckLockAsync(
+        Guid processedEmailId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        const string selectSql = """
+            SELECT pe.status, pe.failure_reason, pe.success, pe.review_status
+            FROM public.processed_emails pe
+            WHERE pe.id = @id
+            LIMIT 1
+            """;
+
+        string status;
+        await using (var selectCmd = new NpgsqlCommand(selectSql, conn))
+        {
+            selectCmd.Parameters.AddWithValue("id", processedEmailId);
+            await using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                return null;
+
+            status = reader.GetString(0);
+        }
+
+        if (!string.Equals(status, "processing", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SupportReleaseStuckLockResponse
+            {
+                Released = false,
+                Message = $"Row is not stuck (status={status}). No change made.",
+            };
+        }
+
+        const string updateSql = """
+            UPDATE public.processed_emails pe
+            SET
+              status = 'completed',
+              completed_at = COALESCE(pe.completed_at, NOW()),
+              success = COALESCE(pe.success, false),
+              review_status = COALESCE(pe.review_status, 'pending')
+            WHERE pe.id = @id
+              AND pe.status = 'processing'
+            """;
+
+        await using (var updateCmd = new NpgsqlCommand(updateSql, conn))
+        {
+            updateCmd.Parameters.AddWithValue("id", processedEmailId);
+            var rows = await updateCmd.ExecuteNonQueryAsync(cancellationToken);
+            if (rows == 0)
+            {
+                return new SupportReleaseStuckLockResponse
+                {
+                    Released = false,
+                    Message = "Lock was cleared by another process. Refresh and retry.",
+                };
+            }
+        }
+
+        _logger.LogInformation("Support released stuck processing lock for processed_email id={EmailId}", processedEmailId);
+
+        var detail = await GetByIdAsync(processedEmailId, cancellationToken);
+        return new SupportReleaseStuckLockResponse
+        {
+            Released = true,
+            Message = "Stuck lock released. Row is now completed and visible in Review Inbox for reprocess or owner Confirm.",
+            Email = detail,
+        };
+    }
+
     private async Task PopulateDiagnosticsAsync(
         SupportProcessedEmailDetailDto detail,
         CancellationToken cancellationToken)

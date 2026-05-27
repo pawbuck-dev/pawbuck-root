@@ -405,6 +405,14 @@ Use **staging** with test pet, whitelisted vet sender, and known bad PDFs.
 | AD-02 | Failures with stored JSON | Bulk reprocess (10 batch) | Records filed; rows resolved |
 | AD-03 | Failures | Bulk resolve **without** reprocess | review_status=resolved but **no** new health records |
 | AD-04 | Dismissed row | Bulk reprocess with includeDismissed | Can reprocess (admin only) |
+| AD-05 | API or Edge not configured | **Email ops → Check pipeline health** | Red checks with hints; green when secrets aligned |
+| AD-06 | Row stuck `status=processing` | **Email ops → Unlock** or Mail errors detail **Unlock stuck email** | Row becomes `completed`; owner Confirm or admin file works |
+| AD-07 | Owner email known, stored archive | **Email ops → Add records to pet profile** | Health records filed; row resolved |
+| AD-08 | Backlog after config fix | **Email ops → File all ready** or Mail errors **File all ready** | Batches until eligible=0 |
+| AD-09 | Noise / already handled | **Email ops → Remove from app** | Dismissed; no new health records |
+| AD-10 | Quality tracking | **Processing** tab date range | Success rate, failure categories, first/last seen dates |
+
+Deploy checklist (no app store): [`docs/EMAIL-OPS-DEPLOY.md`](EMAIL-OPS-DEPLOY.md)
 
 ### End-to-end regression (production smoke)
 
@@ -421,7 +429,7 @@ Use **staging** with test pet, whitelisted vet sender, and known bad PDFs.
 
 | User / log message | Likely cause | Fix |
 |--------------------|--------------|-----|
-| Email is currently being processed | Lock race or row stuck in `processing` | Deploy API+edge lock fix; or reset row `status=completed` for pending review rows |
+| Email is currently being processed | Lock race or row stuck in `processing` | **Email ops → Unlock** or admin `POST /api/support/processed-emails/{id}/release-stuck-lock`; deploy API+edge lock fix |
 | Email already processed | Duplicate webhook or row already completed | Expected for retries; check if records exist |
 | Document reprocessing failed (502) | Edge unreachable or 5xx | Check Supabase function logs; service role key on API |
 | We couldn't save a health record (422) | Milo/analyze failed; validation; empty extraction | Check edge secrets; pet profile; PDF quality |

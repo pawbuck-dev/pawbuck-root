@@ -220,4 +220,36 @@ public class SupportProcessedEmailsControllerTests
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeSameAs(expected);
     }
+
+    [Fact]
+    public async Task ReleaseStuckLock_WhenMissing_ReturnsNotFound()
+    {
+        var mock = new Mock<ISupportProcessedEmailsService>();
+        mock.Setup(s => s.ReleaseStuckLockAsync(EmailId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SupportReleaseStuckLockResponse?)null);
+        var controller = new SupportProcessedEmailsController(mock.Object);
+
+        var result = await controller.ReleaseStuckLock(EmailId, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task ReleaseStuckLock_WhenReleased_ReturnsOk()
+    {
+        var expected = new SupportReleaseStuckLockResponse
+        {
+            Released = true,
+            Message = "released",
+        };
+        var mock = new Mock<ISupportProcessedEmailsService>();
+        mock.Setup(s => s.ReleaseStuckLockAsync(EmailId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+        var controller = new SupportProcessedEmailsController(mock.Object);
+
+        var result = await controller.ReleaseStuckLock(EmailId, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(expected);
+    }
 }

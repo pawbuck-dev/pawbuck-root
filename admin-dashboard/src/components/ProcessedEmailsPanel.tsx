@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Props = {
   client: ReturnType<typeof createSupportClient>;
+  presetOwnerEmail?: string;
 };
 
 function toYmd(d: Date): string {
@@ -40,7 +41,7 @@ function formatBytes(n: number): string {
 
 type ListViewMode = "reviewInbox" | "failuresOnly" | "all";
 
-export function ProcessedEmailsPanel({ client }: Props) {
+export function ProcessedEmailsPanel({ client, presetOwnerEmail }: Props) {
   const [dateFrom, setDateFrom] = useState(() => startOfUtcDayYmd(30));
   const [dateTo, setDateTo] = useState(() => toYmd(new Date()));
   const [documentType, setDocumentType] = useState("all");
@@ -74,6 +75,14 @@ export function ProcessedEmailsPanel({ client }: Props) {
   const [reprocessDocType, setReprocessDocType] =
     useState<"vaccinations" | "medications" | "lab_results" | "clinical_exams">("vaccinations");
   const [includeDismissed, setIncludeDismissed] = useState(true);
+  const [reprocessBatchSize, setReprocessBatchSize] = useState(25);
+
+  useEffect(() => {
+    if (presetOwnerEmail?.trim()) {
+      setOwnerEmailFilter(presetOwnerEmail.trim());
+      setBulkClearOwnerEmail(presetOwnerEmail.trim());
+    }
+  }, [presetOwnerEmail]);
 
   const fromIso = useMemo(() => `${dateFrom}T00:00:00.000Z`, [dateFrom]);
   const toIso = useMemo(() => exclusiveEndIsoFromYmd(dateTo), [dateTo]);
@@ -191,10 +200,11 @@ export function ProcessedEmailsPanel({ client }: Props) {
     [fromIso, toIso, bulkClearOwnerEmail, ownerEmailFilter],
   );
 
-  const runBulkReprocess = async (dryRun: boolean, emailIds?: string[]) => {
+  const runBulkReprocess = async (dryRun: boolean, emailIds?: string[], maxRows?: number) => {
+    const batch = maxRows ?? (emailIds?.length === 1 ? 1 : reprocessBatchSize);
     if (!dryRun) {
       const ok = window.confirm(
-        "Reprocess matching emails via mailgun-process-pet-mail?\n\nThis extracts attachments and files health records, then marks rows resolved. Requires edge secrets (PAWBUCK_API_URL, MILO_INTERNAL_SERVICE_KEY) and stored email JSON in pending-emails.",
+        "Add health records from matching emails?\n\nExtracts PDFs and saves to pet profiles (same as owner Confirm). Requires stored email archive in pending-emails.",
       );
       if (!ok) return;
     }
@@ -205,7 +215,7 @@ export function ProcessedEmailsPanel({ client }: Props) {
         dryRun,
         defaultDocType: reprocessDocType,
         includeDismissed,
-        maxRows: emailIds?.length === 1 ? 1 : 10,
+        maxRows: batch,
         ...bulkActionFilters,
         emailIds,
       });
@@ -220,8 +230,71 @@ export function ProcessedEmailsPanel({ client }: Props) {
           await openRow(selected);
         }
       }
+      return res;
     } catch (e) {
       setBulkClearMessage(e instanceof SupportApiError ? e.message : "Bulk reprocess failed");
+      return null;
+    } finally {
+      setBulkClearBusy(false);
+    }
+  };
+
+  const runBulkReprocessAll = async () => {
+    const preview = await runBulkReprocess(true);
+    if (!preview) return;
+    const eligible = preview.eligibleCount ?? 0;
+    if (eligible === 0) {
+      setBulkClearMessage("No eligible emails to file.");
+      return;
+    }
+    const ok = window.confirm(`File all ${eligible} eligible email(s) in batches of ${reprocessBatchSize}?`);
+    if (!ok) return;
+
+    setBulkClearBusy(true);
+    let remaining = eligible;
+    let totalSucceeded = 0;
+    let iterations = 0;
+    try {
+      while (remaining > 0 && iterations < 20) {
+        iterations += 1;
+        const res = await client.bulkReprocessReviewInbox({
+          dryRun: false,
+          defaultDocType: reprocessDocType,
+          includeDismissed,
+          maxRows: reprocessBatchSize,
+          ...bulkActionFilters,
+        });
+        totalSucceeded += res.succeededCount;
+        remaining = Math.max(0, res.eligibleCount - res.attemptedCount);
+        if (res.attemptedCount === 0) break;
+        if (res.succeededCount === 0 && res.failedCount > 0) {
+          setBulkClearMessage(`${res.message} Stopped after ${iterations} batch(es).`);
+          await loadList();
+          return;
+        }
+      }
+      setBulkClearMessage(`Filed ${totalSucceeded} email(s) across ${iterations} batch(es).`);
+      await loadList();
+    } catch (e) {
+      setBulkClearMessage(e instanceof SupportApiError ? e.message : "Process all failed");
+    } finally {
+      setBulkClearBusy(false);
+    }
+  };
+
+  const releaseStuckLock = async (emailId: string) => {
+    setBulkClearBusy(true);
+    setBulkClearMessage(null);
+    try {
+      const res = await client.releaseStuckLock(emailId);
+      setBulkClearMessage(res.message);
+      await loadList();
+      if (selected?.id === emailId) {
+        const detail = await client.getProcessedEmail(emailId);
+        setSelected(detail);
+      }
+    } catch (e) {
+      setBulkClearMessage(e instanceof SupportApiError ? e.message : "Unlock failed");
     } finally {
       setBulkClearBusy(false);
     }
@@ -438,13 +511,26 @@ export function ProcessedEmailsPanel({ client }: Props) {
             />
             <span className="muted">Include dismissed</span>
           </label>
+          <label className="muted" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            Batch
+            <select
+              className="directory__search"
+              style={{ minWidth: "4.5rem" }}
+              value={reprocessBatchSize}
+              onChange={(e) => setReprocessBatchSize(Number(e.target.value))}
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+          </label>
           <button
             type="button"
             className="btn btn-secondary btn--sm"
             disabled={bulkClearBusy}
             onClick={() => void runBulkReprocess(true)}
           >
-            Preview reprocess
+            Preview file batch
           </button>
           <button
             type="button"
@@ -452,15 +538,21 @@ export function ProcessedEmailsPanel({ client }: Props) {
             disabled={bulkClearBusy}
             onClick={() => void runBulkReprocess(false)}
           >
-            Reprocess matching (10/batch)
+            File matching batch
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkReprocessAll()}
+          >
+            File all ready
           </button>
         </div>
         <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
-          <strong>Reprocess</strong> re-runs the Mailgun pipeline, extracts PDFs, and files health records — then clears
-          the owner&apos;s Review Inbox. Fix edge secrets first (
-          <code>PAWBUCK_API_URL</code>, <code>MILO_INTERNAL_SERVICE_KEY</code>) and API{" "}
-          <code>Milo__InternalServiceKey</code> (must match). Check{" "}
-          <code>GET /api/health</code> → <code>miloAnalyzeInternalConfigured: true</code> before reprocess.
+          <strong>File records</strong> adds health data to pet profiles (same as owner Confirm). Use{" "}
+          <strong>Email ops</strong> tab to check pipeline health first.{" "}
+          <strong>Dismiss / resolve</strong> only update inbox state — they do not file documents.
         </p>
 
         <div
@@ -697,13 +789,23 @@ export function ProcessedEmailsPanel({ client }: Props) {
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+              {selected.status === "processing" ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn--sm"
+                  disabled={bulkClearBusy}
+                  onClick={() => void releaseStuckLock(selected.id)}
+                >
+                  Unlock stuck email
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="btn btn-primary btn--sm"
-                disabled={bulkClearBusy}
+                disabled={bulkClearBusy || selected.storedArchiveStatus !== "stored"}
                 onClick={() => void runBulkReprocess(false, [selected.id])}
               >
-                Reprocess &amp; file
+                Add records to profile
               </button>
               <button
                 type="button"

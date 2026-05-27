@@ -344,6 +344,24 @@ export interface SupportQualityTrend {
   failedDelta: number;
 }
 
+export interface SupportOpsHealthCheck {
+  id: string;
+  label: string;
+  ok: boolean;
+  hint: string;
+}
+
+export interface SupportOpsHealthResponse {
+  allReady: boolean;
+  checks: SupportOpsHealthCheck[];
+}
+
+export interface SupportReleaseStuckLockResponse {
+  released: boolean;
+  message: string;
+  email?: SupportProcessedEmailDetail;
+}
+
 export interface SupportDocumentTypeOutcome {
   documentType: string;
   succeeded: number;

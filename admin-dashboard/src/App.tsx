@@ -11,6 +11,7 @@ import { AdminLoginScreen } from "@/components/AdminLoginScreen";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { DocumentProcessingMetricsPanel } from "@/components/DocumentProcessingMetricsPanel";
 import { DocumentSyncAdminPanel } from "@/components/DocumentSyncAdminPanel";
+import { EmailOpsPanel } from "@/components/EmailOpsPanel";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
 import { ProcessedEmailsPanel } from "@/components/ProcessedEmailsPanel";
 import { UserDirectoryTable } from "@/components/UserDirectoryTable";
@@ -55,8 +56,9 @@ export function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [banner, setBanner] = useState<string | null>(null);
   const [tab, setTab] = useState<
-    "overview" | "users" | "pets" | "support" | "mail" | "processing" | "milo" | "gates"
+    "overview" | "users" | "pets" | "support" | "mail" | "emailOps" | "processing" | "milo" | "gates"
   >("overview");
+  const [mailOwnerPreset, setMailOwnerPreset] = useState("");
 
   useEffect(() => {
     if (!supabase) {
@@ -329,6 +331,13 @@ export function App() {
         </button>
         <button
           type="button"
+          className={tab === "emailOps" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
+          onClick={() => setTab("emailOps")}
+        >
+          Email ops
+        </button>
+        <button
+          type="button"
           className={tab === "processing" ? "nav-tabs__btn nav-tabs__btn--active" : "nav-tabs__btn"}
           onClick={() => setTab("processing")}
         >
@@ -443,7 +452,20 @@ export function App() {
         </section>
       ) : null}
 
-      {tab === "mail" ? <ProcessedEmailsPanel client={client} /> : null}
+      {tab === "mail" ? (
+        <ProcessedEmailsPanel client={client} presetOwnerEmail={mailOwnerPreset} />
+      ) : null}
+
+      {tab === "emailOps" ? (
+        <EmailOpsPanel
+          client={client}
+          onOpenMailErrors={(email) => {
+            setMailOwnerPreset(email ?? "");
+            setTab("mail");
+          }}
+          onOpenProcessing={() => setTab("processing")}
+        />
+      ) : null}
 
       {tab === "processing" ? (
         <DocumentProcessingMetricsPanel client={client} onOpenMailErrors={() => setTab("mail")} />

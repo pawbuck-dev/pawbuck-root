@@ -197,4 +197,24 @@ public class SupportProcessedEmailsController : ControllerBase
             return StatusCode(503, new { error = ex.Message });
         }
     }
+
+    /// <summary>Release a stuck <c>status=processing</c> lock on a processed email row.</summary>
+    [HttpPost("{id:guid}/release-stuck-lock")]
+    [ProducesResponseType(typeof(SupportReleaseStuckLockResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> ReleaseStuckLock(Guid id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _processedEmails.ReleaseStuckLockAsync(id, cancellationToken);
+            if (result is null)
+                return NotFound();
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { error = ex.Message });
+        }
+    }
 }

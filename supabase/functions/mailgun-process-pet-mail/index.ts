@@ -25,6 +25,10 @@ import {
   resetFailedRowForReprocess,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
+import {
+  formatOwnerFacingAttachmentFailure,
+  formatOwnerFacingEmailFailureSummary,
+} from "../_shared/email-health-ingestion/ownerFacingFailureReason.ts";
 import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
 import { storeEmailForApproval } from "./emailStorage.ts";
 import {
@@ -599,16 +603,25 @@ Deno.serve(async (req) => {
         } else if (a.skippedReason) {
           return formatSkipReason(a.skippedReason, undefined, pet, a.filename);
         } else if (a.error) {
-          return a.filename ? `Document '${a.filename}': ${a.error}` : a.error;
+          return formatOwnerFacingAttachmentFailure(a.filename, a.error);
         } else if (a.ocrSuccess === false) {
-          return a.filename ? `Document '${a.filename}': Failed to extract data from document` : "Failed to extract data from document";
+          return formatOwnerFacingAttachmentFailure(
+            a.filename,
+            "Failed to extract data from document",
+          );
         }
-        return a.filename ? `Document '${a.filename}': Failed to save to database` : "Failed to save to database";
+        return formatOwnerFacingAttachmentFailure(
+          a.filename,
+          "Failed to save to database",
+        );
       });
 
       await finalizeEmail(processedAttachments.length, {
         documentType: relevantAttachments[0]?.classification.type,
-        failureReason: `Failed to process ${failedAttachments.length} document(s): ${failureReasons.join("; ")}`,
+        failureReason: formatOwnerFacingEmailFailureSummary(
+          failedAttachments.length,
+          failureReasons,
+        ),
         reviewStatus: "pending",
       });
 
