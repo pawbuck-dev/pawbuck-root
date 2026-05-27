@@ -81,6 +81,30 @@ export default function OnboardingStep4() {
     }
   };
 
+  const customBreedButton = (extraStyle?: object) => (
+    <Pressable
+      onPress={openCustomBreedScreen}
+      style={({ pressed }) => [
+        styles.customBreedButton,
+        {
+          borderColor: accentColor,
+          backgroundColor: pressed
+            ? isDark
+              ? "rgba(95,196,192,0.12)"
+              : "rgba(43,168,158,0.1)"
+            : "transparent",
+        },
+        extraStyle,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Enter a custom breed name"
+    >
+      <Text style={[styles.customBreedButtonText, { color: accentColor }]}>
+        Breed not listed? Enter custom or crossbreed
+      </Text>
+    </Pressable>
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -266,45 +290,12 @@ export default function OnboardingStep4() {
                   )}
                 </ScrollView>
 
-                {/* Always visible while dropdown is open — custom / crossbreed */}
-                <Pressable
-                  onPress={openCustomBreedScreen}
-                  style={({ pressed }) => [
-                    styles.customBreedLink,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Enter a custom breed name"
-                >
-                  <Ionicons name="add-circle-outline" size={20} color={accentColor} />
-                  <Text style={[styles.customBreedText, { color: accentColor, fontWeight: "600" }]}>
-                    {"Can't find your breed? Enter custom or crossbreed"}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color={accentColor} />
-                </Pressable>
+                {customBreedButton({ marginTop: 12 })}
               </View>
             )}
 
             {/* When dropdown closed — still offer custom breed */}
-            {!dropdownOpen ? (
-              <Pressable
-                onPress={openCustomBreedScreen}
-                style={({ pressed }) => [
-                  styles.customBreedLink,
-                  { marginTop: 16 },
-                  pressed && { opacity: 0.85 },
-                ]}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                accessibilityRole="button"
-              >
-                <Ionicons name="add-circle-outline" size={20} color={accentColor} />
-                <Text style={[styles.customBreedText, { color: accentColor, fontWeight: "600" }]}>
-                  {"Can't find your breed? Enter custom or crossbreed"}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={accentColor} />
-              </Pressable>
-            ) : null}
+            {!dropdownOpen ? customBreedButton({ marginTop: 24 }) : null}
 
             {/* Continue button inside card */}
             <View style={[styles.ctaWrap, { paddingBottom: Math.max(24, insets.bottom) }]}>
@@ -344,9 +335,14 @@ export default function OnboardingStep4() {
             />
 
             {/* Back to dropdown link */}
-            <Pressable onPress={() => setShowCustomInput(false)} style={styles.customBreedLink}>
-              <Ionicons name="list-outline" size={18} color={accentColor} />
-              <Text style={[styles.customBreedText, { color: accentColor }]}>
+            <Pressable
+              onPress={() => setShowCustomInput(false)}
+              style={({ pressed }) => [
+                styles.textLinkButton,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.customBreedButtonText, { color: accentColor }]}>
                 Choose from common breeds
               </Text>
             </Pressable>
@@ -508,18 +504,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     flex: 1,
   },
-  customBreedLink: {
-    flexDirection: "row",
+  customBreedButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 12,
-    marginTop: 8,
-    flexWrap: "wrap",
+    justifyContent: "center",
   },
-  customBreedText: {
-    fontSize: 14,
-    flex: 1,
-    flexShrink: 1,
+  customBreedButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  textLinkButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    alignItems: "center",
   },
   ctaWrap: {
     marginTop: "auto",
