@@ -1,9 +1,9 @@
 import { useTheme } from "@/context/themeContext";
+import type { ExamCategory } from "@/utils/clinicalExamCategories";
+export type { ExamCategory } from "@/utils/clinicalExamCategories";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-
-export type ExamCategory = "Routine Checkup" | "Invoice" | "Travel";
 
 interface ExamSectionHeaderProps {
   category: ExamCategory;
@@ -38,6 +38,12 @@ const SECTION_CONFIG: Record<
     icon: "airplane",
     color: "#F59E0B", // Amber
     bgColor: "rgba(245, 158, 11, 0.15)",
+  },
+  Other: {
+    title: "Other visits & records",
+    icon: "medical",
+    color: "#94A3B8", // Slate
+    bgColor: "rgba(148, 163, 184, 0.18)",
   },
 };
 

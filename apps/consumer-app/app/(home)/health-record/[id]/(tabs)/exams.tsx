@@ -1,5 +1,5 @@
 import { ClinicalExamCard } from "@/components/clinical-exams/ClinicalExamCard";
-import { ExamSectionHeader, ExamCategory } from "@/components/clinical-exams/ExamSectionHeader";
+import { ExamSectionHeader } from "@/components/clinical-exams/ExamSectionHeader";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import {
@@ -8,6 +8,11 @@ import {
 } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
+import {
+  EXAM_CATEGORIES,
+  ExamCategory,
+  groupClinicalExamsByCategory,
+} from "@/utils/clinicalExamCategories";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,26 +33,18 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const EXAM_CATEGORIES: ExamCategory[] = ["Routine Checkup", "Invoice", "Travel"];
-
-function allSectionsCollapsed(): Record<ExamCategory, boolean> {
+function sectionsExpandedForExams(
+  exams: Tables<"clinical_exams">[],
+): Record<ExamCategory, boolean> {
+  const grouped = groupClinicalExamsByCategory(exams);
   return EXAM_CATEGORIES.reduce(
     (acc, cat) => {
-      acc[cat] = false;
+      acc[cat] = grouped[cat].length > 0;
       return acc;
     },
-    {} as Record<ExamCategory, boolean>
+    {} as Record<ExamCategory, boolean>,
   );
 }
-
-// Helper function to check if exam belongs to category
-const examMatchesCategory = (examType: string | null, category: ExamCategory): boolean => {
-  if (!examType) return false;
-  if (category === "Travel") {
-    return examType.toLowerCase().includes("travel");
-  }
-  return examType === category;
-};
 
 export default function ExamsScreen() {
   const { theme, mode } = useTheme();
@@ -59,7 +56,9 @@ export default function ExamsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Track expanded state for each section (start collapsed; reset on screen focus)
-  const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>(allSectionsCollapsed);
+  const [expandedSections, setExpandedSections] = useState<Record<ExamCategory, boolean>>(() =>
+    sectionsExpandedForExams([]),
+  );
 
   const toggleSection = (category: ExamCategory) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -69,24 +68,14 @@ export default function ExamsScreen() {
     }));
   };
 
-  // Group exams by category
-  const groupedExams = useMemo(() => {
-    const grouped: Record<ExamCategory, Tables<"clinical_exams">[]> = {
-      "Routine Checkup": [],
-      Invoice: [],
-      Travel: [],
-    };
+  const groupedExams = useMemo(
+    () => groupClinicalExamsByCategory(clinicalExams),
+    [clinicalExams],
+  );
 
-    clinicalExams.forEach((exam) => {
-      for (const category of EXAM_CATEGORIES) {
-        if (examMatchesCategory(exam.exam_type, category)) {
-          grouped[category].push(exam);
-          break;
-        }
-      }
-    });
-
-    return grouped;
+  React.useEffect(() => {
+    if (clinicalExams.length === 0) return;
+    setExpandedSections(sectionsExpandedForExams(clinicalExams));
   }, [clinicalExams]);
 
   const onRefresh = useCallback(async () => {
@@ -99,9 +88,8 @@ export default function ExamsScreen() {
   useFocusEffect(
     React.useCallback(() => {
       if (!pet) return;
-      setExpandedSections(allSectionsCollapsed());
       queryClient.invalidateQueries({ queryKey: ["clinicalExams", pet.id] });
-    }, [queryClient, pet])
+    }, [queryClient, pet]),
   );
 
   if (!pet) {
