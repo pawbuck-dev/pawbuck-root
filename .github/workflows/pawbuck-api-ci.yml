@@ -28,4 +28,11 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Build and test
-        run: dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj -c Release --verbosity normal
+        run: dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj -c Release --verbosity normal --collect:"XPlat Code Coverage"
+
+      - name: Upload API coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: backend/PawBuck.API.Tests/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn

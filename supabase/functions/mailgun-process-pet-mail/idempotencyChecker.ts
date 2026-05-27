@@ -247,7 +247,7 @@ export async function markEmailAsFailed(
 }
 
 /** Same rules as consumer Review Inbox (`isReviewInboxCandidate`). */
-function isReviewInboxRow(row: {
+export function isReviewInboxRow(row: {
   success?: boolean | null;
   failure_reason?: string | null;
   review_status?: string | null;

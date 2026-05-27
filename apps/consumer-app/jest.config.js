@@ -11,8 +11,11 @@ module.exports = {
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|native-base|react-native-svg|moment)",
   ],
   collectCoverageFrom: [
-    "services/walkMetrics.ts",
-    "constants/pawthonUi.ts",
+    "services/{vaccinations,medicines,clinicalExams,labResults,medicationDoses,failedEmails,pendingEmailApprovals,petEmailList,healthBriefing,bookingsApi,vetBookings}.ts",
+    "utils/{mailResolveApi,duplicateDetection,clinicalMutationErrors,medicalRecordExtraction,reviewMedication,healthHubAttention,healthBriefingUi,petEmail,validateEmail}.ts",
+    "components/messages/**/*.{ts,tsx}",
+    "components/health/**/*.{ts,tsx}",
+    "components/email-approval/**/*.{ts,tsx}",
     "!**/*.d.ts",
   ],
 };

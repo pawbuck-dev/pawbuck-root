@@ -23,11 +23,43 @@ pnpm run test:all
 
 ## Consumer app
 
-- **Pure logic** lives in `services/walkMetrics.ts` (Pawthon streak + rank copy) and `constants/pawthonUi.ts` — covered by unit tests under `__tests__/`.
-- **Booking** — `services/bookingsApi.ts` wraps `@pawbuck/api-client`; tests in `__tests__/services/bookingsApi.test.ts` and `__tests__/utils/pawbuckApi.test.ts`.
-- **Account deletion** — `services/accountDeletion.ts` (edge function `delete-account`); tests in `__tests__/services/accountDeletion.test.ts`.
-- **Integration** (Supabase, screens): add `@testing-library/react-native` specs and mock `@/utils/supabase` (the real module throws if env vars are missing).
+- **Email & Review Inbox** — `utils/mailResolveApi.ts`, `services/pendingEmailApprovals.ts`, `services/failedEmails.ts`, `services/petEmailList.ts`; RTL: `__tests__/components/messages/ReviewInboxResolutionModal.test.tsx`, `__tests__/components/email-approval/EmailApprovalModal.test.tsx`.
+- **Health records** — CRUD services (`vaccinations`, `medicines`, `clinicalExams`, `labResults`), `services/healthBriefing.ts`, `utils/reviewMedication.ts`; RTL: `__tests__/components/health/HealthRecordsUploadSheet.test.tsx`.
+- **Shared test helpers** — `__tests__/helpers/supabaseMock.ts` (`createSupabaseMock`, `mockSelectChain`).
+- **Coverage (report-only in CI)** — `pnpm --filter pawbuck test:coverage` scopes `collectCoverageFrom` to email + health paths in `jest.config.js` (no fail thresholds yet).
+- **Pure logic** — also `services/walkMetrics.ts`, `constants/pawthonUi.ts`.
+- **Booking** — `services/bookingsApi.ts`; tests in `__tests__/services/bookingsApi.test.ts` and `__tests__/utils/pawbuckApi.test.ts`.
+- **Account deletion** — `services/accountDeletion.ts`; tests in `__tests__/services/accountDeletion.test.ts`.
 - Run: `cd apps/consumer-app && pnpm test`
+
+## Supabase Edge (email → health pipeline)
+
+```bash
+deno test supabase/functions/_shared/ supabase/functions/mailgun-process-pet-mail/__tests__/ supabase/functions/process-pet-mail/__tests__/ --allow-read --allow-env
+```
+
+- **`processHealthAttachments.ts`** — matrix tests in `_shared/email-health-ingestion/processHealthAttachments_test.ts` (vault, legacy OCR, forced doc type, validation skip, microchip callback).
+- **Mailgun idempotency / sender responses** — `mailgun-process-pet-mail/__tests__/idempotency_and_sender_responses_test.ts`.
+- **Legacy OCR deprecation** — `_shared/__tests__/ocr_deprecated_test.ts` (410 when `EDGE_OCR_FUNCTIONS_ENABLED=false`).
+- CI: `.github/workflows/supabase-edge-tests.yml`.
+
+## Admin dashboard (email ops + health explorer)
+
+- **Panels** — `__tests__/components/EmailHealthPanels.test.tsx` (ProcessedEmails, EmailOps, DocumentProcessingMetrics, PetHealthExplorer).
+- Run: `pnpm --filter pawbuck-admin-dashboard test`
+
+## MiloController & RAG (PawBuck.API)
+
+- **`MiloControllerTests`** — all routes: `POST chat`, `POST ask`, `POST chat/feedback`, journal sessions, vet draft, curated-guidance (`backend/PawBuck.API.Tests/Controllers/MiloControllerTests.cs`).
+- **`MiloRagServiceTests`** — FAQ RAG / General Help fallback (`Services/MiloRagServiceTests.cs`).
+- **`MiloReasoningServiceRoutingTests`** — journal tree routing, heuristic-only doc RAG, access guards.
+- **`MiloJournalFeedbackRulesTests`** — 14-day window + rating validation (extracted from `MiloJournalTurnService`).
+- **Support admin journal** — `SupportMiloJournalControllerTests` includes `GET feedback-aggregates`.
+- **API coverage (report-only in CI)** — `dotnet test --collect:"XPlat Code Coverage"` in `pawbuck-api-ci.yml`.
+
+## API client
+
+- **`miloHealthBundleApi.test.ts`** — `POST /api/milo/health-records/bundle` (`packages/pawbuck-api-client/__tests__/`).
 
 ## Backend (booking & scheduling)
 

@@ -139,4 +139,18 @@ public class SupportMiloJournalControllerTests
             r => r.ChatAsync(It.IsAny<Guid>(), It.IsAny<MiloChatRequest>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task GetFeedbackAggregates_ReturnsOkAndCallsService()
+    {
+        var controller = CreateController(out _, out var aggregates, out _, out _);
+        var dto = new MiloJournalFeedbackAggregatesDto { TotalFeedback = 5, UpCount = 4, DownCount = 1 };
+        aggregates.Setup(a => a.GetAggregatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(dto);
+
+        var result = await controller.GetFeedbackAggregates(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeOfType<MiloJournalFeedbackAggregatesDto>().Which.TotalFeedback.Should().Be(5);
+        aggregates.Verify(a => a.GetAggregatesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

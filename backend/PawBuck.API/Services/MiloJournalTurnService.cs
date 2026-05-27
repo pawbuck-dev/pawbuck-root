@@ -4,6 +4,19 @@ using PawBuck.API.Models;
 
 namespace PawBuck.API.Services;
 
+/// <summary>Pure feedback validation rules for journal Milo turns (testable without DB).</summary>
+public static class MiloJournalFeedbackRules
+{
+    public static bool IsValidRating(string? rating)
+    {
+        var r = (rating ?? "").Trim().ToLowerInvariant();
+        return r is "up" or "down";
+    }
+
+    public static bool IsWithinFeedbackWindow(DateTime turnCreatedUtc, DateTime nowUtc, TimeSpan maxAge) =>
+        nowUtc - turnCreatedUtc.ToUniversalTime() <= maxAge;
+}
+
 public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJournalFeedbackAggregateService
 {
     private static readonly TimeSpan FeedbackMaxAge = TimeSpan.FromDays(14);
@@ -66,7 +79,7 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
         CancellationToken cancellationToken = default)
     {
         var r = rating.Trim().ToLowerInvariant();
-        if (r is not ("up" or "down"))
+        if (!MiloJournalFeedbackRules.IsValidRating(r))
             return false;
 
         await using var conn = CreateConnection();
@@ -85,7 +98,7 @@ public sealed class MiloJournalTurnService : IMiloJournalTurnService, IMiloJourn
         await reader.CloseAsync();
         if (owner != userId)
             return false;
-        if (DateTime.UtcNow - created.ToUniversalTime() > FeedbackMaxAge)
+        if (!MiloJournalFeedbackRules.IsWithinFeedbackWindow(created, DateTime.UtcNow, FeedbackMaxAge))
             return false;
 
         const string upsert = """

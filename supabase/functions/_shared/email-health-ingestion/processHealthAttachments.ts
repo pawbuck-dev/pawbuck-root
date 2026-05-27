@@ -37,11 +37,39 @@ export type ProcessHealthAttachmentsOptions = {
   ) => Promise<void>;
 };
 
+/** Injectable deps for unit tests (defaults to production implementations). */
+export type ProcessHealthAttachmentDeps = {
+  classifyAttachment: typeof classifyAttachment;
+  validatePetFromDocument: typeof validatePetFromDocument;
+  loadEmailDocumentVerificationConfig: typeof loadEmailDocumentVerificationConfig;
+  uploadCanonicalDocument: typeof uploadCanonicalDocument;
+  analyzePetDocumentInternal: typeof analyzePetDocumentInternal;
+  uploadAttachment: typeof uploadAttachment;
+  triggerOCR: typeof triggerOCR;
+  saveOCRResults: typeof saveOCRResults;
+  useVaultHealthPipeline: typeof useVaultHealthPipeline;
+  useLegacyOcrPipeline: typeof useLegacyOcrPipeline;
+};
+
+export const defaultProcessHealthAttachmentDeps: ProcessHealthAttachmentDeps = {
+  classifyAttachment,
+  validatePetFromDocument,
+  loadEmailDocumentVerificationConfig,
+  uploadCanonicalDocument,
+  analyzePetDocumentInternal,
+  uploadAttachment,
+  triggerOCR,
+  saveOCRResults,
+  useVaultHealthPipeline,
+  useLegacyOcrPipeline,
+};
+
 export async function processHealthAttachments(
   pet: Pet,
   attachments: ParsedAttachment[],
   emailContext: EmailContext,
   options: ProcessHealthAttachmentsOptions,
+  deps: ProcessHealthAttachmentDeps = defaultProcessHealthAttachmentDeps,
 ): Promise<ProcessedAttachment[]> {
   const results: ProcessedAttachment[] = [];
   for (let i = 0; i < attachments.length; i++) {
@@ -73,6 +101,7 @@ export async function processHealthAttachments(
         apiOverride,
         options.onMicrochipMismatch,
         options.skipPetVerification,
+        deps,
       ),
     );
   }
@@ -88,6 +117,7 @@ async function processOne(
   apiDocumentTypeOverride?: string,
   onMicrochipMismatch?: ProcessHealthAttachmentsOptions["onMicrochipMismatch"],
   skipPetVerification?: boolean,
+  deps: ProcessHealthAttachmentDeps = defaultProcessHealthAttachmentDeps,
 ): Promise<ProcessedAttachment> {
   try {
     const classification: DocumentClassification = forcedDocumentType
@@ -96,7 +126,7 @@ async function processOne(
           confidence: 1,
           reasoning: "User-confirmed document type (Review Inbox resolution)",
         }
-      : await classifyAttachment(
+      : await deps.classifyAttachment(
           attachment,
           emailContext.subject,
           emailContext.textBody,
@@ -106,7 +136,7 @@ async function processOne(
       return skipped(attachment, classification);
     }
 
-    const verificationConfig = await loadEmailDocumentVerificationConfig(
+    const verificationConfig = await deps.loadEmailDocumentVerificationConfig(
       pet.country,
     );
     const petValidation = skipPetVerification
@@ -123,7 +153,7 @@ async function processOne(
           },
           matchDetails: {},
         }
-      : await validatePetFromDocument(
+      : await deps.validatePetFromDocument(
           attachment,
           emailContext.subject,
           pet,
@@ -145,7 +175,7 @@ async function processOne(
       return validationSkipped(attachment, classification, petValidation);
     }
 
-    if (useVaultHealthPipeline()) {
+    if (deps.useVaultHealthPipeline()) {
       return await processVaultPath(
         pet,
         attachment,
@@ -153,15 +183,17 @@ async function processOne(
         ingestionSource,
         apiDocumentTypeOverride,
         petValidation,
+        deps,
       );
     }
 
-    if (useLegacyOcrPipeline()) {
+    if (deps.useLegacyOcrPipeline()) {
       return await processLegacyOcrPath(
         pet,
         attachment,
         classification,
         petValidation,
+        deps,
       );
     }
 
@@ -184,11 +216,12 @@ async function processVaultPath(
   ingestionSource: string,
   apiDocumentTypeOverride: string | undefined,
   petValidation: PetValidationResult,
+  deps: ProcessHealthAttachmentDeps,
 ): Promise<ProcessedAttachment> {
   const documentId = crypto.randomUUID();
   let storagePath: string;
   try {
-    storagePath = await uploadCanonicalDocument(
+    storagePath = await deps.uploadCanonicalDocument(
       pet,
       documentId,
       attachment.filename,
@@ -200,7 +233,7 @@ async function processVaultPath(
     return failed(attachment, classification, `Upload failed: ${msg}`, petValidation);
   }
 
-  const analyze = await analyzePetDocumentInternal({
+  const analyze = await deps.analyzePetDocumentInternal({
     petId: pet.id,
     userId: pet.user_id,
     bucket: "pets",
@@ -250,10 +283,11 @@ async function processLegacyOcrPath(
   attachment: ParsedAttachment,
   classification: DocumentClassification,
   petValidation: PetValidationResult,
+  deps: ProcessHealthAttachmentDeps,
 ): Promise<ProcessedAttachment> {
   let storagePath: string;
   try {
-    storagePath = await uploadAttachment(
+    storagePath = await deps.uploadAttachment(
       pet,
       classification.type,
       attachment.filename,
@@ -265,10 +299,10 @@ async function processLegacyOcrPath(
     return failed(attachment, classification, `Upload failed: ${msg}`, petValidation);
   }
 
-  const ocrResult = await triggerOCR(classification.type, "pets", storagePath);
+  const ocrResult = await deps.triggerOCR(classification.type, "pets", storagePath);
   const dbResult =
     ocrResult.success && ocrResult.data
-      ? await saveOCRResults(classification.type, pet, storagePath, ocrResult.data)
+      ? await deps.saveOCRResults(classification.type, pet, storagePath, ocrResult.data)
       : { success: false, recordIds: undefined as string[] | undefined };
 
   return {
