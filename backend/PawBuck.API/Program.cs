@@ -297,6 +297,7 @@ builder.Services.AddScoped<ISupportMetricsService, SupportMetricsService>();
 builder.Services.AddScoped<ISupportDirectoryService, SupportDirectoryService>();
 builder.Services.AddScoped<ISupportVaccinationAdminService, SupportVaccinationAdminService>();
 builder.Services.AddScoped<ISupportProcessedEmailsService, SupportProcessedEmailsService>();
+builder.Services.AddScoped<ISupportDocumentProcessingService, SupportDocumentProcessingService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

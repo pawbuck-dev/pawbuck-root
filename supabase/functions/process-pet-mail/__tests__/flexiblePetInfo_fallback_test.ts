@@ -1,4 +1,6 @@
 import {
+  applyEmailContextPetNameHint,
+  inferPetNameFromEmailContext,
   isSpeciesOnlyBreedValue,
   mapFlexibleVaultToPetInfo,
   mergePetInfoFields,
@@ -268,4 +270,30 @@ Deno.test("evaluatePetVerification accepts full doc name vs profile Benji", () =
   );
 
   if (!result.isValid) throw new Error(JSON.stringify(result));
+});
+
+Deno.test("inferPetNameFromEmailContext reads pet name from filename", () => {
+  const name = inferPetNameFromEmailContext(
+    "Milo",
+    "Vaccine_Certificate_For_Milo__10348.pdf",
+    null,
+  );
+  if (name !== "Milo") throw new Error(`expected Milo, got ${name}`);
+});
+
+Deno.test("applyEmailContextPetNameHint fills missing name before validation", () => {
+  const hinted = applyEmailContextPetNameHint(
+    {
+      microchip: null,
+      name: null,
+      age: null,
+      breed: null,
+      gender: null,
+      confidence: 0,
+    },
+    "Milo",
+    "Post_Op___Soft_Tissue_For_Milo_11162.pdf",
+    "Fwd: vet records",
+  );
+  if (hinted.name !== "Milo") throw new Error(`expected Milo, got ${hinted.name}`);
 });

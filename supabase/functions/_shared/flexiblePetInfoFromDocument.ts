@@ -254,3 +254,58 @@ Rules:
     return empty;
   }
 }
+
+function normalizeContextToken(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function petFirstNameFromProfile(petName: string): string {
+  return petName.trim().split(/\s+/)[0] ?? "";
+}
+
+/**
+ * When OCR misses pet name, infer from filename/subject if it contains the profile first name.
+ */
+export function inferPetNameFromEmailContext(
+  profilePetName: string,
+  filename?: string | null,
+  emailSubject?: string | null,
+): string | null {
+  const first = petFirstNameFromProfile(profilePetName);
+  if (first.length < 2) return null;
+
+  const needle = first.toLowerCase();
+  const haystacks = [filename, emailSubject]
+    .filter((v): v is string => Boolean(v?.trim()))
+    .map(normalizeContextToken);
+
+  for (const hay of haystacks) {
+    const padded = ` ${hay} `;
+    if (padded.includes(` ${needle} `) || hay === needle) {
+      return first;
+    }
+  }
+
+  return null;
+}
+
+export function applyEmailContextPetNameHint<T extends LegacyPetInfoFields>(
+  extracted: T,
+  profilePetName: string,
+  filename?: string | null,
+  emailSubject?: string | null,
+): T {
+  if (extracted.name?.trim()) return extracted;
+  const inferred = inferPetNameFromEmailContext(profilePetName, filename, emailSubject);
+  if (!inferred) return extracted;
+  return {
+    ...extracted,
+    name: inferred,
+    confidence: Math.max(extracted.confidence, 55),
+  };
+}

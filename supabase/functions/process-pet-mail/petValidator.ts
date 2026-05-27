@@ -23,6 +23,7 @@ import {
   normalizeDocumentBreed,
   petInfoNeedsFallback,
   sanitizePetInfoFields,
+  applyEmailContextPetNameHint,
 } from "../_shared/flexiblePetInfoFromDocument.ts";
 import { matchBreeds } from "../_shared/petBreedMatch.ts";
 
@@ -392,10 +393,15 @@ export async function validatePetFromDocument(
 ): Promise<PetValidationResult> {
   console.log(`\n=== Validating pet: ${pet.name} (ID: ${pet.id}) ===`);
 
-  const extractedInfo = await extractPetInfoFromDocument(
-    attachment,
+  const extractedInfo = applyEmailContextPetNameHint(
+    await extractPetInfoFromDocument(
+      attachment,
+      emailSubject,
+      options?.documentType,
+    ),
+    pet.name,
+    attachment.filename,
     emailSubject,
-    options?.documentType,
   );
   return evaluatePetVerification(extractedInfo, pet, options);
 }

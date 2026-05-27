@@ -303,6 +303,89 @@ export interface SupportProcessedEmailsSummaryResponse {
   byDocumentType: SupportProcessedEmailsSummaryBucket[];
 }
 
+export interface SupportDailyProcessingVolume {
+  date: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+export interface SupportFailureCategoryBucket {
+  category: string;
+  label: string;
+  description: string;
+  count: number;
+  shareOfFailures: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+}
+
+export interface SupportTopFailureReason {
+  reason: string;
+  category: string;
+  count: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+}
+
+export interface SupportDailyFailureCategory {
+  date: string;
+  category: string;
+  label: string;
+  count: number;
+}
+
+export interface SupportQualityTrend {
+  previousFrom: string;
+  previousTo: string;
+  previousSuccessRate: number;
+  successRateDelta: number;
+  previousFailed: number;
+  failedDelta: number;
+}
+
+export interface SupportDocumentTypeOutcome {
+  documentType: string;
+  succeeded: number;
+  failed: number;
+  successRate: number;
+}
+
+export interface SupportEmailProcessingMetrics {
+  totalCompleted: number;
+  totalSucceeded: number;
+  totalFailed: number;
+  successRate: number;
+  totalReviewInboxOpen: number;
+  totalStuckProcessing: number;
+  dailyVolume: SupportDailyProcessingVolume[];
+  byFailureCategory: SupportFailureCategoryBucket[];
+  topFailureReasons: SupportTopFailureReason[];
+  byDocumentType: SupportDocumentTypeOutcome[];
+  dailyFailuresByCategory: SupportDailyFailureCategory[];
+  qualityTrend: SupportQualityTrend;
+}
+
+export interface SupportVaultDocumentTypeBucket {
+  documentType: string;
+  count: number;
+}
+
+export interface SupportVaultProcessingMetrics {
+  totalDocuments: number;
+  clinicalSynced: number;
+  clinicalSyncErrors: number;
+  pendingClinicalSync: number;
+  byDocumentType: SupportVaultDocumentTypeBucket[];
+}
+
+export interface SupportDocumentProcessingMetricsResponse {
+  from: string;
+  to: string;
+  email: SupportEmailProcessingMetrics;
+  vault: SupportVaultProcessingMetrics;
+}
+
 export interface SupportBulkClearReviewInboxRequest {
   action?: "dismiss" | "resolve";
   dryRun?: boolean;

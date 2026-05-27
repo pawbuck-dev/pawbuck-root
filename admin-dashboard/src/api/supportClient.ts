@@ -16,6 +16,7 @@ import type {
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
+  SupportDocumentProcessingMetricsResponse,
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
   SupportMetrics,
@@ -291,6 +292,16 @@ export function createSupportClient(
       const qs = p.toString();
       return request<SupportProcessedEmailsSummaryResponse>(
         `/api/support/processed-emails/summary${qs ? `?${qs}` : ""}`,
+      );
+    },
+
+    getDocumentProcessingMetrics: (from?: string, to?: string) => {
+      const p = new URLSearchParams();
+      if (from) p.set("from", from);
+      if (to) p.set("to", to);
+      const qs = p.toString();
+      return request<SupportDocumentProcessingMetricsResponse>(
+        `/api/support/document-processing/metrics${qs ? `?${qs}` : ""}`,
       );
     },
 
