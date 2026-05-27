@@ -119,6 +119,12 @@ export function resolveJournalTreeId(text: string): string | undefined {
 export const JOURNAL_TREE_INTERVIEW_ENABLED =
   process.env.EXPO_PUBLIC_JOURNAL_TREE_INTERVIEW === "true";
 
+/** User wants to edit the summary draft (chip, typed reply, or card Edit). */
+export function isEditSummaryIntent(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t === "edit a field" || t === "edit summary" || t.startsWith("edit ");
+}
+
 /** Map context-surface button label (or id) to API journalAction. */
 export function resolveContextSurfaceJournalAction(
   text: string,

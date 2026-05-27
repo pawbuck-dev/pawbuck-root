@@ -253,7 +253,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
                 return BuildSummaryDraftResponse(session, tree, updated, session.EmergencyDetected, petName);
             }
 
-            if (action is "confirm_summary" or "answer")
+            if (action is "confirm_summary")
             {
                 var summary = session.DraftSummaryJson != null
                     ? JsonSerializer.Deserialize<JournalStructuredSummaryDto>(session.DraftSummaryJson, JsonOptions)
@@ -281,6 +281,21 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
                     PromptVersion = config.PromptVersion,
                 };
             }
+
+            var draftSummary = session.DraftSummaryJson != null
+                ? JsonSerializer.Deserialize<JournalStructuredSummaryDto>(session.DraftSummaryJson, JsonOptions)
+                : BuildStructuredSummary(tree, answers, petName);
+            draftSummary ??= BuildStructuredSummary(tree, answers, petName);
+            if (IsEditSummaryIntent(request.Message) || action is "edit_summary")
+            {
+                var editResponse = BuildSummaryDraftResponse(
+                    session, tree, draftSummary, session.EmergencyDetected, petName);
+                editResponse.Answer =
+                    $"Use Edit on the summary to change fields for {petName}, then save when it looks right.";
+                return editResponse;
+            }
+
+            return BuildSummaryDraftResponse(session, tree, draftSummary, session.EmergencyDetected, petName);
         }
 
         return BuildQuestionResponse(
@@ -517,6 +532,14 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             Phase = reader.GetString(3),
             QuestionsAskedCount = reader.GetInt32(4),
         };
+    }
+
+    private static bool IsEditSummaryIntent(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+        var t = message.Trim().ToLowerInvariant();
+        return t is "edit a field" or "edit summary" || t.StartsWith("edit ", StringComparison.Ordinal);
     }
 
     private static MiloChatResponse BuildSummaryDraftResponse(

@@ -1,4 +1,4 @@
-import { resolveContextSurfaceJournalAction } from "@/types/journalInterview";
+import { isEditSummaryIntent, resolveContextSurfaceJournalAction } from "@/types/journalInterview";
 
 describe("resolveContextSurfaceJournalAction", () => {
   const surface = {
@@ -19,5 +19,17 @@ describe("resolveContextSurfaceJournalAction", () => {
     expect(resolveContextSurfaceJournalAction("Looks right — continue", surface)).toBe(
       "context_continue"
     );
+  });
+});
+
+describe("isEditSummaryIntent", () => {
+  it("detects edit chip and typed replies", () => {
+    expect(isEditSummaryIntent("Edit a field")).toBe(true);
+    expect(isEditSummaryIntent("Edit summary")).toBe(true);
+    expect(isEditSummaryIntent("edit the note")).toBe(true);
+  });
+
+  it("does not treat save as edit", () => {
+    expect(isEditSummaryIntent("Looks right — save")).toBe(false);
   });
 });

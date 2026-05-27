@@ -62,6 +62,7 @@ import {
   MILO_EMPTY_THREAD_PROMPT_COUNT,
 } from "@/services/miloSuggestedPrompts";
 import {
+  isEditSummaryIntent,
   isTreeInterviewUxEnabled,
   JOURNAL_TREE_INTERVIEW_ENABLED,
   resolveContextSurfaceJournalAction,
@@ -515,11 +516,25 @@ export default function MiloJournalChatScreen() {
     [pet?.id, router]
   );
 
+  const openSummaryEditModal = useCallback((fields: Record<string, string>) => {
+    setSummaryEditFields({ ...fields });
+    setSummaryEditVisible(true);
+  }, []);
+
   const handleSend = useCallback(
     async (raw: string, chipIds?: string[], explicitJournalAction?: string) => {
       const text = raw.trim();
       if (!text || !pet || !user) return;
       if (triageDisclaimerStatus !== "accepted") return;
+
+      const lastAssistantBeforeSend = [...messages].reverse().find((m) => m.role === "assistant");
+      const summaryDraftBeforeSend =
+        lastAssistantBeforeSend?.interviewPhase === "summary_draft" &&
+        lastAssistantBeforeSend.structuredSummary;
+      if (summaryDraftBeforeSend && isEditSummaryIntent(text)) {
+        openSummaryEditModal(lastAssistantBeforeSend!.structuredSummary!.fields);
+        return;
+      }
 
       setBusy(true);
       const history = messages.slice(-10).map((m) => ({
@@ -663,6 +678,7 @@ export default function MiloJournalChatScreen() {
       persistJournalEntry,
       triageDisclaimerStatus,
       openJournalHealthDeepLink,
+      openSummaryEditModal,
     ]
   );
 
@@ -1359,11 +1375,8 @@ export default function MiloJournalChatScreen() {
                   summary={item.structuredSummary}
                   attachmentCount={attachmentCount}
                   onAttachPhoto={() => void attachSummaryPhoto()}
-                  onConfirm={() => void handleSend("Looks right — save", undefined)}
-                  onEdit={() => {
-                    setSummaryEditFields({ ...item.structuredSummary!.fields });
-                    setSummaryEditVisible(true);
-                  }}
+                  onConfirm={() => void handleSend("Looks right — save", undefined, "confirm_summary")}
+                  onEdit={() => openSummaryEditModal(item.structuredSummary!.fields)}
                 />
               ) : null}
               {renderJournalFeedback(item, index)}
@@ -1483,8 +1496,26 @@ export default function MiloJournalChatScreen() {
                 textColor={tokens.textPrimary}
                 screenHorizontalPaddingPx={16}
                 onPress={() => {
+                  if (
+                    lastMessage.interviewPhase === "summary_draft" &&
+                    lastMessage.structuredSummary &&
+                    isEditSummaryIntent(label)
+                  ) {
+                    openSummaryEditModal(lastMessage.structuredSummary.fields);
+                    setInput("");
+                    return;
+                  }
                   const ctx = lastMessage?.contextSurface;
-                  const actionId = resolveContextSurfaceJournalAction(label, ctx);
+                  let actionId = resolveContextSurfaceJournalAction(label, ctx);
+                  const lower = label.trim().toLowerCase();
+                  if (
+                    !actionId &&
+                    lastMessage.interviewPhase === "summary_draft" &&
+                    lower.includes("looks right") &&
+                    lower.includes("save")
+                  ) {
+                    actionId = "confirm_summary";
+                  }
                   void handleSend(label, undefined, actionId);
                   setInput("");
                 }}
