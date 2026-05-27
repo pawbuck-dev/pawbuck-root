@@ -180,16 +180,8 @@ Deno.test("evaluatePetVerification accepts rabies cert mixed breed vs profile", 
   if (!result.isValid) throw new Error(JSON.stringify(result));
 });
 
-Deno.test("mergePetInfoFields fills gaps from flexible fallback", () => {
+Deno.test("mergePetInfoFields fills gaps from legacy fallback", () => {
   const merged = mergePetInfoFields(
-    {
-      microchip: null,
-      name: null,
-      age: null,
-      breed: null,
-      gender: null,
-      confidence: 0,
-    },
     mapFlexibleVaultToPetInfo({
       title: "Vaccination Record for Benji Srinivasan",
       keyFacts: [
@@ -198,9 +190,64 @@ Deno.test("mergePetInfoFields fills gaps from flexible fallback", () => {
       ],
       confidenceScore: 98,
     }),
+    {
+      microchip: null,
+      name: null,
+      age: null,
+      breed: null,
+      gender: null,
+      confidence: 0,
+    },
   );
 
   if (!merged.name || !merged.breed) throw new Error(JSON.stringify(merged));
+});
+
+Deno.test("flexible vault wins over legacy species-only breed (Milo vaccine cert)", () => {
+  const flexible = mapFlexibleVaultToPetInfo({
+    title: "Vaccine Certificate for Milo",
+    summary: "Rabies vaccination for Milo, a Maltese.",
+    confidenceScore: 95,
+    keyFacts: [
+      { label: "Patient", value: "Milo" },
+      { label: "Species", value: "Canine (Dog)" },
+      { label: "Breed", value: "Maltese" },
+    ],
+  });
+  const legacy = {
+    microchip: null,
+    name: "Milo",
+    age: null,
+    breed: "Canine (Dog)",
+    gender: null,
+    confidence: 80,
+  };
+
+  const merged = mergePetInfoFields(flexible, legacy);
+  if (merged.breed !== "Maltese") {
+    throw new Error(`expected Maltese, got ${merged.breed}`);
+  }
+
+  const result = evaluatePetVerification(merged, miloPet, {
+    documentType: "vaccinations",
+    verificationConfig: DEFAULT_EMAIL_DOCUMENT_VERIFICATION,
+  });
+  if (!result.isValid) throw new Error(JSON.stringify(result));
+});
+
+Deno.test("petInfoNeedsFallback treats species-only breed as missing", () => {
+  if (
+    !petInfoNeedsFallback({
+      microchip: null,
+      name: "Milo",
+      age: null,
+      breed: "Canine (Dog)",
+      gender: null,
+      confidence: 90,
+    })
+  ) {
+    throw new Error("expected fallback when breed is species-only");
+  }
 });
 
 Deno.test("evaluatePetVerification accepts full doc name vs profile Benji", () => {

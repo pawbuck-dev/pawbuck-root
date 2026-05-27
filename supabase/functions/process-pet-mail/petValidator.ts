@@ -19,8 +19,10 @@ import {
 import {
   extractPetInfoViaFlexibleVault,
   mergePetInfoFields,
+  isSpeciesOnlyBreedValue,
   normalizeDocumentBreed,
   petInfoNeedsFallback,
+  sanitizePetInfoFields,
 } from "../_shared/flexiblePetInfoFromDocument.ts";
 import { matchBreeds } from "../_shared/petBreedMatch.ts";
 
@@ -45,16 +47,20 @@ export async function extractPetInfoFromDocument(
       docType,
     );
 
-    if (!petInfoNeedsFallback(flexible)) {
+    const flexibleClean = sanitizePetInfoFields(flexible);
+    if (!petInfoNeedsFallback(flexibleClean)) {
       console.log("Flexible vault has name+breed; using as primary extraction");
-      return flexible;
+      return flexibleClean;
     }
 
     console.log(
       "Flexible vault missing name/breed; supplementing with legacy pet-id extraction",
     );
-    const legacy = await extractLegacyPetInfoFromDocument(attachment, emailSubject);
-    return mergePetInfoFields(legacy, flexible);
+    const legacy = sanitizePetInfoFields(
+      await extractLegacyPetInfoFromDocument(attachment, emailSubject),
+    );
+    // Flexible vault first so legacy cannot overwrite a good breed with species-only text.
+    return sanitizePetInfoFields(mergePetInfoFields(flexibleClean, legacy));
   } catch (error) {
     console.error("Error extracting pet info from document:", error);
     return createEmptyExtraction();
@@ -401,7 +407,10 @@ export function evaluatePetVerification(
   options?: ValidatePetFromDocumentOptions,
 ): PetValidationResult {
   const normalizedBreed = normalizeDocumentBreed(extractedInfo.breed);
-  if (normalizedBreed !== extractedInfo.breed) {
+  if (
+    normalizedBreed !== extractedInfo.breed ||
+    (extractedInfo.breed && isSpeciesOnlyBreedValue(extractedInfo.breed))
+  ) {
     extractedInfo = { ...extractedInfo, breed: normalizedBreed };
   }
 

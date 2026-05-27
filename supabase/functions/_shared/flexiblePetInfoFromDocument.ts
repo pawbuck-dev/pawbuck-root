@@ -135,8 +135,20 @@ export function mergePetInfoFields(
   };
 }
 
+/** True when name or a real breed (not species-only) is missing. */
 export function petInfoNeedsFallback(fields: LegacyPetInfoFields): boolean {
-  return !fields.name?.trim() || !fields.breed?.trim();
+  const breed = normalizeDocumentBreed(fields.breed);
+  return !fields.name?.trim() || !breed?.trim();
+}
+
+/** Normalize breed on every extraction path before verification. */
+export function sanitizePetInfoFields(
+  fields: LegacyPetInfoFields,
+): LegacyPetInfoFields {
+  return {
+    ...fields,
+    breed: normalizeDocumentBreed(fields.breed),
+  };
 }
 
 const flexibleResponseSchema = {
