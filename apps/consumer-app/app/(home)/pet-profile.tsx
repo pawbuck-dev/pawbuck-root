@@ -453,20 +453,6 @@ export default function PetProfile() {
             </View>
           ) : null}
 
-          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
-              Family activity
-            </Text>
-            <PetActivityFeed petId={currentPet.id} />
-          </View>
-
-          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
-              Notification preferences
-            </Text>
-            <PetNotificationPrefsSection petId={currentPet.id} />
-          </View>
-
           {/* Pet Information Section */}
           <View className="mb-6">
             <View className="flex-row items-center justify-between mb-4">
@@ -949,6 +935,20 @@ export default function PetProfile() {
                 </View>
               </View>
             </View>
+          </View>
+
+          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
+              Notification preferences
+            </Text>
+            <PetNotificationPrefsSection petId={currentPet.id} />
+          </View>
+
+          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
+              Family activity
+            </Text>
+            <PetActivityFeed petId={currentPet.id} />
           </View>
         </ScrollView>
 
