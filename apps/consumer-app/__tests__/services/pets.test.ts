@@ -4,11 +4,25 @@ let mockGetUser: jest.Mock;
 let mockRefreshSession: jest.Mock;
 let mockGetSession: jest.Mock;
 let mockRpc: jest.Mock;
+let mockUploadPetProfilePhotoFromUri: jest.Mock;
 const mockPetsFrom = {
   select: jest.fn(),
   insert: jest.fn(),
   update: jest.fn(),
 };
+
+jest.mock("@/utils/petPhotoUpload", () => {
+  mockUploadPetProfilePhotoFromUri = jest.fn();
+  return {
+    isLocalPhotoUri: (uri: string | null | undefined) => {
+      const trimmed = uri?.trim();
+      if (!trimmed) return false;
+      return trimmed.startsWith("file://") || trimmed.startsWith("ph://");
+    },
+    uploadPetProfilePhotoFromUri: (...args: unknown[]) =>
+      mockUploadPetProfilePhotoFromUri(...args),
+  };
+});
 
 jest.mock("@/utils/supabase", () => {
   mockGetUser = jest.fn();
@@ -57,6 +71,7 @@ function mockPetsUpdateChain(result: { data: Tables<"pets"> | null; error: Error
 describe("pets service — auth + RLS-aligned user_id", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUploadPetProfilePhotoFromUri.mockResolvedValue("u1/pet_Milo_pet-new/profile.jpg");
     mockRefreshSession.mockResolvedValue({ data: { session: null }, error: null });
     mockGetSession.mockResolvedValue({
       data: { session: { access_token: "t" } },
@@ -154,6 +169,42 @@ describe("pets service — auth + RLS-aligned user_id", () => {
       mockRpc.mockResolvedValue({ data: null, error: null });
       await expect(createPet({ name: "X" } as never)).rejects.toThrow(
         "No data returned from insert_pet_for_current_user"
+      );
+    });
+
+    it("uploads local onboarding photo after insert and updates photo_url", async () => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+      const created = {
+        id: "pet-new",
+        user_id: "u1",
+        name: "Milo",
+        photo_url: null,
+      } as Tables<"pets">;
+      const withPhoto = {
+        ...created,
+        photo_url: "u1/pet_Milo_pet-new/profile.jpg",
+      } as Tables<"pets">;
+      mockRpc.mockResolvedValue({ data: created, error: null });
+      const { update } = mockPetsUpdateChain({ data: withPhoto, error: null });
+
+      await expect(
+        createPet({
+          name: "Milo",
+          photo_url: "file:///tmp/milo.jpg",
+        } as never),
+      ).resolves.toEqual(withPhoto);
+
+      expect(mockRpc.mock.calls[0][1].p_fields).not.toHaveProperty("photo_url");
+      expect(mockUploadPetProfilePhotoFromUri).toHaveBeenCalledWith(
+        "file:///tmp/milo.jpg",
+        "u1",
+        "pet-new",
+        "Milo",
+      );
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          photo_url: "u1/pet_Milo_pet-new/profile.jpg",
+        }),
       );
     });
   });

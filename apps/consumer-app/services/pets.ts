@@ -1,4 +1,5 @@
 import { Json, Tables, TablesInsert, TablesUpdate } from "@/database.types";
+import { isLocalPhotoUri, uploadPetProfilePhotoFromUri } from "@/utils/petPhotoUpload";
 import { supabase } from "@/utils/supabase";
 
 export const getPets = async () => {
@@ -52,11 +53,18 @@ export const createPet = async (petData: TablesInsert<"pets">) => {
     throw new Error("Session expired — sign in again to create a pet");
   }
 
-  const { user_id: _stale, id: _clientId, ...insertFields } = petData as TablesInsert<"pets"> &
+  const { user_id: _stale, id: _clientId, photo_url, ...insertFields } = petData as TablesInsert<"pets"> &
     Record<string, unknown>;
 
+  const localPhotoUri = isLocalPhotoUri(photo_url) ? photo_url!.trim() : null;
+  const storagePhotoPath =
+    photo_url && !localPhotoUri ? String(photo_url).trim() || null : null;
+
   const { data, error } = await supabase.rpc("insert_pet_for_current_user", {
-    p_fields: insertFields as Json,
+    p_fields: {
+      ...insertFields,
+      ...(storagePhotoPath ? { photo_url: storagePhotoPath } : {}),
+    } as Json,
   });
 
   if (error) throw error;
@@ -64,7 +72,23 @@ export const createPet = async (petData: TablesInsert<"pets">) => {
     throw new Error("No data returned from insert_pet_for_current_user");
   }
 
-  return data as Tables<"pets">;
+  let created = data as Tables<"pets">;
+
+  if (localPhotoUri && created.id) {
+    try {
+      const uploadedPath = await uploadPetProfilePhotoFromUri(
+        localPhotoUri,
+        user.id,
+        created.id,
+        created.name,
+      );
+      created = await updatePet(created.id, { photo_url: uploadedPath });
+    } catch (uploadError) {
+      console.error("Failed to upload pet profile photo during create:", uploadError);
+    }
+  }
+
+  return created;
 };
 
 export const updatePet = async (
