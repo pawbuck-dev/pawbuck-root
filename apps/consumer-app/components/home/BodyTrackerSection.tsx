@@ -56,6 +56,10 @@ const SEGMENTS: { id: BodyTrackerSegment; label: string; emoji: string }[] = [
  * without forcing tall rows that stretch the shorter Food card when Water has more rows.
  */
 const INTAKE_SLOT_LAYOUT = 36;
+const INTAKE_SLOT_GAP = 4;
+const INTAKE_ICONS_PER_ROW = 3;
+/** Keeps Food/Water cards aligned when cup count wraps to multiple rows. */
+const INTAKE_ICON_AREA_MIN_HEIGHT = 88;
 
 const ProgressIcons = ({
   count,
@@ -71,50 +75,76 @@ const ProgressIcons = ({
   emptyColor: string;
   type: "food" | "water";
   onSelectSlot: (slotIndex: number) => void;
-}) => (
-  <View
-    style={{
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 4,
-      marginVertical: 6,
-      justifyContent: "center",
-      alignItems: "center",
-    }}
-  >
-    {Array.from({ length: total }).map((_, i) => {
-      const filled = i < count;
-      const label =
-        type === "food"
-          ? `Meal ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set meals to ${i + 1}.`
-          : `Cup ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set cups to ${i + 1}.`;
-      return (
-        <Pressable
-          key={i}
-          onPress={() => onSelectSlot(i)}
-          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={label}
+}) => {
+  const rowWidth =
+    INTAKE_ICONS_PER_ROW * INTAKE_SLOT_LAYOUT + (INTAKE_ICONS_PER_ROW - 1) * INTAKE_SLOT_GAP;
+  const rows: number[][] = [];
+  for (let i = 0; i < total; i += INTAKE_ICONS_PER_ROW) {
+    const row: number[] = [];
+    for (let j = i; j < Math.min(i + INTAKE_ICONS_PER_ROW, total); j++) row.push(j);
+    rows.push(row);
+  }
+
+  return (
+    <View
+      style={{
+        minHeight: INTAKE_ICON_AREA_MIN_HEIGHT,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingVertical: 6,
+      }}
+    >
+      {rows.map((indices, rowIdx) => (
+        <View
+          key={rowIdx}
           style={{
-            width: INTAKE_SLOT_LAYOUT,
-            height: INTAKE_SLOT_LAYOUT,
-            alignItems: "center",
+            flexDirection: "row",
             justifyContent: "center",
+            gap: INTAKE_SLOT_GAP,
+            width: rowWidth,
+            marginTop: rowIdx > 0 ? INTAKE_SLOT_GAP : 0,
           }}
-          {...(Platform.OS === "android"
-            ? { android_ripple: { color: "rgba(0,0,0,0.08)", borderless: true } }
-            : {})}
         >
-          {type === "food" ? (
-            <RiceBowlIcon size={28} color={filled ? filledColor : emptyColor} pointerEvents="none" />
-          ) : (
-            <WaterGlassIcon size={28} filled={filled} color="#93C5FD" pointerEvents="none" />
-          )}
-        </Pressable>
-      );
-    })}
-  </View>
-);
+          {indices.map((i) => {
+            const filled = i < count;
+            const label =
+              type === "food"
+                ? `Meal ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set meals to ${i + 1}.`
+                : `Cup ${i + 1} of ${total}, ${filled ? "logged" : "not logged"}. Tap to set cups to ${i + 1}.`;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => onSelectSlot(i)}
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                style={{
+                  width: INTAKE_SLOT_LAYOUT,
+                  height: INTAKE_SLOT_LAYOUT,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                {...(Platform.OS === "android"
+                  ? { android_ripple: { color: "rgba(0,0,0,0.08)", borderless: true } }
+                  : {})}
+              >
+                {type === "food" ? (
+                  <RiceBowlIcon
+                    size={28}
+                    color={filled ? filledColor : emptyColor}
+                    pointerEvents="none"
+                  />
+                ) : (
+                  <WaterGlassIcon size={28} filled={filled} color="#93C5FD" pointerEvents="none" />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+};
 
 function OutputDropIcons({
   count,
@@ -691,8 +721,7 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
               <Ionicons name="settings-outline" size={20} color={theme.secondary} />
             </TouchableOpacity>
           </View>
-          {/* Equal-height cards: row stretch + inner column space-between so extra height isn’t a dead gap */}
-          <View style={{ flexDirection: "row", alignItems: "stretch", gap: 12, marginBottom: 24 }}>
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
         <View
           style={{
             flex: 1,
@@ -704,45 +733,41 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
             ...cardBorderStyle,
           }}
         >
-          <View style={{ flex: 1, minHeight: 0, justifyContent: "space-between" }}>
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <RiceBowlIcon size={22} color={isDark ? theme.foreground : "#1D2433"} />
-                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Food</Text>
-              </View>
-              <Text
-                numberOfLines={2}
-                style={{
-                  fontSize: 12,
-                  lineHeight: 16,
-                  color: theme.secondary,
-                  marginTop: 2,
-                  marginLeft: 30,
-                  minHeight: 32,
-                }}
-              >
-                {foodIntake * resolvedIntake.gramsPerMeal}g/{foodTarget * resolvedIntake.gramsPerMeal}g daily
-              </Text>
-            </View>
-            <ProgressIcons
-              count={foodIntake}
-              total={foodTarget}
-              filledColor={primaryTeal}
-              emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
-              type="food"
-              onSelectSlot={(i) => mutation.mutate({ food_intake: Math.min(i + 1, foodTarget) })}
-            />
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: "600",
-                color: theme.foreground,
-                textAlign: "center",
-              }}
-            >
-              {foodIntake}/{foodTarget} meals
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <RiceBowlIcon size={22} color={isDark ? theme.foreground : "#1D2433"} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Food</Text>
           </View>
+          <Text
+            numberOfLines={2}
+            style={{
+              fontSize: 12,
+              lineHeight: 16,
+              color: theme.secondary,
+              marginTop: 2,
+              marginLeft: 30,
+              minHeight: 32,
+            }}
+          >
+            {foodIntake * resolvedIntake.gramsPerMeal}g/{foodTarget * resolvedIntake.gramsPerMeal}g daily
+          </Text>
+          <ProgressIcons
+            count={foodIntake}
+            total={foodTarget}
+            filledColor={primaryTeal}
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
+            type="food"
+            onSelectSlot={(i) => mutation.mutate({ food_intake: Math.min(i + 1, foodTarget) })}
+          />
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "600",
+              color: theme.foreground,
+              textAlign: "center",
+            }}
+          >
+            {foodIntake}/{foodTarget} meals
+          </Text>
         </View>
 
         <View
@@ -756,45 +781,41 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
             ...cardBorderStyle,
           }}
         >
-          <View style={{ flex: 1, minHeight: 0, justifyContent: "space-between" }}>
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="water-outline" size={22} color={isDark ? "#FFFFFF" : "#1D2433"} />
-                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Water</Text>
-              </View>
-              <Text
-                numberOfLines={2}
-                style={{
-                  fontSize: 12,
-                  lineHeight: 16,
-                  color: theme.secondary,
-                  marginTop: 2,
-                  marginLeft: 30,
-                  minHeight: 32,
-                }}
-              >
-                {waterIntake * resolvedIntake.mlPerCup}ml/{waterTarget * resolvedIntake.mlPerCup}ml daily
-              </Text>
-            </View>
-            <ProgressIcons
-              count={waterIntake}
-              total={waterTarget}
-              filledColor={isDark ? "#60A5FA" : "#3B82F6"}
-              emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
-              type="water"
-              onSelectSlot={(i) => mutation.mutate({ water_intake: Math.min(i + 1, waterTarget) })}
-            />
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: "600",
-                color: theme.foreground,
-                textAlign: "center",
-              }}
-            >
-              {waterIntake}/{waterTarget} cups
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="water-outline" size={22} color={isDark ? "#FFFFFF" : "#1D2433"} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Water</Text>
           </View>
+          <Text
+            numberOfLines={2}
+            style={{
+              fontSize: 12,
+              lineHeight: 16,
+              color: theme.secondary,
+              marginTop: 2,
+              marginLeft: 30,
+              minHeight: 32,
+            }}
+          >
+            {waterIntake * resolvedIntake.mlPerCup}ml/{waterTarget * resolvedIntake.mlPerCup}ml daily
+          </Text>
+          <ProgressIcons
+            count={waterIntake}
+            total={waterTarget}
+            filledColor={isDark ? "#60A5FA" : "#3B82F6"}
+            emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
+            type="water"
+            onSelectSlot={(i) => mutation.mutate({ water_intake: Math.min(i + 1, waterTarget) })}
+          />
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "600",
+              color: theme.foreground,
+              textAlign: "center",
+            }}
+          >
+            {waterIntake}/{waterTarget} cups
+          </Text>
         </View>
       </View>
         </>

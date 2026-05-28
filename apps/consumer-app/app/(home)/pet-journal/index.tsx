@@ -74,6 +74,10 @@ export default function PetJournalScreen() {
 
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [domain, setDomain] = useState<JournalDomain>("health");
+  const selectedPetName = useMemo(
+    () => pets.find((p) => p.id === selectedPetId)?.name,
+    [pets, selectedPetId]
+  );
 
   useEffect(() => {
     if (petIdParam && pets.some((p) => p.id === petIdParam)) {
@@ -432,7 +436,9 @@ export default function PetJournalScreen() {
                       #{sort_order} · {JOURNAL_DOMAIN_LABEL[entry.domain as JournalDomain]} ·{" "}
                       {subtypeLabel(entry.domain as JournalDomain, entry.subtype)}
                     </Text>
-                    {entry.note ? <JournalNoteText text={entry.note} /> : null}
+                    {entry.note ? (
+                      <JournalNoteText text={entry.note} petName={selectedPetName} />
+                    ) : null}
                   </Pressable>
                 ))}
               </View>
@@ -516,7 +522,7 @@ export default function PetJournalScreen() {
                       {e.severity}
                     </Text>
                   </View>
-                  {e.note ? <JournalNoteText text={e.note} /> : null}
+                  {e.note ? <JournalNoteText text={e.note} petName={selectedPetName} /> : null}
                   <JournalEntryInterviewDetail
                     metadata={parseInterviewMetadata(e.interview_metadata)}
                   />
@@ -577,7 +583,9 @@ export default function PetJournalScreen() {
                     <Text style={{ fontSize: 11, fontWeight: "600", color: "#C2410C" }}>Vet</Text>
                   </View>
                 )}
-                {journal.note ? <JournalNoteText text={journal.note} /> : null}
+                {journal.note ? (
+                  <JournalNoteText text={journal.note} petName={selectedPetName} />
+                ) : null}
                 <JournalEntryInterviewDetail
                   metadata={parseInterviewMetadata(journal.interview_metadata)}
                   showPostVetFeedback={journal.vet_flagged === true}

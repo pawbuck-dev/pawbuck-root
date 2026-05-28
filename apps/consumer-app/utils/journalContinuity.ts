@@ -32,15 +32,60 @@ export function formatLastEntryMeta(entryDate: string): string {
   return formatEntryDateRelative(entryDate).toUpperCase();
 }
 
-/** Headline from note body for home journal card. */
-export function formatLatestEntryTitle(note: string | null | undefined, maxLen = 80): string {
+/**
+ * Turn imperative routine logs ("Log 2 bowls of food for Milo") into past-tense display copy.
+ * Raw note text is unchanged in the database.
+ */
+export function humanizeRoutineJournalNote(
+  note: string | null | undefined,
+  petName?: string
+): string | null {
   const trimmed = note?.trim();
-  if (!trimmed) return "Journal entry";
-  if (trimmed.length <= maxLen) return trimmed;
-  const slice = trimmed.slice(0, maxLen);
+  if (!trimmed) return null;
+
+  let text = trimmed;
+  if (petName?.trim()) {
+    const escaped = petName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp(`\\s+for\\s+${escaped}\\s*$`, "i"), "");
+  }
+  text = text.replace(/\s+for\s+(your\s+pet|them)\s*$/i, "").trim();
+
+  const bowl = /^log\s+(\d+)\s+bowls?\s+of\s+food\s*$/i.exec(text);
+  if (bowl) {
+    const n = Number(bowl[1]);
+    return n === 1 ? "1 meal logged" : `${n} meals logged`;
+  }
+  const glasses = /^log\s+(\d+)\s+glasses?\s+of\s+water\s*$/i.exec(text);
+  if (glasses) {
+    const n = Number(glasses[1]);
+    return n === 1 ? "1 cup of water logged" : `${n} cups of water logged`;
+  }
+  if (/^log\s+/i.test(text)) {
+    const rest = text.replace(/^log\s+/i, "").trim();
+    if (!rest) return trimmed;
+    const cap = rest.charAt(0).toUpperCase() + rest.slice(1);
+    return /logged$/i.test(cap) ? cap : `${cap} logged`;
+  }
+  return trimmed;
+}
+
+function truncateAtWord(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  const slice = text.slice(0, maxLen);
   const lastSpace = slice.lastIndexOf(" ");
   if (lastSpace > maxLen * 0.6) return `${slice.slice(0, lastSpace)}…`;
   return `${slice}…`;
+}
+
+/** Headline from note body for home journal card. */
+export function formatLatestEntryTitle(
+  note: string | null | undefined,
+  maxLen = 80,
+  petName?: string
+): string {
+  const display = humanizeRoutineJournalNote(note, petName) ?? note?.trim();
+  if (!display) return "Journal entry";
+  return truncateAtWord(display, maxLen);
 }
 
 function humanizeTriageStatus(status: string | null | undefined): string | null {

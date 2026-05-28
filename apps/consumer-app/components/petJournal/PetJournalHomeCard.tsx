@@ -128,40 +128,47 @@ export default function PetJournalHomeCard({ pet }: Props) {
         ...borderStyle,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: isDark ? "rgba(56, 189, 189, 0.2)" : "rgba(59, 208, 210, 0.18)",
-            alignItems: "center",
-            justifyContent: "center",
-            marginRight: 10,
-          }}
-        >
-          <Ionicons name="sparkles" size={20} color={theme.primary} />
+      <View style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: isDark ? "rgba(56, 189, 189, 0.2)" : "rgba(59, 208, 210, 0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 10,
+            }}
+          >
+            <Ionicons name="sparkles" size={20} color={theme.primary} />
+          </View>
+          <Text
+            style={{ flex: 1, fontSize: 16, fontWeight: "700", color: theme.foreground }}
+            numberOfLines={1}
+          >
+            {pet.name}&apos;s Journal
+          </Text>
+          {isPending ? <ActivityIndicator size="small" color={theme.primary} /> : null}
         </View>
-        <Text
-          style={{ flex: 1, fontSize: 16, fontWeight: "700", color: theme.foreground }}
-          numberOfLines={1}
-        >
-          {pet.name}&apos;s Journal
-        </Text>
-        {isPending ? (
-          <ActivityIndicator size="small" color={theme.primary} />
-        ) : (
+        {!isPending ? (
           <Pressable
             onPress={() => openJournal()}
             hitSlop={8}
-            style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 8 }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "flex-end",
+              gap: 2,
+              marginTop: 4,
+            }}
             accessibilityRole="button"
             accessibilityLabel={`View all journal entries, ${viewAllLabel}`}
           >
             <Text style={{ fontSize: 13, fontWeight: "600", color: theme.primary }}>{viewAllLabel}</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.primary} />
           </Pressable>
-        )}
+        ) : null}
       </View>
 
       {latestEntry ? (
@@ -208,7 +215,7 @@ export default function PetJournalHomeCard({ pet }: Props) {
                 style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, lineHeight: 20 }}
                 numberOfLines={2}
               >
-                {formatLatestEntryTitle(latestEntry.note)}
+                {formatLatestEntryTitle(latestEntry.note, 80, pet.name)}
               </Text>
               <Text
                 style={{ fontSize: 12, color: theme.secondary, marginTop: 4, lineHeight: 17 }}

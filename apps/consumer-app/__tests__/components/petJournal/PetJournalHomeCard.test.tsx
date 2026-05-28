@@ -91,6 +91,29 @@ describe("PetJournalHomeCard", () => {
     expect(screen.getByText("Check in with Milo")).toBeTruthy();
   });
 
+  it("humanizes routine meal log notes on the home card", () => {
+    (useQuery as jest.Mock).mockReturnValue({
+      data: [
+        {
+          id: "e2",
+          pet_id: "pet-1",
+          domain: "health",
+          subtype: "diet",
+          entry_date: new Date().toISOString().slice(0, 10),
+          note: "Log 1 bowl of food for Awesome",
+          triage_status: "active",
+          vet_flagged: false,
+        },
+      ],
+      isPending: false,
+    });
+
+    const awesomePet = { ...pet, name: "Awesome" };
+    render(<PetJournalHomeCard pet={awesomePet} />);
+    expect(screen.getByText("1 meal logged")).toBeTruthy();
+    expect(screen.queryByText("Log 1 bowl of food for Awesome")).toBeNull();
+  });
+
   it("shows loading indicator while fetching", () => {
     (useQuery as jest.Mock).mockReturnValue({
       data: undefined,

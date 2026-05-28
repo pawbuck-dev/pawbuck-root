@@ -1,4 +1,5 @@
 import { useTheme } from "@/context/themeContext";
+import { humanizeRoutineJournalNote } from "@/utils/journalContinuity";
 import React, { useMemo } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
@@ -54,13 +55,15 @@ function LineWithBold({
 
 type Props = {
   text: string;
+  /** When set, strips trailing "for {name}" and humanizes routine log phrasing. */
+  petName?: string;
   style?: StyleProp<TextStyle>;
 };
 
 /**
  * Journal note body: optional [URGENT] / [CRITICAL] badge and minimal **bold** markdown.
  */
-export function JournalNoteText({ text, style }: Props) {
+export function JournalNoteText({ text, petName, style }: Props) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
 
@@ -69,9 +72,10 @@ export function JournalNoteText({ text, style }: Props) {
     [style, theme.foreground]
   );
 
-  if (!text.trim()) return null;
+  const displayText = humanizeRoutineJournalNote(text, petName) ?? text;
+  if (!displayText.trim()) return null;
 
-  const { badge, body } = parseClinicalPrefix(text);
+  const { badge, body } = parseClinicalPrefix(displayText);
   const lines = body.split("\n");
 
   const urgentBg = isDark ? "rgba(251,146,60,0.22)" : "rgba(254,215,170,0.95)";

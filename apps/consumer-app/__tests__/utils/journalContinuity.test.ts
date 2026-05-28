@@ -7,6 +7,7 @@ import {
   formatLastJournalContinuityLine,
   formatLatestEntrySubtitle,
   formatLatestEntryTitle,
+  humanizeRoutineJournalNote,
 } from "@/utils/journalContinuity";
 
 describe("formatEntryDateRelative", () => {
@@ -47,9 +48,32 @@ describe("formatLastJournalContinuityLine", () => {
   });
 });
 
+describe("humanizeRoutineJournalNote", () => {
+  it("converts meal log imperatives to past tense", () => {
+    expect(humanizeRoutineJournalNote("Log 1 bowl of food for Awesome", "Awesome")).toBe(
+      "1 meal logged"
+    );
+  });
+
+  it("converts water log imperatives", () => {
+    expect(humanizeRoutineJournalNote("Log 2 glasses of water")).toBe("2 cups of water logged");
+  });
+
+  it("leaves symptom notes unchanged", () => {
+    const note = "Vomiting twice since last night";
+    expect(humanizeRoutineJournalNote(note)).toBe(note);
+  });
+});
+
 describe("formatLatestEntryTitle", () => {
   it("falls back when note is empty", () => {
     expect(formatLatestEntryTitle(null)).toBe("Journal entry");
+  });
+
+  it("humanizes routine logs for home card", () => {
+    expect(formatLatestEntryTitle("Log 1 bowl of food for Awesome", 80, "Awesome")).toBe(
+      "1 meal logged"
+    );
   });
 
   it("truncates long notes at word boundary", () => {

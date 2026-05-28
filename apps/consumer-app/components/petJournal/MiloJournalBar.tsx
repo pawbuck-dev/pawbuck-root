@@ -147,33 +147,28 @@ export const MiloJournalBar: React.FC<MiloJournalBarProps> = ({ pet, domain }) =
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8, paddingRight: 4 }}
       >
-        {pills.map((p, index) => {
-          const isPrimary = index === 0;
-          return (
-            <Pressable
-              key={p}
-              onPress={() => submit(p)}
+        {pills.map((p) => (
+          <Pressable
+            key={p}
+            onPress={() => submit(p)}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 100,
+              backgroundColor: surfaces.mutedChipBackground,
+            }}
+          >
+            <Text
               style={{
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: 100,
-                backgroundColor: isPrimary
-                  ? surfaces.primaryChipBackground
-                  : surfaces.mutedChipBackground,
+                fontSize: 13,
+                fontWeight: "600",
+                color: surfaces.mutedChipForeground,
               }}
             >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: isPrimary ? surfaces.primaryChipForeground : surfaces.mutedChipForeground,
-                }}
-              >
-                {p}
-              </Text>
-            </Pressable>
-          );
-        })}
+              {p}
+            </Text>
+          </Pressable>
+        ))}
       </ScrollView>
     </View>
   );
