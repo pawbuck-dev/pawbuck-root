@@ -1,8 +1,8 @@
 import {
   MILO_DOCUMENT_FALLBACK_MESSAGE,
   MILO_DOCUMENT_TIMEOUT_MESSAGE,
-} from "@pawbuck/api-client";
-import { formatMiloUploadError } from "@/utils/miloUploadErrors";
+  formatMiloUploadError,
+} from "@/utils/miloUploadErrors";
 
 describe("formatMiloUploadError", () => {
   it("maps HTML 504 body to friendly timeout copy", () => {
