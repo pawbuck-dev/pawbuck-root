@@ -14,9 +14,15 @@ import {
   createMaterialTopTabNavigator,
 } from "@react-navigation/material-top-tabs";
 import { ParamListBase, TabNavigationState } from "@react-navigation/native";
+import { useSelectedPet } from "@/context/selectedPetContext";
+import { useHealthRecordPetId } from "@/hooks/useHealthRecordPetId";
 import {
+  HealthRecordTab,
+  healthRecordTabHref,
+} from "@/utils/healthRecordNavigation";
+import {
+  Redirect,
   router,
-  useLocalSearchParams,
   useSegments,
   withLayoutContext,
 } from "expo-router";
@@ -34,10 +40,8 @@ export const MaterialTopTabs = withLayoutContext<
   MaterialTopTabNavigationEventMap
 >(Navigator);
 
-type Tab = "vaccinations" | "medications" | "exams" | "lab-results";
-
 /** Short labels combined with pet name in the header, e.g. "Max's Labs" */
-const TAB_TITLE: Record<Tab, string> = {
+const TAB_TITLE: Record<HealthRecordTab, string> = {
   vaccinations: "Vaccines",
   medications: "Medications",
   exams: "Exams",
@@ -47,13 +51,27 @@ const TAB_TITLE: Record<Tab, string> = {
 export default function HealthRecordsLayout() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const routePetId = useHealthRecordPetId();
+  const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const { pets } = usePets();
-  const currentPet = useMemo(() => pets.find((p) => p.id === id), [pets, id]);
   const segments = useSegments();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<Tab>("vaccinations");
+  const [activeTab, setActiveTab] = useState<HealthRecordTab>("vaccinations");
   const [showUploadSheet, setShowUploadSheet] = useState(false);
+  /** When set, <Redirect> remounts the stack with the new pet id (router.replace alone often no-ops here). */
+  const [redirectPetId, setRedirectPetId] = useState<string | null>(null);
+
+  const displayPetId = redirectPetId ?? selectedPetId ?? routePetId;
+  const currentPet = useMemo(
+    () => pets.find((p) => p.id === displayPetId),
+    [pets, displayPetId]
+  );
+
+  useEffect(() => {
+    if (redirectPetId && routePetId === redirectPetId) {
+      setRedirectPetId(null);
+    }
+  }, [redirectPetId, routePetId]);
 
   const tabHeaderTitle = useMemo(
     () => petPossessiveLabel(currentPet?.name, TAB_TITLE[activeTab]),
@@ -70,8 +88,8 @@ export default function HealthRecordsLayout() {
   );
 
   useEffect(() => {
-    const currentTab = segments[segments.length - 1] as Tab;
-    const validTabs: Tab[] = ["vaccinations", "medications", "exams", "lab-results"];
+    const currentTab = segments[segments.length - 1] as HealthRecordTab;
+    const validTabs: HealthRecordTab[] = ["vaccinations", "medications", "exams", "lab-results"];
     if (currentTab && validTabs.includes(currentTab)) {
       setActiveTab(currentTab);
     } else {
@@ -80,7 +98,7 @@ export default function HealthRecordsLayout() {
   }, [segments]);
 
   const sheetConfig = useMemo(() => {
-    const pid = id;
+    const pid = displayPetId;
     const opts: UploadSheetOption[] = [];
     let title = "Upload";
 
@@ -220,13 +238,17 @@ export default function HealthRecordsLayout() {
     }
 
     return { title, options: opts };
-  }, [activeTab, id]);
+  }, [activeTab, displayPetId]);
 
   const handleFabPress = () => {
     setShowUploadSheet((s) => !s);
   };
 
   const tabCanvas = healthRecordTabCanvas(theme, isDark);
+
+  if (redirectPetId && redirectPetId !== routePetId) {
+    return <Redirect href={healthRecordTabHref(redirectPetId, activeTab)} />;
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: tabCanvas }}>
@@ -236,7 +258,9 @@ export default function HealthRecordsLayout() {
       <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <TouchableOpacity
-            onPress={() => router.replace(`/(home)/health-record/${id}` as any)}
+            onPress={() =>
+              displayPetId && router.replace(`/(home)/health-record/${displayPetId}` as any)
+            }
             activeOpacity={0.7}
             style={{
               width: 40,
@@ -268,16 +292,18 @@ export default function HealthRecordsLayout() {
         <View style={{ marginBottom: 8 }}>
           <PetSelector
             pets={pets}
-            selectedPetId={id}
-            onSelectPet={(petId) => {
-              router.replace(`/(home)/health-record/${petId}/(tabs)/${activeTab}` as any);
+            selectedPetId={displayPetId ?? null}
+            onSelectPet={(nextPetId) => {
+              if (!nextPetId || nextPetId === displayPetId) return;
+              setSelectedPetId(nextPetId);
+              setRedirectPetId(nextPetId);
             }}
             notificationCounts={{}}
           />
         </View>
       )}
 
-      <View className="flex-1" style={{ backgroundColor: tabCanvas }}>
+      <View key={displayPetId} className="flex-1" style={{ backgroundColor: tabCanvas }}>
         <MaterialTopTabs
           initialRouteName="vaccinations"
           tabBarPosition="top"
@@ -296,7 +322,7 @@ export default function HealthRecordsLayout() {
         </MaterialTopTabs>
       </View>
 
-      <BottomNavBar activeTab="records" selectedPetId={id} />
+      <BottomNavBar activeTab="records" selectedPetId={displayPetId} />
 
       <TouchableOpacity
         onPress={handleFabPress}

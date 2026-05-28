@@ -9,9 +9,12 @@ import { useHealthAttentionForPet, usePetHealthNotificationCounts } from "@/hook
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { petPossessiveLabel } from "@/utils/petCopy";
 import { useTheme } from "@/context/themeContext";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useHealthRecordPetId } from "@/hooks/useHealthRecordPetId";
+import { useSelectedPet } from "@/context/selectedPetContext";
+import { healthRecordHubHref } from "@/utils/healthRecordNavigation";
+import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,20 +25,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function HealthRecordsHubScreen() {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const routePetId = useHealthRecordPetId();
+  const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const router = useRouter();
   const { pets } = usePets();
+  const [redirectPetId, setRedirectPetId] = useState<string | null>(null);
+
+  const displayPetId = redirectPetId ?? selectedPetId ?? routePetId;
+
+  useEffect(() => {
+    if (redirectPetId && routePetId === redirectPetId) {
+      setRedirectPetId(null);
+    }
+  }, [redirectPetId, routePetId]);
+
   const insets = useSafeAreaInsets();
   const { openChat, setSelectedPet } = useChat();
 
-  const pet = pets.find((p) => p.id === id);
+  const pet = pets.find((p) => p.id === displayPetId);
   const petName = pet?.name ?? "your pet";
 
   const notificationCounts = usePetHealthNotificationCounts(pets.map((p) => p.id));
-  const { attentionCount, subtitle: attentionSubtitle } = useHealthAttentionForPet(id);
+  const { attentionCount, subtitle: attentionSubtitle } = useHealthAttentionForPet(displayPetId);
 
   /** Dark: same deeper well as health tabs + dashboard (cards sit on top like Care Team). */
   const pageBg = healthRecordTabCanvas(theme, isDark);
+
+  if (redirectPetId && redirectPetId !== routePetId) {
+    return <Redirect href={healthRecordHubHref(redirectPetId)} />;
+  }
 
   return (
     <View className="flex-1" style={{ backgroundColor: pageBg }}>
@@ -66,9 +84,11 @@ export default function HealthRecordsHubScreen() {
           <View style={{ marginBottom: 12, paddingHorizontal: 4 }}>
             <PetSelector
               pets={pets}
-              selectedPetId={id}
-              onSelectPet={(petId) => {
-                router.replace(`/(home)/health-record/${petId}` as any);
+              selectedPetId={displayPetId ?? null}
+              onSelectPet={(nextPetId) => {
+                if (!nextPetId || nextPetId === displayPetId) return;
+                setSelectedPetId(nextPetId);
+                setRedirectPetId(nextPetId);
               }}
               notificationCounts={notificationCounts}
             />
@@ -79,7 +99,10 @@ export default function HealthRecordsHubScreen() {
           {attentionCount > 0 ? (
             <HealthRecordsAttentionBanner
               subtitle={attentionSubtitle}
-              onPress={() => router.push(`/(home)/health-record/${id}/(tabs)/vaccinations` as any)}
+              onPress={() =>
+                displayPetId &&
+                router.push(`/(home)/health-record/${displayPetId}/(tabs)/vaccinations` as any)
+              }
             />
           ) : null}
 
@@ -109,7 +132,7 @@ export default function HealthRecordsHubScreen() {
           </TouchableOpacity>
 
           <HealthRecordsSection
-            petId={id}
+            petId={displayPetId ?? ""}
             petName={petName}
             variant="hub"
             showTitle={false}
@@ -119,7 +142,7 @@ export default function HealthRecordsHubScreen() {
         </View>
       </ScrollView>
 
-      <BottomNavBar activeTab="records" selectedPetId={id} />
+      <BottomNavBar activeTab="records" selectedPetId={displayPetId} />
 
       {pet ? (
         <TouchableOpacity

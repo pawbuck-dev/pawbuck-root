@@ -35,6 +35,12 @@ export default function PetSelector({
           <TouchableOpacity
             key={pet.id}
             onPress={() => onSelectPet(pet.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${pet.name}${isSelected ? ", selected" : ""}`}
+            accessibilityHint={
+              isSelected ? undefined : `Show ${pet.name}'s health records`
+            }
+            accessibilityState={{ selected: isSelected }}
             activeOpacity={0.7}
             style={{
               flexDirection: "row",

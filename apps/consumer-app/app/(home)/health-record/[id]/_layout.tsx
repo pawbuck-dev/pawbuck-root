@@ -1,27 +1,38 @@
 import { ClinicalExamsProvider } from "@/context/clinicalExamsContext";
 import { LabResultsProvider } from "@/context/labResultsContext";
 import { MedicinesProvider } from "@/context/medicinesContext";
-import { SelectedPetProvider } from "@/context/selectedPetContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { VaccinationsProvider } from "@/context/vaccinationsContext";
 import { useTheme } from "@/context/themeContext";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { useHealthRecordPetId } from "@/hooks/useHealthRecordPetId";
+import { Stack } from "expo-router";
+import { useEffect } from "react";
 
 export default function HealthRecordLayout() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const routePetId = useHealthRecordPetId();
+  const { setSelectedPetId } = useSelectedPet();
   const { theme } = useTheme();
 
+  useEffect(() => {
+    if (routePetId) setSelectedPetId(routePetId);
+  }, [routePetId, setSelectedPetId]);
+
+  if (!routePetId) {
+    return null;
+  }
+
   return (
-    <SelectedPetProvider petId={id}>
-      <VaccinationsProvider>
-        <MedicinesProvider>
-          <LabResultsProvider>
-            <ClinicalExamsProvider>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: theme.background },
-                }}
-              >
+    <VaccinationsProvider key={routePetId}>
+      <MedicinesProvider key={routePetId}>
+        <LabResultsProvider key={routePetId}>
+          <ClinicalExamsProvider key={routePetId}>
+            <Stack
+              key={routePetId}
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: theme.background },
+              }}
+            >
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen
@@ -81,11 +92,10 @@ export default function HealthRecordLayout() {
                     animation: "slide_from_right",
                   }}
                 />
-              </Stack>
-            </ClinicalExamsProvider>
-          </LabResultsProvider>
-        </MedicinesProvider>
-      </VaccinationsProvider>
-    </SelectedPetProvider>
+            </Stack>
+          </ClinicalExamsProvider>
+        </LabResultsProvider>
+      </MedicinesProvider>
+    </VaccinationsProvider>
   );
 }
