@@ -124,7 +124,7 @@ public class SupportMiloClassifyController : ControllerBase
         string? extractionError = null;
         try
         {
-            extractedJson = await _miloVision.PreviewFlexibleExtractionAsync(bytes, mime, classify.DocumentType, cancellationToken);
+            extractedJson = await _miloVision.PreviewVaultExtractionAsync(bytes, mime, classify.DocumentType, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -281,6 +281,57 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
     }
 
     /// <inheritdoc />
+    public async Task<string> PreviewVaultExtractionAsync(
+        byte[] bytes,
+        string mimeType,
+        string classifiedDocumentType,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        if (bytes.Length == 0)
+            throw new ArgumentException("File bytes are empty.", nameof(bytes));
+
+        var apiKey = _geminiOptions.Value.ApiKey?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY")?.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("Gemini API key is not configured");
+
+        var model = string.IsNullOrWhiteSpace(_geminiOptions.Value.Model)
+            ? GeminiOptions.DefaultModelId
+            : _geminiOptions.Value.Model!.Trim();
+
+        var docType = NormalizeVaultDocumentType(classifiedDocumentType);
+        var base64 = Convert.ToBase64String(bytes);
+        var mime = ResolveMimeType(mimeType, "preview");
+
+        if (UsesFlexibleVaultExtraction(docType))
+        {
+            var extractionPrompt = _prompts.GetFlexibleExtractionPrompt(docType);
+            return await RunFlexibleExtractionAsync(base64, mime, extractionPrompt, apiKey, model, cancellationToken);
+        }
+
+        var medicalPrompt = _prompts.GetPromptForType(docType);
+        var extractedJson = await RunMedicalRecordExtractionAsync(
+            base64, mime, medicalPrompt, apiKey, model, cancellationToken);
+
+        if (IsVaccinationsDocumentType(docType) && !HasVaccinationItemsInExtraction(extractedJson))
+        {
+            const string retrySuffix = """
+
+IMPORTANT: Return a non-empty "items" array for vaccines explicitly listed as administered/given on the document.
+Each administered vaccine must have "administeredDate" (ISO YYYY-MM-DD) and "expiryDate" when a next-due date is shown.
+Do NOT include vaccines that appear only under "due for booster", "next due", or similar — those are not proof of administration.
+Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") — never use the document title as an item name.
+""";
+            extractedJson = await RunMedicalRecordExtractionAsync(
+                base64, mime, medicalPrompt + retrySuffix, apiKey, model, cancellationToken);
+        }
+
+        return extractedJson;
+    }
+
+    /// <inheritdoc />
     public async Task<string> PreviewFlexibleExtractionAsync(
         byte[] bytes,
         string mimeType,

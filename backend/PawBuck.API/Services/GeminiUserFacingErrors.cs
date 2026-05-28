@@ -30,6 +30,13 @@ public static class GeminiUserFacingErrors
                    + "The value must match the key exactly (typically starts with \"AIza\"). Do not use Admin:ApiKey unless it is that same AI Studio key; remove stray quotes or whitespace. Restart the API after changes.";
         }
 
+        if (message.Contains("didn't complete within the allowed timeout", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("TimeoutRejectedException", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("The operation was canceled", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Gemini vision took too long for this document. Try again or use a smaller/clearer scan.";
+        }
+
         return message;
     }
 }

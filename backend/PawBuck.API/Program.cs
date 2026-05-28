@@ -77,6 +77,8 @@ builder.Services.AddHttpClient("Gemini")
         options.Retry.ShouldRetryAfterHeader = true;
         options.Retry.UseJitter = true;
 
+        // Default AttemptTimeout is 10s — too short for Milo vision classify/extract on multi-sticker PDFs.
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(120);
         options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
 
         options.Retry.OnRetry = args =>

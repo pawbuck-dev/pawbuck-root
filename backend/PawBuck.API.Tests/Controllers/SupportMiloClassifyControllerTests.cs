@@ -149,7 +149,7 @@ public class SupportMiloClassifyControllerTests
 
         const string extracted = """{"title":"Rabies","summary":"Cert","primaryDate":null,"keyFacts":[],"confidenceScore":90}""";
         _miloVisionMock
-            .Setup(v => v.PreviewFlexibleExtractionAsync(png, "image/png", "vaccinations", It.IsAny<CancellationToken>()))
+            .Setup(v => v.PreviewVaultExtractionAsync(png, "image/png", "vaccinations", It.IsAny<CancellationToken>()))
             .ReturnsAsync(extracted);
 
         var result = await _controller.ClassifyExtractPreview(

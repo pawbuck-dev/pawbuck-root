@@ -23,7 +23,16 @@ public interface IMiloVisionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Admin preview only: run the same flexible vault JSON extraction as the document pipeline (no storage/DB).
+    /// Admin preview only: run vault extraction using the same branch as production analyze (medical-record vs flexible).
+    /// </summary>
+    Task<string> PreviewVaultExtractionAsync(
+        byte[] bytes,
+        string mimeType,
+        string classifiedDocumentType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin preview only: run the same flexible vault JSON extraction as insurance/pedigree/identity documents.
     /// </summary>
     /// <param name="bytes">Raw file bytes (image or PDF).</param>
     /// <param name="mimeType">MIME type for Gemini inline_data.</param>
