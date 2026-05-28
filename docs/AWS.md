@@ -26,6 +26,23 @@ Push to **ECR** and use the image in an ECS task definition:
 - **Health check path (ALB):** `GET /api/health` → `{ "status": "healthy", "mailResolveConfigured": true/false, ... }` (boolean flags only; no secrets). Use `mailResolveConfigured` and `supabaseServiceRoleConfigured` after ECS deploy to confirm Review Inbox (`POST /api/mail/resolve`) can call Supabase Edge Functions.
 - **Environment:** `ASPNETCORE_ENVIRONMENT=Production` (or `Staging`)
 
+### ECS task size (Fargate CPU / memory)
+
+Milo vision (classify + extract on multi-page PDFs) loads full document bytes into memory and calls Gemini. **512 MiB / 1024 MiB tasks often OOM or fail to start**, which shows up as ECS tasks cycling **STOPPED** during deploy.
+
+**Recommended minimum for production:** **1024 CPU** (1 vCPU) and **4096 MiB** (4 GB) memory.
+
+Set GitHub **Variables** so each **Deploy AWS** run keeps this size when the merge script registers a new task definition:
+
+| Variable | Example | Notes |
+|----------|---------|--------|
+| `AWS_ECS_TASK_CPU` | `1024` | Fargate CPU units (1024 = 1 vCPU). Set together with memory. |
+| `AWS_ECS_TASK_MEMORY` | `4096` | Memory in **MiB**. Must be a [valid Fargate pair](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html) for your CPU. |
+
+If you raised memory in the ECS console manually, set these variables to the **same values** before the next deploy so the workflow does not register a revision with the old size.
+
+After deploy, confirm tasks stay **Running**: ECS → cluster → service → **Tasks** tab (not repeatedly **Essential container exited** / **OutOfMemoryError** in stopped task logs).
+
 ### Required configuration (secrets / env)
 
 Set the same values you use locally (`appsettings`), via task definition env or secrets injection:
@@ -212,6 +229,8 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_ECS_CLUSTER` | API deploy | `my-cluster` |
 | `AWS_ECS_SERVICE` | API deploy | `pawbuck-api` |
 | `AWS_ECS_CONTAINER_NAME` | API deploy | Optional. Container name to set env on; defaults to the **first** container in the task definition. |
+| `AWS_ECS_TASK_CPU` | API deploy | Optional. Fargate CPU units (e.g. `1024`). Set with `AWS_ECS_TASK_MEMORY` — see **ECS task size** above. |
+| `AWS_ECS_TASK_MEMORY` | API deploy | Optional. Fargate memory in MiB (e.g. `4096` for Milo PDF workloads). |
 | `GEMINI_SECRET_JSON_KEY` | API deploy | Optional. When `GEMINI_SECRET_ARN` secret is set and the secret is JSON, set to the field name (e.g. `ApiKey`). Leave empty for a plaintext secret value. |
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |
@@ -248,6 +267,7 @@ Verify **`GET /api/health`** on your public API host after deploy (e.g. `curl`);
    - **Login to Amazon ECR** succeeds.
    - **Build, tag, push image** shows push to `.../REPO:sha` and `:latest`.
    - **ECS force new deployment** completes without AWS API errors.
+   - **Wait for ECS service stability** step succeeds (new tasks pass health checks; fails the workflow if tasks keep stopping).
 
 4. **Verify in AWS**
    - **ECR:** New image tags (`latest` and commit SHA) on the repository.

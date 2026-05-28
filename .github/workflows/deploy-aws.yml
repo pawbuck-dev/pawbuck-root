@@ -72,6 +72,8 @@ jobs:
           AWS_ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
           AWS_ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
           AWS_ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
+          AWS_ECS_TASK_CPU: ${{ vars.AWS_ECS_TASK_CPU }}
+          AWS_ECS_TASK_MEMORY: ${{ vars.AWS_ECS_TASK_MEMORY }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           # Server-only Supabase service role — Review Inbox resolve, support attachment preview, Milo analyze-internal Storage.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -109,6 +111,22 @@ jobs:
             fi
             bash scripts/deploy/ecs-merge-pawbuck-api-env.sh
           fi
+
+      - name: Wait for ECS service stability
+        env:
+          AWS_ECS_CLUSTER: ${{ vars.AWS_ECS_CLUSTER }}
+          AWS_ECS_SERVICE: ${{ vars.AWS_ECS_SERVICE }}
+        run: |
+          set -eux
+          export AWS_ECS_CLUSTER="$(echo -n "${AWS_ECS_CLUSTER:-}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          export AWS_ECS_SERVICE="$(echo -n "${AWS_ECS_SERVICE:-}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          test -n "${AWS_ECS_CLUSTER:-}" && test -n "${AWS_ECS_SERVICE:-}" || exit 0
+          echo "Waiting for ECS service to stabilize (new tasks healthy)..."
+          aws ecs wait services-stable \
+            --cluster "$AWS_ECS_CLUSTER" \
+            --services "$AWS_ECS_SERVICE" \
+            --region "$AWS_REGION"
+          echo "ECS service is stable."
 
   deploy-admin:
     if: ${{ inputs.deploy_target == 'admin' || inputs.deploy_target == 'both' }}
