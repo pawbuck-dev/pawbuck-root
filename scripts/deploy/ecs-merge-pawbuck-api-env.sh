@@ -60,8 +60,8 @@ fi
 
 jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg miloKey "$MILO_INTERNAL_SERVICE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" --arg taskCpu "$TASK_CPU" --arg taskMem "$TASK_MEMORY" --arg gcHeap "$GC_HEAP_LIMIT" '
   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
-  | (if ($taskCpu | length) > 0 then .cpu = ($taskCpu | tonumber) else . end)
-  | (if ($taskMem | length) > 0 then .memory = ($taskMem | tonumber) else . end)
+  | (if ($taskCpu | length) > 0 then .cpu = $taskCpu else . end)
+  | (if ($taskMem | length) > 0 then .memory = $taskMem else . end)
   | .containerDefinitions |= map(
       if .name == $cname then
         .environment = (
