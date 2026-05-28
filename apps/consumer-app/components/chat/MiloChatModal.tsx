@@ -19,6 +19,7 @@ import {
   buildMiloStarterPrompts,
   MILO_EMPTY_THREAD_PROMPT_COUNT,
 } from "@/services/miloSuggestedPrompts";
+import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { buildDocumentUploadThreadContent } from "@/services/miloDocumentUploadThread";
 import { pickPdfFile } from "@/utils/filePicker";
 import { invalidateClinicalQueries } from "@/utils/invalidateClinicalQueries";
@@ -273,7 +274,7 @@ export const MiloChatModal: React.FC = () => {
         ]);
         await invalidateClinicalQueries(queryClient, selectedPet.id);
       } catch (e) {
-        Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
+        Alert.alert("Error", formatMiloUploadError(e));
       }
     },
     [appendLocalMessages, pets, queryClient, selectedPet, uploadAndAnalyze, generalDisclaimerStatus]

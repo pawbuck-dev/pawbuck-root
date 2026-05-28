@@ -2,6 +2,7 @@ import { useAuth } from "@/context/authContext";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
 import { uploadFile } from "@/utils/image";
+import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { analyzePetDocument } from "@pawbuck/api-client";
 import type { PetDocumentVaultRowDto } from "@pawbuck/api-client";
 import { useCallback, useState } from "react";
@@ -63,10 +64,10 @@ export function useMiloUpload() {
         setStatus("idle");
         return row;
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Upload failed";
+        const msg = formatMiloUploadError(e);
         setErrorMessage(msg);
         setStatus("error");
-        throw e instanceof Error ? e : new Error(msg);
+        throw new Error(msg);
       }
     },
     [user?.id]

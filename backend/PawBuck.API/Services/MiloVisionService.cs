@@ -64,6 +64,10 @@ public class MiloVisionService : IMiloVisionService
         var ownerId = await GetPetOwnerUserIdAsync(request.PetId, cancellationToken)
                       ?? throw new InvalidOperationException("Pet owner not found");
 
+        var existing = await TryGetExistingVaultRowByStoragePathAsync(request.PetId, request.Path, cancellationToken);
+        if (existing != null)
+            return await FinalizeExistingVaultRowAsync(existing, cancellationToken);
+
         var supabaseUrl = _supabaseOptions.Value.Url?.Trim();
         if (string.IsNullOrEmpty(supabaseUrl))
             throw new InvalidOperationException("Supabase:Url is not configured");
@@ -94,6 +98,13 @@ public class MiloVisionService : IMiloVisionService
                       ?? throw new InvalidOperationException("Pet owner not found");
         if (ownerId != request.UserId)
             throw new UnauthorizedAccessException("userId does not own this pet");
+
+        if (!request.DocumentId.HasValue)
+        {
+            var existing = await TryGetExistingVaultRowByStoragePathAsync(request.PetId, request.Path, cancellationToken);
+            if (existing != null)
+                return await FinalizeExistingVaultRowAsync(existing, cancellationToken);
+        }
 
         var sr = _supabaseOptions.Value.ServiceRoleKey?.Trim();
         if (string.IsNullOrEmpty(sr))
@@ -607,6 +618,84 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
         return JsonSerializer.Serialize(dict);
     }
 
+    private async Task<PetDocumentVaultRowDto?> TryGetExistingVaultRowByStoragePathAsync(
+        Guid petId,
+        string storagePath,
+        CancellationToken cancellationToken)
+    {
+        var cs = _supabaseOptions.Value.ConnectionString;
+        if (string.IsNullOrWhiteSpace(cs))
+            return null;
+
+        await using var conn = new NpgsqlConnection(cs);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT id, pet_id, user_id, storage_path, mime_type, document_type::text, confidence,
+                   extracted_json::text, metadata::text, created_at, updated_at, clinical_synced_at
+            FROM public.pet_documents
+            WHERE pet_id = @pet_id AND storage_path = @storage_path
+            LIMIT 1
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("storage_path", storagePath);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            return null;
+
+        return ReadPetDocumentVaultRow(reader, includeClinicalSyncedAt: true, out _);
+    }
+
+    private async Task<PetDocumentVaultRowDto> FinalizeExistingVaultRowAsync(
+        PetDocumentVaultRowDto row,
+        CancellationToken cancellationToken)
+    {
+        if (IsClinicalSyncDocumentType(row.DocumentType))
+        {
+            try
+            {
+                row.ClinicalSync = await _clinicalSync.SyncDocumentByIdAsync(row.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Clinical sync failed for existing pet_documents {DocumentId}", row.Id);
+                row.ClinicalSync = new PetDocumentClinicalSyncResult { Error = "sync_failed" };
+            }
+        }
+
+        return row;
+    }
+
+    private static PetDocumentVaultRowDto ReadPetDocumentVaultRow(
+        NpgsqlDataReader reader,
+        bool includeClinicalSyncedAt,
+        out DateTimeOffset? clinicalSyncedAt)
+    {
+        clinicalSyncedAt = null;
+        var row = new PetDocumentVaultRowDto
+        {
+            Id = reader.GetGuid(0),
+            PetId = reader.GetGuid(1),
+            UserId = reader.GetGuid(2),
+            StoragePath = reader.GetString(3),
+            MimeType = reader.GetString(4),
+            DocumentType = reader.GetString(5),
+            Confidence = reader.GetDouble(6),
+            ExtractedJson = reader.GetString(7),
+            Metadata = reader.IsDBNull(8) ? null : reader.GetString(8),
+            CreatedAt = reader.GetFieldValue<DateTimeOffset>(9),
+            UpdatedAt = reader.GetFieldValue<DateTimeOffset>(10),
+        };
+
+        if (includeClinicalSyncedAt && reader.FieldCount > 11 && !reader.IsDBNull(11))
+            clinicalSyncedAt = reader.GetFieldValue<DateTimeOffset>(11);
+
+        return row;
+    }
+
     private async Task<PetDocumentVaultRowDto> InsertPetDocumentAsync(
         Guid petId,
         Guid ownerUserId,
@@ -659,20 +748,7 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
         if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException("Insert returned no row");
 
-        return new PetDocumentVaultRowDto
-        {
-            Id = reader.GetGuid(0),
-            PetId = reader.GetGuid(1),
-            UserId = reader.GetGuid(2),
-            StoragePath = reader.GetString(3),
-            MimeType = reader.GetString(4),
-            DocumentType = reader.GetString(5),
-            Confidence = reader.GetDouble(6),
-            ExtractedJson = reader.GetString(7),
-            Metadata = reader.IsDBNull(8) ? null : reader.GetString(8),
-            CreatedAt = reader.GetFieldValue<DateTimeOffset>(9),
-            UpdatedAt = reader.GetFieldValue<DateTimeOffset>(10),
-        };
+        return ReadPetDocumentVaultRow(reader, includeClinicalSyncedAt: false, out _);
     }
 
     private sealed class ClassificationParse

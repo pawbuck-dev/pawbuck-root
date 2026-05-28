@@ -153,7 +153,9 @@ If you leave `Cors:AllowedOrigins` empty, the **localhost / Expo dev** defaults 
 
 - Target group: **HTTP** to task IP:8080 (or HTTPS if you terminate TLS on NLB — usually ALB terminates TLS and talks HTTP to tasks).
 - Health check: path **`/api/health`**, matcher **200**.
-- Idle timeout: default often fine; long uploads may need tuning.
+- **Idle timeout: 120 seconds** (required for Milo document analyze). The default ALB idle timeout is **60s**; Gemini classify + extract on large PDFs can exceed that and return **504 Gateway Time-out** HTML to mobile clients while PawBuck.API is still processing. Set this to match the Gemini HttpClient budget in `Program.cs` (~120s).
+  - **Console:** EC2 → Load Balancers → your API ALB → **Attributes** → **Idle timeout** → `120`.
+- **Post-deploy verify:** In the consumer app, open Milo chat → **+** → upload a multi-page PDF. Confirm analysis completes without a 504; retry the same file and confirm Health Records does not show duplicate vault rows.
 
 ## CI/CD (GitHub Actions)
 

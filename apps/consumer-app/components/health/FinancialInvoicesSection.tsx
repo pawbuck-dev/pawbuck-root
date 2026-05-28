@@ -1,6 +1,7 @@
 import { dashboardCareTeamCardChrome } from "@/constants/figmaHealthLayout";
 import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { usePetDocuments } from "@/hooks/usePetDocuments";
 import type { Tables } from "@/database.types";
@@ -308,7 +309,7 @@ export default function FinancialInvoicesSection({ pet }: Props) {
               await queryClient.invalidateQueries({ queryKey: ["pet_documents", pet.id] });
               Alert.alert("Saved", "Document analyzed and saved.");
             } catch (e) {
-              Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
+              Alert.alert("Error", formatMiloUploadError(e));
             }
           },
         },
@@ -322,7 +323,7 @@ export default function FinancialInvoicesSection({ pet }: Props) {
               await queryClient.invalidateQueries({ queryKey: ["pet_documents", pet.id] });
               Alert.alert("Saved", "Document analyzed and saved.");
             } catch (e) {
-              Alert.alert("Error", e instanceof Error ? e.message : "Upload failed");
+              Alert.alert("Error", formatMiloUploadError(e));
             }
           },
         },

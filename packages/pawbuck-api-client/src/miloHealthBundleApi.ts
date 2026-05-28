@@ -3,6 +3,11 @@
  */
 
 import type { PetDocumentVaultRowDto } from "./miloDocumentsApi";
+import {
+  extractApiErrorMessage,
+  fetchWithRetry,
+  parseApiResponseBody,
+} from "./httpErrors";
 
 export type MiloHealthBundleRequest = {
   petId: string;
@@ -20,15 +25,6 @@ export type MiloHealthBundleResponse = {
   journalEntryId: string | null;
 };
 
-async function parseJsonOrThrow(res: Response): Promise<unknown> {
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error(text || `HTTP ${res.status}`);
-  }
-}
-
 /** POST /api/milo/health-records/bundle — at least one of text or document path required. */
 export async function submitHealthRecordsBundle(
   baseUrl: string,
@@ -36,31 +32,30 @@ export async function submitHealthRecordsBundle(
   body: MiloHealthBundleRequest
 ): Promise<MiloHealthBundleResponse> {
   const base = baseUrl.replace(/\/$/, "");
-  const res = await fetch(`${base}/api/milo/health-records/bundle`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      petId: body.petId,
-      textNote: body.textNote?.trim() || undefined,
-      documentBucket: body.documentBucket ?? "pets",
-      documentPath: body.documentPath?.trim() || undefined,
-      documentMimeType: body.documentMimeType,
-    }),
+  const requestBody = JSON.stringify({
+    petId: body.petId,
+    textNote: body.textNote?.trim() || undefined,
+    documentBucket: body.documentBucket ?? "pets",
+    documentPath: body.documentPath?.trim() || undefined,
+    documentMimeType: body.documentMimeType,
   });
 
-  const parsed = (await parseJsonOrThrow(res)) as Record<string, unknown>;
+  const res = await fetchWithRetry(() =>
+    fetch(`${base}/api/milo/health-records/bundle`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: requestBody,
+    })
+  );
+
+  const text = await res.text();
+  const parsed = parseApiResponseBody(res.status, text);
   if (!res.ok) {
-    const msg =
-      typeof parsed.error === "string"
-        ? parsed.error
-        : typeof parsed.message === "string"
-          ? parsed.message
-          : `HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new Error(extractApiErrorMessage(res.status, parsed, text));
   }
 
   return parsed as unknown as MiloHealthBundleResponse;

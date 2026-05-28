@@ -4,6 +4,7 @@ import { LibraryButton } from "@/components/upload/LibraryButton";
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { useVaccinations } from "@/context/vaccinationsContext";
 import { VaccinationInsert } from "@/types/vaccination";
@@ -114,9 +115,10 @@ export default function VaccinationUploadModal() {
       setIsReviewMode(true);
     } catch (error) {
       console.error("Error uploading file:", error);
+      const message = formatMiloUploadError(error);
       setStatus("error");
-      setStatusMessage("An error occurred");
-      Alert.alert("Error", "Failed to upload file");
+      setStatusMessage(message);
+      Alert.alert("Error", message);
       setTimeout(() => setStatus("idle"), 2000);
     }
   };
