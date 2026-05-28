@@ -52,6 +52,8 @@ import {
 } from "@/services/miloJournalOnboarding";
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
+import { isRoutineJournalLogText } from "@/utils/miloJournalIntent";
+import { SubscriptionRequiredError } from "@/utils/miloChatApi";
 import {
   extractPetLogEntry,
   severityFromConversationText,
@@ -189,6 +191,7 @@ export default function MiloJournalChatScreen() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [offlineJournalActive, setOfflineJournalActive] = useState(false);
+  const [journalFallbackReason, setJournalFallbackReason] = useState<string | null>(null);
   /** One-time acknowledgment before first journal triage on this device (per user). */
   const [triageDisclaimerStatus, setTriageDisclaimerStatus] = useState<"loading" | "pending" | "accepted">(
     "loading"
@@ -602,6 +605,7 @@ export default function MiloJournalChatScreen() {
         }
 
         setOfflineJournalActive(false);
+        setJournalFallbackReason(null);
 
         const severityOut =
           result.journalEmergencyStop === true || result.emergencyDetected
@@ -648,16 +652,26 @@ export default function MiloJournalChatScreen() {
           }
         }
       } catch (e) {
+        if (e instanceof SubscriptionRequiredError) {
+          pushAssistant(e.message, severityForTurn);
+          setBusy(false);
+          return;
+        }
+        const reason = e instanceof Error ? e.message : "Request failed";
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
+        setJournalFallbackReason(reason);
         const offline = getOfflineJournalTurn(userTurns, pet.name);
+        const offlineSummary =
+          offline.structuredFields?.NOTE ??
+          (offline.journalSessionComplete ? userTurns.join("\n") : null);
         const assistantMsgId = pushAssistant(offline.answer, severityForTurn, {
           suggestedReplies: offline.suggestedReplies,
           journalSessionComplete: offline.journalSessionComplete,
           offlineFallback: true,
         });
         if (offline.journalSessionComplete) {
-          const nav = await persistJournalEntry(userTurns, null);
+          const nav = await persistJournalEntry(userTurns, offlineSummary);
           if (nav) {
             setMessages((prev) =>
               prev.map((row) => (row.id === assistantMsgId ? { ...row, journalNavTarget: nav } : row))
@@ -1295,8 +1309,12 @@ export default function MiloJournalChatScreen() {
           }}
         >
           <Text style={{ fontSize: 12, lineHeight: 17, color: theme.secondary }}>
-            Cannot reach Milo (API offline). You are in a guided journal on this device. Run PawBuck.API and set
-            EXPO_PUBLIC_PAWBUCK_API_URL, then restart Expo for full AI chat.
+            {isRoutineJournalLogText(messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"))
+              ? "Full Milo journal interview couldn’t load — using a quick log on this device. Your entry can still save."
+              : `Journal interview couldn’t load (${journalFallbackReason ?? "server error"}). Using guided questions on this device — try again later for full Milo.`}
+            {__DEV__
+              ? " Dev: ensure PawBuck.API is running and EXPO_PUBLIC_PAWBUCK_API_URL points at it."
+              : ""}
           </Text>
         </View>
       ) : null}

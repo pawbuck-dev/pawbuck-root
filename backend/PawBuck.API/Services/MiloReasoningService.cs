@@ -108,13 +108,27 @@ public class MiloReasoningService : IMiloReasoningService
 
         if (request.JournalMode && petId.HasValue && petHasAccess)
         {
+            var petDisplayName = request.Pet?.Name?.Trim() ?? "your pet";
+            var routineResponse = JournalRoutineLogHelper.TryBuildOneShotResponse(message, petDisplayName);
+            if (routineResponse != null)
+                return routineResponse;
+
             var journalConfig = await _journalConfig.GetAsync(cancellationToken);
-            var treeResponse = await _journalTreeInterview.TryRunTurnAsync(
-                request,
-                userId,
-                petId.Value,
-                journalConfig,
-                cancellationToken);
+            MiloChatResponse? treeResponse = null;
+            try
+            {
+                treeResponse = await _journalTreeInterview.TryRunTurnAsync(
+                    request,
+                    userId,
+                    petId.Value,
+                    journalConfig,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Journal tree interview failed for user {UserId} pet {PetId}", userId, petId);
+            }
+
             if (treeResponse != null)
                 return treeResponse;
 
