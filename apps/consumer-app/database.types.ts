@@ -161,6 +161,36 @@ export type Database = {
           },
         ]
       }
+      country_email_document_verification: {
+        Row: {
+          allow_name_only_document_types: string[]
+          breed_required_document_types: string[]
+          country: string
+          enabled: boolean
+          fuzzy_match_threshold: number
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          allow_name_only_document_types?: string[]
+          breed_required_document_types?: string[]
+          country: string
+          enabled?: boolean
+          fuzzy_match_threshold?: number
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allow_name_only_document_types?: string[]
+          breed_required_document_types?: string[]
+          country?: string
+          enabled?: boolean
+          fuzzy_match_threshold?: number
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       country_vaccine_requirements: {
         Row: {
           animal_type: string
@@ -487,6 +517,78 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_interview_sessions: {
+        Row: {
+          answers: Json
+          confidence_score: number | null
+          created_at: string
+          current_question_id: string | null
+          draft_summary: Json | null
+          emergency_detected: boolean
+          expires_at: string
+          id: string
+          journal_entry_id: string | null
+          pet_id: string
+          phase: string
+          questions_asked_count: number
+          tree_id: string
+          tree_version: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          confidence_score?: number | null
+          created_at?: string
+          current_question_id?: string | null
+          draft_summary?: Json | null
+          emergency_detected?: boolean
+          expires_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          pet_id: string
+          phase?: string
+          questions_asked_count?: number
+          tree_id: string
+          tree_version: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          confidence_score?: number | null
+          created_at?: string
+          current_question_id?: string | null
+          draft_summary?: Json | null
+          emergency_detected?: boolean
+          expires_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          pet_id?: string
+          phase?: string
+          questions_asked_count?: number
+          tree_id?: string
+          tree_version?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_interview_sessions_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "pet_journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_interview_sessions_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_results: {
         Row: {
           confidence: number | null
@@ -598,6 +700,133 @@ export type Database = {
           },
         ]
       }
+      medication_adr_entries: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          label_text: string
+          product_id: string
+          severity: string
+          source: string
+          source_version: string | null
+          symptom_taxonomy: string[]
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          label_text: string
+          product_id: string
+          severity?: string
+          source?: string
+          source_version?: string | null
+          symptom_taxonomy: string[]
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          label_text?: string
+          product_id?: string
+          severity?: string
+          source?: string
+          source_version?: string | null
+          symptom_taxonomy?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_adr_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "medication_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_adr_ingestion_runs: {
+        Row: {
+          entries_upserted: number
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          products_upserted: number
+          source: string
+          source_version: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          entries_upserted?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          products_upserted?: number
+          source: string
+          source_version?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          entries_upserted?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          products_upserted?: number
+          source?: string
+          source_version?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      medication_adr_overrides: {
+        Row: {
+          active: boolean
+          confidence: number
+          created_at: string
+          generic_name: string | null
+          id: string
+          label_text: string
+          notes: string | null
+          product_id: string | null
+          severity: string
+          symptom_taxonomy: string[]
+        }
+        Insert: {
+          active?: boolean
+          confidence?: number
+          created_at?: string
+          generic_name?: string | null
+          id?: string
+          label_text: string
+          notes?: string | null
+          product_id?: string | null
+          severity?: string
+          symptom_taxonomy: string[]
+        }
+        Update: {
+          active?: boolean
+          confidence?: number
+          created_at?: string
+          generic_name?: string | null
+          id?: string
+          label_text?: string
+          notes?: string | null
+          product_id?: string | null
+          severity?: string
+          symptom_taxonomy?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_adr_overrides_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "medication_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_doses: {
         Row: {
           completed_at: string | null
@@ -645,6 +874,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      medication_products: {
+        Row: {
+          brand_names: string[]
+          created_at: string
+          generic_name: string
+          id: string
+          route: string | null
+          source: string
+          source_version: string | null
+          species: string[]
+          updated_at: string
+        }
+        Insert: {
+          brand_names?: string[]
+          created_at?: string
+          generic_name: string
+          id?: string
+          route?: string | null
+          source?: string
+          source_version?: string | null
+          species?: string[]
+          updated_at?: string
+        }
+        Update: {
+          brand_names?: string[]
+          created_at?: string
+          generic_name?: string
+          id?: string
+          route?: string | null
+          source?: string
+          source_version?: string | null
+          species?: string[]
+          updated_at?: string
+        }
+        Relationships: []
       }
       medicines: {
         Row: {
@@ -868,22 +1133,34 @@ export type Database = {
       milo_journal_message_feedback: {
         Row: {
           created_at: string
+          feedback_reason: string | null
+          feedback_stage: string | null
           id: string
+          questions_asked: number | null
           rating: string
+          tree_version: string | null
           turn_id: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          feedback_reason?: string | null
+          feedback_stage?: string | null
           id?: string
+          questions_asked?: number | null
           rating: string
+          tree_version?: string | null
           turn_id: string
           user_id: string
         }
         Update: {
           created_at?: string
+          feedback_reason?: string | null
+          feedback_stage?: string | null
           id?: string
+          questions_asked?: number | null
           rating?: string
+          tree_version?: string | null
           turn_id?: string
           user_id?: string
         }
@@ -2328,8 +2605,9 @@ export type Database = {
         Args: { p_code: string; p_pet_parent_display_name?: string }
         Returns: string
       }
-      app_registered_user_count: {
-        Args: Record<PropertyKey, never>
+      app_registered_user_count: { Args: never; Returns: number }
+      app_registered_user_count_for_country: {
+        Args: { p_country: string }
         Returns: number
       }
       auth_user_passes_premium_gate: {
@@ -2370,7 +2648,12 @@ export type Database = {
           date_of_birth: string | null
           deleted_at: string | null
           email_id: string
+          home_timezone: string | null
           id: string
+          intake_grams_per_meal: number | null
+          intake_meals_per_day: number | null
+          intake_water_cups_per_day: number | null
+          intake_water_ml_per_cup: number | null
           microchip_number: string | null
           name: string
           passport_number: string | null
@@ -2424,6 +2707,13 @@ export type Database = {
       }
       pawthon_my_weekly_walker_rank: {
         Args: never
+        Returns: {
+          rank: number
+          total: number
+        }[]
+      }
+      pawthon_my_weekly_walker_rank_for_country: {
+        Args: { p_country: string }
         Returns: {
           rank: number
           total: number

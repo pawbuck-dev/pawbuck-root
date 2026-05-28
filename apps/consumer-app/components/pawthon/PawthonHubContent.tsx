@@ -1,23 +1,34 @@
+import { PawthonHubWalkLogSection } from "@/components/pawthon/PawthonHubWalkLogSection";
+import { PawthonStreakBanner } from "@/components/pawthon/PawthonStreakBanner";
 import { PawthonTrophyIllustration } from "@/components/pawthon/PawthonTrophyIllustration";
 import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import { formatWeeklyWalkerRankLine } from "@/services/walkSessions";
+import type { WalkSessionRow } from "@/services/walkSessions";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 export type PawthonHubContentProps = {
   petName: string;
   walkCount: number;
   totalMiles: number;
   petsCount: number;
-  /** Leaderboard row, e.g. "#5 of 8 walkers" — hidden when weekly challenge is gated off. */
+  weekKm: number;
+  weekWalkCount: number;
+  streakDays: number;
+  todayMeters: number;
+  recentWalks: WalkSessionRow[];
   rankLabel?: string;
-  /** When false, hides the weekly challenge hero (rankings need enough app users). */
   showWeeklyChallenge?: boolean;
   onStartWalk: () => void;
   onBack: () => void;
+  onSeeWalkLog: () => void;
+  onWalkPress: (sessionId: string) => void;
+  onWeeklyPress: () => void;
+  onBadgesPress: () => void;
+  onRemindersPress: () => void;
 };
 
 function StatCard(props: {
@@ -89,10 +100,20 @@ export function PawthonHubContent({
   walkCount,
   totalMiles,
   petsCount,
+  weekKm,
+  weekWalkCount,
+  streakDays,
+  todayMeters,
+  recentWalks,
   rankLabel = formatWeeklyWalkerRankLine(null, 0),
   showWeeklyChallenge = true,
   onStartWalk,
   onBack,
+  onSeeWalkLog,
+  onWalkPress,
+  onWeeklyPress,
+  onBadgesPress,
+  onRemindersPress,
 }: PawthonHubContentProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
@@ -112,6 +133,7 @@ export function PawthonHubContent({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
         <Pressable
           onPress={onBack}
@@ -141,6 +163,7 @@ export function PawthonHubContent({
       </View>
 
       {showWeeklyChallenge ? (
+      <Pressable onPress={onWeeklyPress}>
         <LinearGradient
           colors={creamBg}
           start={{ x: 0, y: 0 }}
@@ -235,9 +258,10 @@ export function PawthonHubContent({
             <PawthonTrophyIllustration size={152} />
           </View>
         </LinearGradient>
+      </Pressable>
       ) : null}
 
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
         <StatCard
           icon="walk"
           value={walksStr}
@@ -273,7 +297,29 @@ export function PawthonHubContent({
         />
       </View>
 
-      <View style={{ flex: 1, minHeight: 16 }} />
+      <PawthonStreakBanner
+        petName={petName}
+        streakDays={streakDays}
+        todayMeters={todayMeters}
+        onPress={onStartWalk}
+      />
+
+      <PawthonHubWalkLogSection
+        petName={petName}
+        walks={recentWalks}
+        onSeeAll={onSeeWalkLog}
+        onWalkPress={onWalkPress}
+      />
+
+      <View style={{ flexDirection: "row", gap: 16, marginBottom: 20, justifyContent: "center" }}>
+        <Pressable onPress={onBadgesPress} hitSlop={8}>
+          <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 14, color: theme.primary }}>Badges</Text>
+        </Pressable>
+        <Text style={{ color: theme.secondary }}>·</Text>
+        <Pressable onPress={onRemindersPress} hitSlop={8}>
+          <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 14, color: theme.primary }}>Reminders</Text>
+        </Pressable>
+      </View>
 
       <Pressable onPress={onStartWalk}>
         <LinearGradient
@@ -305,6 +351,7 @@ export function PawthonHubContent({
           <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF" }}>Start a Walk</Text>
         </LinearGradient>
       </Pressable>
+      </ScrollView>
     </View>
   );
 }

@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pawthon Engagement — UI Design Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --teal: #26C1C1;
+      --teal-dark: #1FA8A8;
+      --flame: #FF8A42;
+      --bg: #F4F6F8;
+      --surface: #FFFFFF;
+      --fg: #0D0F0F;
+      --muted: #5A5F6A;
+      --border: rgba(0,0,0,0.06);
+      --inset: rgba(0,0,0,0.04);
+      --sky: linear-gradient(135deg, #F5FAFF 0%, #E3F2FD 50%, #D6EBFA 100%);
+      --cream: linear-gradient(135deg, #FFFDF8 0%, #FAF3E8 50%, #FFF9F0 100%);
+      --peach: #FFF0E8;
+      --phone-shadow: 0 24px 48px rgba(0,0,0,0.12);
+    }
+    [data-theme="dark"] {
+      --bg: #121416;
+      --surface: #1E2226;
+      --fg: #F5F7FA;
+      --muted: rgba(255,255,255,0.65);
+      --border: rgba(255,255,255,0.08);
+      --inset: rgba(255,255,255,0.06);
+      --sky: linear-gradient(135deg, #1A2832 0%, #243B47 50%, #1E3240 100%);
+      --cream: linear-gradient(135deg, #2A2622 0%, #1E1C1A 50%, #252220 100%);
+      --peach: #2A2420;
+      --phone-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 15px; font-weight: 600; }
+    header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .theme-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--inset);
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .theme-toggle button {
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+    }
+    .theme-toggle button.active {
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+    nav {
+      width: 240px;
+      padding: 16px 12px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+    nav h2 {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      padding: 8px 12px 6px;
+      text-transform: uppercase;
+    }
+    nav a {
+      display: block;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 10px;
+      margin-bottom: 2px;
+    }
+    nav a:hover { background: var(--inset); color: var(--fg); }
+    nav a.active { background: rgba(38,193,193,0.15); color: var(--teal); font-weight: 600; }
+    main {
+      flex: 1;
+      padding: 32px 40px 48px;
+      overflow-y: auto;
+    }
+    .screen-section {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .screen-section.visible { display: flex; }
+    .screen-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+    }
+    .screen-label span { color: var(--teal); }
+    .phone {
+      width: 393px;
+      min-height: 852px;
+      background: var(--bg);
+      border-radius: 44px;
+      overflow: hidden;
+      box-shadow: var(--phone-shadow);
+      border: 8px solid #1a1a1a;
+      position: relative;
+    }
+    [data-theme="dark"] .phone { border-color: #333; }
+    .status-bar {
+      height: 54px;
+      padding: 14px 28px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .screen-body {
+      padding: 0 20px 32px;
+      min-height: calc(852px - 54px);
+    }
+    .nav-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+      position: relative;
+      min-height: 40px;
+    }
+    .back { color: var(--teal); font-size: 22px; font-weight: 600; }
+    .nav-title {
+      flex: 1;
+      text-align: center;
+      font-size: 17px;
+      font-weight: 600;
+      margin-right: 28px;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .icon-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: rgba(59,208,210,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 10px;
+      font-size: 18px;
+    }
+    .card-title { flex: 1; font-size: 16px; font-weight: 700; }
+    .link { font-size: 13px; font-weight: 600; color: var(--teal); }
+    .inset {
+      background: var(--inset);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .kicker {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .inset-title { font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .inset-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .map-thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e8f4f4, #c5e8e8);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .map-thumb::after {
+      content: '';
+      position: absolute;
+      inset: 12px 8px 8px 12px;
+      border: 2px solid var(--teal);
+      border-radius: 4px;
+      transform: rotate(-8deg);
+    }
+    .sky-card {
+      background: var(--sky);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .sky-card::before {
+      content: '';
+      position: absolute;
+      right: -40px;
+      top: -60px;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+    }
+    .goal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(11,150,150,0.35);
+      background: rgba(255,255,255,0.55);
+      font-size: 12px;
+      font-weight: 600;
+      color: #0B9696;
+      margin-bottom: 12px;
+    }
+    .goal-row { display: flex; justify-content: space-between; align-items: flex-start; }
+    .hero-title { font-size: 18px; font-weight: 600; line-height: 1.35; margin-bottom: 12px; }
+    .progress-ring {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 4px solid var(--border);
+      border-top-color: var(--teal);
+      border-right-color: var(--teal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .btn-teal {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 24px;
+      background: linear-gradient(90deg, var(--teal), var(--teal-dark));
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      background: var(--teal);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      text-align: center;
+      border: none;
+      margin-bottom: 12px;
+    }
+    .stat-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .stat-tile {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px 10px;
+      min-height: 118px;
+    }
+    .stat-val { font-size: 22px; font-weight: 700; }
+    .stat-lbl { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .cream-hero {
+      background: var(--cream);
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+      min-height: 148px;
+    }
+    .cream-hero .kicker-lg {
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .cream-hero h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .cream-hero p { font-size: 14px; color: var(--muted); }
+    .trophy { position: absolute; right: 10px; bottom: 0; font-size: 72px; opacity: 0.9; }
+    .streak-banner {
+      background: var(--peach);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .streak-banner strong { font-size: 15px; display: block; }
+    .streak-banner span { font-size: 13px; color: var(--muted); }
+    .log-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-row:last-child { border-bottom: none; }
+    .chips { display: flex; gap: 8px; margin-bottom: 16px; }
+    .chip {
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--inset);
+      color: var(--muted);
+    }
+    .chip.active { background: var(--teal); color: #fff; }
+    .map-full {
+      height: 280px;
+      background: #2d3e42;
+      border-radius: 0;
+      margin: 0 -20px 16px;
+      position: relative;
+    }
+    .map-full svg { width: 100%; height: 100%; }
+    .countdown-screen {
+      background: #1a2a30;
+      min-height: calc(852px - 54px);
+      margin: 0 -20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .countdown-num {
+      font-size: 120px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .countdown-sub {
+      font-size: 16px;
+      color: rgba(255,255,255,0.85);
+      margin-top: 16px;
+      font-weight: 500;
+    }
+    .skip-link {
+      position: absolute;
+      bottom: 40px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+    }
+    .active-map {
+      height: 420px;
+      background: #243038;
+      margin: 0 -20px;
+      position: relative;
+    }
+    .bottom-sheet {
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 20px 16px 32px;
+      margin: 0 -20px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+    }
+    .big-stat {
+      font-size: 36px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .big-stat small { font-size: 18px; color: var(--muted); font-weight: 600; }
+    .badge-unlock {
+      background: linear-gradient(135deg, #FFF0E8, #fff);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .badge-icon-lg {
+      width: 80px;
+      height: 80px;
+      border-radius: 40px;
+      background: rgba(38,193,193,0.2);
+      margin: 0 auto 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+    }
+    .badge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .badge-cell {
+      text-align: center;
+      padding: 12px 8px;
+    }
+    .badge-cell.locked { opacity: 0.4; }
+    .badge-cell .icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      background: var(--inset);
+      margin: 0 auto 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      border: 2px solid var(--teal);
+    }
+    .badge-cell.locked .icon { border-color: var(--border); }
+    .badge-cell span { font-size: 11px; font-weight: 600; }
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle {
+      width: 48px;
+      height: 28px;
+      background: var(--teal);
+      border-radius: 14px;
+      position: relative;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      right: 4px;
+      top: 4px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+    }
+    .bar-chart { margin-top: 16px; }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+    .bar-row .label { width: 32px; color: var(--muted); font-weight: 600; }
+    .bar-row .bar {
+      flex: 1;
+      height: 8px;
+      background: var(--inset);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .bar-row .bar fill { display: block; height: 100%; background: var(--teal); border-radius: 4px; }
+    .walker-art {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 100px;
+      height: 100px;
+      font-size: 64px;
+      line-height: 1;
+      z-index: 1;
+    }
+    .dual-cta { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+    .text-link { font-size: 13px; font-weight: 600; color: var(--teal); }
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      nav { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 4px; padding: 12px; }
+      nav h2 { display: none; }
+      main { padding: 20px 16px; }
+      .phone { transform: scale(0.92); transform-origin: top center; }
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <header>
+    <div>
+      <h1>Pawthon engagement — UI design preview</h1>
+      <p>Design-only · 14 screens · Sign off before implementation</p>
+    </div>
+    <div class="theme-toggle">
+      <button type="button" class="active" data-set-theme="light">Light</button>
+      <button type="button" data-set-theme="dark">Dark</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav id="nav"></nav>
+    <main id="main"></main>
+  </div>
+  <script>
+    const screens = [
+      { id: 'home', phase: '1–2', title: 'Home — Pawthon card', html: `
+        <div class="screen-body" style="padding-top:8px">
+          <p style="font-size:22px;font-weight:700;margin-bottom:20px;padding:0 4px">Good morning</p>
+          <div class="sky-card">
+            <div class="goal-row">
+              <div>
+                <div class="goal-badge">🔥 Daily Goal</div>
+                <div class="hero-title">Luna's Counting<br>On You Today 🐾</div>
+              </div>
+              <div class="progress-ring">80%</div>
+            </div>
+            <div class="inset" style="background:rgba(255,255,255,0.5);margin-bottom:14px">
+              <div class="map-thumb"></div>
+              <div>
+                <div class="kicker">LAST WALK · YESTERDAY 6:12 PM</div>
+                <div class="inset-title">0.62 mi · 18 min</div>
+                <div class="inset-sub">View route →</div>
+              </div>
+            </div>
+            <div class="dual-cta">
+              <button class="btn-teal">▶ Start a Walk</button>
+              <span class="text-link">Walk log</span>
+            </div>
+            <div class="walker-art">🦮</div>
+          </div>
+          <div class="card" style="opacity:0.6"><div class="card-title" style="font-size:14px">Pet Journal card (reference)</div></div>
+        </div>
+      `},
+      { id: 'hub', phase: '1–2–6', title: 'Pawthon hub', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Walk with Luna</div></div>
+          <div class="cream-hero">
+            <div class="kicker-lg">WEEKLY CHALLENGE</div>
+            <h3>Your week</h3>
+            <p>2.4 mi walked · 4 walks<br>#8 of 42 walkers</p>
+            <div class="trophy">🏆</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-tile"><div class="stat-val">24</div><div class="stat-lbl">Walks</div></div>
+            <div class="stat-tile"><div class="stat-val">18.2</div><div class="stat-lbl">Miles</div></div>
+            <div class="stat-tile"><div class="stat-val">1</div><div class="stat-lbl">Pets</div></div>
+          </div>
+          <div class="streak-banner">
+            <span style="font-size:28px">🔥</span>
+            <div style="flex:1"><strong>5-day streak with Luna</strong><span>0.1 mi more to protect today</span></div>
+            <span class="link">›</span>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="icon-badge">👣</div>
+              <div class="card-title">Walk log</div>
+              <span class="link">See all</span>
+            </div>
+            <div class="log-row"><div class="map-thumb" style="width:48px;height:48px"></div><div><div class="kicker">TUE · 0.48 MI</div><div class="inset-title">14 min</div></div></div>
+            <div class="log-row"><div class="map-thumb" style="width:48px;height:48px"></div><div><div class="kicker">MON · 0.31 MI</div><div class="inset-title">9 min</div></div></div>
+          </div>
+          <button class="btn-teal" style="width:100%;justify-content:center;padding:16px;border-radius:28px;margin-top:8px">▶ Start a Walk</button>
+        </div>
+      `},
+      { id: 'log', phase: '1', title: 'Walk log', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Walk log</div><span style="position:absolute;right:0" class="link">Filter</span></div>
+          <div class="chips"><span class="chip active">This week</span><span class="chip">30 days</span><span class="chip">All</span></div>
+          <div class="card" style="padding:0 16px">
+            <div class="log-row"><div class="map-thumb"></div><div style="flex:1"><div style="font-weight:600">Wed, May 28 · 7:04 AM</div><div class="inset-sub">Luna · 0.72 mi · 22 min · Pace 18:20</div><div style="font-size:11px;color:var(--teal);margin-top:4px">● Streak qualified</div></div><span class="link">›</span></div>
+            <div class="log-row"><div class="map-thumb"></div><div style="flex:1"><div style="font-weight:600">Tue, May 27 · 6:15 PM</div><div class="inset-sub">Luna · 0.48 mi · 14 min</div></div><span class="link">›</span></div>
+            <div class="log-row"><div class="map-thumb"></div><div style="flex:1"><div style="font-weight:600">Mon, May 26 · 8:02 AM</div><div class="inset-sub">Luna · 0.31 mi · 9 min</div></div><span class="link">›</span></div>
+          </div>
+        </div>
+      `},
+      { id: 'detail', phase: '1', title: 'Walk detail', html: `
+        <div class="screen-body" style="padding:0">
+          <div style="padding:54px 20px 12px;position:absolute;z-index:2;width:100%"><span class="back" style="color:#fff">‹</span></div>
+          <div class="map-full"><svg viewBox="0 0 393 280"><path d="M40,200 Q120,80 200,120 T360,100" fill="none" stroke="#26C1C1" stroke-width="4"/><circle cx="40" cy="200" r="8" fill="#26C1C1"/><circle cx="360" cy="100" r="8" fill="#fff" stroke="#26C1C1" stroke-width="2"/></svg></div>
+          <div style="padding:0 20px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><div style="width:40px;height:40px;border-radius:20px;background:var(--inset);display:flex;align-items:center;justify-content:center">🐕</div><strong>Walk with Luna</strong></div>
+            <div class="stat-row">
+              <div class="stat-tile" style="min-height:auto;padding:14px"><div class="stat-val">0.72</div><div class="stat-lbl">mi</div></div>
+              <div class="stat-tile" style="min-height:auto;padding:14px"><div class="stat-val">22</div><div class="stat-lbl">min</div></div>
+              <div class="stat-tile" style="min-height:auto;padding:14px"><div class="stat-val">18:20</div><div class="stat-lbl">pace</div></div>
+            </div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Started 7:04 AM · Ended 7:26 AM</p>
+            <button class="btn-primary" style="background:var(--inset);color:var(--fg)">Share route</button>
+            <button class="btn-teal" style="width:100%;justify-content:center;padding:14px;border-radius:28px">Start similar walk</button>
+          </div>
+        </div>
+      `},
+      { id: 'select', phase: 'existing', title: 'Start walk — select pet', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Start a Walk</div></div>
+          <div class="map-full" style="height:200px;border-radius:16px;margin:0 0 20px"><svg viewBox="0 0 353 200"><circle cx="176" cy="100" r="6" fill="#26C1C1"/></svg></div>
+          <p style="font-size:14px;color:var(--muted);margin-bottom:12px">Who's walking?</p>
+          <div class="inset" style="border:2px solid var(--teal)"><span>🐕</span><strong style="margin-left:10px">Luna</strong><span style="margin-left:auto;color:var(--teal)">✓</span></div>
+          <button class="btn-teal" style="width:100%;justify-content:center;padding:16px;border-radius:28px;margin-top:24px">Continue</button>
+        </div>
+      `},
+      { id: 'warmup', phase: 'existing', title: 'GPS warmup', html: `
+        <div class="screen-body" style="text-align:center;padding-top:40px">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Start a Walk</div></div>
+          <div class="map-full" style="height:240px;border-radius:16px;margin-bottom:24px"></div>
+          <p style="font-weight:600;margin-bottom:8px">Finding GPS…</p>
+          <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Hold still for a moment</p>
+          <p style="color:var(--teal);font-weight:600">±8 m · 4s</p>
+        </div>
+      `},
+      { id: 'countdown', phase: '3', title: 'Countdown 5-4-3-2-1', html: `
+        <div class="countdown-screen">
+          <div class="countdown-num">3</div>
+          <div class="countdown-sub">Get ready — walk with Luna</div>
+          <div class="skip-link">Skip countdown</div>
+        </div>
+      `},
+      { id: 'active', phase: 'existing', title: 'Active walk', html: `
+        <div style="padding:0">
+          <div class="active-map"><svg viewBox="0 0 393 420"><path d="M60,350 Q150,200 250,250 T380,180" fill="none" stroke="#26C1C1" stroke-width="4"/></svg></div>
+          <div class="bottom-sheet">
+            <div class="big-stat">0.42 <small>mi</small></div>
+            <p style="text-align:center;color:var(--teal);font-weight:600;font-size:14px;margin:4px 0 16px">Tracking your walk</p>
+            <div class="stat-row" style="margin-bottom:14px">
+              <div style="flex:1;text-align:center"><div style="font-weight:700">0.42</div><div class="stat-lbl">Distance</div></div>
+              <div style="flex:1;text-align:center"><div style="font-weight:700">16:20</div><div class="stat-lbl">pace</div></div>
+              <div style="flex:1;text-align:center"><div style="font-weight:700">12:04</div><div class="stat-lbl">Duration</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="width:52px;height:52px;border-radius:26px;background:var(--inset);display:flex;align-items:center;justify-content:center">📷</div>
+              <button class="btn-teal" style="flex:1;justify-content:center;padding:16px;border-radius:28px">⏸ Stop</button>
+              <div style="width:52px;height:52px;border-radius:26px;background:var(--inset);display:flex;align-items:center;justify-content:center">◎</div>
+            </div>
+          </div>
+        </div>
+      `},
+      { id: 'complete', phase: '4', title: 'Walk complete', html: `
+        <div class="screen-body">
+          <div class="nav-header"><div class="nav-title" style="margin:0">Walk complete</div></div>
+          <div class="map-full" style="height:160px;border-radius:16px;margin:0 0 16px"></div>
+          <div class="stat-row">
+            <div class="stat-tile" style="min-height:auto"><div class="stat-val">0.72</div><div class="stat-lbl">mi</div></div>
+            <div class="stat-tile" style="min-height:auto"><div class="stat-val">22</div><div class="stat-lbl">min</div></div>
+            <div class="stat-tile" style="min-height:auto"><div class="stat-val">5</div><div class="stat-lbl">day streak</div></div>
+          </div>
+          <div class="badge-unlock">
+            <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:8px">✨ BADGE UNLOCKED</div>
+            <div class="badge-icon-lg">👣</div>
+            <strong style="font-size:18px">First steps</strong>
+            <p style="font-size:14px;color:var(--muted);margin-top:8px">Luna's first tracked walk!</p>
+          </div>
+          <button class="btn-primary">View in walk log</button>
+          <button class="btn-teal" style="width:100%;justify-content:center;padding:14px;border-radius:28px;background:var(--inset);color:var(--fg)">Share</button>
+        </div>
+      `},
+      { id: 'badges', phase: '4', title: 'Badges grid', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Badges</div></div>
+          <p style="font-size:14px;color:var(--muted);margin-bottom:8px">6 of 12 earned</p>
+          <div style="height:8px;background:var(--inset);border-radius:4px;margin-bottom:24px;overflow:hidden"><div style="width:50%;height:100%;background:var(--teal);border-radius:4px"></div></div>
+          <div class="badge-grid">
+            <div class="badge-cell"><div class="icon">👣</div><span>First steps</span></div>
+            <div class="badge-cell"><div class="icon">🔥</div><span>On a roll</span></div>
+            <div class="badge-cell locked"><div class="icon">🔒</div><span>Week warrior</span></div>
+            <div class="badge-cell"><div class="icon">☀️</div><span>Early bird</span></div>
+            <div class="badge-cell locked"><div class="icon">🔒</div><span>Mile club</span></div>
+            <div class="badge-cell locked"><div class="icon">🔒</div><span>Explorer</span></div>
+          </div>
+        </div>
+      `},
+      { id: 'reminders', phase: '5', title: 'Walk reminders', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">Walk reminders</div></div>
+          <div class="card">
+            <div class="toggle-row" style="border:none"><div><strong>Daily walk reminder</strong><div class="inset-sub">6:00 PM</div></div><div class="toggle"></div></div>
+          </div>
+          <div class="card">
+            <div class="toggle-row" style="border:none"><div><strong>Streak protection</strong><div class="inset-sub">Nudge if no walk by 6 PM</div></div><div class="toggle"></div></div>
+          </div>
+          <div class="card">
+            <div class="toggle-row" style="border:none"><div><strong>Weekly digest</strong><div class="inset-sub">Mondays at 9 AM</div></div><div class="toggle" style="background:var(--inset)"></div></div>
+          </div>
+        </div>
+      `},
+      { id: 'primer', phase: '5', title: 'Notification primer', html: `
+        <div class="screen-body" style="display:flex;align-items:center;justify-content:center;min-height:700px;background:rgba(0,0,0,0.3);margin:0 -20px;padding:20px">
+          <div class="card" style="max-width:340px;margin:0 auto">
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:10px">Stay on track with gentle reminders</h3>
+            <p style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:18px">Optional nudges for daily walks and streak protection. You can change this anytime in Settings.</p>
+            <button class="btn-primary">Enable notifications</button>
+            <p style="text-align:center;font-size:14px;color:var(--muted);margin-top:12px">Not now</p>
+          </div>
+        </div>
+      `},
+      { id: 'weekly', phase: '6', title: 'Weekly detail', html: `
+        <div class="screen-body">
+          <div class="nav-header"><span class="back">‹</span><div class="nav-title">This week</div></div>
+          <div class="cream-hero" style="margin-bottom:16px">
+            <div class="kicker-lg">YOUR WEEK</div>
+            <h3>2.4 mi</h3>
+            <p>Rank #8 of 42 walkers</p>
+          </div>
+          <div class="card">
+            <strong style="font-size:15px">Distance by day</strong>
+            <div class="bar-chart">
+              <div class="bar-row"><span class="label">Mon</span><div class="bar"><div style="width:35%;height:100%;background:var(--teal);border-radius:4px"></div></div><span>0.3</span></div>
+              <div class="bar-row"><span class="label">Tue</span><div class="bar"><div style="width:90%;height:100%;background:var(--teal);border-radius:4px"></div></div><span>0.9</span></div>
+              <div class="bar-row"><span class="label">Wed</span><div class="bar"><div style="width:70%;height:100%;background:var(--teal);border-radius:4px"></div></div><span>0.7</span></div>
+            </div>
+          </div>
+          <button class="btn-teal" style="width:100%;justify-content:center;padding:16px;border-radius:28px;margin-top:16px">Start a walk to climb the board</button>
+        </div>
+      `},
+    ];
+
+    const nav = document.getElementById('nav');
+    const main = document.getElementById('main');
+    let phases = {};
+    screens.forEach((s, i) => {
+      if (!phases[s.phase]) {
+        phases[s.phase] = true;
+        const h = document.createElement('h2');
+        h.textContent = 'Phase ' + s.phase;
+        nav.appendChild(h);
+      }
+      const a = document.createElement('a');
+      a.href = '#' + s.id;
+      a.textContent = s.title;
+      a.dataset.id = s.id;
+      if (i === 0) a.classList.add('active');
+      nav.appendChild(a);
+
+      const section = document.createElement('section');
+      section.className = 'screen-section' + (i === 0 ? ' visible' : '');
+      section.id = s.id;
+      section.innerHTML = `
+        <p class="screen-label">Phase <span>${s.phase}</span> — ${s.title}</p>
+        <div class="phone">
+          <div class="status-bar"><span>9:41</span><span>◉ ▮▮▮</span></div>
+          ${s.html}
+        </div>
+      `;
+      main.appendChild(section);
+    });
+
+    nav.addEventListener('click', e => {
+      const a = e.target.closest('a');
+      if (!a) return;
+      e.preventDefault();
+      nav.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+      main.querySelectorAll('.screen-section').forEach(s => s.classList.remove('visible'));
+      document.getElementById(a.dataset.id).classList.add('visible');
+    });
+
+    document.querySelectorAll('[data-set-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.body.dataset.theme = btn.dataset.setTheme;
+        document.querySelectorAll('.theme-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+  </script>
+</body>
+</html>

@@ -5,8 +5,11 @@ import { useTheme } from "@/context/themeContext";
 import { useAuth } from "@/context/authContext";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import {
-  fetchMyWeeklyWalkerRank,
+  fetchMyWeeklyWalkerRankForCountry,
   fetchPawthonHubStats,
+  fetchRecentWalkSessions,
+  fetchTodayDistanceMetersForPet,
+  fetchWeekWalkSessionsForPet,
   formatWeeklyWalkerRankLine,
 } from "@/services/walkSessions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,17 +28,26 @@ export default function PawthonHubScreen() {
   const { selectedPet, selectedPetId } = useSelectedPet();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
+  const petCountry = selectedPet?.country?.trim() ?? "";
+  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(petCountry);
 
   const { data: weeklyWalkerRank } = useQuery({
-    queryKey: ["pawthon", "weeklyWalkerRank"],
-    queryFn: fetchMyWeeklyWalkerRank,
-    enabled: weeklyChallengeEnabled && !!user,
+    queryKey: ["pawthon", "weeklyWalkerRank", petCountry],
+    queryFn: () => fetchMyWeeklyWalkerRankForCountry(petCountry),
+    enabled: weeklyChallengeEnabled && !!user && petCountry.length > 0,
   });
 
   const { data: hubStats, isLoading } = useQuery({
     queryKey: ["pawthon", "hub", selectedPetId],
-    queryFn: () => fetchPawthonHubStats(selectedPetId!),
+    queryFn: async () => {
+      const [hub, walks, weekWalks, todayMeters] = await Promise.all([
+        fetchPawthonHubStats(selectedPetId!),
+        fetchRecentWalkSessions(selectedPetId!, 5),
+        fetchWeekWalkSessionsForPet(selectedPetId!),
+        fetchTodayDistanceMetersForPet(selectedPetId!),
+      ]);
+      return { ...hub, recentWalks: walks, weekWalkCount: weekWalks.length, todayMeters };
+    },
     enabled: !!selectedPetId,
   });
 
@@ -77,20 +89,26 @@ export default function PawthonHubScreen() {
             walkCount={hubStats.walkCount}
             totalMiles={hubStats.totalMiles}
             petsCount={pets.length}
+            weekKm={hubStats.weekKm}
+            weekWalkCount={hubStats.weekWalkCount}
+            streakDays={hubStats.streak}
+            todayMeters={hubStats.todayMeters}
+            recentWalks={hubStats.recentWalks}
             showWeeklyChallenge={weeklyChallengeEnabled}
-            rankLabel={
-              weeklyChallengeEnabled
-                ? formatWeeklyWalkerRankLine(
-                    weeklyWalkerRank?.rank ?? null,
-                    weeklyWalkerRank?.total ?? 0
-                  )
-                : undefined
-            }
+            rankLabel={formatWeeklyWalkerRankLine(
+              weeklyWalkerRank?.rank ?? null,
+              weeklyWalkerRank?.total ?? 0
+            )}
             onBack={() => router.back()}
             onStartWalk={() => {
               queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
               router.push("/pawthon-walk");
             }}
+            onSeeWalkLog={() => router.push("/(home)/pawthon/history" as any)}
+            onWalkPress={(id) => router.push(`/(home)/pawthon/walk/${id}` as any)}
+            onWeeklyPress={() => router.push("/(home)/pawthon/weekly" as any)}
+            onBadgesPress={() => router.push("/(home)/pawthon/badges" as any)}
+            onRemindersPress={() => router.push("/(home)/pawthon/reminders" as any)}
           />
         )}
       </View>

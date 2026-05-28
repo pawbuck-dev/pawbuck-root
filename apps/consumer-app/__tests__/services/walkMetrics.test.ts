@@ -3,6 +3,7 @@ import {
   computeWalkingStreakFromSessions,
   formatWeeklyChallengeFigmaLine,
   isWeeklyChallengeEnabled,
+  isWeeklyChallengeEnabledForCountry,
   formatWeeklyWalkerRankLine,
 } from "@/services/walkMetrics";
 
@@ -22,9 +23,16 @@ describe("formatWeeklyWalkerRankLine", () => {
 });
 
 describe("isWeeklyChallengeEnabled", () => {
-  it("requires more than 300 registered users", () => {
+  it("requires more than 300 registered users (legacy global)", () => {
     expect(isWeeklyChallengeEnabled(300)).toBe(false);
     expect(isWeeklyChallengeEnabled(301)).toBe(true);
+  });
+});
+
+describe("isWeeklyChallengeEnabledForCountry", () => {
+  it("requires more than 50 pet owners in country", () => {
+    expect(isWeeklyChallengeEnabledForCountry(50)).toBe(false);
+    expect(isWeeklyChallengeEnabledForCountry(51)).toBe(true);
   });
 });
 

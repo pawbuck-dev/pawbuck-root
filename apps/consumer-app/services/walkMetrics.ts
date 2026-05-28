@@ -1,4 +1,4 @@
-import { WEEKLY_CHALLENGE_MIN_APP_USERS } from "@/constants/pawthon";
+import { WEEKLY_CHALLENGE_MIN_APP_USERS, WEEKLY_CHALLENGE_MIN_COUNTRY_USERS } from "@/constants/pawthon";
 import moment from "moment";
 
 /** Minimal session fields for streak aggregation (pure logic tests). */
@@ -55,9 +55,14 @@ export function formatWeeklyWalkerRankLine(
 /** Minimum cohort size before showing competitive “#n of m … ahead of you” copy (avoids “#1 of 1”). */
 export const WEEKLY_CHALLENGE_RANK_COPY_MIN_COHORT = 100;
 
-/** Weekly challenge entry points (home card, leaderboard hero) when app has enough users. */
+/** Weekly challenge entry points when app has enough users (legacy global gate). */
 export function isWeeklyChallengeEnabled(appRegisteredUserCount: number): boolean {
   return appRegisteredUserCount > WEEKLY_CHALLENGE_MIN_APP_USERS;
+}
+
+/** Weekly challenge when enough pet owners in the same country as the selected pet. */
+export function isWeeklyChallengeEnabledForCountry(countryUserCount: number): boolean {
+  return countryUserCount > WEEKLY_CHALLENGE_MIN_COUNTRY_USERS;
 }
 
 /** Light dashboard weekly challenge (Figma) — pet parents + 👀. */

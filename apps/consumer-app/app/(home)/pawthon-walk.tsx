@@ -1,3 +1,10 @@
+import { PawthonBadgeUnlockCard } from "@/components/pawthon/PawthonBadgeUnlockCard";
+import { PawthonCountdownOverlay } from "@/components/pawthon/PawthonCountdownOverlay";
+import type { PawthonBadgeId } from "@/constants/pawthonBadges";
+import {
+  PAWTHON_COUNTDOWN_SECONDS,
+  PAWTHON_COUNTDOWN_SKIP_KEY,
+} from "@/constants/pawthonCountdown";
 import {
   PAWTHON_MAX_POINTS_PER_SESSION,
   PAWTHON_MIN_SEGMENT_METERS,
@@ -37,8 +44,16 @@ import {
   requestWalkBackgroundLocation,
   requestWalkForegroundLocation,
 } from "@/services/walkLocationPermissions";
-import { fetchPawthonDashboardStats, insertWalkSession, type WalkPoint } from "@/services/walkSessions";
+import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
+import { processBadgesAfterWalk } from "@/services/pawthonBadges";
+import {
+  fetchMyWeeklyWalkerRankForCountry,
+  fetchPawthonDashboardStats,
+  insertWalkSession,
+  type WalkPoint,
+} from "@/services/walkSessions";
 import { supabase } from "@/utils/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { haversineDistanceMeters } from "@/utils/haversine";
 import {
   buildSimulatedWalkPath,
@@ -68,7 +83,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = { latitude: number; longitude: number };
 
-type Phase = "select" | "warmup" | "active" | "complete";
+type Phase = "select" | "warmup" | "countdown" | "active" | "complete";
 
 type CompletePayload = {
   pet: Pet;
@@ -77,6 +92,8 @@ type CompletePayload = {
   path: PawthonMapCoord[];
   verificationUri: string | null;
   streak: number;
+  newBadges: PawthonBadgeId[];
+  sessionId: string | null;
 };
 
 async function loadExpoLocation(): Promise<typeof import("expo-location")> {
@@ -114,6 +131,9 @@ export default function PawthonWalkScreen() {
   const [saving, setSaving] = useState(false);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
   const [complete, setComplete] = useState<CompletePayload | null>(null);
+  const [countdownIndex, setCountdownIndex] = useState(0);
+  const [countdownGo, setCountdownGo] = useState(false);
+  const countdownPendingWeakGpsRef = useRef(false);
 
   const startedAtRef = useRef<Date | null>(null);
   const lastPosRef = useRef<LatLng | null>(null);
@@ -292,16 +312,7 @@ export default function PawthonWalkScreen() {
     let finished = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const finishWarmup = async (weak: boolean) => {
-      if (finished) return;
-      finished = true;
-      if (timeoutId != null) clearTimeout(timeoutId);
-      warmupSubRef.current?.remove();
-      warmupSubRef.current = null;
-      if (warmupTickerRef.current) {
-        clearInterval(warmupTickerRef.current);
-        warmupTickerRef.current = null;
-      }
+    const beginActiveTracking = async (weak: boolean) => {
       setWarmupWeakGps(weak);
       resetPawthonGapAnchor();
       resetPawthonWalkSessionBridge();
@@ -336,6 +347,29 @@ export default function PawthonWalkScreen() {
       }
     };
 
+    const finishWarmup = async (weak: boolean) => {
+      if (finished) return;
+      finished = true;
+      if (timeoutId != null) clearTimeout(timeoutId);
+      warmupSubRef.current?.remove();
+      warmupSubRef.current = null;
+      if (warmupTickerRef.current) {
+        clearInterval(warmupTickerRef.current);
+        warmupTickerRef.current = null;
+      }
+
+      const skip = await AsyncStorage.getItem(PAWTHON_COUNTDOWN_SKIP_KEY);
+      if (skip === "1") {
+        await beginActiveTracking(weak);
+        return;
+      }
+
+      countdownPendingWeakGpsRef.current = weak;
+      setCountdownIndex(0);
+      setCountdownGo(false);
+      setPhase("countdown");
+    };
+
     timeoutId = setTimeout(() => {
       void finishWarmup(true);
     }, PAWTHON_WARMUP_TIMEOUT_MS);
@@ -361,6 +395,68 @@ export default function PawthonWalkScreen() {
       void finishWarmup(true);
     }
   }, []);
+
+  const beginActiveFromCountdown = useCallback(async () => {
+    const weak = countdownPendingWeakGpsRef.current;
+    setCountdownGo(false);
+    setCountdownIndex(0);
+    await (async () => {
+      resetPawthonGapAnchor();
+      resetPawthonWalkSessionBridge();
+      startedAtRef.current = new Date();
+      setIsWalking(true);
+      setPhase("active");
+      setWarmupWeakGps(weak);
+      tickRef.current = setInterval(() => {
+        if (startedAtRef.current) {
+          setDurationSec(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
+        }
+      }, 1000);
+      try {
+        await startPawthonWalkBackgroundTracking();
+      } catch (e) {
+        console.warn("[PawthonWalk] startLocationUpdatesAsync", e);
+        await stopPawthonWalkBackgroundTracking();
+        deactivatePawthonWalkSessionBridge();
+        if (tickRef.current) {
+          clearInterval(tickRef.current);
+          tickRef.current = null;
+        }
+        setIsWalking(false);
+        setPhase("select");
+        startedAtRef.current = null;
+        Alert.alert(
+          "Location error",
+          "Could not start GPS tracking. Use a development or production build with native location (Expo Go does not support background walk tracking)."
+        );
+      }
+    })();
+  }, []);
+
+  const skipCountdownAndStart = useCallback(async () => {
+    await AsyncStorage.setItem(PAWTHON_COUNTDOWN_SKIP_KEY, "1");
+    await beginActiveFromCountdown();
+  }, [beginActiveFromCountdown]);
+
+  useEffect(() => {
+    if (phase !== "countdown") return;
+
+    const sequence = [...PAWTHON_COUNTDOWN_SECONDS];
+    if (countdownIndex >= sequence.length && !countdownGo) {
+      setCountdownGo(true);
+      const t = setTimeout(() => {
+        void beginActiveFromCountdown();
+      }, 700);
+      return () => clearTimeout(t);
+    }
+
+    if (countdownGo) return;
+
+    const t = setTimeout(() => {
+      setCountdownIndex((i) => i + 1);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [phase, countdownIndex, countdownGo, beginActiveFromCountdown]);
 
   const beginWalkFromSelect = useCallback(async () => {
     if (!walkPetId) {
@@ -522,11 +618,25 @@ export default function PawthonWalkScreen() {
 
       await queryClient.invalidateQueries({ queryKey: ["pawthon", petId] });
       await queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", petId] });
+      await queryClient.invalidateQueries({ queryKey: ["pawthon", "home", petId] });
+      await queryClient.invalidateQueries({ queryKey: ["pawthon", "history", petId] });
       await queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
       const stats = await queryClient.fetchQuery({
         queryKey: ["pawthon", petId],
         queryFn: () => fetchPawthonDashboardStats(petId),
       });
+
+      const goalMeters = await getDailyGoalMeters();
+      const rank = await fetchMyWeeklyWalkerRankForCountry(walkPet.country?.trim() ?? "");
+      const newBadges = await processBadgesAfterWalk({
+        userId: userData.user.id,
+        petId,
+        hasVerificationPhoto: !!verificationUri,
+        weeklyRank: rank.rank,
+        goalMeters,
+        pets: pets.map((p) => ({ id: p.id })),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["pawthon", "badges", userData.user.id] });
 
       const dur = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
       setComplete({
@@ -536,6 +646,8 @@ export default function PawthonWalkScreen() {
         path: pathSnapshot.length >= 2 ? pathSnapshot : pathSnapshot.length === 1 ? [...pathSnapshot, ...pathSnapshot] : [],
         verificationUri,
         streak: stats.streak,
+        newBadges,
+        sessionId: result.id,
       });
       setPhase("complete");
       distanceMRef.current = 0;
@@ -546,7 +658,7 @@ export default function PawthonWalkScreen() {
     } finally {
       setSaving(false);
     }
-  }, [stopTracking, walkPetId, walkPet, verificationUri, queryClient]);
+  }, [stopTracking, walkPetId, walkPet, verificationUri, queryClient, pets]);
 
   /**
    * Simulator / dev: play ~1 km of fake GPS without moving, then auto-save (same as Stop).
@@ -914,91 +1026,56 @@ export default function PawthonWalkScreen() {
             </View>
           )}
 
-          <Text
-            style={{
-              fontFamily: "Poppins_700Bold",
-              fontSize: 17,
-              color: theme.foreground,
-              marginBottom: 12,
-            }}
-          >
-            Achievements
-          </Text>
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
-            <LinearGradient
-              colors={["#FFE5B4", "#FFD54F"]}
-              style={{ flex: 1, borderRadius: 16, padding: 14 }}
+          {complete.newBadges.length > 0 ? (
+            <PawthonBadgeUnlockCard badgeId={complete.newBadges[0]} />
+          ) : (
+            <View
+              style={{
+                backgroundColor: PAWTHON_PEACH_CARD,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 16,
+              }}
             >
               <Ionicons name="flame" size={22} color="#E65100" />
-              <Text
-                style={{
-                  fontFamily: "Poppins_700Bold",
-                  fontSize: 15,
-                  color: "#5D4037",
-                  marginTop: 8,
-                }}
-              >
-                {complete.streak >= 2 ? `${complete.streak}-Day Streak!` : "Keep the streak!"}
+              <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 15, color: "#5D4037", marginTop: 8 }}>
+                {complete.streak >= 2 ? `${complete.streak}-day streak` : "Keep the streak!"}
               </Text>
               <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: "#6D4C41", marginTop: 4 }}>
                 {complete.streak >= 2
                   ? "You’re on a roll"
                   : "Walk again tomorrow to start a streak"}
               </Text>
-            </LinearGradient>
-            <LinearGradient
-              colors={["#C8E6C9", "#81C784"]}
-              style={{ flex: 1, borderRadius: 16, padding: 14 }}
-            >
-              <Ionicons name="trending-up" size={22} color="#2E7D32" />
-              <Text
-                style={{
-                  fontFamily: "Poppins_700Bold",
-                  fontSize: 15,
-                  color: "#1B5E20",
-                  marginTop: 8,
-                }}
-              >
-                Leaderboard
-              </Text>
-              <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 12, color: "#2E7D32", marginTop: 4 }}>
-                City ranks coming soon
-              </Text>
-            </LinearGradient>
-          </View>
+            </View>
+          )}
 
-          <View
-            style={{
-              backgroundColor: PAWTHON_PEACH_CARD,
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 20,
-            }}
-          >
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: "rgba(255,255,255,0.8)",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 12,
+          {complete.sessionId ? (
+            <Pressable
+              onPress={() => {
+                setComplete(null);
+                router.push(`/(home)/pawthon/walk/${complete.sessionId}` as any);
               }}
+              style={{ marginBottom: 12 }}
             >
-              <Ionicons name="paw" size={26} color={PAWTHON_TEAL} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 17, color: "#3E2723" }}>
-                Pawthon challenge
-              </Text>
-              <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 13, color: "#5D4037", marginTop: 2 }}>
-                Weekly distance & city leaders · soon
-              </Text>
-            </View>
-          </View>
+              <LinearGradient
+                colors={[PAWTHON_TEAL, "#1FA8A8"]}
+                style={{ paddingVertical: 16, borderRadius: 16, alignItems: "center" }}
+              >
+                <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 17, color: "#FFFFFF" }}>
+                  View in walk log
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={() => router.push("/(home)/pawthon/badges" as any)}
+            style={{ marginBottom: 12, alignItems: "center" }}
+          >
+            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 14, color: PAWTHON_TEAL }}>
+              View all badges
+            </Text>
+          </Pressable>
 
           <Pressable
             onPress={() => {
@@ -1046,8 +1123,11 @@ export default function PawthonWalkScreen() {
     );
   }
 
-  /* ——— GPS warmup ——— */
-  if (phase === "warmup") {
+  /* ——— GPS warmup / countdown ——— */
+  if (phase === "warmup" || phase === "countdown") {
+    const countdownDisplay = countdownGo
+      ? "Go!"
+      : String(PAWTHON_COUNTDOWN_SECONDS[countdownIndex] ?? "");
     return (
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <StatusBar style="light" />
@@ -1056,6 +1136,14 @@ export default function PawthonWalkScreen() {
           style={{ flex: 1 }}
           showUserLocation
         />
+        {phase === "countdown" ? (
+          <PawthonCountdownOverlay
+            petName={walkPet?.name ?? "your pet"}
+            display={countdownDisplay}
+            phase={countdownGo ? "go" : "number"}
+            onSkip={() => void skipCountdownAndStart()}
+          />
+        ) : null}
         <View
           style={{
             position: "absolute",
@@ -1066,6 +1154,7 @@ export default function PawthonWalkScreen() {
         >
           {headerBack()}
         </View>
+        {phase === "warmup" ? (
         <View
           style={{
             position: "absolute",
@@ -1113,6 +1202,7 @@ export default function PawthonWalkScreen() {
               : `${warmupElapsedSec}s`}
           </Text>
         </View>
+        ) : null}
       </View>
     );
   }

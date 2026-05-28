@@ -1,5 +1,5 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
-import DailyGoalWalkCard from "@/components/home/DailyGoalWalkCard";
+import PawthonHomeCard from "@/components/home/PawthonHomeCard";
 import PetEmailMoatCard from "@/components/home/PetEmailMoatCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
@@ -30,10 +30,13 @@ import {
 } from "@/services/careTeamMembers";
 import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
+import { PAWTHON_DEFAULT_GOAL_METERS } from "@/constants/pawthonGoals";
 import {
-  fetchMyWeeklyWalkerRank,
-  fetchPawthonDashboardStats,
+  fetchMyWeeklyWalkerRankForCountry,
+  fetchPawthonDailyStats,
+  fetchRecentWalkSessions,
 } from "@/services/walkSessions";
+import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
 import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
@@ -80,7 +83,7 @@ export default function Home() {
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
   const { resetOnboarding } = useOnboarding();
-  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled();
+  const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(selectedPet?.country);
   const { ensurePremium } = useSubscription();
   const queryClient = useQueryClient();
 
@@ -127,16 +130,35 @@ export default function Home() {
     enabled: !!selectedPetId,
   });
 
+  const { data: goalMeters = PAWTHON_DEFAULT_GOAL_METERS } = useQuery({
+    queryKey: ["pawthon", "goalMeters"],
+    queryFn: getDailyGoalMeters,
+  });
+
+  const { data: pawthonHome } = useQuery({
+    queryKey: ["pawthon", "home", selectedPetId, goalMeters],
+    queryFn: async () => {
+      const [stats, walks] = await Promise.all([
+        fetchPawthonDailyStats(selectedPetId!, goalMeters),
+        fetchRecentWalkSessions(selectedPetId!, 1),
+      ]);
+      return { ...stats, lastWalk: walks[0] ?? null };
+    },
+    enabled: !!selectedPetId,
+  });
+
   const { data: pawthonStats } = useQuery({
     queryKey: ["pawthon", selectedPetId],
-    queryFn: () => fetchPawthonDashboardStats(selectedPetId!),
+    queryFn: async () => fetchPawthonDailyStats(selectedPetId!, goalMeters),
     enabled: weeklyChallengeEnabled && !!selectedPetId,
   });
 
+  const petCountry = selectedPet?.country?.trim() ?? "";
+
   const { data: weeklyWalkerRank } = useQuery({
-    queryKey: ["pawthon", "weeklyWalkerRank"],
-    queryFn: fetchMyWeeklyWalkerRank,
-    enabled: weeklyChallengeEnabled && !!user,
+    queryKey: ["pawthon", "weeklyWalkerRank", petCountry],
+    queryFn: () => fetchMyWeeklyWalkerRankForCountry(petCountry),
+    enabled: weeklyChallengeEnabled && !!user && petCountry.length > 0,
   });
 
   const createCareTeamMemberMutation = useMutation({
@@ -231,12 +253,12 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["pet_journal_home", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", "home", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["pawthon", "history", selectedPetId] }),
       ...(weeklyChallengeEnabled
-        ? [
-            queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
-            queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
-            queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] }),
-          ]
+        ? [queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] })]
         : []),
       refreshPendingApprovals(),
     ]);
@@ -290,9 +312,11 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", "home", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
+        queryClient.invalidateQueries({ queryKey: ["pawthon", "history", selectedPetId] });
         if (weeklyChallengeEnabled) {
-          queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] });
-          queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
           queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
         }
       }
@@ -490,24 +514,32 @@ export default function Home() {
 
           {/* Daily walking goal (compact) */}
           {selectedPet && (
-            <DailyGoalWalkCard
+            <PawthonHomeCard
               variant="compact"
               petName={selectedPet.name}
+              goalMeters={goalMeters}
+              todayMeters={pawthonHome?.todayMeters ?? 0}
+              lastWalk={pawthonHome?.lastWalk ?? null}
               onStartWalk={() => router.push("/pawthon-walk")}
+              onViewLog={() => router.push("/(home)/pawthon/history" as any)}
+              onViewLastWalk={() => {
+                const id = pawthonHome?.lastWalk?.id;
+                if (id) router.push(`/(home)/pawthon/walk/${id}` as any);
+              }}
             />
           )}
 
-          {/* Weekly Challenge */}
+          {/* Weekly Challenge — only when enough walkers in pet's country */}
           {weeklyChallengeEnabled && selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
               <WeeklyChallengeCard
                 petName={selectedPet.name}
-                weekKm={pawthonStats?.weekKm ?? 0}
-                streakDays={pawthonStats?.streak ?? 0}
+                weekKm={pawthonHome?.weekKm ?? pawthonStats?.weekKm ?? 0}
+                streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
                 walkerRank={weeklyWalkerRank?.rank ?? null}
                 walkerTotal={weeklyWalkerRank?.total ?? 0}
                 onPress={() =>
-                  ensurePremium(() => router.push("/leaderboard" as any), "weekly_challenge")
+                  ensurePremium(() => router.push("/(home)/pawthon/weekly" as any), "weekly_challenge")
                 }
               />
             </View>

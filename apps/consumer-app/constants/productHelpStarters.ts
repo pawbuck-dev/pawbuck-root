@@ -11,6 +11,7 @@ export const PRODUCT_HELP_STARTERS: readonly { id: string; prompt: string }[] = 
   { id: "messages-review", prompt: "How do I fix a failed or pending email in Messages?" },
   { id: "milo-overview", prompt: "What can Milo help me with in the app?" },
   { id: "pawthon-walk", prompt: "How do I start a Pawthon walk and track distance?" },
+  { id: "pawthon-history", prompt: "How do I see my past walks and route map?" },
   { id: "calendar-appointments", prompt: "Where do I see my vet appointments and email calendar invites?" },
   { id: "pet-journal", prompt: "How do I add a pet journal entry?" },
   { id: "behavior-baseline", prompt: "How do I set my pet's behavior baseline?" },

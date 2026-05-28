@@ -1,5 +1,8 @@
-/** Weekly challenge UI (home card, Pawthon hub hero) requires more than this many registered users. */
+/** @deprecated Global gate replaced by country cohort; kept for tests referencing legacy threshold. */
 export const WEEKLY_CHALLENGE_MIN_APP_USERS = 300;
+
+/** Weekly challenge UI when enough pet owners share the selected pet's country (pets.country). */
+export const WEEKLY_CHALLENGE_MIN_COUNTRY_USERS = 50;
 
 /** Ignore GPS jumps shorter than this (meters) to reduce noise. */
 export const PAWTHON_MIN_SEGMENT_METERS = 4;
