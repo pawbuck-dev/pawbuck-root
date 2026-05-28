@@ -24,5 +24,6 @@ RUN dotnet publish backend/PawBuck.API/PawBuck.API.csproj -c Release -o /app/pub
 
 FROM base AS final
 WORKDIR /app
+ENV DOTNET_RUNNING_IN_CONTAINER=true
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "PawBuck.API.dll"]

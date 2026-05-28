@@ -48,7 +48,17 @@ if [ -z "$CONTAINER_NAME" ]; then
   CONTAINER_NAME="$(jq -r '.containerDefinitions[0].name' /tmp/td-full.json)"
 fi
 
-jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg miloKey "$MILO_INTERNAL_SERVICE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" --arg taskCpu "$TASK_CPU" --arg taskMem "$TASK_MEMORY" '
+EFFECTIVE_MEMORY_MIB="$TASK_MEMORY"
+if [ -z "$EFFECTIVE_MEMORY_MIB" ]; then
+  EFFECTIVE_MEMORY_MIB="$(jq -r '.memory // empty' /tmp/td-full.json)"
+fi
+GC_HEAP_LIMIT=""
+if [ -n "$EFFECTIVE_MEMORY_MIB" ] && [ "$EFFECTIVE_MEMORY_MIB" -gt 0 ] 2>/dev/null; then
+  # Cap managed heap ~75% of task memory so OOM throws in .NET logs instead of opaque exit 139/137.
+  GC_HEAP_LIMIT=$(( EFFECTIVE_MEMORY_MIB * 1024 * 1024 * 75 / 100 ))
+fi
+
+jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg miloKey "$MILO_INTERNAL_SERVICE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" --arg taskCpu "$TASK_CPU" --arg taskMem "$TASK_MEMORY" --arg gcHeap "$GC_HEAP_LIMIT" '
   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
   | (if ($taskCpu | length) > 0 then .cpu = ($taskCpu | tonumber) else . end)
   | (if ($taskMem | length) > 0 then .memory = ($taskMem | tonumber) else . end)
@@ -66,6 +76,8 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             .name != "SUPABASE_SERVICE_ROLE_KEY" and
             .name != "Supabase__ServiceRoleKey" and
             .name != "Milo__InternalServiceKey" and
+            .name != "DOTNET_RUNNING_IN_CONTAINER" and
+            .name != "DOTNET_GCHeapHardLimit" and
             (.name | test("^Cors__AllowedOrigins__") | not) and
             (($gem | length) == 0 or (.name != "Gemini__ApiKey" and .name != "GOOGLE_GEMINI_API_KEY"))
           ))) +
@@ -73,8 +85,10 @@ jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE
             {"name":"ASPNETCORE_ENVIRONMENT","value":"Production"},
             {"name":"Admin__AllowAnonymousSupportInDevelopment","value":"false"},
             {"name":"Supabase__JwtSecret","value":$jwt},
-            {"name":"ASPNETCORE_URLS","value":"http://+:8080"}
+            {"name":"ASPNETCORE_URLS","value":"http://+:8080"},
+            {"name":"DOTNET_RUNNING_IN_CONTAINER","value":"true"}
           ] +
+          (if ($gcHeap | length) > 0 then [{"name":"DOTNET_GCHeapHardLimit","value":$gcHeap}] else [] end) +
           (if ($supUrl | length) > 0 then [{"name":"Supabase__Url","value":$supUrl},{"name":"SUPABASE_URL","value":$supUrl}] else [] end) +
           (if ($serviceRole | length) > 0 then [{"name":"Supabase__ServiceRoleKey","value":$serviceRole},{"name":"SUPABASE_SERVICE_ROLE_KEY","value":$serviceRole}] else [] end) +
           (if ($miloKey | length) > 0 then [{"name":"Milo__InternalServiceKey","value":$miloKey}] else [] end) +
@@ -92,4 +106,10 @@ aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definiti
 echo "ECS task definition updated and service redeployed: $NEW_ARN"
 if [ -n "$TASK_CPU" ] || [ -n "$TASK_MEMORY" ]; then
   echo "Task size: cpu=${TASK_CPU:-unchanged} memory=${TASK_MEMORY:-unchanged} (MiB)"
+fi
+if [ -n "$EFFECTIVE_MEMORY_MIB" ] && [ "$EFFECTIVE_MEMORY_MIB" -le 1024 ] 2>/dev/null; then
+  echo "::warning::Task memory is ${EFFECTIVE_MEMORY_MIB} MiB — PawBuck.API + Milo vision often needs ≥2048 MiB. Exit code 139/137 on startup usually means OOM, not a C# bug."
+fi
+if [ -n "$GC_HEAP_LIMIT" ]; then
+  echo "DOTNET_GCHeapHardLimit=${GC_HEAP_LIMIT} bytes (~75% of task memory)"
 fi

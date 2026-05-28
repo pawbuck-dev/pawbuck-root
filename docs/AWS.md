@@ -28,9 +28,16 @@ Push to **ECR** and use the image in an ECS task definition:
 
 ### ECS task size (Fargate CPU / memory)
 
-Milo vision (classify + extract on multi-page PDFs) loads full document bytes into memory and calls Gemini. **512 MiB / 1024 MiB tasks often OOM or fail to start**, which shows up as ECS tasks cycling **STOPPED** during deploy.
+Milo vision (classify + extract on multi-page PDFs) loads full document bytes into memory and calls Gemini. **512 CPU / 1024 MiB is not enough** for PawBuck.API in production — tasks often crash at startup with **exit code 139 or 137** and ECS rolls the deployment back.
 
-**Recommended minimum for production:** **1024 CPU** (1 vCPU) and **4096 MiB** (4 GB) memory.
+| Exit code | Meaning | Typical cause on Fargate |
+|-----------|---------|-------------------------|
+| **137** | SIGKILL | Linux OOM killer (container out of memory) |
+| **139** | SIGSEGV | Often **misreported OOM** or native runtime crash under memory pressure; same fix: **more memory** |
+
+**Do not use 512 CPU / 1024 MiB** for this API. Minimum practical size on 0.5 vCPU: **512 CPU / 2048 MiB**. Better: **512 CPU / 4096 MiB** or **1024 CPU / 4096 MiB**.
+
+**Recommended for production:** **1024 CPU** (1 vCPU) and **4096 MiB** (4 GB) memory.
 
 Set GitHub **Variables** so each **Deploy AWS** run keeps this size when the merge script registers a new task definition:
 
@@ -42,6 +49,14 @@ Set GitHub **Variables** so each **Deploy AWS** run keeps this size when the mer
 If you raised memory in the ECS console manually, set these variables to the **same values** before the next deploy so the workflow does not register a revision with the old size.
 
 After deploy, confirm tasks stay **Running**: ECS → cluster → service → **Tasks** tab (not repeatedly **Essential container exited** / **OutOfMemoryError** in stopped task logs).
+
+**If deploy rolls back (exit 139 / 137):**
+
+1. CloudWatch → log group for the task → check for `OutOfMemoryException` or no logs at all (instant kill).
+2. Raise task memory to **2048** or **4096** MiB (valid for 512 CPU).
+3. Roll service to the last **Running** task definition revision while you redeploy.
+4. Confirm GitHub Variables `AWS_ECS_TASK_CPU` / `AWS_ECS_TASK_MEMORY` match the console (deploy merge preserves size).
+5. Deploy script sets `DOTNET_GCHeapHardLimit` (~75% of task memory) so future OOMs log in CloudWatch instead of silent crashes.
 
 ### Required configuration (secrets / env)
 
@@ -172,7 +187,7 @@ If you leave `Cors:AllowedOrigins` empty, the **localhost / Expo dev** defaults 
 - Health check: path **`/api/health`**, matcher **200**.
 - **Idle timeout: 120 seconds** (required for Milo document analyze). The default ALB idle timeout is **60s**; Gemini classify + extract on large PDFs can exceed that and return **504 Gateway Time-out** HTML to mobile clients while PawBuck.API is still processing. Set this to match the Gemini HttpClient budget in `Program.cs` (~120s).
   - **Console:** EC2 → Load Balancers → your API ALB → **Attributes** → **Idle timeout** → `120`.
-- **Gemini per-attempt timeout:** PawBuck.API sets `AttemptTimeout` and `TotalRequestTimeout` to **120s** on the `"Gemini"` HttpClient (Polly default attempt timeout is only **10s**, which fails extraction on dense vaccination PDFs before ALB times out). Redeploy the API after changing this.
+- **Gemini per-attempt timeout:** PawBuck.API sets `AttemptTimeout` to **120s** on the `"Gemini"` HttpClient (Polly default is **10s**, which fails Milo extraction). `CircuitBreaker.SamplingDuration` must be **≥ 240s** when attempt timeout is 120s — otherwise the API throws `OptionsValidationException` at startup and tasks exit immediately (CloudWatch shows this before `/api/health` listens).
 - **Post-deploy verify:** In the consumer app, open Milo chat → **+** → upload a multi-page PDF. Confirm analysis completes without a 504; retry the same file and confirm Health Records does not show duplicate vault rows.
 
 ## CI/CD (GitHub Actions)

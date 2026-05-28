@@ -79,7 +79,10 @@ builder.Services.AddHttpClient("Gemini")
 
         // Default AttemptTimeout is 10s — too short for Milo vision classify/extract on multi-sticker PDFs.
         options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(120);
-        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+        // Total must exceed a single attempt so retries are possible; still within ALB idle timeout budget.
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(180);
+        // StandardResilienceHandler requires sampling duration ≥ 2× attempt timeout (default 30s fails validation at 120s).
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(240);
 
         options.Retry.OnRetry = args =>
         {
