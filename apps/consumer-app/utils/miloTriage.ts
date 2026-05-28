@@ -1,5 +1,10 @@
 import type { JournalDomain } from "@/constants/petJournal";
 import type { PetLogEntry, PetLogSeverity } from "@/types/petLog";
+import {
+  isDietLogText,
+  isHydrationLogText,
+  isRoutineJournalLogText,
+} from "@/utils/miloJournalIntent";
 import { computeMiloJournalIdempotencyKey } from "@/utils/miloJournalIdempotency";
 
 const URGENT = [
@@ -126,6 +131,8 @@ export type TriageContext = {
  * Keyword-based severity. Not medical advice — UI assist only.
  */
 export function mapSeverity(text: string, ctx?: TriageContext): PetLogSeverity {
+  if (isRoutineJournalLogText(text)) return "low";
+
   let level: PetLogSeverity = "medium";
 
   if (containsAny(text, URGENT)) level = "urgent";
@@ -172,10 +179,12 @@ function inferDomain(text: string, tabHint: JournalDomain): JournalDomain {
 function inferSubtype(domain: JournalDomain, text: string): string {
   const h = normalize(text);
   if (domain === "health") {
-    if (h.includes("vomit") || h.includes("diarr") || h.includes("ate")) return "symptom";
-    if (h.includes("food") || h.includes("eat")) return "diet";
+    if (h.includes("vomit") || h.includes("diarr")) return "symptom";
+    if (isHydrationLogText(text)) return "other";
+    if (isDietLogText(text) || h.includes("food") || h.includes("meal") || h.includes("bowl")) return "diet";
     if (h.includes("mood") || h.includes("happy") || h.includes("sad")) return "mood";
     if (h.includes("sleep")) return "sleep";
+    if (/\beat(ing)?\b/.test(h) || /\beat\b/.test(h)) return "symptom";
     return "symptom";
   }
   if (domain === "behavioral") {

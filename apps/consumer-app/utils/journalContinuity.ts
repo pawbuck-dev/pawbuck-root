@@ -90,6 +90,17 @@ export function formatJournalEntryCountLabel(count: number, windowDays?: number)
   return `${count} ${noun}`;
 }
 
+/** Home journal card link — e.g. "View all" or "View all · 2 this week". */
+export function formatJournalViewAllLabel(count: number, windowDays?: number): string {
+  if (count <= 0) return "View all";
+  const noun = count === 1 ? "entry" : "entries";
+  if (windowDays === 7) return `View all · ${count} ${noun} this week`;
+  if (windowDays != null && windowDays > 0) {
+    return `View all · ${count} ${noun} · last ${windowDays} days`;
+  }
+  return `View all · ${count} ${noun}`;
+}
+
 /** One-line continuity copy for home health card (no PII from note body). */
 export function formatLastJournalContinuityLine(
   latest: PetJournalEntry | undefined

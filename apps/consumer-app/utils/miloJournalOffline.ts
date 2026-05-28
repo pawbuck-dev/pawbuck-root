@@ -1,7 +1,14 @@
 /**
  * Offline journal when PawBuck.API is unreachable.
- * Degraded tree-shaped flows for vomiting + lethargy (v1.5).
+ * Degraded tree-shaped flows for vomiting + lethargy (v1.5), plus routine meal/water logs.
  */
+
+import {
+  isDietLogText,
+  isHydrationLogText,
+  isLogIntentText,
+  isRoutineJournalLogText,
+} from "@/utils/miloJournalIntent";
 
 export type OfflineJournalTurnResult = {
   answer: string;
@@ -10,26 +17,107 @@ export type OfflineJournalTurnResult = {
   structuredFields?: Record<string, string>;
 };
 
-type OfflineTree = "vomiting_v1.5" | "lethargy_v1.5" | "generic";
+type OfflineTree = "vomiting_v1.5" | "lethargy_v1.5" | "diet_log" | "hydration_log" | "generic";
 
 function detectTree(text: string): OfflineTree {
   const lower = text.toLowerCase();
   if (lower.includes("vomit") || lower.includes("diarr")) return "vomiting_v1.5";
   if (lower.includes("letharg") || lower.includes("tired")) return "lethargy_v1.5";
+
+  if (isRoutineJournalLogText(text)) {
+    if (isHydrationLogText(text) && !isDietLogText(text)) return "hydration_log";
+    if (isDietLogText(text)) return "diet_log";
+    if (isHydrationLogText(text)) return "hydration_log";
+  }
+
+  if (isLogIntentText(text)) {
+    if (isHydrationLogText(text) && !isDietLogText(text)) return "hydration_log";
+    if (isDietLogText(text)) return "diet_log";
+  }
+
   return "generic";
 }
 
+function summarizeLogLine(text: string, maxLen = 72): string {
+  const t = text.trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+function primaryLogLine(userTurns: string[]): string {
+  const substantive = userTurns.filter((t) => {
+    const l = t.trim().toLowerCase();
+    return l.length > 0 && l !== "save entry" && l !== "not now" && l !== "add details";
+  });
+  return substantive[substantive.length - 1] ?? userTurns[userTurns.length - 1] ?? "";
+}
+
 /**
- * @param priorUserLineCount user messages before this failed send
- * @param lastUserMessage latest user text (for tree detection on step 0)
+ * @param userTurns chronological owner messages in this offline session (includes latest)
  */
-export function getOfflineJournalTurn(
-  priorUserLineCount: number,
-  petName: string,
-  lastUserMessage?: string
-): OfflineJournalTurnResult {
-  const tree = detectTree(lastUserMessage ?? "");
-  const step = Math.min(Math.max(priorUserLineCount, 0), 3);
+export function getOfflineJournalTurn(userTurns: string[], petName: string): OfflineJournalTurnResult {
+  const combined = userTurns.join("\n");
+  const tree = detectTree(combined);
+  const step = Math.min(Math.max(userTurns.length - 1, 0), 3);
+  const logLine = primaryLogLine(userTurns);
+  const detail = summarizeLogLine(logLine);
+  const lastLower = (userTurns[userTurns.length - 1] ?? "").trim().toLowerCase();
+
+  if (tree === "diet_log") {
+    if (lastLower === "not now") {
+      return {
+        answer: `Okay — no journal entry saved for ${petName}.`,
+        suggestedReplies: [],
+        journalSessionComplete: false,
+      };
+    }
+    if (step >= 1 && lastLower === "add details") {
+      return {
+        answer: `Add another message with any extra detail for ${petName}'s meal log.`,
+        suggestedReplies: [],
+        journalSessionComplete: false,
+      };
+    }
+    return {
+      answer: detail
+        ? `Logged a meal note for ${petName} (offline): “${detail}”. It will sync when you're back online.`
+        : `Logged a meal note for ${petName} (offline). It will sync when you're back online.`,
+      suggestedReplies: [],
+      journalSessionComplete: true,
+      structuredFields: {
+        TYPE: "Diet",
+        NOTE: logLine.trim() || "Meal log (offline)",
+      },
+    };
+  }
+
+  if (tree === "hydration_log") {
+    if (lastLower === "not now") {
+      return {
+        answer: `Okay — no journal entry saved for ${petName}.`,
+        suggestedReplies: [],
+        journalSessionComplete: false,
+      };
+    }
+    if (step >= 1 && lastLower === "add details") {
+      return {
+        answer: `Add another message with any extra detail for ${petName}'s water log.`,
+        suggestedReplies: [],
+        journalSessionComplete: false,
+      };
+    }
+    return {
+      answer: detail
+        ? `Logged water intake for ${petName} (offline): “${detail}”. It will sync when you're back online.`
+        : `Logged water intake for ${petName} (offline). It will sync when you're back online.`,
+      suggestedReplies: [],
+      journalSessionComplete: true,
+      structuredFields: {
+        TYPE: "Hydration",
+        NOTE: logLine.trim() || "Water log (offline)",
+      },
+    };
+  }
 
   if (tree === "vomiting_v1.5") {
     switch (step) {

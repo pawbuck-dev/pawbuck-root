@@ -2,28 +2,48 @@ import { extractPetLogEntry, severityFromConversationText } from "@/utils/miloTr
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 
 describe("getOfflineJournalTurn", () => {
-  it("first turn asks duration with chips", () => {
-    const r = getOfflineJournalTurn(0, "Benji", "vomiting");
+  it("logs meal on first turn without symptom duration chips", () => {
+    const r = getOfflineJournalTurn(["Log 2 bowls of food for Milo"], "Milo");
+    expect(r.journalSessionComplete).toBe(true);
+    expect(r.answer).toContain("meal");
+    expect(r.answer).not.toContain("How long has this been going on");
+    expect(r.suggestedReplies).toHaveLength(0);
+    expect(r.structuredFields?.TYPE).toBe("Diet");
+  });
+
+  it("logs water on first turn without symptom duration chips", () => {
+    const r = getOfflineJournalTurn(["Log 2 glasses of water"], "Milo");
+    expect(r.journalSessionComplete).toBe(true);
+    expect(r.answer).toContain("water");
+    expect(r.answer).not.toContain("How long has this been going on");
+    expect(r.structuredFields?.TYPE).toBe("Hydration");
+  });
+
+  it("first turn for vomiting asks duration with chips", () => {
+    const r = getOfflineJournalTurn(["Milo is vomiting"], "Benji");
     expect(r.journalSessionComplete).toBe(false);
     expect(r.suggestedReplies.length).toBeGreaterThanOrEqual(4);
     expect(r.suggestedReplies).toContain("Not sure");
     expect(r.answer).toContain("Benji");
   });
 
-  it("second turn asks follow-up", () => {
-    const r = getOfflineJournalTurn(1, "Luna");
+  it("second turn asks follow-up for generic symptom", () => {
+    const r = getOfflineJournalTurn(["something vague", "a couple of days"], "Luna");
     expect(r.journalSessionComplete).toBe(false);
     expect(r.suggestedReplies.length).toBeGreaterThan(0);
   });
 
   it("vomiting tree completes after appetite step", () => {
-    const r = getOfflineJournalTurn(3, "Luna", "vomiting");
+    const r = getOfflineJournalTurn(
+      ["vomiting", "Just today", "Food", "Normal"],
+      "Luna"
+    );
     expect(r.journalSessionComplete).toBe(true);
     expect(r.structuredFields?.SYMPTOM).toBeDefined();
   });
 
   it("generic flow completes on third turn", () => {
-    const r = getOfflineJournalTurn(2, "Rex", "something vague");
+    const r = getOfflineJournalTurn(["something vague", "a couple of days", "Nothing else"], "Rex");
     expect(r.journalSessionComplete).toBe(true);
     expect(r.suggestedReplies).toHaveLength(0);
   });
@@ -47,6 +67,15 @@ describe("offline journal multi-turn triage (userTurns order)", () => {
     expect(entry.severity).toBe("urgent");
     expect(entry.vet_flag).toBe(true);
     expect(entry.note).toBe("API summary unavailable");
+  });
+
+  it("routine meal log is low severity", () => {
+    const userTurns = ["Log 2 glasses of water"];
+    expect(severityFromConversationText(userTurns)).toBe("low");
+    const entry = extractPetLogEntry("offline", "p", "u", "health", undefined, userTurns.join("\n"));
+    expect(entry.severity).toBe("low");
+    expect(entry.subtype).toBe("other");
+    expect(entry.vet_flag).toBe(false);
   });
 
   it("three benign turns stay non-urgent", () => {

@@ -5,7 +5,7 @@ import { useTheme } from "@/context/themeContext";
 import { fetchAllJournalEntriesForPet } from "@/services/petJournal";
 import {
   countEntriesInWindow,
-  formatJournalEntryCountLabel,
+  formatJournalViewAllLabel,
   formatLastEntryMeta,
   formatLatestEntrySubtitle,
   formatLatestEntryTitle,
@@ -19,17 +19,15 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from "react-native";
 
 const ENTRY_WINDOW_DAYS = 7;
 
-type QuickChip = {
+type JournalShortcut = {
   id: string;
   label: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
   onPress: () => void;
 };
 
@@ -54,8 +52,8 @@ export default function PetJournalHomeCard({ pet }: Props) {
     () => countEntriesInWindow(entries, ENTRY_WINDOW_DAYS),
     [entries]
   );
-  const entryCountLabel = useMemo(
-    () => formatJournalEntryCountLabel(recentCount, ENTRY_WINDOW_DAYS),
+  const viewAllLabel = useMemo(
+    () => formatJournalViewAllLabel(recentCount, ENTRY_WINDOW_DAYS),
     [recentCount]
   );
 
@@ -87,6 +85,15 @@ export default function PetJournalHomeCard({ pet }: Props) {
     [pet.id, router, withPremium]
   );
 
+  const openMiloCheckIn = useCallback(() => {
+    withPremium(() =>
+      router.push({
+        pathname: "/(home)/pet-journal",
+        params: { petId: pet.id, domain: "health" },
+      } as any)
+    );
+  }, [pet.id, router, withPremium]);
+
   const openNewEntry = useCallback(
     (domain: JournalDomain, subtype: string) => {
       withPremium(() =>
@@ -99,40 +106,14 @@ export default function PetJournalHomeCard({ pet }: Props) {
     [pet.id, router, withPremium]
   );
 
-  const quickChips: QuickChip[] = useMemo(
+  const journalShortcuts: JournalShortcut[] = useMemo(
     () => [
-      {
-        id: "symptom",
-        label: "Symptom",
-        icon: "medkit-outline",
-        onPress: () => openNewEntry("health", "symptom"),
-      },
-      {
-        id: "walk",
-        label: "Walk",
-        icon: "paw-outline",
-        onPress: () => withPremium(() => router.push("/pawthon-walk" as any)),
-      },
-      {
-        id: "meal",
-        label: "Meal",
-        icon: "restaurant-outline",
-        onPress: () => openNewEntry("health", "diet"),
-      },
-      {
-        id: "behavior",
-        label: "Behavior",
-        icon: "happy-outline",
-        onPress: () => openNewEntry("behavioral", "anxious"),
-      },
-      {
-        id: "photo",
-        label: "Photo",
-        icon: "camera-outline",
-        onPress: () => openNewEntry("health", "other"),
-      },
+      { id: "symptom", label: "Symptom", onPress: () => openNewEntry("health", "symptom") },
+      { id: "appetite", label: "Appetite", onPress: () => openNewEntry("health", "diet") },
+      { id: "mood", label: "Mood", onPress: () => openNewEntry("health", "mood") },
+      { id: "more", label: "More", onPress: () => openJournal() },
     ],
-    [openNewEntry, router, withPremium]
+    [openJournal, openNewEntry]
   );
 
   const needsAttention = latestEntry ? journalEntryNeedsTriageAttention(latestEntry) : false;
@@ -161,39 +142,26 @@ export default function PetJournalHomeCard({ pet }: Props) {
         >
           <Ionicons name="sparkles" size={20} color={theme.primary} />
         </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
-            {pet.name}&apos;s Journal
-          </Text>
-          {isPending ? (
-            <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 6, alignSelf: "flex-start" }} />
-          ) : entries.length === 0 ? (
-            <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
-              Start logging health, walks, and behavior
-            </Text>
-          ) : null}
-        </View>
-        {!isPending && entries.length > 0 ? (
+        <Text
+          style={{ flex: 1, fontSize: 16, fontWeight: "700", color: theme.foreground }}
+          numberOfLines={1}
+        >
+          {pet.name}&apos;s Journal
+        </Text>
+        {isPending ? (
+          <ActivityIndicator size="small" color={theme.primary} />
+        ) : (
           <Pressable
             onPress={() => openJournal()}
             hitSlop={8}
-            style={{ flexDirection: "row", alignItems: "center", gap: 2 }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 8 }}
             accessibilityRole="button"
-            accessibilityLabel={`View journal, ${entryCountLabel}`}
+            accessibilityLabel={`View all journal entries, ${viewAllLabel}`}
           >
-            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.primary }}>{entryCountLabel}</Text>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.primary }}>{viewAllLabel}</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.primary} />
           </Pressable>
-        ) : null}
-        <Pressable
-          onPress={() => openJournal()}
-          hitSlop={8}
-          style={{ marginLeft: 8, padding: 4 }}
-          accessibilityRole="button"
-          accessibilityLabel="Open journal menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={theme.secondary} />
-        </Pressable>
+        )}
       </View>
 
       {latestEntry ? (
@@ -253,95 +221,61 @@ export default function PetJournalHomeCard({ pet }: Props) {
         </Pressable>
       ) : !isPending ? (
         <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 14, lineHeight: 19 }}>
-          Add a symptom, walk, or meal — Milo and your Health Briefing use what you log here.
+          Notes help Milo and your Health Briefing understand day-to-day changes.
         </Text>
       ) : null}
 
       <Pressable
-        onPress={() =>
-          withPremium(() =>
-            router.push({
-              pathname: "/(home)/pet-journal",
-              params: { petId: pet.id, domain: "health" },
-            } as any)
-          )
-        }
+        onPress={openMiloCheckIn}
         style={{
           flexDirection: "row",
           alignItems: "center",
-          gap: 10,
-          paddingHorizontal: 14,
-          paddingVertical: 12,
+          justifyContent: "center",
+          gap: 8,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
           borderRadius: 14,
-          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+          backgroundColor: theme.primary,
           marginBottom: 14,
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
         }}
         accessibilityRole="button"
-        accessibilityLabel={`Tell Milo what's happening with ${pet.name}`}
+        accessibilityLabel={`Check in with Milo about ${pet.name}`}
       >
-        <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.primary} />
-        <Text style={{ flex: 1, fontSize: 15, color: theme.secondary }}>
-          Tell Milo what&apos;s happening with {pet.name}…
+        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
+          Check in with Milo
         </Text>
-        <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+        <Ionicons name="chevron-forward" size={18} color={theme.primaryForeground} />
       </Pressable>
 
-      <Text
+      <View
         style={{
-          fontSize: 11,
-          fontWeight: "600",
-          color: theme.secondary,
-          letterSpacing: 0.6,
-          marginBottom: 8,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
         }}
+        accessibilityRole="toolbar"
+        accessibilityLabel="Add journal entry shortcuts"
       >
-        QUICK LOG
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-      >
-        {quickChips.map((chip, index) => (
-          <Pressable
-            key={chip.id}
-            onPress={chip.onPress}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderRadius: 100,
-              backgroundColor:
-                index === 0
-                  ? theme.primary
-                  : isDark
-                    ? "rgba(255,255,255,0.08)"
-                    : "rgba(0,0,0,0.05)",
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Add ${chip.label}`}
-          >
-            <Ionicons
-              name={chip.icon}
-              size={16}
-              color={index === 0 ? theme.primaryForeground : theme.foreground}
-            />
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: "600",
-                color: index === 0 ? theme.primaryForeground : theme.foreground,
-              }}
+        {journalShortcuts.map((shortcut, index) => (
+          <React.Fragment key={shortcut.id}>
+            {index > 0 ? (
+              <Text style={{ fontSize: 13, color: theme.secondary, paddingHorizontal: 2 }}>·</Text>
+            ) : null}
+            <Pressable
+              onPress={shortcut.onPress}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${shortcut.label}`}
             >
-              {chip.label}
-            </Text>
-          </Pressable>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                {shortcut.label}
+              </Text>
+            </Pressable>
+          </React.Fragment>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }

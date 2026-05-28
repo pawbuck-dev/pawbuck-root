@@ -650,7 +650,7 @@ export default function MiloJournalChatScreen() {
       } catch (e) {
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
-        const offline = getOfflineJournalTurn(priorUserLines.length, pet.name, text);
+        const offline = getOfflineJournalTurn(userTurns, pet.name);
         const assistantMsgId = pushAssistant(offline.answer, severityForTurn, {
           suggestedReplies: offline.suggestedReplies,
           journalSessionComplete: offline.journalSessionComplete,

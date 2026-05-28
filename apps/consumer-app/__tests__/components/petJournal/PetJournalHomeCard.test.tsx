@@ -48,7 +48,7 @@ describe("PetJournalHomeCard", () => {
     });
   });
 
-  it("shows empty-state copy when there are no entries", () => {
+  it("shows empty-state copy and journal shortcuts when there are no entries", () => {
     (useQuery as jest.Mock).mockReturnValue({
       data: [],
       isPending: false,
@@ -56,11 +56,18 @@ describe("PetJournalHomeCard", () => {
 
     render(<PetJournalHomeCard pet={pet} />);
     expect(screen.getByText("Milo's Journal")).toBeTruthy();
-    expect(screen.getByText(/Add a symptom, walk, or meal/)).toBeTruthy();
+    expect(screen.getByText(/Notes help Milo and your Health Briefing/)).toBeTruthy();
+    expect(screen.getByText("Check in with Milo")).toBeTruthy();
+    expect(screen.getByText("View all")).toBeTruthy();
     expect(screen.getByText("Symptom")).toBeTruthy();
+    expect(screen.getByText("Appetite")).toBeTruthy();
+    expect(screen.getByText("Mood")).toBeTruthy();
+    expect(screen.getByText("More")).toBeTruthy();
+    expect(screen.queryByText("QUICK LOG")).toBeNull();
+    expect(screen.queryByText("Walk")).toBeNull();
   });
 
-  it("shows latest entry title and meta when entries exist", () => {
+  it("shows latest entry title and view-all label when entries exist", () => {
     (useQuery as jest.Mock).mockReturnValue({
       data: [
         {
@@ -80,7 +87,8 @@ describe("PetJournalHomeCard", () => {
     render(<PetJournalHomeCard pet={pet} />);
     expect(screen.getByText("Eating less + back-leg stiffness")).toBeTruthy();
     expect(screen.getByText(/LAST ENTRY/)).toBeTruthy();
-    expect(screen.getByText("1 entry · last 7 days")).toBeTruthy();
+    expect(screen.getByText("View all · 1 entry this week")).toBeTruthy();
+    expect(screen.getByText("Check in with Milo")).toBeTruthy();
   });
 
   it("shows loading indicator while fetching", () => {
@@ -91,5 +99,6 @@ describe("PetJournalHomeCard", () => {
 
     render(<PetJournalHomeCard pet={pet} />);
     expect(screen.getByText("Milo's Journal")).toBeTruthy();
+    expect(screen.queryByText("View all")).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import {
   countEntriesInWindow,
   formatEntryDateRelative,
   formatJournalEntryCountLabel,
+  formatJournalViewAllLabel,
   formatLastEntryMeta,
   formatLastJournalContinuityLine,
   formatLatestEntrySubtitle,
@@ -122,5 +123,20 @@ describe("formatJournalEntryCountLabel", () => {
 
   it("handles zero entries", () => {
     expect(formatJournalEntryCountLabel(0)).toBe("No entries yet");
+  });
+});
+
+describe("formatJournalViewAllLabel", () => {
+  it("returns View all when count is zero", () => {
+    expect(formatJournalViewAllLabel(0, 7)).toBe("View all");
+  });
+
+  it("uses this week for 7-day window", () => {
+    expect(formatJournalViewAllLabel(1, 7)).toBe("View all · 1 entry this week");
+    expect(formatJournalViewAllLabel(3, 7)).toBe("View all · 3 entries this week");
+  });
+
+  it("uses last N days for non-week windows", () => {
+    expect(formatJournalViewAllLabel(2, 14)).toBe("View all · 2 entries · last 14 days");
   });
 });
