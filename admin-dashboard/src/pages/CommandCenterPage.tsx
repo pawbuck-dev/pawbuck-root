@@ -1,34 +1,45 @@
 import { Link } from "react-router-dom";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { AdminGlobalSearch } from "@/components/AdminGlobalSearch";
-import { useAdminApp } from "@/context/AdminAppContext";
+import { useQueuesSummary, useSupportMetrics } from "@/hooks/supportQueries";
+import type { SupportQueuesSummary } from "@/types/support";
 import { PageHeader } from "@/ui/PageHeader";
 
-const QUEUE_LINKS = [
+type QueueLink = {
+  to: string;
+  title: string;
+  desc: string;
+  count?: (q: SupportQueuesSummary) => number;
+};
+
+const QUEUE_LINKS: QueueLink[] = [
   {
     to: "/email/inbox",
     title: "Review inbox",
-    desc: "Triage failed or stuck inbound mail (consumer parity filters).",
+    desc: "Triage failed or stuck inbound mail.",
+    count: (q) => q.reviewInboxOpen,
   },
   {
     to: "/email/health",
     title: "Processing health",
-    desc: "Pipeline volume, failure categories, vault sync.",
+    desc: "Pipeline volume and vault sync.",
+    count: (q) => q.stuckProcessing,
   },
   {
     to: "/email/ops",
     title: "Email operations",
-    desc: "Bulk reprocess, ops health checks, tuning guide.",
+    desc: "Bulk reprocess and ops health.",
+    count: (q) => (q.opsAllReady ? 0 : q.opsChecksFailing),
   },
   {
     to: "/customers/users",
     title: "User directory",
-    desc: "Find accounts and open the account workspace.",
+    desc: "Find accounts and open workspace.",
   },
   {
     to: "/customers/pets",
     title: "Pet health explorer",
-    desc: "Search pets and jump to health records.",
+    desc: "Search pets and health records.",
   },
   {
     to: "/product/document-sync",
@@ -38,25 +49,50 @@ const QUEUE_LINKS = [
 ];
 
 export function CommandCenterPage() {
-  const { metrics, metricsLoading } = useAdminApp();
+  const metricsQuery = useSupportMetrics();
+  const queuesQuery = useQueuesSummary();
+  const queues = queuesQuery.data;
 
   return (
-    <div className="page">
+    <div className="max-w-6xl">
       <PageHeader
         title="Command center"
-        description="Start here for daily support work. Metrics refresh from the header."
+        description="Queues and metrics refresh every minute (or use Refresh in the header)."
       />
       <AdminGlobalSearch />
-      <section className="queue-grid" aria-label="Work queues">
-        {QUEUE_LINKS.map((q) => (
-          <Link key={q.to} to={q.to} className="queue-card">
-            <span className="queue-card__title">{q.title}</span>
-            <span className="queue-card__desc">{q.desc}</span>
-            <span className="queue-card__action">Open</span>
-          </Link>
-        ))}
+
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Work queues">
+        {QUEUE_LINKS.map((q) => {
+          const n = queues && q.count ? q.count(queues) : 0;
+          return (
+            <Link
+              key={q.to}
+              to={q.to}
+              className="flex flex-col rounded-lg border border-slate-200 bg-white p-4 no-underline text-inherit transition-colors hover:border-teal-300"
+            >
+              <span className="flex items-center gap-2 font-semibold text-teal-800">
+                {q.title}
+                {n > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                    {n > 99 ? "99+" : n}
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-1 text-sm text-slate-500">{q.desc}</span>
+              <span className="mt-2 text-xs font-semibold text-blue-600">Open</span>
+            </Link>
+          );
+        })}
       </section>
-      <DashboardOverview metrics={metrics} loading={metricsLoading} />
+
+      {queues ? (
+        <p className="muted mb-4 text-sm">
+          Last 30 days: {queues.mailFailuresLast30Days} completed mail failures · Updated{" "}
+          {new Date(queues.asOf).toLocaleString()}
+        </p>
+      ) : null}
+
+      <DashboardOverview metrics={metricsQuery.data ?? null} loading={metricsQuery.isLoading} />
     </div>
   );
 }

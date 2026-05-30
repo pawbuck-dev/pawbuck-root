@@ -1,3 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --color-admin-accent: #14b8a6;
+  --color-admin-accent-dark: #0f766e;
+}
+
 :root {
   font-family:
     "Segoe UI",

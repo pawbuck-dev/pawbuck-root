@@ -58,6 +58,16 @@ export interface SupportMetrics {
   dailySignups: SupportDailySignupPoint[];
 }
 
+/** GET /api/support/queues/summary */
+export interface SupportQueuesSummary {
+  asOf: string;
+  reviewInboxOpen: number;
+  stuckProcessing: number;
+  mailFailuresLast30Days: number;
+  opsChecksFailing: number;
+  opsAllReady: boolean;
+}
+
 /** POST /api/support/document-sync/run */
 export interface SupportDocumentSyncRunResponse {
   rowsAttempted: number;

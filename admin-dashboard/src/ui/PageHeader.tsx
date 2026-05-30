@@ -8,12 +8,12 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <header className="page-header">
-      <div className="page-header__text">
-        <h2 className="page-header__title">{title}</h2>
-        {description ? <p className="page-header__desc muted">{description}</p> : null}
+    <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 className="m-0 text-xl font-semibold tracking-tight text-slate-900">{title}</h2>
+        {description ? <p className="muted mt-1.5 mb-0 text-sm">{description}</p> : null}
       </div>
-      {actions ? <div className="page-header__actions">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );
 }

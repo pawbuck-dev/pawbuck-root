@@ -3,6 +3,8 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { SupportApiError } from "@/api/supportClient";
 import { VaccinationEditorCard } from "@/components/VaccinationEditorCard";
 import { useAdminApp } from "@/context/AdminAppContext";
+import { supportQueryKeys } from "@/hooks/supportQueries";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   SupportHealthTimelineEvent,
   SupportPetRow,
@@ -21,7 +23,8 @@ export function AccountWorkspacePage() {
   const { userId } = useParams<{ userId: string }>();
   const location = useLocation();
   const state = (location.state ?? {}) as WorkspaceLocationState;
-  const { client, setBanner, loadMetrics } = useAdminApp();
+  const { client, setBanner } = useAdminApp();
+  const queryClient = useQueryClient();
 
   const [user, setUser] = useState<SupportUserRow | null>(state.user ?? null);
   const [pets, setPets] = useState<SupportPetRow[]>([]);
@@ -134,7 +137,7 @@ export function AccountWorkspacePage() {
       setVacNotes("");
       setVaccinations(await client.listVaccinations(selectedPet.id));
       setTimeline(await client.getUserTimeline(userId));
-      void loadMetrics();
+      void queryClient.invalidateQueries({ queryKey: supportQueryKeys.all });
     } catch (e) {
       setBanner(e instanceof SupportApiError ? e.message : "Create failed");
     }
@@ -247,7 +250,7 @@ export function AccountWorkspacePage() {
                       onSaved={async () => {
                         setVaccinations(await client.listVaccinations(selectedPet.id));
                         setTimeline(await client.getUserTimeline(userId));
-                        void loadMetrics();
+                        void queryClient.invalidateQueries({ queryKey: supportQueryKeys.all });
                       }}
                       client={client}
                     />

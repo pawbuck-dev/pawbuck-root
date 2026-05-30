@@ -2,7 +2,7 @@
 
 **Status:** Implemented in `admin-dashboard` (May 2026) — routed sidebar shell, all five phases shipped in one release.  
 **Canonical app:** [`admin-dashboard/`](../../admin-dashboard/) (Vite SPA → `PawBuck.API` `/api/support/*`)  
-**Not in scope:** [`apps/pawbuck-admin`](../../apps/pawbuck-admin) (empty Next scaffold — document as deprecated or remove)  
+**Removed:** `apps/pawbuck-admin` Next scaffold (use `admin-dashboard` only). See [`admin-dashboard/README.md`](../../admin-dashboard/README.md).  
 **Rules:** [`.cursor/rules/admin-support-portal.mdc`](../../.cursor/rules/admin-support-portal.mdc), [architecture boundaries](../../.cursor/rules/architecture-boundaries.mdc)
 
 **Interactive overview:** open the [Admin Portal Redesign canvas](/Users/nagadityasarvadevabatla/.cursor/projects/Users-nagadityasarvadevabatla-Git-pawbuck-root/canvases/pawbuck-admin-portal-redesign.canvas.tsx) beside this chat in Cursor.
@@ -209,7 +209,7 @@ See canvas wireframes. Principles:
 | Global search | v1 client-side from recent users; v2 API |
 | Accessibility | Focus trap in drawer, keyboard nav in tables |
 | E2E smoke | Playwright: login → inbox → open row → workspace |
-| Deprecate stub | README note on `apps/pawbuck-admin` |
+| Remove `apps/pawbuck-admin` stub | Done — see `admin-dashboard/README.md` |
 
 ---
 
@@ -280,11 +280,13 @@ Align new diagnostics with admin-support-portal rule: **detail panel shows consu
 
 Run locally: `pnpm --filter pawbuck-admin-dashboard dev` (port 5173).
 
-## Follow-ups
+## Also shipped (post–five-phase pass)
 
-1. **Archive** or delete `apps/pawbuck-admin` stub to avoid confusion.
-2. **Update** `docs/EMAIL-PROCESSING-UAT.md` with new admin paths.
-3. Optional `GET /api/support/queues/summary` for inbox badge counts on command center.
+- `GET /api/support/queues/summary` — sidebar badges + command center counts
+- TanStack Query for metrics and queue summary
+- Tailwind CSS v4 on admin shell (sidebar, layout, command center)
+- `apps/pawbuck-admin` removed; `admin-dashboard/README.md` is canonical
+- `docs/EMAIL-PROCESSING-UAT.md` updated with admin routes
 
 ---
 

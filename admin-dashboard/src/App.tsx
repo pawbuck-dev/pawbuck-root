@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
@@ -6,6 +7,15 @@ import { AdminAppProvider } from "@/context/AdminAppContext";
 import { AdminRoutes } from "@/routes";
 import { isSupabaseConfigured, supabase } from "@/supabaseClient";
 import { resolveAdminApiBase } from "@/utils/adminApp";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 export function App() {
   const [baseUrl, setBaseUrl] = useState(resolveAdminApiBase);
@@ -47,10 +57,12 @@ export function App() {
   }
 
   return (
-    <AdminAppProvider baseUrl={baseUrl} onBaseUrlChange={setBaseUrl} session={session}>
-      <BrowserRouter>
-        <AdminRoutes />
-      </BrowserRouter>
-    </AdminAppProvider>
+    <QueryClientProvider client={queryClient}>
+      <AdminAppProvider baseUrl={baseUrl} onBaseUrlChange={setBaseUrl} session={session}>
+        <BrowserRouter>
+          <AdminRoutes />
+        </BrowserRouter>
+      </AdminAppProvider>
+    </QueryClientProvider>
   );
 }

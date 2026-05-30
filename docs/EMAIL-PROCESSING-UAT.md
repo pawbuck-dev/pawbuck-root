@@ -11,7 +11,7 @@ This document describes **what happens when** for inbound pet health emails (Mai
 | Consumer Review Inbox | `apps/consumer-app/services/failedEmails.ts`, `components/messages/ReviewInboxResolutionModal.tsx` |
 | Consumer sender approval | `apps/consumer-app/services/pendingEmailApprovals.ts` |
 | Resolve API | `backend/PawBuck.API/Controllers/MailController.cs` → `MailInboxResolveService.cs` |
-| Admin ops | `admin-dashboard/src/components/ProcessedEmailsPanel.tsx` → `SupportProcessedEmailsService.cs` |
+| Admin ops | `admin-dashboard` → **Review inbox** `/email/inbox` (`ProcessedEmailsPanel.tsx`) → `SupportProcessedEmailsService.cs` |
 
 Legacy duplicate under `apps/consumer-app/supabase/functions/` is **not** deployed; use repo-root `supabase/functions/`.
 
@@ -270,9 +270,23 @@ Query: `getReviewInbox()` in `failedEmails.ts`
 
 ---
 
-## 7. Flow D — Admin support (Processed Emails panel)
+## 7. Flow D — Admin support (email pipeline)
 
-**Auth:** support JWT with admin role (`/api/support/processed-emails/*`)
+**App:** `admin-dashboard` (Vite SPA). Run `pnpm --filter pawbuck-admin-dashboard dev` → [http://localhost:5173/home](http://localhost:5173/home).
+
+| Admin area | Route | API |
+|------------|-------|-----|
+| Command center | `/home` | `GET /api/support/metrics`, `GET /api/support/queues/summary` |
+| Review inbox | `/email/inbox` | `GET /api/support/processed-emails/*` |
+| Processing health | `/email/health` | `GET /api/support/document-processing/metrics` |
+| Email operations | `/email/ops` | bulk + `GET /api/support/ops-health` |
+| Account workspace | `/customers/users/:userId` | pets, timeline, vaccinations |
+
+**Auth:** support JWT with admin role (`app_metadata.role` = admin).
+
+### Processed Emails panel (Review inbox)
+
+**Auth:** same JWT on `/api/support/processed-emails/*`
 
 ### List / filter
 

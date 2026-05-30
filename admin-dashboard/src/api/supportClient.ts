@@ -20,6 +20,7 @@ import type {
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
   SupportMetrics,
+  SupportQueuesSummary,
   SupportPetExplorerRow,
   SupportPetRow,
   SupportProcessedEmailAttachmentsResponse,
@@ -107,6 +108,8 @@ export function createSupportClient(
 
   return {
     getMetrics: () => request<SupportMetrics>("/api/support/metrics"),
+
+    getQueuesSummary: () => request<SupportQueuesSummary>("/api/support/queues/summary"),
 
     /**
      * One-shot: sync pending pet_documents vault rows into clinical tables (same as background DocumentSyncWorker).

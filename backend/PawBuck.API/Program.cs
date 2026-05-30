@@ -299,6 +299,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<ISupportMetricsService, SupportMetricsService>();
+builder.Services.AddScoped<ISupportQueuesService, SupportQueuesService>();
 builder.Services.AddScoped<ISupportDirectoryService, SupportDirectoryService>();
 builder.Services.AddScoped<ISupportVaccinationAdminService, SupportVaccinationAdminService>();
 builder.Services.AddScoped<ISupportProcessedEmailsService, SupportProcessedEmailsService>();
