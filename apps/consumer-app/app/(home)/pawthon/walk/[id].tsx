@@ -1,4 +1,5 @@
 import { PawthonWalkMap } from "@/components/pawthon/PawthonWalkMap";
+import { PawthonWalkSharePreviewModal } from "@/components/pawthon/PawthonWalkSharePreviewModal";
 import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import {
   formatDurationWalk,
@@ -10,14 +11,16 @@ import {
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchWalkSessionById } from "@/services/walkSessions";
+import { buildWalkSharePayloadFromSession } from "@/utils/buildWalkSharePayload";
 import { parseWalkPoints } from "@/utils/pawthonWalkDisplay";
+import type { WalkSharePayload } from "@/utils/walkShareCard";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { ActivityIndicator, Pressable, ScrollView, Share, Text, View } from "react-native";
+import React, { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
 
@@ -40,9 +43,20 @@ export default function PawthonWalkDetailScreen() {
   const miles = session ? metersToMiles(Number(session.distance_meters)) : 0;
   const pace = session ? paceMinPerMile(session.duration_seconds, miles) : 0;
 
+  const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
+  const [sharePreviewPayload, setSharePreviewPayload] = useState<WalkSharePayload | null>(null);
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <StatusBar style={isDark ? "light" : "dark"} />
+      <PawthonWalkSharePreviewModal
+        visible={sharePreviewOpen}
+        payload={sharePreviewPayload}
+        onClose={() => {
+          setSharePreviewOpen(false);
+          setSharePreviewPayload(null);
+        }}
+      />
       {isPending || !session ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator color={theme.primary} />
@@ -114,9 +128,9 @@ export default function PawthonWalkDetailScreen() {
 
             <Pressable
               onPress={() => {
-                Share.share({
-                  message: `Walked ${formatMiles(miles)} mi with ${pet?.name ?? "my pet"} on PawBuck Pawthon`,
-                }).catch(() => {});
+                if (!session) return;
+                setSharePreviewPayload(buildWalkSharePayloadFromSession(session, pet));
+                setSharePreviewOpen(true);
               }}
               style={{
                 paddingVertical: 14,
@@ -128,7 +142,10 @@ export default function PawthonWalkDetailScreen() {
               }}
             >
               <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground }}>
-                Share route
+                Share story
+              </Text>
+              <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 11, color: theme.secondary, marginTop: 2 }}>
+                Instagram & WhatsApp
               </Text>
             </Pressable>
 

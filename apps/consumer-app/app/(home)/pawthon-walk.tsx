@@ -1,5 +1,6 @@
 import { PawthonBadgeUnlockCard } from "@/components/pawthon/PawthonBadgeUnlockCard";
 import { PawthonCountdownOverlay } from "@/components/pawthon/PawthonCountdownOverlay";
+import { PawthonWalkSharePreviewModal } from "@/components/pawthon/PawthonWalkSharePreviewModal";
 import type { PawthonBadgeId } from "@/constants/pawthonBadges";
 import {
   PAWTHON_COUNTDOWN_SECONDS,
@@ -45,6 +46,7 @@ import {
   requestWalkForegroundLocation,
 } from "@/services/walkLocationPermissions";
 import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
+import { formatWeeklyWalkerRankLine } from "@/services/walkMetrics";
 import { processBadgesAfterWalk } from "@/services/pawthonBadges";
 import {
   fetchMyWeeklyWalkerRankForCountry,
@@ -52,7 +54,9 @@ import {
   insertWalkSession,
   type WalkPoint,
 } from "@/services/walkSessions";
+import { buildWalkSharePayloadFromComplete } from "@/utils/buildWalkSharePayload";
 import { supabase } from "@/utils/supabase";
+import type { WalkSharePayload } from "@/utils/walkShareCard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { haversineDistanceMeters } from "@/utils/haversine";
 import {
@@ -75,7 +79,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Share,
   Text,
   View,
 } from "react-native";
@@ -94,6 +97,8 @@ type CompletePayload = {
   streak: number;
   newBadges: PawthonBadgeId[];
   sessionId: string | null;
+  endedAt: string;
+  weeklyRankLine?: string;
 };
 
 async function loadExpoLocation(): Promise<typeof import("expo-location")> {
@@ -131,6 +136,8 @@ export default function PawthonWalkScreen() {
   const [saving, setSaving] = useState(false);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
   const [complete, setComplete] = useState<CompletePayload | null>(null);
+  const [sharePreviewPayload, setSharePreviewPayload] = useState<WalkSharePayload | null>(null);
+  const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
   const [countdownIndex, setCountdownIndex] = useState(0);
   const [countdownGo, setCountdownGo] = useState(false);
   const countdownPendingWeakGpsRef = useRef(false);
@@ -648,6 +655,8 @@ export default function PawthonWalkScreen() {
         streak: stats.streak,
         newBadges,
         sessionId: result.id,
+        endedAt: endedAt.toISOString(),
+        weeklyRankLine: formatWeeklyWalkerRankLine(rank.rank, rank.total),
       });
       setPhase("complete");
       distanceMRef.current = 0;
@@ -842,10 +851,18 @@ export default function PawthonWalkScreen() {
   /* ——— Walk complete ——— */
   if (phase === "complete" && complete) {
     const mi = metersToMiles(complete.distanceMeters);
-    const verified = complete.verificationUri ? 1 : 0;
+    const pace = paceMinPerMile(complete.durationSec, mi);
     return (
       <View style={{ flex: 1, backgroundColor: theme.background }}>
         <StatusBar style={isDark ? "light" : "dark"} />
+        <PawthonWalkSharePreviewModal
+          visible={sharePreviewOpen}
+          payload={sharePreviewPayload}
+          onClose={() => {
+            setSharePreviewOpen(false);
+            setSharePreviewPayload(null);
+          }}
+        />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
@@ -922,9 +939,9 @@ export default function PawthonWalkScreen() {
               { label: "Distance", value: formatMiles(mi), unit: "Miles" },
               { label: "Duration", value: formatDurationWalk(complete.durationSec), unit: "" },
               {
-                label: "Verification",
-                value: String(verified),
-                unit: verified ? "Verified" : "None",
+                label: "Pace",
+                value: formatPace(pace),
+                unit: "/mi",
               },
             ].map((cell) => (
               <View
@@ -1098,9 +1115,8 @@ export default function PawthonWalkScreen() {
 
           <Pressable
             onPress={() => {
-              Share.share({
-                message: `I walked ${formatMiles(mi)} mi with ${complete.pet.name} on PawBuck Pawthon! 🐾`,
-              }).catch(() => {});
+              setSharePreviewPayload(buildWalkSharePayloadFromComplete(complete));
+              setSharePreviewOpen(true);
             }}
             style={{
               flexDirection: "row",
@@ -1114,9 +1130,14 @@ export default function PawthonWalkScreen() {
             }}
           >
             <Ionicons name="share-outline" size={20} color={theme.foreground} style={{ marginRight: 8 }} />
-            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground }}>
-              Share Walk Card
-            </Text>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground }}>
+                Share story
+              </Text>
+              <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 11, color: theme.secondary, marginTop: 2 }}>
+                Instagram & WhatsApp
+              </Text>
+            </View>
           </Pressable>
         </ScrollView>
       </View>

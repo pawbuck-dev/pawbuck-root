@@ -6,6 +6,10 @@ From **Home**, use the **daily walk goal** card to see today’s progress, your 
 
 Open **Walk log** from the home card or the **Pawthon** hub to see past walks and tap any entry for the **full route map**, distance, pace, and duration.
 
+## Sharing a walk
+
+After you finish a walk, or from a past walk in **Walk log**, tap **Share story** to preview a **9:16 story card** with your route, distance, duration, pace, pet name, and streak or badge highlights. Tap **Share** to send the image through your phone’s share sheet—for example **Instagram Stories** or **WhatsApp Status**. The card shows your walk path; only share if you are comfortable sharing where you walked.
+
 ## Pawthon hub
 
 From **Home** → weekly challenge card (or **Pawthon** in navigation), view lifetime **walks** and **miles**, your **streak**, recent walks, **badges**, and **walk reminders**. **Badges** unlock after walks (first walk, streaks, milestones). **Reminders** are optional local notifications for daily walks and streak protection.
