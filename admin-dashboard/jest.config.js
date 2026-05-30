@@ -13,6 +13,8 @@ module.exports = {
         tsconfig: {
           jsx: "react-jsx",
           esModuleInterop: true,
+          module: "ESNext",
+          target: "ES2020",
         },
       },
     ],
