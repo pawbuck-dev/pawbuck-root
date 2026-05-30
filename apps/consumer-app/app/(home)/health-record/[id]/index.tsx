@@ -15,7 +15,8 @@ import { healthRecordHubHref } from "@/utils/healthRecordNavigation";
 import { Redirect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
-import { ScrollView, Share, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { shareVetSummaryPdf } from "@/services/vetSummaryPdf";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,6 +48,19 @@ export default function HealthRecordsHubScreen() {
 
   const notificationCounts = usePetHealthNotificationCounts(pets.map((p) => p.id));
   const { attentionCount, subtitle: attentionSubtitle } = useHealthAttentionForPet(displayPetId);
+  const [sharingSummary, setSharingSummary] = useState(false);
+
+  const downloadVetSummary = async () => {
+    if (!pet || sharingSummary) return;
+    setSharingSummary(true);
+    try {
+      await shareVetSummaryPdf(pet);
+    } catch (e: unknown) {
+      Alert.alert("Download", e instanceof Error ? e.message : "Failed to generate PDF");
+    } finally {
+      setSharingSummary(false);
+    }
+  };
 
   /** Dark: same deeper well as health tabs + dashboard (cards sit on top like Care Team). */
   const pageBg = healthRecordTabCanvas(theme, isDark);
@@ -108,12 +122,8 @@ export default function HealthRecordsHubScreen() {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => {
-              Share.share({
-                message: `${petName}'s health records are in PawBuck. Ask your clinic how they prefer to receive documents or visit summaries.`,
-                title: "Share with vet",
-              }).catch(() => {});
-            }}
+            onPress={downloadVetSummary}
+            disabled={!pet || sharingSummary}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -121,15 +131,26 @@ export default function HealthRecordsHubScreen() {
               gap: 8,
               paddingVertical: 14,
               borderRadius: 100,
-              marginBottom: 14,
+              marginBottom: 10,
               backgroundColor: theme.primary,
+              opacity: sharingSummary ? 0.7 : 1,
             }}
           >
-            <Ionicons name="share-outline" size={20} color={theme.primaryForeground} />
+            <Ionicons name="document-text-outline" size={20} color={theme.primaryForeground} />
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
-              Share with vet
+              {sharingSummary ? "Generating…" : "Download Veterinary Summary"}
             </Text>
           </TouchableOpacity>
+          {displayPetId ? (
+            <TouchableOpacity
+              onPress={() => router.push(`/(home)/pet-journal/briefing?petId=${displayPetId}` as any)}
+              style={{ marginBottom: 14, alignItems: "center" }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>
+                Open Health Briefing
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           <HealthRecordsSection
             petId={displayPetId ?? ""}

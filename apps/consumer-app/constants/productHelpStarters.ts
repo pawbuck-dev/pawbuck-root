@@ -13,6 +13,8 @@ export const PRODUCT_HELP_STARTERS: readonly { id: string; prompt: string }[] = 
   { id: "pawthon-walk", prompt: "How do I start a Pawthon walk and track distance?" },
   { id: "pawthon-history", prompt: "How do I see my past walks and route map?" },
   { id: "pawthon-share", prompt: "How do I share my walk to Instagram or WhatsApp?" },
+  { id: "vet-summary-pdf", prompt: "How do I download a veterinary summary PDF for my vet?" },
+  { id: "pet-passport-pdf", prompt: "How do I download my pet health passport?" },
   { id: "calendar-appointments", prompt: "Where do I see my vet appointments and email calendar invites?" },
   { id: "pet-journal", prompt: "How do I add a pet journal entry?" },
   { id: "behavior-baseline", prompt: "How do I set my pet's behavior baseline?" },

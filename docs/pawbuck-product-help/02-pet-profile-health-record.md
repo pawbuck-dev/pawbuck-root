@@ -10,7 +10,9 @@ Structured clinical data lives in tabs: **Vaccinations**, **Medications**, **Lab
 
 ## Health Records hub (dashboard)
 
-The hub screen shows a personalized **Health Records** title for your pet, an optional **attention** banner when items need review, a **Share with vet** button (system share sheet), **category cards** that open each health tab (and quick-add routes where the product provides them), then **Documents & ID** below.
+The hub screen shows a personalized **Health Records** title for your pet, an optional **attention** banner when items need review, **Download Veterinary Summary** (4-page PDF for clinics), a link to **Health Briefing**, **category cards** that open each health tab (and quick-add routes where the product provides them), then **Documents & ID** below.
+
+From **Pet Profile**, use **Download Pet Passport** for a 3-page travel-oriented PDF (identity, vaccines, handling notes, verify QR).
 
 A **floating action** (plus-style control) on the hub opens **Milo** with health-records context so you can ask questions about that pet's records.
 

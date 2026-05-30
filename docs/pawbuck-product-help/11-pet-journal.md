@@ -38,6 +38,10 @@ When you open **Milo** for a journal check-in, the assistant runs a short **stru
 3. **Structured summary** — SOAP-style fields you can review and edit before save.
 4. **Share with vet** — Teal action to email your vet with an ask (FYI / please advise / urgent).
 
+## Veterinary Summary PDF
+
+From **Health Briefing** (or **Health Records** hub), tap **Download Veterinary Summary** to generate a 4-page PDF aligned with PawBuck’s vet summary format: clinical snapshot, vaccines, timeline, and insurance/behavior appendix when data exists. Valid for 14 days from generation.
+
 Enable via admin **Milo journal** settings: **tree-driven journal interviews**. The app also respects `EXPO_PUBLIC_JOURNAL_TREE_INTERVIEW=true` for early testing.
 
 ### Legacy checklist mode (fallback)

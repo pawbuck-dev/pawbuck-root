@@ -369,16 +369,9 @@ export default function PetProfile() {
                 if (downloading || !currentPet) return;
                 setDownloading(true);
                 try {
-                  // Fetch vaccinations for this pet
-                  const { data: petVaccinations } = await supabase
-                    .from("vaccinations")
-                    .select("*")
-                    .eq("pet_id", currentPet.id)
-                    .order("date", { ascending: false });
-
                   await generateAndSharePetPassport({
                     pet: currentPet,
-                    vaccinations: petVaccinations || [],
+                    vaccinations: [],
                   });
                 } catch (error: any) {
                   Alert.alert("Error", error.message || "Failed to generate PDF");

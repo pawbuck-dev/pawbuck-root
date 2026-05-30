@@ -13,12 +13,13 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
-  Share,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { shareVetSummaryPdf } from "@/services/vetSummaryPdf";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
 import { HEALTH_BRIEFING_FOOTER_DISCLAIMER } from "@/constants/miloDisclaimers";
@@ -144,15 +145,18 @@ export default function HealthBriefingScreen() {
 
   const vetFlagged = data?.journal.filter((j) => journalEntryNeedsTriageAttention(j)) ?? [];
 
-  const shareBriefing = async () => {
-    if (!pet || !summaryText) return;
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const downloadVetSummary = async () => {
+    if (!pet || downloadingPdf) return;
+    setDownloadingPdf(true);
     try {
-      await Share.share({
-        title: `Health briefing — ${pet.name}`,
-        message: `${pet.name}'s vet-ready overview\n\n${summaryText}`,
-      });
-    } catch {
-      /* cancelled */
+      await shareVetSummaryPdf(pet);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to generate PDF";
+      Alert.alert("Download", msg);
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -221,8 +225,17 @@ export default function HealthBriefingScreen() {
             {pet.name}&apos;s vet-ready overview
           </Text>
         </View>
-        <TouchableOpacity onPress={shareBriefing} style={{ padding: 8 }}>
-          <Ionicons name="share-outline" size={22} color={theme.primary} />
+        <TouchableOpacity
+          onPress={downloadVetSummary}
+          disabled={downloadingPdf}
+          style={{ padding: 8, opacity: downloadingPdf ? 0.5 : 1 }}
+          accessibilityLabel="Download veterinary summary PDF"
+        >
+          {downloadingPdf ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Ionicons name="document-text-outline" size={22} color={theme.primary} />
+          )}
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
           <Ionicons name="close" size={26} color={theme.foreground} />
@@ -420,6 +433,26 @@ export default function HealthBriefingScreen() {
               </View>
             </>
           )}
+
+          <TouchableOpacity
+            onPress={downloadVetSummary}
+            disabled={downloadingPdf}
+            style={{
+              marginTop: 16,
+              paddingVertical: 14,
+              borderRadius: 14,
+              backgroundColor: theme.primary,
+              alignItems: "center",
+              opacity: downloadingPdf ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: theme.primaryForeground }}>
+              {downloadingPdf ? "Generating PDF…" : "Download Veterinary Summary"}
+            </Text>
+            <Text style={{ fontSize: 11, color: theme.primaryForeground, marginTop: 4, opacity: 0.9 }}>
+              4-page PDF for your clinic
+            </Text>
+          </TouchableOpacity>
 
           <Text
             style={{

@@ -1,0 +1,30 @@
+{
+  "pet": {
+    "id": "pet-milo",
+    "name": "Milo",
+    "breed": "Maltese",
+    "animal_type": "dog",
+    "sex": "Male",
+    "color": "White",
+    "date_of_birth": "2022-03-12",
+    "weight_value": 12.3,
+    "weight_unit": "lbs",
+    "microchip_number": "9851410000002847",
+    "passport_number": "DK 2738 1234",
+    "country": "Canada",
+    "email_id": "milo",
+    "pet_parent_display_name": "Rakesh Renganathan"
+  },
+  "owner": {
+    "name": "Rakesh Renganathan",
+    "email": "rakesh@pawbuck.app",
+    "phone": "+16045551247",
+    "address": "Central Vancouver, BC"
+  },
+  "primaryVet": {
+    "clinic_name": "Beach Avenue Animal Hospital",
+    "vet_name": "Dr. Omid Mavedati",
+    "phone": "778-760-0000",
+    "email": "clinic@example.com"
+  }
+}

@@ -8,7 +8,7 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|native-base|react-native-svg|moment)",
+    "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|native-base|react-native-svg|qrcode|moment)",
   ],
   collectCoverageFrom: [
     "services/{vaccinations,medicines,clinicalExams,labResults,medicationDoses,failedEmails,pendingEmailApprovals,petEmailList,healthBriefing,bookingsApi,vetBookings}.ts",
