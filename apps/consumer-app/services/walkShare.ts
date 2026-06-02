@@ -10,6 +10,21 @@ import * as Sharing from "expo-sharing";
 import { Alert, Platform, Share, View } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
+export async function captureWalkMapSnapshot(mapRef: RefObject<View | null>): Promise<string | null> {
+  try {
+    await new Promise((r) => setTimeout(r, 350));
+    const uri = await captureRef(mapRef, {
+      format: "png",
+      quality: 0.92,
+      result: "tmpfile",
+    });
+    return uri;
+  } catch (e) {
+    console.warn("[walkShare] map captureRef failed", e);
+    return null;
+  }
+}
+
 export async function captureWalkShareCardFromRef(cardRef: RefObject<View | null>): Promise<string | null> {
   try {
     const uri = await captureRef(cardRef, {

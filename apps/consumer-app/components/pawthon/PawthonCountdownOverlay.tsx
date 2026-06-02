@@ -2,6 +2,7 @@ import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import * as Haptics from "expo-haptics";
 import React, { useEffect } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type PawthonCountdownOverlayProps = {
   petName: string;
@@ -16,6 +17,8 @@ export function PawthonCountdownOverlay({
   phase,
   onSkip,
 }: PawthonCountdownOverlayProps) {
+  const insets = useSafeAreaInsets();
+
   useEffect(() => {
     if (phase === "go") {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -36,11 +39,12 @@ export function PawthonCountdownOverlay({
       pointerEvents="box-none"
     >
       <Text
+        allowFontScaling={false}
         style={{
           fontFamily: "Poppins_700Bold",
-          fontSize: phase === "go" ? 72 : 120,
+          fontSize: phase === "go" ? 64 : 96,
           color: "#FFFFFF",
-          lineHeight: phase === "go" ? 80 : 120,
+          lineHeight: phase === "go" ? 72 : 110,
         }}
         accessibilityLiveRegion="polite"
       >
@@ -60,7 +64,7 @@ export function PawthonCountdownOverlay({
       </Text>
       <Pressable
         onPress={onSkip}
-        style={{ position: "absolute", bottom: 48, padding: 12 }}
+        style={{ position: "absolute", bottom: Math.max(insets.bottom, 16) + 32, padding: 12 }}
         accessibilityRole="button"
         accessibilityLabel="Skip countdown"
       >

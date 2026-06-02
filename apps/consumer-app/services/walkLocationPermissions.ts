@@ -30,6 +30,20 @@ export async function requestWalkForegroundLocation(
   return { granted: status === "granted", status };
 }
 
+/** Check status first; only show OS prompt when undetermined. */
+export async function ensureWalkForegroundLocation(
+  Location: typeof import("expo-location")
+): Promise<WalkLocationForegroundResult> {
+  const existing = await Location.getForegroundPermissionsAsync();
+  if (existing.status === "granted") {
+    return { granted: true, status: existing.status };
+  }
+  if (existing.status === "denied") {
+    return { granted: false, status: existing.status };
+  }
+  return requestWalkForegroundLocation(Location);
+}
+
 export type WalkBackgroundPrepResult =
   | { mode: "background"; granted: true }
   | { mode: "foreground_only"; granted: false };
@@ -41,12 +55,22 @@ export type WalkBackgroundPrepResult =
 export async function requestWalkBackgroundLocation(
   Location: typeof import("expo-location")
 ): Promise<WalkBackgroundPrepResult> {
-  const first = await Location.requestBackgroundPermissionsAsync();
-  if (first.status === "granted") {
+  return ensureWalkBackgroundLocation(Location);
+}
+
+/** Check status first; only show OS prompt when undetermined. */
+export async function ensureWalkBackgroundLocation(
+  Location: typeof import("expo-location")
+): Promise<WalkBackgroundPrepResult> {
+  const existing = await Location.getBackgroundPermissionsAsync();
+  if (existing.status === "granted") {
     return { mode: "background", granted: true };
   }
-  const second = await Location.requestBackgroundPermissionsAsync();
-  if (second.status === "granted") {
+  if (existing.status === "denied") {
+    return { mode: "foreground_only", granted: false };
+  }
+  const result = await Location.requestBackgroundPermissionsAsync();
+  if (result.status === "granted") {
     return { mode: "background", granted: true };
   }
   return { mode: "foreground_only", granted: false };

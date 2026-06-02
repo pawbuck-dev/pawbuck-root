@@ -1,5 +1,6 @@
 import {
   buildWalkShareCaption,
+  buildWalkShareEncouragementLine,
   buildWalkShareHighlightLine,
   projectWalkPathToNormalizedPoints,
   shouldIncludeWeeklyRankOnShare,
@@ -69,6 +70,45 @@ describe("walkShareCard", () => {
         streakDays: 5,
       });
       expect(caption).toContain("5-day streak");
+    });
+
+    it("includes encouragement line", () => {
+      const caption = buildWalkShareCaption({
+        petName: "Max",
+        petPhotoUrl: null,
+        path: [],
+        distanceMeters: 500,
+        durationSec: 600,
+        endedAt: new Date(2026, 5, 2, 14, 0, 0).toISOString(),
+      });
+      expect(caption).toContain("Great walk with Max!");
+    });
+  });
+
+  describe("buildWalkShareEncouragementLine", () => {
+    it("uses badge follow-up copy", () => {
+      const line = buildWalkShareEncouragementLine({
+        petName: "Luna",
+        petPhotoUrl: null,
+        path: [],
+        distanceMeters: 400,
+        durationSec: 300,
+        endedAt: new Date().toISOString(),
+        badgeId: "first_walk",
+      });
+      expect(line).toBe("Keep it up with Luna!");
+    });
+
+    it("celebrates first half mile", () => {
+      const line = buildWalkShareEncouragementLine({
+        petName: "Max",
+        petPhotoUrl: null,
+        path: [],
+        distanceMeters: 850,
+        durationSec: 600,
+        endedAt: new Date(2026, 5, 2, 14, 0, 0).toISOString(),
+      });
+      expect(line).toBe("First half mile with Max!");
     });
   });
 

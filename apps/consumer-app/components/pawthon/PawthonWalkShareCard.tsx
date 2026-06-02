@@ -3,6 +3,7 @@ import { getPawthonSurfaceTokens } from "@/components/pawthon/pawthonSurfaceToke
 import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import { useTheme } from "@/context/themeContext";
 import {
+  buildWalkShareEncouragementLine,
   buildWalkShareHighlightLine,
   buildWalkShareStats,
   formatWalkShareDateLine,
@@ -14,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 export type PawthonWalkShareCardProps = {
   payload: WalkSharePayload;
@@ -32,6 +33,7 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
     const surfaces = getPawthonSurfaceTokens(isDark, theme);
     const stats = buildWalkShareStats(payload);
     const highlight = buildWalkShareHighlightLine(payload);
+    const encouragement = buildWalkShareEncouragementLine(payload);
     const dateLine = formatWalkShareDateLine(payload.endedAt);
     const routeHeight = Math.round(height * ROUTE_HERO_RATIO);
 
@@ -83,9 +85,32 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 14,
+              borderRadius: 16,
+              overflow: "hidden",
+              backgroundColor: isDark ? "#243038" : "#D6EBFA",
             }}
           >
-            <PawthonWalkRouteGraphic path={payload.path} width={width - 48} height={routeHeight - 16} />
+            {payload.mapSnapshotUri ? (
+              <>
+                <Image
+                  source={{ uri: payload.mapSnapshotUri }}
+                  style={StyleSheet.absoluteFillObject}
+                  contentFit="cover"
+                />
+                <View
+                  style={{
+                    ...StyleSheet.absoluteFillObject,
+                    backgroundColor: "rgba(0,0,0,0.12)",
+                  }}
+                />
+              </>
+            ) : null}
+            <PawthonWalkRouteGraphic
+              path={payload.path}
+              width={width - 48}
+              height={routeHeight - 16}
+              strokeColor={payload.mapSnapshotUri ? "#FFFFFF" : undefined}
+            />
           </View>
 
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
@@ -173,7 +198,7 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
                 borderRadius: 12,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
-                marginBottom: 10,
+                marginBottom: 8,
               }}
             >
               <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 13, color: isDark ? "#FFD4B8" : "#5D4037" }}>
@@ -181,6 +206,20 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
               </Text>
             </View>
           ) : null}
+
+          <View
+            style={{
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 13, color: textPrimary, textAlign: "center" }}>
+              {encouragement}
+            </Text>
+          </View>
 
           <View style={{ flex: 1, minHeight: 8 }} />
 

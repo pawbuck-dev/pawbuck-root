@@ -35,15 +35,17 @@ import {
   subscribePawthonWalkSession,
 } from "@/services/pawthonWalkSessionBridge";
 import {
-  startPawthonWalkBackgroundTracking,
-  stopPawthonWalkBackgroundTracking,
+  startPawthonWalkTracking,
+  stopPawthonWalkTracking,
+  type PawthonWalkTrackingMode,
 } from "@/services/pawthonWalkTracking";
+import { captureWalkMapSnapshot } from "@/services/walkShare";
 import {
+  ensureWalkForegroundLocation,
   getWalkBackgroundPermissionStatus,
   hasSeenPawthonAlwaysExplainer,
   markPawthonAlwaysExplainerSeen,
   requestWalkBackgroundLocation,
-  requestWalkForegroundLocation,
 } from "@/services/walkLocationPermissions";
 import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
 import { formatWeeklyWalkerRankLine } from "@/services/walkMetrics";
@@ -114,6 +116,8 @@ export default function PawthonWalkScreen() {
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const queryClient = useQueryClient();
   const mapRef = useRef<PawthonWalkMapRef>(null);
+  const completeMapCaptureRef = useRef<View>(null);
+  const trackingModeRef = useRef<PawthonWalkTrackingMode>("foreground");
 
   const [phase, setPhase] = useState<Phase>("select");
   const [walkPetId, setWalkPetId] = useState<string | null>(null);
@@ -214,7 +218,7 @@ export default function PawthonWalkScreen() {
       simPlaybackRef.current = null;
     }
     clearWalkTimers();
-    await stopPawthonWalkBackgroundTracking();
+    await stopPawthonWalkTracking();
     deactivatePawthonWalkSessionBridge();
     resetPawthonGapAnchor();
   }, [clearWalkTimers]);
@@ -304,6 +308,33 @@ export default function PawthonWalkScreen() {
     }
   }, []);
 
+  const activateWalkTracking = useCallback(async (): Promise<boolean> => {
+    try {
+      await startPawthonWalkTracking(trackingModeRef.current);
+      return true;
+    } catch (e) {
+      console.warn("[PawthonWalk] start tracking", e);
+      await stopPawthonWalkTracking();
+      deactivatePawthonWalkSessionBridge();
+      resetPawthonGapAnchor();
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      setIsWalking(false);
+      setPhase("select");
+      startedAtRef.current = null;
+      const isBackground = trackingModeRef.current === "background";
+      Alert.alert(
+        "Location error",
+        isBackground
+          ? "Could not start GPS tracking. Use a development or production build with native location (Expo Go does not support background walk tracking)."
+          : "Could not start GPS tracking. Check location permissions in Settings."
+      );
+      return false;
+    }
+  }, []);
+
   const startWarmup = useCallback(async (Location: typeof import("expo-location")) => {
     warmupSubRef.current?.remove();
     warmupSubRef.current = null;
@@ -333,25 +364,7 @@ export default function PawthonWalkScreen() {
         }
       }, 1000);
 
-      try {
-        await startPawthonWalkBackgroundTracking();
-      } catch (e) {
-        console.warn("[PawthonWalk] startLocationUpdatesAsync", e);
-        await stopPawthonWalkBackgroundTracking();
-        deactivatePawthonWalkSessionBridge();
-        resetPawthonGapAnchor();
-        if (tickRef.current) {
-          clearInterval(tickRef.current);
-          tickRef.current = null;
-        }
-        setIsWalking(false);
-        setPhase("select");
-        startedAtRef.current = null;
-        Alert.alert(
-          "Location error",
-          "Could not start GPS tracking. Use a development or production build with native location (Expo Go does not support background walk tracking)."
-        );
-      }
+      await activateWalkTracking();
     };
 
     const finishWarmup = async (weak: boolean) => {
@@ -401,7 +414,7 @@ export default function PawthonWalkScreen() {
       console.warn("[PawthonWalk] warmup watchPositionAsync", e);
       void finishWarmup(true);
     }
-  }, []);
+  }, [activateWalkTracking]);
 
   const beginActiveFromCountdown = useCallback(async () => {
     const weak = countdownPendingWeakGpsRef.current;
@@ -419,26 +432,9 @@ export default function PawthonWalkScreen() {
           setDurationSec(Math.floor((Date.now() - startedAtRef.current.getTime()) / 1000));
         }
       }, 1000);
-      try {
-        await startPawthonWalkBackgroundTracking();
-      } catch (e) {
-        console.warn("[PawthonWalk] startLocationUpdatesAsync", e);
-        await stopPawthonWalkBackgroundTracking();
-        deactivatePawthonWalkSessionBridge();
-        if (tickRef.current) {
-          clearInterval(tickRef.current);
-          tickRef.current = null;
-        }
-        setIsWalking(false);
-        setPhase("select");
-        startedAtRef.current = null;
-        Alert.alert(
-          "Location error",
-          "Could not start GPS tracking. Use a development or production build with native location (Expo Go does not support background walk tracking)."
-        );
-      }
+      await activateWalkTracking();
     })();
-  }, []);
+  }, [activateWalkTracking]);
 
   const skipCountdownAndStart = useCallback(async () => {
     await AsyncStorage.setItem(PAWTHON_COUNTDOWN_SKIP_KEY, "1");
@@ -446,24 +442,28 @@ export default function PawthonWalkScreen() {
   }, [beginActiveFromCountdown]);
 
   useEffect(() => {
-    if (phase !== "countdown") return;
+    if (phase !== "countdown" || countdownGo) return;
 
-    const sequence = [...PAWTHON_COUNTDOWN_SECONDS];
-    if (countdownIndex >= sequence.length && !countdownGo) {
+    const sequence = PAWTHON_COUNTDOWN_SECONDS;
+    if (countdownIndex >= sequence.length) {
       setCountdownGo(true);
-      const t = setTimeout(() => {
-        void beginActiveFromCountdown();
-      }, 700);
-      return () => clearTimeout(t);
+      return;
     }
-
-    if (countdownGo) return;
 
     const t = setTimeout(() => {
       setCountdownIndex((i) => i + 1);
     }, 1000);
     return () => clearTimeout(t);
-  }, [phase, countdownIndex, countdownGo, beginActiveFromCountdown]);
+  }, [phase, countdownIndex, countdownGo]);
+
+  useEffect(() => {
+    if (phase !== "countdown" || !countdownGo) return;
+
+    const t = setTimeout(() => {
+      void beginActiveFromCountdown();
+    }, 700);
+    return () => clearTimeout(t);
+  }, [phase, countdownGo, beginActiveFromCountdown]);
 
   const beginWalkFromSelect = useCallback(async () => {
     if (!walkPetId) {
@@ -493,11 +493,13 @@ export default function PawthonWalkScreen() {
       return;
     }
 
-    const fg = await requestWalkForegroundLocation(Location);
+    const fg = await ensureWalkForegroundLocation(Location);
     if (!fg.granted) {
       Alert.alert(
         "Location needed",
-        "Pawthon uses your location to map walks with your pet. You can allow location in Settings when you’re ready."
+        fg.status === "denied"
+          ? "Pawthon uses your location to map walks with your pet. Turn on location for PawBuck in Settings when you're ready."
+          : "Pawthon uses your location to map walks with your pet. You can allow location in Settings when you're ready."
       );
       return;
     }
@@ -513,6 +515,7 @@ export default function PawthonWalkScreen() {
     }
 
     const bg = await getWalkBackgroundPermissionStatus(Location);
+    trackingModeRef.current = bg.granted ? "background" : "foreground";
     if (bg.granted) {
       await startWarmup(Location);
       return;
@@ -536,13 +539,15 @@ export default function PawthonWalkScreen() {
     } catch {
       return;
     }
-    await requestWalkBackgroundLocation(Location);
+    const bg = await requestWalkBackgroundLocation(Location);
+    trackingModeRef.current = bg.granted ? "background" : "foreground";
     await startWarmup(Location);
   }, [startWarmup]);
 
   const onAlwaysExplainerForegroundOnly = useCallback(async () => {
     setAlwaysExplainerOpen(false);
     await markPawthonAlwaysExplainerSeen();
+    trackingModeRef.current = "foreground";
     let Location: typeof import("expo-location");
     try {
       Location = await loadExpoLocation();
@@ -912,6 +917,8 @@ export default function PawthonWalkScreen() {
           </View>
 
           <View
+            ref={completeMapCaptureRef}
+            collapsable={false}
             style={{
               height: 200,
               borderRadius: 20,
@@ -1115,8 +1122,16 @@ export default function PawthonWalkScreen() {
 
           <Pressable
             onPress={() => {
-              setSharePreviewPayload(buildWalkSharePayloadFromComplete(complete));
-              setSharePreviewOpen(true);
+              void (async () => {
+                const mapSnapshotUri = await captureWalkMapSnapshot(completeMapCaptureRef);
+                setSharePreviewPayload(
+                  buildWalkSharePayloadFromComplete({
+                    ...complete,
+                    mapSnapshotUri,
+                  })
+                );
+                setSharePreviewOpen(true);
+              })();
             }}
             style={{
               flexDirection: "row",

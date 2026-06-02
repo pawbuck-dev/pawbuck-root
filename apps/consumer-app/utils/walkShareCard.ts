@@ -30,6 +30,7 @@ export type WalkSharePayload = {
   badgeId?: PawthonBadgeId;
   verificationPhotoUri?: string | null;
   weeklyRankLine?: string;
+  mapSnapshotUri?: string | null;
 };
 
 export type ProjectedPoint = { x: number; y: number };
@@ -125,6 +126,33 @@ export function buildWalkShareHighlightLine(payload: WalkSharePayload): string |
   return null;
 }
 
+/** Always-on Strava-style encouragement for share card and caption. */
+export function buildWalkShareEncouragementLine(payload: WalkSharePayload): string {
+  const { petName } = payload;
+  const miles = metersToMiles(payload.distanceMeters);
+  const hour = moment(payload.endedAt).hour();
+
+  if (payload.badgeId) {
+    return `Keep it up with ${petName}!`;
+  }
+  if (miles >= 2) {
+    return `Solid ${formatMiles(miles)} mi with ${petName}!`;
+  }
+  if (miles >= 0.5 && miles < 1) {
+    return `First half mile with ${petName}!`;
+  }
+  if (hour >= 5 && hour < 12) {
+    return `Morning miles with ${petName}`;
+  }
+  if (hour >= 17 && hour < 21) {
+    return `Evening stroll with ${petName}`;
+  }
+  if (payload.durationSec >= 30 * 60) {
+    return `Long walk done — ${petName} loved it!`;
+  }
+  return `Great walk with ${petName}!`;
+}
+
 /** Omit noisy rank copy when cohort is still small. */
 export function shouldIncludeWeeklyRankOnShare(rankLine: string): boolean {
   const match = rankLine.match(/#(\d+)\s+of\s+(\d+)/i);
@@ -144,6 +172,7 @@ export function buildWalkShareCaption(payload: WalkSharePayload): string {
   const highlight = buildWalkShareHighlightLine(payload);
   if (highlight) lines.push(highlight);
 
+  lines.push(buildWalkShareEncouragementLine(payload));
   lines.push("Track walks on PawBuck");
   return lines.join("\n");
 }

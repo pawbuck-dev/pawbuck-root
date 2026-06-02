@@ -11,6 +11,7 @@ import {
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchWalkSessionById } from "@/services/walkSessions";
+import { captureWalkMapSnapshot } from "@/services/walkShare";
 import { buildWalkSharePayloadFromSession } from "@/utils/buildWalkSharePayload";
 import { parseWalkPoints } from "@/utils/pawthonWalkDisplay";
 import type { WalkSharePayload } from "@/utils/walkShareCard";
@@ -19,7 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
@@ -45,6 +46,7 @@ export default function PawthonWalkDetailScreen() {
 
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
   const [sharePreviewPayload, setSharePreviewPayload] = useState<WalkSharePayload | null>(null);
+  const mapCaptureRef = useRef<View>(null);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -63,7 +65,7 @@ export default function PawthonWalkDetailScreen() {
         </View>
       ) : (
         <ScrollView bounces={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <View style={{ height: 280, backgroundColor: "#243038" }}>
+          <View ref={mapCaptureRef} collapsable={false} style={{ height: 280, backgroundColor: "#243038" }}>
             <PawthonWalkMap path={path} style={{ flex: 1 }} />
             <Pressable
               onPress={() => router.back()}
@@ -129,8 +131,13 @@ export default function PawthonWalkDetailScreen() {
             <Pressable
               onPress={() => {
                 if (!session) return;
-                setSharePreviewPayload(buildWalkSharePayloadFromSession(session, pet));
-                setSharePreviewOpen(true);
+                void (async () => {
+                  const mapSnapshotUri = await captureWalkMapSnapshot(mapCaptureRef);
+                  setSharePreviewPayload(
+                    buildWalkSharePayloadFromSession(session, pet, { mapSnapshotUri })
+                  );
+                  setSharePreviewOpen(true);
+                })();
               }}
               style={{
                 paddingVertical: 14,

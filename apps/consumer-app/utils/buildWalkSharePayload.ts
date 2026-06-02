@@ -15,6 +15,7 @@ export function buildWalkSharePayloadFromSession(
     verificationPhotoUri?: string | null;
     weeklyRank?: number | null;
     weeklyTotal?: number;
+    mapSnapshotUri?: string | null;
   }
 ): WalkSharePayload {
   return {
@@ -31,6 +32,7 @@ export function buildWalkSharePayloadFromSession(
       extras?.weeklyRank != null || extras?.weeklyTotal != null
         ? formatWeeklyWalkerRankLine(extras.weeklyRank, extras.weeklyTotal)
         : undefined,
+    mapSnapshotUri: extras?.mapSnapshotUri ?? null,
   };
 }
 
@@ -44,6 +46,7 @@ export function buildWalkSharePayloadFromComplete(params: {
   newBadges: PawthonBadgeId[];
   weeklyRankLine?: string;
   endedAt?: string;
+  mapSnapshotUri?: string | null;
 }): WalkSharePayload {
   return {
     petName: params.pet.name,
@@ -56,5 +59,6 @@ export function buildWalkSharePayloadFromComplete(params: {
     badgeId: params.newBadges[0],
     verificationPhotoUri: params.verificationUri,
     weeklyRankLine: params.weeklyRankLine,
+    mapSnapshotUri: params.mapSnapshotUri ?? null,
   };
 }
