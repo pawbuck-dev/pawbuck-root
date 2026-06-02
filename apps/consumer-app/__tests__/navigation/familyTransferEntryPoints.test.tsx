@@ -107,4 +107,13 @@ describe("authResumeParams", () => {
   it("returns false when returnTo is missing", () => {
     expect(hasAuthResumeTarget({ transferCode: "TRF-1" })).toBe(false);
   });
+
+  it("detects transfer resume to step 2", () => {
+    const resume = parseAuthResumeParams({
+      returnTo: "/transfer-pet/step2",
+      transferCode: "TRF-ABC",
+    });
+    expect(hasAuthResumeTarget(resume)).toBe(true);
+    expect(authResumeParamsToRouteParams(resume)).toEqual({ transferCode: "TRF-ABC" });
+  });
 });

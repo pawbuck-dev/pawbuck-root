@@ -1,6 +1,6 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,11 +17,19 @@ import { useTheme } from "@/context/themeContext";
 
 export default function TransferPet() {
   const router = useRouter();
+  const { transferCode: transferCodeParam } = useLocalSearchParams<{ transferCode?: string }>();
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
   const [transferCode, setTransferCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const raw = Array.isArray(transferCodeParam) ? transferCodeParam[0] : transferCodeParam;
+    if (raw?.trim()) {
+      setTransferCode(raw.trim().toUpperCase());
+    }
+  }, [transferCodeParam]);
 
   const handleCancel = () => {
     router.back();

@@ -259,39 +259,27 @@ export async function getMyPetTransfers(): Promise<PetTransferWithPreview[]> {
 }
 
 /**
- * Verify a transfer code and get transfer details (limited pet fields for preview).
+ * Verify a transfer code is valid for the recipient flow (uses preview RPC; avoids RLS on pet_transfers/pets embed).
  */
 export async function verifyTransferCode(
   code: string
 ): Promise<PetTransferWithPreview | null> {
-  const { data, error } = await supabase
-    .from("pet_transfers")
-    .select(
-      "id, code, pet_id, from_user_id, created_at, expires_at, used_at, to_user_id, is_active, transfer_reason, declined_at, declined_by_user_id, pets(name, breed, photo_url, animal_type, date_of_birth, email_id)"
-    )
-    .eq("code", code.toUpperCase().trim())
-    .eq("is_active", true)
-    .single();
+  const preview = await fetchPetTransferPreview(code);
+  if (!preview) return null;
 
-  if (error) {
-    if (error.code === "PGRST116") {
-      // No rows returned
-      return null;
-    }
-    throw error;
-  }
-
-  // Check if expired
-  if (data.expires_at && new Date(data.expires_at) < new Date()) {
-    return null;
-  }
-
-  // Check if already used
-  if (data.used_at) {
-    return null;
-  }
-
-  return data as PetTransferWithPreview;
+  const normalized = code.trim().toUpperCase();
+  return {
+    id: "",
+    code: normalized,
+    pet_id: "",
+    from_user_id: "",
+    created_at: "",
+    expires_at: null,
+    used_at: null,
+    to_user_id: null,
+    is_active: true,
+    pets: preview.pet,
+  } as PetTransferWithPreview;
 }
 
 /**

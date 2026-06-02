@@ -14,6 +14,7 @@ import {
   useTransferCode,
 } from "@/services/petTransfers";
 import { formatPetInboundEmail } from "@/utils/petEmail";
+import { authResumeParamsForNavigation } from "@/utils/authResumeParams";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -90,7 +91,10 @@ export default function TransferPetStep2() {
             onPress: () => {
               router.replace({
                 pathname: "/signup",
-                params: { returnTo: "/transfer-pet/step2", transferCode },
+                params: authResumeParamsForNavigation({
+                  returnTo: "/transfer-pet/step2",
+                  transferCode,
+                }),
               });
             },
           },
@@ -99,7 +103,10 @@ export default function TransferPetStep2() {
             onPress: () => {
               router.replace({
                 pathname: "/login",
-                params: { returnTo: "/transfer-pet/step2", transferCode },
+                params: authResumeParamsForNavigation({
+                  returnTo: "/transfer-pet/step2",
+                  transferCode,
+                }),
               });
             },
           },

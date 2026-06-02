@@ -161,71 +161,36 @@ describe("petTransfers service", () => {
   });
 
   describe("verifyTransferCode", () => {
-    it("returns null for PGRST116 (not found)", async () => {
-      const single = jest.fn().mockResolvedValue({ data: null, error: { code: "PGRST116" } });
-      const eq2 = jest.fn().mockReturnValue({ single });
-      const eq1 = jest.fn().mockReturnValue({ eq: eq2 });
-      mockTransfersFrom.select = jest.fn().mockReturnValue({ eq: eq1 });
-
+    it("returns null when preview RPC returns null", async () => {
+      mockRpc.mockResolvedValue({ data: null, error: null });
       await expect(verifyTransferCode(" trf-x ")).resolves.toBeNull();
-      expect(eq1).toHaveBeenCalledWith("code", "TRF-X");
+      expect(mockRpc).toHaveBeenCalledWith("preview_pet_transfer", { p_code: "TRF-X" });
     });
 
-    it("returns null when expired", async () => {
-      const single = jest.fn().mockResolvedValue({
+    it("returns transfer stub when preview RPC succeeds", async () => {
+      mockRpc.mockResolvedValue({
         data: {
-          id: "t1",
-          code: "TRF-X",
-          expires_at: new Date(Date.now() - 86400000).toISOString(),
-          used_at: null,
-          is_active: true,
-          pets: { name: "Bo" },
+          pet: { name: "Bo", breed: null, photo_url: null, animal_type: null, date_of_birth: null },
+          highlights: [],
+          summary: {
+            vaccination_count: 0,
+            active_medication_count: 0,
+            clinical_exam_count: 0,
+            document_count: 0,
+          },
         },
         error: null,
       });
-      const eq2 = jest.fn().mockReturnValue({ single });
-      const eq1 = jest.fn().mockReturnValue({ eq: eq2 });
-      mockTransfersFrom.select = jest.fn().mockReturnValue({ eq: eq1 });
-
-      await expect(verifyTransferCode("TRF-X")).resolves.toBeNull();
-    });
-
-    it("returns null when already used", async () => {
-      const single = jest.fn().mockResolvedValue({
-        data: {
-          id: "t1",
-          code: "TRF-X",
-          expires_at: new Date(Date.now() + 86400000).toISOString(),
-          used_at: new Date().toISOString(),
-          is_active: true,
-          pets: { name: "Bo" },
-        },
-        error: null,
-      });
-      const eq2 = jest.fn().mockReturnValue({ single });
-      const eq1 = jest.fn().mockReturnValue({ eq: eq2 });
-      mockTransfersFrom.select = jest.fn().mockReturnValue({ eq: eq1 });
-
-      await expect(verifyTransferCode("TRF-X")).resolves.toBeNull();
-    });
-
-    it("returns transfer when valid", async () => {
-      const row = {
-        id: "t1",
-        code: "TRF-OK",
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
-        used_at: null,
-        is_active: true,
-        pets: { name: "Bo", breed: null },
-      };
-      const single = jest.fn().mockResolvedValue({ data: row, error: null });
-      const eq2 = jest.fn().mockReturnValue({ single });
-      const eq1 = jest.fn().mockReturnValue({ eq: eq2 });
-      mockTransfersFrom.select = jest.fn().mockReturnValue({ eq: eq1 });
-
       const out = await verifyTransferCode("trf-ok");
       expect(out?.code).toBe("TRF-OK");
       expect((out as { pets?: { name: string } }).pets?.name).toBe("Bo");
+    });
+
+    it("propagates preview RPC errors", async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: "db down" } });
+      await expect(verifyTransferCode("TRF-X")).rejects.toEqual(
+        expect.objectContaining({ message: "db down" })
+      );
     });
   });
 

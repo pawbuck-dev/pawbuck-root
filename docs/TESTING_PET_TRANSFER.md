@@ -3,6 +3,10 @@
 Automated tests live under `apps/consumer-app/__tests__/services/petTransfers*.test.ts`.  
 Database RPC behavior (`accept_pet_transfer`, `decline_pet_transfer`, `preview_pet_transfer`) is enforced in `supabase/migrations/*pet_transfer*`.
 
+Journey spec: [pet-transfer-recipient-journey.md](plans/pet-transfer-recipient-journey.md)
+
+**Important:** Step 1 code verification uses `preview_pet_transfer` RPC (not direct `pet_transfers` SELECT). Recipients are not pet owners until accept; client table reads can fail RLS on the `pets` embed.
+
 ## Automated (Jest)
 
 | Area | File | What is covered |
