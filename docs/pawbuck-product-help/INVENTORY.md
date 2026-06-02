@@ -10,8 +10,8 @@ Auditable checklist for Milo RAG (`documentation` table). Each row maps to one o
 | Vaccinations | `03-vaccinations.md` | Health tabs, upload modals |
 | Medications & labs & exams | `04-medications-labs-exams.md` | Health tabs, detail screens |
 | Messages & pet email | `05-messages-pet-email.md` | `messages`, processed email flows |
-| Family access & invites | `06-family-sharing.md` | `family-access`, `join-household` |
-| Pet transfer | `07-pet-transfer.md` | `transfer-pet`, claim flow |
+| Family access & invites | `06-family-sharing.md` | `family-access`, `join-household`, `accept-invite` |
+| Pet transfer | `07-pet-transfer.md` | `/(home)/transfer-pet` (sender), `/transfer-pet` (recipient claim) |
 | Milo AI | `08-milo.md` | `milo`, Milo chat modal |
 | Pawthon & walks | `09-pawthon-walks.md` | `pawthon`, `pawthon-walk`, leaderboard |
 | Vet booking & calendar | `10-book-vet-visit.md` | `book-vet-visit/*`, `(home)/calendar`, Home header calendar |

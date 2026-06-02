@@ -371,8 +371,8 @@ export default function Home() {
           <Text style={{ fontSize: 28, fontWeight: "700", textAlign: "center", marginBottom: 8, color: theme.foreground }}>
             No pets yet
           </Text>
-          <Text style={{ fontSize: 18, textAlign: "center", marginBottom: 32, color: theme.secondary }}>
-            Add your first furry friend to get started
+          <Text style={{ fontSize: 18, textAlign: "center", marginBottom: 24, color: theme.secondary }}>
+            Add a pet, join a household with an invite code, or claim a transferred pet
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -382,6 +382,76 @@ export default function Home() {
                 resetOnboarding,
               });
             }}
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              paddingHorizontal: 32,
+              paddingVertical: 16,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+              marginBottom: 12,
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+                backgroundColor: isDarkMode ? theme.border : "rgba(0,0,0,0.05)",
+              }}
+            >
+              <Ionicons name="add" size={20} color={theme.primary} />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.primary }}>
+              Add Your First Pet
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/join-household")}
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              paddingHorizontal: 32,
+              paddingVertical: 16,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.card,
+              borderWidth: 1,
+              borderColor: theme.border,
+              marginBottom: 12,
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+                backgroundColor: isDarkMode ? theme.border : "rgba(0,0,0,0.05)",
+              }}
+            >
+              <Ionicons name="people" size={20} color={theme.primary} />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: theme.primary }}>
+              Join with Invite Code
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/transfer-pet")}
             style={{
               width: "100%",
               maxWidth: 320,
@@ -408,10 +478,10 @@ export default function Home() {
                 backgroundColor: isDarkMode ? theme.border : "rgba(0,0,0,0.05)",
               }}
             >
-              <Ionicons name="add" size={20} color={theme.primary} />
+              <Ionicons name="swap-horizontal" size={20} color={theme.primary} />
             </View>
             <Text style={{ fontSize: 18, fontWeight: "700", color: theme.primary }}>
-              Add Your First Pet
+              Claim a Transferred Pet
             </Text>
           </TouchableOpacity>
         </View>

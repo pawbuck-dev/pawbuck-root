@@ -71,6 +71,8 @@ describe("Index (launch)", () => {
     expect(screen.getByText("PawBuck")).toBeTruthy();
     expect(screen.getByText("Sign Up")).toBeTruthy();
     expect(screen.getByText("Sign In")).toBeTruthy();
+    expect(screen.getByText("Join with invite code")).toBeTruthy();
+    expect(screen.getByText("Claim a transferred pet")).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalledWith("/login");
   });
 

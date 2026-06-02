@@ -2,22 +2,21 @@
 
 ## How do I start a transfer (current owner)?
 
-1. Open **Profile** → **Transfer Ownership** (or **Claim a Pet** inverse flow from the transferee side).
-2. Follow **Transfer pet** steps: confirm pet identity, data handling choices if shown, and generate or share a **secure transfer code** or link as the app presents.
-3. Complete any confirmation steps. The recipient must accept before ownership fully moves.
+1. Open **Profile** → **Transfer Ownership** (sender flow at `/(home)/transfer-pet`).
+2. Follow the steps: confirm pet identity, data handling choices, and generate a **TRF transfer code**.
+3. Share the code with the new owner. They must accept before ownership moves.
 
 ## How do I receive a pet transfer?
 
-1. Ask the current owner for the **transfer code** or invite link.
-2. In PawBuck, go to **Claim a Pet** / **Transfer pet** and enter the code or open the link.
-3. Sign in to the account that should receive the pet.
-4. Review warnings about historical data and future access, then confirm acceptance.
-5. After success, select the new pet from your pet list and verify health records and messages.
+1. Ask the current owner for the **TRF transfer code**.
+2. In PawBuck, open **Claim a Pet** from Profile, the welcome screen, or Home when you have no pets yet — this opens the **recipient** flow at `/transfer-pet` (not Transfer Ownership).
+3. Enter the code, sign in if prompted, review the preview, then accept.
+4. After success, the pet appears on Home with health records visible to you as the new owner.
 
 ## Declining or canceling
 
-If you started a transfer by mistake, use in-app **cancel** or decline options while the transfer is still pending. If the other party declines, the pet stays with the original owner.
+If you started a transfer by mistake, cancel from the sender screen while the code is still active. If the recipient declines, the pet stays with the original owner.
 
 ## After transfer
 
-Update family access if other caregivers still need visibility. The new owner manages invites going forward.
+The new owner manages family access going forward. Prior family shares on that pet are cleared at accept time.

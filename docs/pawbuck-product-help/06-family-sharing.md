@@ -2,20 +2,26 @@
 
 ## How do I set up family sharing?
 
-1. Select the pet that should be shared.
-2. Open **Profile** → **Manage Access** (or **Family access** / **Care team** from profile shortcuts—labels point to the same `family-access` area).
-3. Invite a family member by email or use the app's invite flow.
-4. Choose permission level if offered (for example **full access** vs **view-only**).
-5. The invitee accepts the invite in email or the app and signs in with their PawBuck account.
+1. Open **Profile** → **Manage Access** (Care Team / Family access screen).
+2. **Invite by email** (recommended): choose the pet, enter the family member's email, pick access level (**View only**, **Contributor**, or **Admin**), then tap **Send email invite**.
+3. **Or share a household code**: tap **Share code** to generate an MTCH code (grants access to **all** your pets when accepted).
+4. The invitee signs in with the invited email (for email invites) or enters the MTCH code in **Join household**.
 
-## Joining someone else's household
+## Joining someone else's household (recipient)
 
-If you received an invite, open the link or use **Join household** from onboarding or the join flow (`join-household`) and enter the code or token you were given.
+If you were invited:
+
+- **Email link:** open the link (`/accept-invite?token=…`) and sign in with the **same email** that received the invite.
+- **MTCH code:** from the welcome screen, Home empty state, or **Profile** → **Join Household**, enter the code at `/join-household`.
+
+You do **not** need to tap **Add New Pet** if you were invited to an existing pet.
 
 ## Changing or revoking access
 
-Return to **Manage Access / Family access** for that pet. Remove a member or downgrade permissions according to the controls shown. Only owners (or users with manage permission) can change access.
+Return to **Manage Access** on the Care Team screen. Remove a household member or send a new email invite with the desired role. Only the pet owner (or admins where allowed) can change access.
 
-## View-only vs full access
+## View-only vs contributor vs admin
 
-**View-only** can read health data and messages allowed by policy but cannot upload or edit clinical rows. **Full** (or equivalent) access can add documents and journal entries where the product allows.
+- **View only** — read health data allowed by policy; no uploads or edits.
+- **Contributor** — can add documents and journal entries where the product allows.
+- **Admin** — broader manage access on that pet (household MTCH codes grant admin on all owner pets).

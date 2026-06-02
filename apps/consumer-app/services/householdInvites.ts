@@ -141,7 +141,7 @@ export async function verifyInviteCode(
 }
 
 /**
- * Use an invite code to join a household
+ * Use an invite code to join a household (server-side RPC; RLS blocks direct recipient writes).
  */
 export async function useInviteCode(code: string): Promise<void> {
   const {
@@ -152,72 +152,30 @@ export async function useInviteCode(code: string): Promise<void> {
     throw new Error("User must be authenticated");
   }
 
-  // Verify the code
-  const invite = await verifyInviteCode(code);
-  if (!invite) {
-    throw new Error("Invalid or expired invite code");
+  const { data, error } = await supabase.rpc("accept_household_invite_code", {
+    p_code: code.trim().toUpperCase(),
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to join household");
   }
 
-  // Check if user is trying to join their own household
-  if (invite.created_by === user.id) {
-    throw new Error("You cannot join your own household");
-  }
+  const result = data as {
+    ok?: boolean;
+    error?: string;
+  } | null;
 
-  // Check if user is already a member
-  const { data: existingMember } = await supabase
-    .from("household_members")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("household_owner_id", invite.created_by)
-    .eq("is_active", true)
-    .single();
-
-  if (existingMember) {
-    throw new Error("You are already a member of this household");
-  }
-
-  // Start a transaction-like operation
-  // Mark invite as used
-  const { error: updateError } = await supabase
-    .from("household_invites")
-    .update({
-      used_at: new Date().toISOString(),
-      used_by: user.id,
-      is_active: false,
-    })
-    .eq("id", invite.id);
-
-  if (updateError) {
-    throw updateError;
-  }
-
-  // Add user as household member
-  const { error: insertError } = await supabase
-    .from("household_members")
-    .insert({
-      user_id: user.id,
-      household_owner_id: invite.created_by,
-      is_active: true,
-    });
-
-  if (insertError) {
-    // Rollback: reactivate the invite
-    const { error: rollbackError } = await supabase
-      .from("household_invites")
-      .update({
-        used_at: null,
-        used_by: null,
-        is_active: true,
-      })
-      .eq("id", invite.id);
-    
-    if (rollbackError) {
-      console.error("Critical: Failed to rollback household invite", rollbackError);
-      // Log to error tracking service if available
-      // This is a critical error that could leave data inconsistent
-    }
-    
-    throw insertError;
+  if (!result?.ok) {
+    const err = result?.error ?? "unknown";
+    const messages: Record<string, string> = {
+      unauthenticated: "User must be authenticated",
+      invalid_code: "Invalid or expired invite code",
+      expired: "Invalid or expired invite code",
+      already_used: "This invite code has already been used",
+      self_join: "You cannot join your own household",
+      member_limit: "This household has reached the family member limit",
+    };
+    throw new Error(messages[err] ?? "Failed to join household");
   }
 }
 
@@ -259,14 +217,17 @@ export async function removeHouseholdMember(memberId: string): Promise<void> {
     throw new Error("User must be authenticated");
   }
 
-  const { error } = await supabase
-    .from("household_members")
-    .update({ is_active: false })
-    .eq("id", memberId)
-    .eq("household_owner_id", user.id); // Only owner can remove
+  const { data, error } = await supabase.rpc("revoke_household_member_access", {
+    p_member_id: memberId,
+  });
 
   if (error) {
-    throw error;
+    throw new Error(error.message || "Failed to remove household member");
+  }
+
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (!result?.ok) {
+    throw new Error(result?.error === "not_found" ? "Member not found" : "Failed to remove household member");
   }
 }
 

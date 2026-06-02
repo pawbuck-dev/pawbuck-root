@@ -2601,6 +2601,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_household_invite_code: {
+        Args: { p_code: string }
+        Returns: Json
+      }
       accept_pet_transfer: {
         Args: { p_code: string; p_pet_parent_display_name?: string }
         Returns: string
@@ -2721,6 +2725,10 @@ export type Database = {
       }
       pet_family_slots_used: { Args: { p_pet_id: string }; Returns: number }
       preview_pet_transfer: { Args: { p_code: string }; Returns: Json }
+      revoke_household_member_access: {
+        Args: { p_member_id: string }
+        Returns: Json
+      }
       process_pet_family_invite_token: {
         Args: { p_token: string }
         Returns: Json

@@ -81,6 +81,7 @@ describe("Login screen", () => {
         returnTo: "",
         transferCode: "",
         inviteCode: "",
+        inviteToken: "",
       },
     });
   });

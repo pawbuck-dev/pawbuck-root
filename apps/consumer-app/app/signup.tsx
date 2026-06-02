@@ -4,6 +4,12 @@ import { useCreatePetFromOnboardingDraft } from "@/hooks/useCreatePetFromOnboard
 import { needsDisplayNamePrompt } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
+import {
+  authResumeParamsForNavigation,
+  authResumeParamsToRouteParams,
+  hasAuthResumeTarget,
+  parseAuthResumeParams,
+} from "@/utils/authResumeParams";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -21,7 +27,13 @@ import {
 function SignUp() {
   const router = useRouter();
   const { theme, mode } = useTheme();
-  const { returnTo, transferCode, inviteCode } = useLocalSearchParams<{ returnTo?: string; transferCode?: string; inviteCode?: string }>();
+  const rawParams = useLocalSearchParams<{
+    returnTo?: string;
+    transferCode?: string;
+    inviteCode?: string;
+    inviteToken?: string;
+  }>();
+  const resume = parseAuthResumeParams(rawParams);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -73,10 +85,10 @@ function SignUp() {
 
       await createPetIfNeeded();
 
-      if (returnTo && (transferCode || inviteCode)) {
+      if (hasAuthResumeTarget(resume)) {
         router.replace({
-          pathname: returnTo as any,
-          params: transferCode ? { transferCode } : { inviteCode },
+          pathname: resume.returnTo as any,
+          params: authResumeParamsToRouteParams(resume),
         });
       } else {
         router.replace("/(home)/home");
@@ -92,11 +104,7 @@ function SignUp() {
   const handleSignIn = () => {
     router.replace({
       pathname: "/login",
-      params: {
-        returnTo: returnTo ? String(returnTo) : "",
-        transferCode: transferCode ? String(transferCode) : "",
-        inviteCode: inviteCode ? String(inviteCode) : "",
-      },
+      params: authResumeParamsForNavigation(resume),
     });
   };
 
@@ -143,21 +151,17 @@ function SignUp() {
                     if (needsDisplayNamePrompt(latest ?? user)) {
                       router.replace({
                         pathname: "/post-auth-confirm",
-                        params: {
-                          returnTo: returnTo ? String(returnTo) : "",
-                          transferCode: transferCode ? String(transferCode) : "",
-                          inviteCode: inviteCode ? String(inviteCode) : "",
-                        },
+                        params: authResumeParamsForNavigation(resume),
                       });
                       return;
                     }
 
                     await createPetIfNeeded();
 
-                    if (returnTo && (transferCode || inviteCode)) {
+                    if (hasAuthResumeTarget(resume)) {
                       router.replace({
-                        pathname: returnTo as any,
-                        params: transferCode ? { transferCode } : { inviteCode },
+                        pathname: resume.returnTo as any,
+                        params: authResumeParamsToRouteParams(resume),
                       });
                     } else {
                       router.replace("/(home)/home");

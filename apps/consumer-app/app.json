@@ -129,6 +129,17 @@
       "eas": {
         "projectId": "9f01360a-9174-4a74-9f8c-87ce6293b8c5"
       }
+    },
+    "linking": {
+      "scheme": "Pawbuck",
+      "prefixes": ["Pawbuck://", "https://pawbuck.app"],
+      "config": {
+        "screens": {
+          "accept-invite": "accept-invite",
+          "join-household": "join-household",
+          "transfer-pet": "transfer-pet"
+        }
+      }
     }
   }
 }

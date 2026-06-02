@@ -5,6 +5,11 @@ import {
 } from "@/services/authDisplayName";
 import { upsertUserPreferences } from "@/services/userPreferences";
 import { supabase } from "@/utils/supabase";
+import {
+  authResumeParamsToRouteParams,
+  hasAuthResumeTarget,
+  parseAuthResumeParams,
+} from "@/utils/authResumeParams";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,11 +26,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function paramToString(v: string | string[] | undefined): string {
-  if (v == null) return "";
-  return Array.isArray(v) ? (v[0] ?? "") : v;
-}
-
 /**
  * After OAuth: optional inline display name when the provider did not supply one.
  */
@@ -38,11 +38,10 @@ export default function PostAuthConfirmScreen() {
     returnTo?: string | string[];
     transferCode?: string | string[];
     inviteCode?: string | string[];
+    inviteToken?: string | string[];
   }>();
 
-  const returnTo = paramToString(params.returnTo);
-  const transferCode = paramToString(params.transferCode);
-  const inviteCode = paramToString(params.inviteCode);
+  const resume = parseAuthResumeParams(params);
 
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,15 +55,15 @@ export default function PostAuthConfirmScreen() {
     if (user?.id) {
       await upsertUserPreferences(user.id, {}).catch(() => {});
     }
-    if (returnTo && (transferCode || inviteCode)) {
+    if (hasAuthResumeTarget(resume)) {
       router.replace({
-        pathname: returnTo as never,
-        params: transferCode ? { transferCode } : { inviteCode },
+        pathname: resume.returnTo as never,
+        params: authResumeParamsToRouteParams(resume),
       });
     } else {
       router.replace("/(home)/home");
     }
-  }, [returnTo, transferCode, inviteCode, router]);
+  }, [resume, router]);
 
   const goHomeOrReturnRef = useRef(goHomeOrReturn);
   goHomeOrReturnRef.current = goHomeOrReturn;

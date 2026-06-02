@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -56,15 +55,6 @@ export default function TransferPet() {
       setError(error.message || "Failed to verify transfer code");
       setVerifying(false);
     }
-  };
-
-  const handleScanQRCode = () => {
-    // TODO: Navigate to QR scanner screen
-    Alert.alert(
-      "QR Code Scanning",
-      "QR code scanning will be available soon. Please enter the transfer code manually."
-    );
-    // router.push("/transfer-pet/scan");
   };
 
   return (
@@ -181,35 +171,11 @@ export default function TransferPet() {
                 )}
               </View>
 
-              {/* Scan QR Code Option */}
-              <Pressable
-                onPress={handleScanQRCode}
-                disabled={verifying}
-                className="w-full rounded-xl py-4 px-4 mb-4 flex-row items-center justify-center active:opacity-70"
-                style={{
-                  backgroundColor: "transparent",
-                  borderWidth: 1,
-                  borderColor: isDarkMode ? "#374151" : theme.border,
-                  borderStyle: "dashed",
-                  opacity: verifying ? 0.5 : 1,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="qrcode-scan"
-                  size={20}
-                  color={theme.foreground}
-                />
-                <Text className="text-base ml-2" style={{ color: theme.foreground }}>
-                  Scan Transfer QR Code
-                </Text>
-              </Pressable>
-
-              {/* Hint Text */}
               <Text
                 className="text-sm text-center mb-8"
                 style={{ color: theme.secondary }}
               >
-                The previous owner should have shared a transfer code or QR code with you
+                The previous owner should have shared a TRF transfer code with you.
               </Text>
             </View>
           </View>

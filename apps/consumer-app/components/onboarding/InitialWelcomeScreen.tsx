@@ -47,7 +47,7 @@ export default function InitialWelcomeScreen() {
         />
       </View>
 
-      {/* Bottom: Figma CTA — Sign Up (Solid) + Sign In (Outline), full-width */}
+      {/* Bottom: Sign Up / Sign In + recipient entry points */}
       <View style={[styles.footer, { paddingBottom: Math.max(24, insets.bottom), paddingHorizontal: 24 }]}>
         <CTA
           label="Sign Up"
@@ -61,6 +61,20 @@ export default function InitialWelcomeScreen() {
           size="LG"
           style="Outline"
           onPress={() => router.push("/login")}
+          containerStyle={styles.ctaBtn}
+        />
+        <CTA
+          label="Join with invite code"
+          size="MD"
+          style="Outline"
+          onPress={() => router.push("/join-household")}
+          containerStyle={styles.ctaBtn}
+        />
+        <CTA
+          label="Claim a transferred pet"
+          size="MD"
+          style="Outline"
+          onPress={() => router.push("/transfer-pet")}
           containerStyle={styles.ctaBtn}
         />
       </View>

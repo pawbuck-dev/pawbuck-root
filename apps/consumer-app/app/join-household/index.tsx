@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -56,16 +55,6 @@ export default function JoinHousehold() {
       setError(error.message || "Failed to verify invite code");
       setVerifying(false);
     }
-  };
-
-  const handleScanQRCode = () => {
-    // TODO: Navigate to QR scanner screen
-    // For now, show a message that QR scanning will be implemented
-    Alert.alert(
-      "QR Code Scanning",
-      "QR code scanning will be available soon. Please enter the invite code manually."
-    );
-    // router.push("/join-household/scan");
   };
 
   return (
@@ -182,35 +171,12 @@ export default function JoinHousehold() {
                 )}
               </View>
 
-              {/* Scan QR Code Option */}
-              <Pressable
-                onPress={handleScanQRCode}
-                disabled={verifying}
-                className="w-full rounded-xl py-4 px-4 mb-4 flex-row items-center justify-center active:opacity-70"
-                style={{
-                  backgroundColor: "transparent",
-                  borderWidth: 1,
-                  borderColor: isDarkMode ? "#374151" : theme.border,
-                  borderStyle: "dashed",
-                  opacity: verifying ? 0.5 : 1,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="qrcode-scan"
-                  size={20}
-                  color={theme.foreground}
-                />
-                <Text className="text-base ml-2" style={{ color: theme.foreground }}>
-                  Scan QR Code Instead
-                </Text>
-              </Pressable>
-
               {/* Hint Text */}
               <Text
                 className="text-sm text-center mb-8"
                 style={{ color: theme.secondary }}
               >
-                Ask the household owner for an invite code or QR code to join.
+                Ask the household owner for an MTCH invite code, or use the link from their email invite.
               </Text>
             </View>
           </View>

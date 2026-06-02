@@ -2,13 +2,21 @@
 
 **Generated:** January 2025  
 **Scan Type:** Comprehensive codebase analysis  
-**Status:** Ready for Review
+**Status:** Partially resolved (June 2026) — family/transfer journey fixes landed; see git history.
+
+---
+
+## RESOLVED (June 2026 — family & transfer journeys)
+
+- **#1** `transfer-pet/step3.tsx` — uses `useTheme` correctly.
+- **#2** `join-household/step3.tsx` — uses theme context (no hardcoded `#0A0A0A`).
+- **#6** `householdInvites.ts` — client rollback removed; accept uses `accept_household_invite_code` RPC.
 
 ---
 
 ## 🔴 CRITICAL BUGS
 
-### 1. Missing Theme Import in `app/transfer-pet/step3.tsx`
+### 1. ~~Missing Theme Import in `app/transfer-pet/step3.tsx`~~ FIXED
 **File:** `app/transfer-pet/step3.tsx`  
 **Lines:** 22, 23, 29, 38  
 **Severity:** CRITICAL - Will cause runtime error
@@ -38,7 +46,7 @@ export default function TransferPetStep3() {
 
 ---
 
-### 2. Hardcoded Dark Theme Colors in `app/join-household/step3.tsx`
+### 2. ~~Hardcoded Dark Theme Colors in `app/join-household/step3.tsx`~~ FIXED
 **File:** `app/join-household/step3.tsx`  
 **Lines:** 23, 24, 30, 39, 76, 84, 98  
 **Severity:** MEDIUM - UI inconsistency, doesn't respect theme
@@ -186,7 +194,7 @@ if (petUpdateError) {
 
 ---
 
-### 6. Similar Rollback Issue in Household Invites
+### 6. ~~Similar Rollback Issue in Household Invites~~ FIXED (RPC accept)
 **File:** `services/householdInvites.ts`  
 **Lines:** 203-213  
 **Severity:** MEDIUM - Same issue as pet transfer

@@ -26,7 +26,7 @@ Database RPC behavior (`accept_pet_transfer`, `decline_pet_transfer`, `preview_p
 
 ### Recipient (new owner)
 
-1. **Claim flow** — Profile → Claim a Pet / `transfer-pet` → enter code (case-insensitive).
+1. **Claim flow** — Welcome / Home empty state / Profile → **Claim a Pet** → `/transfer-pet` → enter code (case-insensitive).
 2. **Invalid code** — Wrong, expired, or used code → clear error on step 1 or 2.
 3. **Auth** — Logged out on step 2 → sign-in/sign-up prompt with return to step 2.
 4. **Premium gate** — Free account: accept should prompt Premium (`pet_transfer_accept`).

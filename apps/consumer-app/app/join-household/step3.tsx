@@ -100,7 +100,7 @@ export default function JoinHouseholdStep3() {
         >
           <Text
             className="text-lg font-semibold"
-            style={{ color: "#FFFFFF" }}
+            style={{ color: theme.primaryForeground }}
           >
             Continue
           </Text>

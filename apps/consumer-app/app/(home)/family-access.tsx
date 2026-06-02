@@ -18,6 +18,7 @@ import {
   HouseholdMember,
   removeHouseholdMember,
 } from "@/services/householdInvites";
+import { PetFamilyRole, sendPetFamilyInvite } from "@/services/petFamilyInvites";
 import {
   CareTeamMemberType,
   createVetInformation,
@@ -94,6 +95,10 @@ export default function FamilyAccess() {
   const queryClient = useQueryClient();
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<PetFamilyRole>("contributor");
+  const [invitePetId, setInvitePetId] = useState<string | undefined>(undefined);
+  const [sendingEmailInvite, setSendingEmailInvite] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] = useState<CareTeamMemberType>("veterinarian");
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
@@ -161,6 +166,41 @@ export default function FamilyAccess() {
     ensurePremium(() => {
       setGenerating(true);
       createInviteMutation.mutate(30);
+    }, "family_access_invite");
+  };
+
+  const effectiveInvitePetId = invitePetId ?? pets[0]?.id;
+
+  const handleSendEmailInvite = () => {
+    if (!effectiveInvitePetId) {
+      Alert.alert("No pet", "Add a pet before inviting family members.");
+      return;
+    }
+    const email = inviteEmail.trim();
+    if (!validateEmail(email)) {
+      Alert.alert("Invalid email", "Enter a valid email address.");
+      return;
+    }
+    ensurePremium(async () => {
+      setSendingEmailInvite(true);
+      try {
+        const result = await sendPetFamilyInvite({
+          petId: effectiveInvitePetId,
+          email,
+          role: inviteRole,
+        });
+        setInviteEmail("");
+        Alert.alert(
+          "Invite sent",
+          result.emailSent === false
+            ? `Invite created for ${email}. Email delivery may be delayed.`
+            : `We sent an invite to ${email}.`
+        );
+      } catch (e: unknown) {
+        Alert.alert("Error", e instanceof Error ? e.message : "Failed to send invite");
+      } finally {
+        setSendingEmailInvite(false);
+      }
     }, "family_access_invite");
   };
 
@@ -844,13 +884,111 @@ export default function FamilyAccess() {
         )}
 
           <View className="mb-8">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center flex-1">
-                <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
-                <Text className="text-xl font-bold flex-1" style={{ color: theme.foreground }}>
-                  Family Access
-                </Text>
+            <View className="flex-row items-center mb-4">
+              <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
+              <Text className="text-xl font-bold flex-1" style={{ color: theme.foreground }}>
+                Family Access
+              </Text>
+            </View>
+
+            <View
+              className="rounded-2xl p-4 mb-4"
+              style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+            >
+              <Text className="text-base font-semibold mb-2" style={{ color: theme.foreground }}>
+                Invite by email
+              </Text>
+              <Text className="text-sm mb-4" style={{ color: theme.secondary }}>
+                Send a link to one pet. They sign in with the invited email to accept.
+              </Text>
+
+              {pets.length > 1 && (
+                <View className="mb-3">
+                  <Text className="text-sm mb-2" style={{ color: theme.secondary }}>Pet</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {pets.map((pet) => {
+                      const selected = (effectiveInvitePetId ?? "") === pet.id;
+                      return (
+                        <Pressable
+                          key={pet.id}
+                          onPress={() => setInvitePetId(pet.id)}
+                          className="px-3 py-2 rounded-lg mr-2"
+                          style={{
+                            backgroundColor: selected ? theme.primary : theme.background,
+                            borderWidth: 1,
+                            borderColor: theme.border,
+                          }}
+                        >
+                          <Text style={{ color: selected ? theme.primaryForeground : theme.foreground }}>
+                            {pet.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              <TextInput
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                placeholder="family@example.com"
+                placeholderTextColor={theme.secondary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                className="rounded-xl px-4 py-3 mb-3"
+                style={{
+                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  color: theme.foreground,
+                }}
+              />
+
+              <Text className="text-sm mb-2" style={{ color: theme.secondary }}>Access level</Text>
+              <View className="flex-row flex-wrap gap-2 mb-4">
+                {(
+                  [
+                    ["view_only", "View only"],
+                    ["contributor", "Contributor"],
+                    ["admin", "Admin"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => setInviteRole(value)}
+                    className="px-3 py-2 rounded-lg"
+                    style={{
+                      backgroundColor: inviteRole === value ? theme.primary : theme.background,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                    }}
+                  >
+                    <Text style={{ color: inviteRole === value ? theme.primaryForeground : theme.foreground }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
+
+              <Pressable
+                onPress={handleSendEmailInvite}
+                disabled={sendingEmailInvite}
+                className="rounded-xl py-3 items-center active:opacity-80"
+                style={{ backgroundColor: theme.primary, opacity: sendingEmailInvite ? 0.7 : 1 }}
+              >
+                {sendingEmailInvite ? (
+                  <ActivityIndicator color={theme.primaryForeground} />
+                ) : (
+                  <Text className="font-semibold" style={{ color: theme.primaryForeground }}>
+                    Send email invite
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-sm flex-1 mr-3" style={{ color: theme.secondary }}>
+                Or share a household code (access to all your pets)
+              </Text>
               <Pressable
                 onPress={handleGenerateInvite}
                 disabled={generating}
@@ -861,7 +999,7 @@ export default function FamilyAccess() {
                   <ActivityIndicator size="small" color={theme.foreground} />
                 ) : (
                   <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
-                    Invite
+                    Share code
                   </Text>
                 )}
               </Pressable>
@@ -985,7 +1123,7 @@ export default function FamilyAccess() {
                 className="text-sm mb-6"
                 style={{ color: theme.secondary }}
               >
-                Share this code with family members so they can track your pets
+                Share this household code so family members can join all of your pets in PawBuck
               </Text>
 
               {showQRCode && (

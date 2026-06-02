@@ -19,8 +19,15 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     id: "claim",
     icon: "qrcode-scan",
     title: "Claim a Pet",
-    subtitle: "Scan QR or enter code",
-    href: "/(home)/transfer-pet",
+    subtitle: "Enter a transfer code from the owner",
+    href: "/transfer-pet",
+  },
+  {
+    id: "join-household",
+    icon: "home-account",
+    title: "Join Household",
+    subtitle: "Enter an invite code you received",
+    href: "/join-household",
   },
   {
     id: "access",
