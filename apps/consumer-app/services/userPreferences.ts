@@ -13,6 +13,9 @@ export function buildUserPreferencesUpsertRow(
   if (preferences.full_name !== undefined) {
     row.full_name = preferences.full_name;
   }
+  if (preferences.profile_photo_path !== undefined) {
+    row.profile_photo_path = preferences.profile_photo_path;
+  }
   if (preferences.phone !== undefined) {
     row.phone = preferences.phone;
   }

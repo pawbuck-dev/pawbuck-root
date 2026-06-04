@@ -22,7 +22,10 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { invokeDeleteAccount } from "@/services/accountDeletion";
+import { resolveAuthDisplayName, isPlausibleDisplayNameForGreeting } from "@/services/authDisplayName";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
+import { getPrivateImageUrl } from "@/utils/image";
+import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { supabase } from "@/utils/supabase";
 import {
   profileEmailDisplayForHero,
@@ -59,8 +62,12 @@ export default function Profile() {
   const screenTokens = useMemo(() => getProfileScreenTokens(theme, isDarkMode), [theme, isDarkMode]);
 
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editingName, setEditingName] = useState("");
   const [editingPhone, setEditingPhone] = useState("");
   const [editingAddress, setEditingAddress] = useState("");
+  const [pendingPhotoUri, setPendingPhotoUri] = useState<string | null>(null);
+  const [storedPhotoPreviewUri, setStoredPhotoPreviewUri] = useState<string | null>(null);
+  const [clearProfilePhoto, setClearProfilePhoto] = useState(false);
   const [showPetPicker, setShowPetPicker] = useState(false);
   const [showLogOutModal, setShowLogOutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -86,18 +93,83 @@ export default function Profile() {
     },
   });
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (profile) {
+      const fromPrefs = profile.full_name?.trim() ?? "";
+      const fromAuth = resolveAuthDisplayName(user);
+      const initial =
+        (fromPrefs && isPlausibleDisplayNameForGreeting(fromPrefs) ? fromPrefs : "") ||
+        (isPlausibleDisplayNameForGreeting(fromAuth) ? fromAuth : "");
+      setEditingName(initial);
       setEditingPhone(profile.phone || "");
       setEditingAddress(profile.address || "");
+      setPendingPhotoUri(null);
+      setClearProfilePhoto(false);
+      if (profile.profile_photo_path) {
+        const signed = await getPrivateImageUrl(profile.profile_photo_path);
+        setStoredPhotoPreviewUri(signed);
+      } else {
+        setStoredPhotoPreviewUri(null);
+      }
       setShowEditModal(true);
     }
   };
 
+  const handleChangePhoto = () => {
+    Alert.alert("Profile photo", "Choose a source", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Take photo",
+        onPress: () => {
+          void (async () => {
+            const asset = await takePhoto();
+            if (asset?.uri) {
+              setPendingPhotoUri(asset.uri);
+              setClearProfilePhoto(false);
+            }
+          })();
+        },
+      },
+      {
+        text: "Photo library",
+        onPress: () => {
+          void (async () => {
+            const asset = await pickImageFromLibrary();
+            if (asset?.uri) {
+              setPendingPhotoUri(asset.uri);
+              setClearProfilePhoto(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const handleRemovePhoto = () => {
+    setPendingPhotoUri(null);
+    setStoredPhotoPreviewUri(null);
+    setClearProfilePhoto(true);
+  };
+
   const handleSave = () => {
+    const trimmedName = editingName.trim();
+    if (!trimmedName) {
+      Alert.alert("Name required", "Enter your name to save profile changes.");
+      return;
+    }
+    if (!isPlausibleDisplayNameForGreeting(trimmedName)) {
+      Alert.alert(
+        "Name",
+        "Use a readable name (letters and spaces). Sign-in handles cannot be used as your display name."
+      );
+      return;
+    }
     updateMutation.mutate({
+      full_name: trimmedName,
       phone: editingPhone.trim() || null,
       address: editingAddress.trim() || null,
+      ...(clearProfilePhoto ? { clear_profile_photo: true } : {}),
+      ...(pendingPhotoUri ? { new_profile_photo_uri: pendingPhotoUri } : {}),
     });
   };
 
@@ -244,7 +316,11 @@ export default function Profile() {
     setAvatarLoadFailed(false);
   }, [rawAvatar, user?.id]);
 
-  const showAvatarPhoto = !!rawAvatar && !avatarLoadFailed;
+  const showOAuthAvatar = !!rawAvatar && !avatarLoadFailed && !profile?.profile_photo_path;
+  const photoPreviewUri =
+    pendingPhotoUri ?? (clearProfilePhoto ? null : storedPhotoPreviewUri);
+  const showRemovePhoto =
+    Boolean(profile?.profile_photo_path || pendingPhotoUri) && !clearProfilePhoto;
   const currentPet = selectedPet ?? pets[0] ?? null;
   const heroName = resolveProfileHeroDisplayName(profile?.full_name, user);
   const emailHero = profileEmailDisplayForHero(profile?.email ?? user?.email ?? null);
@@ -282,10 +358,11 @@ export default function Profile() {
           hideNameLockedBadge={heroName.hideNameLockedBadge}
           emailDisplayPrimary={emailHero.primary}
           emailRelayRaw={emailHero.relayAddress}
-          rawAvatar={rawAvatar}
-          showAvatarPhoto={showAvatarPhoto}
+          profilePhotoPath={profile.profile_photo_path}
+          oauthAvatarUrl={rawAvatar}
+          showOAuthAvatar={showOAuthAvatar}
           onAvatarError={() => setAvatarLoadFailed(true)}
-          onEditPress={handleEdit}
+          onEditPress={() => void handleEdit()}
         />
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
@@ -437,10 +514,16 @@ export default function Profile() {
         visible={showEditModal}
         onClose={() => setShowEditModal(false)}
         topInset={top}
+        editingName={editingName}
+        setEditingName={setEditingName}
         editingPhone={editingPhone}
         setEditingPhone={setEditingPhone}
         editingAddress={editingAddress}
         setEditingAddress={setEditingAddress}
+        photoPreviewUri={photoPreviewUri}
+        onChangePhotoPress={handleChangePhoto}
+        onRemovePhotoPress={handleRemovePhoto}
+        showRemovePhoto={showRemovePhoto}
         onSave={handleSave}
         isSaving={updateMutation.isPending}
       />

@@ -2304,6 +2304,7 @@ export type Database = {
           journal_prompt_hour: number
           journal_prompt_minute: number
           phone: string | null
+          profile_photo_path: string | null
           updated_at: string
           user_id: string
           vaccination_reminder_days: number
@@ -2319,6 +2320,7 @@ export type Database = {
           journal_prompt_hour?: number
           journal_prompt_minute?: number
           phone?: string | null
+          profile_photo_path?: string | null
           updated_at?: string
           user_id: string
           vaccination_reminder_days?: number
@@ -2334,6 +2336,7 @@ export type Database = {
           journal_prompt_hour?: number
           journal_prompt_minute?: number
           phone?: string | null
+          profile_photo_path?: string | null
           updated_at?: string
           user_id?: string
           vaccination_reminder_days?: number
