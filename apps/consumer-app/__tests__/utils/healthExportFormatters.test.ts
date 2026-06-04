@@ -91,4 +91,36 @@ describe("healthExportFormatters", () => {
     const label = vetSummaryFreshnessLabel(new Date().toISOString());
     expect(label).toMatch(/Fresh/);
   });
+
+  it("buildComplianceBanner mentions titer when flagged", () => {
+    const pet = { microchip_number: "9851410000002847" } as Tables<"pets">;
+    const vacs = [
+      {
+        id: "a",
+        name: "Rabies",
+        date: "2025-01-01",
+        next_due_date: "2028-01-01",
+        clinic_name: "Clinic",
+        pet_id: "p",
+        user_id: "u",
+        created_at: "",
+        document_url: null,
+        notes: null,
+      },
+      {
+        id: "b",
+        name: "DHPP",
+        date: "2025-01-01",
+        next_due_date: "2028-01-01",
+        clinic_name: "Clinic",
+        pet_id: "p",
+        user_id: "u",
+        created_at: "",
+        document_url: null,
+        notes: null,
+      },
+    ] as Tables<"vaccinations">[];
+    const banner = buildComplianceBanner(pet, vacs, { hasTiter: true });
+    expect(banner?.subline).toContain("Rabies titer on file");
+  });
 });

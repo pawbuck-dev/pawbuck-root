@@ -35,6 +35,9 @@ function minimalBundle(over: Partial<HealthExportBundle> = {}): HealthExportBund
     conditions: [],
     medicines: [],
     exams: [],
+    labResults: [],
+    dailyIntakeHistory: [],
+    walkSessions: [],
     ...over,
   };
 }

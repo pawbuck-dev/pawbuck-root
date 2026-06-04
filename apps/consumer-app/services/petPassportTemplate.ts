@@ -20,6 +20,7 @@ import {
   maskPassportNumber,
   maskPhone,
 } from "@/utils/healthExportFormatters";
+import { parseEuPassportMeta, parseTravelAndTiterDocs } from "@/utils/healthExportDerived";
 
 type TemplateInput = {
   bundle: HealthExportBundle;
@@ -27,18 +28,37 @@ type TemplateInput = {
   qrDataUri: string | null;
 };
 
+function padPageNum(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
 export function buildPetPassportHtml(input: TemplateInput): string {
   const { bundle, petPhotoDataUri, qrDataUri } = input;
   const { pet, owner, primaryVet } = bundle;
   const issued = formatExportDate(bundle.generatedAt);
-  const compliance = buildComplianceBanner(pet, bundle.vaccinations);
+  const { titer, travelCerts } = parseTravelAndTiterDocs(
+    bundle.vaultDocuments,
+    bundle.labResults
+  );
+  const hasEuPassport = Boolean(pet.passport_number?.trim());
+  const compliance = buildComplianceBanner(pet, bundle.vaccinations, {
+    hasTiter: Boolean(titer),
+  });
   const vaccines = buildLatestVaccineRows(bundle.vaccinations);
-  const jurisdictions = buildJurisdictionRows(pet, bundle.vaccinations);
-  const sources = buildSourceDocumentRows(bundle.vaccinations, bundle.vaultDocuments);
+  const jurisdictions = buildJurisdictionRows(pet, bundle.vaccinations, {
+    hasTiter: Boolean(titer),
+    hasEuPassport,
+  });
+  const sources = buildSourceDocumentRows(
+    bundle.vaccinations,
+    bundle.vaultDocuments,
+    titer ? { lab: titer.lab, date: titer.date } : null
+  );
   const handlingTags = buildHandlingTags(bundle.allergies, bundle.behaviorBaseline);
   const handlingText = buildHandlingNarrative(pet.name, bundle.allergies, bundle.behaviorBaseline);
   const verifyUrl = petPassportVerifyPath(pet.email_id ?? pet.name);
   const passportMasked = maskPassportNumber(pet.passport_number);
+  const euMeta = parseEuPassportMeta(pet, bundle.vaultDocuments);
 
   const photoBlock = petPhotoDataUri
     ? `<img src="${petPhotoDataUri}" style="width:120px;height:120px;object-fit:cover;border-radius:10px;" />`
@@ -51,15 +71,54 @@ export function buildPetPassportHtml(input: TemplateInput): string {
     })
     .join("");
 
-  const vaccineRows = vaccines
-    .map(
-      (v) => `
+  const vaccineRows =
+    vaccines
+      .map(
+        (v) => `
     <div class="card" style="margin-bottom:8px;">
       <div style="font-weight:700;font-size:12px;">${escapeHtml(v.name)}</div>
       <div style="font-size:10px;color:#5a6b75;margin-top:4px;">Administered ${escapeHtml(v.administered)} · Valid through ${escapeHtml(v.validThrough)}</div>
     </div>`
-    )
-    .join("") || `<div class="card"><span style="color:#6b7280;">No vaccinations recorded</span></div>`;
+      )
+      .join("") ||
+    `<div class="card"><span style="color:#6b7280;">No vaccinations recorded</span></div>`;
+
+  const travelBlock =
+    titer || travelCerts.length > 0
+      ? `<div class="section-label">TRAVEL CERTIFICATES</div>
+      ${
+        titer
+          ? `<div class="card" style="margin-bottom:8px;">
+        <div style="font-weight:700;font-size:11px;">RABIES NEUTRALIZING ANTIBODY TITER</div>
+        <table style="margin-top:6px;font-size:10px;">
+          <tr><td>Result</td><td>${escapeHtml(titer.result)}${titer.meetsEuThreshold ? " ✓ Pass" : ""}</td></tr>
+          <tr><td>Lab</td><td>${escapeHtml(titer.lab)}</td></tr>
+          <tr><td>Date</td><td>${escapeHtml(titer.date)}</td></tr>
+          <tr><td>Valid for</td><td>${titer.meetsEuThreshold ? "EU, UK entry" : "Review with veterinarian"}</td></tr>
+        </table>
+      </div>`
+          : ""
+      }
+      ${travelCerts
+        .map(
+          (c) =>
+            `<div class="card" style="margin-bottom:8px;font-size:10px;"><strong>${escapeHtml(c.title)}</strong><div style="color:#5a6b75;margin-top:4px;">${escapeHtml(c.summary)} · ${escapeHtml(c.date)}</div></div>`
+        )
+        .join("")}`
+      : "";
+
+  const euPassportBlock = passportMasked
+    ? `
+    <div class="card">
+      <div class="section-label" style="margin-top:0;">EU PET PASSPORT REFERENCE</div>
+      <table>
+        ${euMeta.issuedBy ? `<tr><td>Issued by</td><td>${escapeHtml(euMeta.issuedBy)}</td></tr>` : ""}
+        ${euMeta.country ? `<tr><td>Country</td><td>${escapeHtml(euMeta.country)}</td></tr>` : ""}
+        <tr><td>Passport #</td><td>${escapeHtml(passportMasked)}</td></tr>
+        <tr><td>Status</td><td>On file</td></tr>
+      </table>
+    </div>`
+    : "";
 
   const jurisdictionRows = jurisdictions
     .map(
@@ -72,9 +131,10 @@ export function buildPetPassportHtml(input: TemplateInput): string {
     )
     .join("");
 
-  const sourceRows = sources
-    .map(
-      (s) => `
+  const sourceRows =
+    sources
+      .map(
+        (s) => `
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
       <div>
         <div style="font-weight:700;font-size:11px;">${escapeHtml(s.clinic)}</div>
@@ -82,19 +142,11 @@ export function buildPetPassportHtml(input: TemplateInput): string {
       </div>
       <span style="color:#28a745;font-weight:700;font-size:10px;">${s.verified ? "✓ Verified" : "On file"}</span>
     </div>`
-    )
-    .join("") || `<div class="card">No source documents indexed yet</div>`;
+      )
+      .join("") || `<div class="card">No source documents indexed yet</div>`;
 
-  const euPassportBlock = passportMasked
-    ? `
-    <div class="card">
-      <div class="section-label" style="margin-top:0;">EU PET PASSPORT REFERENCE</div>
-      <table>
-        <tr><td>Passport #</td><td>${escapeHtml(passportMasked)}</td></tr>
-        <tr><td>Status</td><td>On file</td></tr>
-      </table>
-    </div>`
-    : "";
+  const ageShort = formatAgeDisplay(pet.date_of_birth).replace(" years", "y").replace(" year", "y");
+  const totalPages = 3;
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>${HEALTH_EXPORT_CSS}
     .pet-grid { display:flex; gap:16px; margin-bottom:12px; }
@@ -104,7 +156,6 @@ export function buildPetPassportHtml(input: TemplateInput): string {
     .two-col { display:flex; gap:10px; }
     .two-col > div { flex:1; }
   </style></head><body>
-  <!-- Page 1 -->
   <div class="page">
     ${watermarkHtml()}
     <div class="content">
@@ -114,7 +165,7 @@ export function buildPetPassportHtml(input: TemplateInput): string {
           <div class="brand-sub">PET HEALTH PASSPORT</div>
         </div>
         <div class="page-meta">
-          01 / 03<br/>
+          ${padPageNum(1)} / ${padPageNum(totalPages)}<br/>
           <span class="verified">✓ VERIFIED</span>
         </div>
       </div>
@@ -138,7 +189,7 @@ export function buildPetPassportHtml(input: TemplateInput): string {
           ? `<div class="banner-teal"><div style="font-weight:700;font-size:12px;">✓ ${escapeHtml(compliance.headline)}</div><div style="font-size:10px;margin-top:4px;color:#2d4a6f;">${escapeHtml(compliance.subline)}</div></div>`
           : ""
       }
-      <div class="section-label">OWNER &amp; EMERGENCY CONTACTS</div>
+      <div class="section-label">OWNER &amp; PRIMARY VET</div>
       <div class="two-col">
         <div class="card">
           <div style="font-weight:700;font-size:11px;margin-bottom:6px;">PRIMARY OWNER</div>
@@ -154,7 +205,7 @@ export function buildPetPassportHtml(input: TemplateInput): string {
               ? `
           <div class="field-label">Clinic</div><div class="field-value">${escapeHtml(primaryVet.clinicName)}</div>
           <div class="field-label" style="margin-top:6px;">Veterinarian</div><div class="field-value">${escapeHtml(primaryVet.veterinarian)}</div>
-          <div class="field-label" style="margin-top:6px;">Phone</div><div class="field-value">${escapeHtml(primaryVet.phone)}</div>
+          <div class="field-label" style="margin-top:6px;">Phone</div><div class="field-value">${escapeHtml(maskPhone(primaryVet.phone))}</div>
           <div class="field-label" style="margin-top:6px;">Pet Email</div><div class="field-value">${escapeHtml(bundle.petEmail)}</div>`
               : `<div style="font-size:10px;color:#6b7280;">Add a veterinarian to your care team in PawBuck.</div>`
           }
@@ -168,17 +219,17 @@ export function buildPetPassportHtml(input: TemplateInput): string {
     <div class="footer">${escapeHtml(bundle.petEmail)} · Issued ${escapeHtml(issued)} · Scan QR on final page</div>
   </div>
 
-  <!-- Page 2 -->
   <div class="page">
     ${watermarkHtml()}
     <div class="content">
       <div class="header-row">
         <div><div class="brand-title">🐾 PAWBUCK</div><div class="brand-sub">PET HEALTH PASSPORT</div></div>
-        <div class="page-meta">02 / 03</div>
+        <div class="page-meta">${padPageNum(2)} / ${padPageNum(totalPages)}</div>
       </div>
-      <div style="font-weight:700;margin-bottom:10px;">${escapeHtml(pet.name)} · ${escapeHtml(pet.breed)} · ${escapeHtml(formatAgeDisplay(pet.date_of_birth).replace(" years", "y").replace(" year", "y"))}</div>
+      <div style="font-weight:700;margin-bottom:10px;">${escapeHtml(pet.name)} · ${escapeHtml(pet.breed)} · ${escapeHtml(ageShort)}</div>
       <div class="section-label">VACCINATION STATUS</div>
       ${vaccineRows}
+      ${travelBlock}
       ${euPassportBlock}
       <div class="section-label">JURISDICTION COMPLIANCE</div>
       <table class="card" style="padding:0;">
@@ -186,16 +237,15 @@ export function buildPetPassportHtml(input: TemplateInput): string {
         <tbody>${jurisdictionRows}</tbody>
       </table>
     </div>
-    <div class="footer">${escapeHtml(bundle.petEmail)} · Vaccination records verified against source documents</div>
+    <div class="footer">${escapeHtml(bundle.petEmail)} · Vaccination records verified against source certificates from licensed clinics</div>
   </div>
 
-  <!-- Page 3 -->
   <div class="page">
     ${watermarkHtml()}
     <div class="content">
       <div class="header-row">
         <div><div class="brand-title">🐾 PAWBUCK</div><div class="brand-sub">PET HEALTH PASSPORT</div></div>
-        <div class="page-meta">03 / 03</div>
+        <div class="page-meta">${padPageNum(3)} / ${padPageNum(totalPages)}</div>
       </div>
       <div class="section-label">SOURCE DOCUMENTS ON FILE</div>
       ${sourceRows}

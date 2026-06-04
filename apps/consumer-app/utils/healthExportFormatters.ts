@@ -158,7 +158,8 @@ export function hasCoreTravelReadiness(
 
 export function buildComplianceBanner(
   pet: Pet,
-  vaccinations: Tables<"vaccinations">[]
+  vaccinations: Tables<"vaccinations">[],
+  options?: { hasTiter?: boolean }
 ): { headline: string; subline: string } | null {
   const count = latestVaccinationIdSet(vaccinations).size;
   if (count === 0) {
@@ -175,22 +176,24 @@ export function buildComplianceBanner(
   const validThrough = rabies?.next_due_date
     ? formatExportDate(rabies.next_due_date)
     : null;
+  const titerNote = options?.hasTiter ? " Rabies titer on file." : "";
 
   if (ready) {
     return {
       headline: "Fully vaccinated — travel records on file",
-      subline: `${count} vaccination record${count === 1 ? "" : "s"} on file.${validThrough ? ` Rabies valid through ${validThrough}.` : ""}`,
+      subline: `${count} vaccination record${count === 1 ? "" : "s"} on file.${titerNote}${validThrough ? ` Rabies valid through ${validThrough}.` : ""}`,
     };
   }
   return {
     headline: `${count} vaccination record${count === 1 ? "" : "s"} on file`,
-    subline: "Review jurisdiction requirements before international travel.",
+    subline: `Review jurisdiction requirements before international travel.${titerNote}`,
   };
 }
 
 export function buildJurisdictionRows(
   pet: Pet,
-  vaccinations: Tables<"vaccinations">[]
+  vaccinations: Tables<"vaccinations">[],
+  options?: { hasTiter?: boolean; hasEuPassport?: boolean }
 ): JurisdictionRow[] {
   const ready = hasCoreTravelReadiness(pet, vaccinations);
   const status = ready ? "✓ Compliant" : "Review required";
@@ -198,10 +201,19 @@ export function buildJurisdictionRows(
     ? "Core vaccines and microchip on file"
     : "Complete rabies, core vaccines, and microchip";
 
+  const euNotes =
+    ready && options?.hasTiter
+      ? "Titer on file · EU passport active"
+      : ready
+        ? options?.hasEuPassport
+          ? "EU passport on file"
+          : "Check titer and EU passport if applicable"
+        : notes;
+
   return [
     { jurisdiction: "Canada", status, notes: ready ? "All core vaccines current" : notes },
     { jurisdiction: "USA", status, notes: ready ? "CDC import rules met (rabies + microchip)" : notes },
-    { jurisdiction: "EU / UK", status, notes: ready ? "Check titer and EU passport if applicable" : notes },
+    { jurisdiction: "EU / UK", status, notes: euNotes },
     { jurisdiction: "Australia", status: "Additional required", notes: "Requires rabies RNAT + quarantine permit" },
   ];
 }
@@ -219,14 +231,25 @@ export function buildHandlingTags(
   }
   if (baseline) {
     const social = baseline.social_disposition?.trim();
-    if (social && /social|friendly/i.test(social)) {
+    if (social && /social|friendly|calm|good with/i.test(social)) {
       tags.push({ label: "Good with people", variant: "neutral" });
+    }
+    if (/dog|cat|other/i.test(social ?? "")) {
+      tags.push({ label: "Social with other pets", variant: "neutral" });
     }
     if (baseline.food_motivation?.trim()) {
       tags.push({ label: `Food: ${baseline.food_motivation}`, variant: "info" });
     }
+    if (baseline.vocalization_level?.toLowerCase().includes("quiet")) {
+      tags.push({ label: "Generally quiet", variant: "neutral" });
+    }
     for (const t of baseline.stress_triggers ?? []) {
       if (t?.trim()) tags.push({ label: t.trim(), variant: "neutral" });
+    }
+  }
+  for (const a of allergies) {
+    if (a.notes?.trim()) {
+      tags.push({ label: a.notes.trim().slice(0, 40), variant: "warning" });
     }
   }
   return tags.slice(0, 8);
@@ -256,7 +279,8 @@ export function buildHandlingNarrative(
 
 export function buildSourceDocumentRows(
   vaccinations: Tables<"vaccinations">[],
-  vaultDocs: Tables<"pet_documents">[]
+  vaultDocs: Tables<"pet_documents">[],
+  titerLab?: { lab: string; date: string } | null
 ): SourceDocumentRow[] {
   const rows: SourceDocumentRow[] = [];
   const byClinic = new Map<string, { vaccines: string[]; date: string }>();
@@ -289,6 +313,15 @@ export function buildSourceDocumentRows(
       summary: doc.document_type.replace(/_/g, " "),
       date: formatExportDate(doc.created_at),
       verified: doc.confidence >= 50,
+    });
+  }
+
+  if (titerLab) {
+    rows.push({
+      clinic: titerLab.lab,
+      summary: "Rabies titer (FAVN)",
+      date: titerLab.date,
+      verified: true,
     });
   }
 

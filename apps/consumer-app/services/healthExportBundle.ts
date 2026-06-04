@@ -4,6 +4,10 @@ import { fetchHealthBriefingBundle, type HealthBriefingBundle } from "@/services
 import { getCareTeamMembersForPet } from "@/services/careTeamMembers";
 import { listWeightLogs } from "@/services/petWeightLogs";
 import { getBaselineContext } from "@/services/behaviorBaseline";
+import { fetchLabResults, type LabResult } from "@/services/labResults";
+import { listDailyIntakeHistory, type DailyIntake } from "@/services/dailyIntake";
+import { fetchWalkSessionsForTrend, type WalkSessionRow } from "@/services/walkSessions";
+import moment from "moment";
 import { supabase } from "@/utils/supabase";
 import { resolveAuthDisplayName } from "@/services/authDisplayName";
 import {
@@ -24,6 +28,9 @@ export type HealthExportBundle = HealthBriefingBundle & {
   primaryVet: PrimaryVetExport | null;
   petEmail: string;
   generatedAt: string;
+  labResults: LabResult[];
+  dailyIntakeHistory: DailyIntake[];
+  walkSessions: WalkSessionRow[];
 };
 
 function pickPrimaryVet(members: Awaited<ReturnType<typeof getCareTeamMembersForPet>>): PrimaryVetExport | null {
@@ -68,6 +75,8 @@ function buildOwnerFromUser(user: User | null, pet: Pet): OwnerContactExport {
 
 /** Unified fetch for Pet Passport and Veterinary Summary PDFs. */
 export async function fetchHealthExportBundle(pet: Pet): Promise<HealthExportBundle> {
+  const walkSince = moment().subtract(6, "months").startOf("day").toISOString();
+
   const [
     briefing,
     careTeam,
@@ -76,6 +85,9 @@ export async function fetchHealthExportBundle(pet: Pet): Promise<HealthExportBun
     vaultRes,
     vacRes,
     authRes,
+    labResults,
+    dailyIntakeHistory,
+    walkSessions,
   ] = await Promise.all([
     fetchHealthBriefingBundle(pet.id),
     getCareTeamMembersForPet(pet.id),
@@ -92,6 +104,9 @@ export async function fetchHealthExportBundle(pet: Pet): Promise<HealthExportBun
       .eq("pet_id", pet.id)
       .order("date", { ascending: false }),
     supabase.auth.getUser(),
+    fetchLabResults(pet.id),
+    listDailyIntakeHistory(pet.id, 365),
+    fetchWalkSessionsForTrend(pet.id, walkSince),
   ]);
 
   if (vacRes.error) throw vacRes.error;
@@ -112,5 +127,8 @@ export async function fetchHealthExportBundle(pet: Pet): Promise<HealthExportBun
     primaryVet,
     petEmail,
     generatedAt: new Date().toISOString(),
+    labResults,
+    dailyIntakeHistory,
+    walkSessions,
   };
 }

@@ -123,3 +123,22 @@ export async function updateDailyIntake(
   if (error) throw error;
   return data;
 }
+
+/** Recent daily intake rows for PDF trending vitals (newest first). */
+export async function listDailyIntakeHistory(
+  petId: string,
+  limit = 365
+): Promise<DailyIntake[]> {
+  const { data, error } = await supabase
+    .from("daily_intake")
+    .select("*")
+    .eq("pet_id", petId)
+    .order("date", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn("dailyIntake: history fetch failed", error.message);
+    return [];
+  }
+  return data ?? [];
+}

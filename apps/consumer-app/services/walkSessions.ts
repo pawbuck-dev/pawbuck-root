@@ -56,6 +56,25 @@ export async function insertWalkSession(params: {
   return data ? { id: data.id as string } : null;
 }
 
+/** Walk sessions since a date for activity trending in health exports. */
+export async function fetchWalkSessionsForTrend(
+  petId: string,
+  sinceIso: string
+): Promise<WalkSessionRow[]> {
+  const { data, error } = await supabase
+    .from("walk_sessions")
+    .select("*")
+    .eq("pet_id", petId)
+    .gte("ended_at", sinceIso)
+    .order("ended_at", { ascending: false });
+
+  if (error) {
+    console.warn("[walkSessions] trend fetch failed", error.message);
+    return [];
+  }
+  return (data ?? []) as WalkSessionRow[];
+}
+
 export async function fetchRecentWalkSessions(petId: string, limit = 20): Promise<WalkSessionRow[]> {
   const { data, error } = await supabase
     .from("walk_sessions")
