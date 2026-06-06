@@ -2,7 +2,6 @@ import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
 import { JournalEntryInterviewDetail } from "@/components/journalInterview/JournalEntryInterviewDetail";
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
-import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
 import { getJournalSurfaceTokens } from "@/components/petJournal/journalSurfaceTokens";
 import {
@@ -110,13 +109,13 @@ export default function PetJournalScreen() {
   const { data: transferHighlights = [] } = useQuery({
     queryKey: ["pet_journal_transfer_highlights", selectedPetId],
     queryFn: () => fetchTransferHighlightEntries(selectedPetId!),
-    enabled: !!selectedPetId && canUseJournal,
+    enabled: !!selectedPetId,
   });
 
   const { data: behaviorBaseline = null } = useQuery({
     queryKey: behaviorBaselineQueryKey(selectedPetId),
     queryFn: () => getBaselineContext(selectedPetId!),
-    enabled: !!selectedPetId && canUseJournal,
+    enabled: !!selectedPetId,
   });
 
   const openBaseline = () => {

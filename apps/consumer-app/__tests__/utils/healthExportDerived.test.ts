@@ -1,4 +1,5 @@
 import type { Tables } from "@/database.types";
+import { ScheduleFrequency } from "@/constants/schedules";
 import type { HealthExportBundle } from "@/services/healthExportBundle";
 import type { LabResult } from "@/services/labResults";
 import type { Pet } from "@/context/petsContext";
@@ -171,7 +172,7 @@ describe("healthExportDerived", () => {
           id: "m1",
           name: "Simparica Trio",
           dosage: "5-10 kg",
-          frequency: "monthly",
+          frequency: ScheduleFrequency.MONTHLY,
           last_given_at: "2026-04-01",
           prescribed_by: "Smith",
           purpose: "heartworm",
