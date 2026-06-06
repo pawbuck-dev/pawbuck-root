@@ -144,6 +144,7 @@ describe("SignUp screen", () => {
         returnTo: "",
         transferCode: "",
         inviteCode: "",
+        inviteToken: "",
       },
     });
   });
