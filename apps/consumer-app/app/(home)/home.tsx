@@ -15,9 +15,9 @@ import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
+import { StreakUpgradeBanner } from "@/components/subscription/StreakUpgradeBanner";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
-import { useSubscription } from "@/context/subscriptionContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -84,7 +84,6 @@ export default function Home() {
   const { user } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(selectedPet?.country);
-  const { ensurePremium } = useSubscription();
   const queryClient = useQueryClient();
 
   const [emailCopied, setEmailCopied] = useState(false);
@@ -540,14 +539,10 @@ export default function Home() {
                 petId={selectedPet.id}
                 pet={selectedPet}
                 onPress={() =>
-                  ensurePremium(
-                    () =>
-                      router.push({
-                        pathname: "/(home)/pet-journal/briefing",
-                        params: { petId: selectedPet.id },
-                      } as any),
-                    "health_briefing"
-                  )
+                  router.push({
+                    pathname: "/(home)/pet-journal/briefing",
+                    params: { petId: selectedPet.id },
+                  } as any)
                 }
               />
             </View>
@@ -599,6 +594,13 @@ export default function Home() {
             />
           )}
 
+          {/* Streak milestone upgrade prompt (Free, 10+ day streak) */}
+          {selectedPet ? (
+            <StreakUpgradeBanner
+              streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
+            />
+          ) : null}
+
           {/* Weekly Challenge — only when enough walkers in pet's country */}
           {weeklyChallengeEnabled && selectedPet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
@@ -608,9 +610,7 @@ export default function Home() {
                 streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
                 walkerRank={weeklyWalkerRank?.rank ?? null}
                 walkerTotal={weeklyWalkerRank?.total ?? 0}
-                onPress={() =>
-                  ensurePremium(() => router.push("/(home)/pawthon/weekly" as any), "weekly_challenge")
-                }
+                  onPress={() => router.push("/(home)/pawthon/weekly" as any)}
               />
             </View>
           )}
@@ -620,9 +620,7 @@ export default function Home() {
             <View style={{ marginBottom: 24 }}>
               <BookVetVisitSection
                 petName={selectedPet.name}
-                onSchedule={() =>
-                  ensurePremium(() => router.push("/book-vet-visit" as any), "book_vet")
-                }
+                onSchedule={() => router.push("/book-vet-visit" as any)}
               />
             </View>
           )}

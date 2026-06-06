@@ -8,6 +8,7 @@ import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { ClinicalExamData, ClinicalExamOCRResponse } from "@/types/clinicalExam";
 import { createClinicalExam } from "@/services/clinicalExams";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { isDuplicateClinicalExam } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
@@ -74,6 +75,7 @@ export default function ExamUploadModal() {
   const { pet } = useSelectedPet();
   const { clinicalExams: existingExams } = useClinicalExams();
   const queryClient = useQueryClient();
+  const { atCap, ensureDocumentUploadAllowed } = useDocumentUploadQuota();
 
   const handleSelectType = (type: ExamDocumentType) => {
     setSelectedType(type);
@@ -97,6 +99,11 @@ export default function ExamUploadModal() {
   ) => {
     if (!pet) {
       Alert.alert("Error", "No pet selected");
+      return;
+    }
+    if (atCap) {
+      ensureDocumentUploadAllowed(() => {});
+      router.back();
       return;
     }
     try {

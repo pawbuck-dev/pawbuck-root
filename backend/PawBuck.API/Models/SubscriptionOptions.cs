@@ -8,8 +8,17 @@ public class SubscriptionOptions
     public const string SectionName = "Subscription";
 
     /// <summary>
-    /// When true, <c>POST /api/milo/chat</c> requires an active premium row in <c>public.user_entitlements</c>.
-    /// Default false so local dev and pre-subscription deployments keep working.
+    /// When true, legacy all-or-nothing Milo premium check (prefer conversation cap instead).
     /// </summary>
     public bool RequirePremiumForMilo { get; set; }
+
+    /// <summary>
+    /// When true, free users are limited to lifetime Milo conversation cap from subscription_limits.
+    /// </summary>
+    public bool EnforceMiloConversationCap { get; set; } = true;
+
+    /// <summary>
+    /// When true, free users are limited to lifetime AI journal entry cap from subscription_limits.
+    /// </summary>
+    public bool EnforceAiJournalCap { get; set; } = true;
 }

@@ -10,6 +10,7 @@ import { MiloStarterSuggestionPill } from "@/components/chat/MiloStarterSuggesti
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { ChatMessage as CM } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -78,6 +79,7 @@ import {
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { pickImageFromLibrary } from "@/utils/imagePicker";
 import { uploadFile } from "@/utils/image";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -159,6 +161,13 @@ export default function MiloJournalChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const {
+    canStartAiJournal,
+    aiJournalEntriesRemaining,
+    openPaywall,
+    refetchEntitlement,
+  } = useSubscription();
+  const { ensureDocumentUploadAllowed } = useDocumentUploadQuota();
   const { pets } = usePets();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
@@ -510,13 +519,15 @@ export default function MiloJournalChatScreen() {
     (kind: "vaccination" | "medication") => {
       if (!pet?.id) return;
       const pid = pet.id;
-      if (kind === "vaccination") {
-        router.push(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=library` as never);
-      } else {
-        router.push(`/(home)/health-record/${pid}/medication-upload-modal?upload=library` as never);
-      }
+      ensureDocumentUploadAllowed(() => {
+        if (kind === "vaccination") {
+          router.push(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=library` as never);
+        } else {
+          router.push(`/(home)/health-record/${pid}/medication-upload-modal?upload=library` as never);
+        }
+      });
     },
-    [pet?.id, router]
+    [ensureDocumentUploadAllowed, pet?.id, router]
   );
 
   const openSummaryEditModal = useCallback((fields: Record<string, string>) => {
@@ -536,6 +547,17 @@ export default function MiloJournalChatScreen() {
         lastAssistantBeforeSend.structuredSummary;
       if (summaryDraftBeforeSend && isEditSummaryIntent(text)) {
         openSummaryEditModal(lastAssistantBeforeSend!.structuredSummary!.fields);
+        return;
+      }
+
+      const isNewJournalSession = !journalSessionIdRef.current;
+      if (isNewJournalSession && !canStartAiJournal) {
+        openPaywall({
+          source: "ai_journal",
+          copyVariant: "ai_journal_entry_cap",
+          requiredPlan: "individual",
+        });
+        void refetchEntitlement();
         return;
       }
 
@@ -653,7 +675,14 @@ export default function MiloJournalChatScreen() {
         }
       } catch (e) {
         if (e instanceof SubscriptionRequiredError) {
-          pushAssistant(e.message, severityForTurn);
+          setMessages((prev) => prev.slice(0, -1));
+          openPaywall({
+            source: "ai_journal",
+            requiredPlan: e.upgradePlan,
+            copyVariant:
+              e.code === "ai_journal_entry_cap" ? "ai_journal_entry_cap" : "default",
+          });
+          void refetchEntitlement();
           setBusy(false);
           return;
         }
@@ -693,6 +722,9 @@ export default function MiloJournalChatScreen() {
       triageDisclaimerStatus,
       openJournalHealthDeepLink,
       openSummaryEditModal,
+      canStartAiJournal,
+      openPaywall,
+      refetchEntitlement,
     ]
   );
 
@@ -1242,6 +1274,9 @@ export default function MiloJournalChatScreen() {
           <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>New Chat</Text>
           <Text style={{ fontSize: 12, color: theme.secondary }} numberOfLines={1}>
             Talking about {pet.name}
+            {aiJournalEntriesRemaining != null
+              ? ` · ${aiJournalEntriesRemaining} AI check-in${aiJournalEntriesRemaining === 1 ? "" : "s"} left`
+              : ""}
           </Text>
         </View>
         <TouchableOpacity

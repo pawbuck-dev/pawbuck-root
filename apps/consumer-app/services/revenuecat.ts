@@ -1,5 +1,9 @@
 import { Platform } from "react-native";
-import { customerInfoHasPawbuckProEntitlement } from "@/utils/revenuecatEntitlement";
+import type { SubscriptionPlan } from "@/constants/subscriptionPlans";
+import {
+  customerInfoActivePlan,
+  customerInfoHasPaidEntitlement,
+} from "@/utils/revenuecatEntitlement";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 
 let configured = false;
@@ -58,19 +62,22 @@ export async function syncRevenueCatUser(userId: string | null): Promise<void> {
 }
 
 /**
- * Whether the current RevenueCat user has an active "Pawbuck Pro" entitlement.
- * Call after configure + logIn (e.g. from React Query when `user` is set).
+ * Whether the current RevenueCat user has any paid entitlement.
  */
 export async function getHasPawbuckProEntitlement(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  return (await getRevenueCatPlan()) !== null;
+}
+
+export async function getRevenueCatPlan(): Promise<SubscriptionPlan | null> {
+  if (Platform.OS === "web") return null;
   configureRevenueCat();
-  if (!configured) return false;
+  if (!configured) return null;
 
   try {
     const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfoHasPawbuckProEntitlement(customerInfo);
+    return customerInfoActivePlan(customerInfo);
   } catch (e) {
     console.warn("[RevenueCat] getCustomerInfo failed:", e);
-    return false;
+    return null;
   }
 }

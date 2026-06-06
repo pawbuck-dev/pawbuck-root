@@ -34,6 +34,7 @@
     "supabase:start": "cd supabase && supabase start",
     "supabase:stop": "cd supabase && supabase stop",
     "supabase:types": "cd supabase && supabase gen types typescript --local > ../apps/consumer-app/database.types.ts",
+    "supabase:types:remote": "cd supabase && supabase gen types typescript --linked > ../apps/consumer-app/database.types.ts",
     "notion:bug-review": "pnpm --filter @pawbuck/notion-bug-agent review"
   },
   "devDependencies": {

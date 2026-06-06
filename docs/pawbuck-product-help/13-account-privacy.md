@@ -1,5 +1,9 @@
 # Account, privacy, and data deletion
 
+## Subscription and billing
+
+Open **Profile** to see your plan (**Free**, **Individual**, or **Family**), **Founding Member** badge if applicable, and upgrade options. Use **Restore purchases** after reinstalling. Manage recurring billing in **iPhone Settings → Subscriptions** or **Google Play → Subscriptions**. PawBuck does not store your payment card.
+
 ## Signing out
 
 From **Profile**, use **Log out** and confirm. You will need to sign in again to access pets.

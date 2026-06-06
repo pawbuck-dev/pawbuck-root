@@ -18,6 +18,13 @@ export function formatDateInput(iso: string | null | undefined): string {
   return d.length === 10 ? d : "";
 }
 
+export function formatSubscriptionPlanLabel(plan: string, isFoundingMember = false): string {
+  if (isFoundingMember) return "Founding (Individual)";
+  if (plan === "individual") return "Individual";
+  if (plan === "family") return "Family";
+  return "Free";
+}
+
 export function mapDirectoryUser(u: SupportUserDirectoryRow): SupportUserRow {
   return { id: u.id, email: u.email, createdAt: u.createdAt };
 }

@@ -1,4 +1,5 @@
 {
+  "nodeModulesDir": "auto",
   "imports": {
     "supabase": "jsr:@supabase/supabase-js@2",
     "@std/encoding": "jsr:@std/encoding@1"

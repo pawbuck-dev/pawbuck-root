@@ -1,3 +1,4 @@
+import PrivateImage from "@/components/common/PrivateImage";
 import { useTheme } from "@/context/themeContext";
 import type { UserProfile } from "@/services/userProfile";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,8 +29,10 @@ type ProfileHeroCardProps = {
   emailDisplayPrimary: string;
   /** Full relay address shown only after “Show details”. */
   emailRelayRaw?: string | null;
-  rawAvatar?: string;
-  showAvatarPhoto: boolean;
+  /** Custom upload in pets bucket; takes precedence over OAuth avatar. */
+  profilePhotoPath?: string | null;
+  oauthAvatarUrl?: string;
+  showOAuthAvatar: boolean;
   onAvatarError: () => void;
   onEditPress: () => void;
 };
@@ -68,11 +71,12 @@ function FrostLine({
 export function ProfileHeroCard({
   profile,
   displayName,
-  hideNameLockedBadge = false,
+  hideNameLockedBadge: _hideNameLockedBadge = false,
   emailDisplayPrimary,
   emailRelayRaw,
-  rawAvatar,
-  showAvatarPhoto,
+  profilePhotoPath,
+  oauthAvatarUrl,
+  showOAuthAvatar,
   onAvatarError,
   onEditPress,
 }: ProfileHeroCardProps) {
@@ -86,44 +90,19 @@ export function ProfileHeroCard({
 
   const detailsInner = (
     <>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          marginBottom: PROFILE_HERO_SECTION_GAP,
-          gap: 12,
-        }}
-      >
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 12, color: t.muted }}>Name</Text>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "600",
-              color: valueColor,
-              marginTop: PROFILE_HERO_NAME_LABEL_GAP,
-            }}
-            numberOfLines={2}
-          >
-            {displayName}
-          </Text>
-        </View>
-        {!hideNameLockedBadge ? (
-          <View
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 100,
-              backgroundColor: hero.lockedBadgeBg,
-              borderWidth: isDarkMode ? 0 : 1,
-              borderColor: isDarkMode ? "transparent" : t.cardBorder,
-              marginTop: 2,
-            }}
-          >
-            <Text style={{ fontSize: 11, fontWeight: "600", color: hero.lockedBadgeText }}>Locked</Text>
-          </View>
-        ) : null}
+      <View style={{ marginBottom: PROFILE_HERO_SECTION_GAP }}>
+        <Text style={{ fontSize: 12, color: t.muted }}>Name</Text>
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: "600",
+            color: valueColor,
+            marginTop: PROFILE_HERO_NAME_LABEL_GAP,
+          }}
+          numberOfLines={2}
+        >
+          {displayName}
+        </Text>
       </View>
       <View style={{ marginBottom: PROFILE_HERO_SECTION_GAP }}>
         <Text style={{ fontSize: 12, color: t.muted }}>Email</Text>
@@ -236,9 +215,16 @@ export function ProfileHeroCard({
               backgroundColor: isDarkMode ? "#1A2228" : "#E8F0F0",
             }}
           >
-            {showAvatarPhoto && rawAvatar ? (
+            {profilePhotoPath ? (
+              <PrivateImage
+                bucketName="pets"
+                filePath={profilePhotoPath}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            ) : showOAuthAvatar && oauthAvatarUrl ? (
               <ExpoImage
-                source={{ uri: rawAvatar }}
+                source={{ uri: oauthAvatarUrl }}
                 style={{ width: "100%", height: "100%" }}
                 contentFit="cover"
                 transition={200}

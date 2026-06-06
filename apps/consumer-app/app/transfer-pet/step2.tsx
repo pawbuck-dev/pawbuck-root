@@ -1,6 +1,5 @@
 import PrivateImage from "@/components/common/PrivateImage";
 import { useAuth } from "@/context/authContext";
-import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { JOURNAL_DOMAIN_LABEL, subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import {
@@ -50,7 +49,6 @@ export default function TransferPetStep2() {
   const queryClient = useQueryClient();
   const { theme, mode } = useTheme();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { ensurePremium, isLoading: subLoading } = useSubscription();
   const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
   const [transferring, setTransferring] = useState(false);
@@ -209,10 +207,7 @@ export default function TransferPetStep2() {
       return;
     }
 
-    if (subLoading) return;
-
-    ensurePremium(() => {
-      void (async () => {
+    void (async () => {
         setTransferring(true);
         try {
           await useTransferCode(transferCode, parentDisplayName.trim() || null);
@@ -233,7 +228,6 @@ export default function TransferPetStep2() {
           setTransferring(false);
         }
       })();
-    }, "pet_transfer_accept");
   };
 
   if (authLoading) {

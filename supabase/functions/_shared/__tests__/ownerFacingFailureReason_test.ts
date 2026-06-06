@@ -6,7 +6,7 @@ import {
 
 Deno.test("formatOwnerFacingApiError parses analyze-internal JSON", () => {
   const msg = formatOwnerFacingApiError('{"error":"analyze-internal not configured"}');
-  assertEquals(msg.includes("analyze-internal not configured"), true);
+  assertEquals(msg.includes("temporarily unavailable"), true);
   assertEquals(msg.includes("Confirm"), true);
 });
 

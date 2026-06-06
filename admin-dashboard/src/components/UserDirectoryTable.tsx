@@ -7,6 +7,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { createSupportClient, SupportApiError } from "@/api/supportClient";
 import type { SupportUserDirectoryRow } from "@/types/support";
+import { formatSubscriptionPlanLabel } from "@/utils/adminApp";
 
 type Props = {
   client: ReturnType<typeof createSupportClient>;
@@ -39,6 +40,12 @@ const columns: ColumnDef<SupportUserDirectoryRow>[] = [
     accessorKey: "petCount",
     header: "Pets",
     cell: ({ getValue }) => String(getValue() ?? 0),
+  },
+  {
+    id: "plan",
+    header: "Plan",
+    cell: ({ row }) =>
+      formatSubscriptionPlanLabel(row.original.plan, row.original.isFoundingMember),
   },
 ];
 

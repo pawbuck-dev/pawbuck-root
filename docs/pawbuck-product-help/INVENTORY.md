@@ -20,5 +20,6 @@ Auditable checklist for Milo RAG (`documentation` table). Each row maps to one o
 | Account & privacy | `13-account-privacy.md` | profile, sign-out, delete account |
 | Contact support | `14-contact-support.md` | `contact` |
 | Documents, ID, invoices | `15-documents-id-invoices.md` | `health-record/[id]` hub → Documents & ID, `FinancialInvoicesSection` |
+| Subscription & plans | `16-subscription-and-plans.md` | `profile` subscription section, paywalls, RevenueCat |
 
 Update this table when adding routes or help articles.

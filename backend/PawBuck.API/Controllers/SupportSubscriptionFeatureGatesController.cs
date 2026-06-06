@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PawBuck.API;
 using PawBuck.API.Models;
 using PawBuck.API.Security;
 using PawBuck.API.Services;
@@ -34,9 +35,25 @@ public class SupportSubscriptionFeatureGatesController : ControllerBase
         [FromBody] PatchSubscriptionFeatureGateRequest body,
         CancellationToken cancellationToken)
     {
-        var ok = await _featureGates.TryUpdateRequiresPremiumAsync(featureKey, body.RequiresPremium, cancellationToken);
-        if (!ok)
-            return NotFound(new { error = "Unknown feature_key" });
+        if (body.MinimumPlan is not null)
+        {
+            if (body.MinimumPlan is not ("free" or "individual" or "family"))
+                return BadRequest(new { error = "minimumPlan must be free, individual, or family" });
+
+            var okPlan = await _featureGates.TryUpdateMinimumPlanAsync(featureKey, body.MinimumPlan, cancellationToken);
+            if (!okPlan)
+                return NotFound(new { error = "Unknown feature_key" });
+        }
+        else if (body.RequiresPremium is not null)
+        {
+            var ok = await _featureGates.TryUpdateRequiresPremiumAsync(featureKey, body.RequiresPremium.Value, cancellationToken);
+            if (!ok)
+                return NotFound(new { error = "Unknown feature_key" });
+        }
+        else
+        {
+            return BadRequest(new { error = "RequiresPremium or MinimumPlan required" });
+        }
 
         var all = await _featureGates.GetAllAsync(cancellationToken);
         var row = all.FirstOrDefault(x =>

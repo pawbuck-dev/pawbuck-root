@@ -81,7 +81,46 @@ public class MiloController : ControllerBase
                 return StatusCode(StatusCodes.Status402PaymentRequired, new
                 {
                     error = "subscription_required",
-                    message = "PawBuck Premium is required to chat with Milo.",
+                    code = "subscription_required",
+                    upgrade_plan = SubscriptionPlans.Individual,
+                    message = "Individual plan is required to chat with Milo.",
+                });
+            }
+        }
+        else if (_subscriptionOptions.Value.EnforceMiloConversationCap && !request.JournalMode)
+        {
+            try
+            {
+                await _entitlements.AssertMiloConversationAllowedAsync(userId, cancellationToken);
+            }
+            catch (SubscriptionLimitException ex)
+            {
+                return StatusCode(StatusCodes.Status402PaymentRequired, new
+                {
+                    error = "subscription_required",
+                    code = ex.Code,
+                    upgrade_plan = ex.UpgradePlan,
+                    message = ex.Message,
+                });
+            }
+        }
+
+        if (request.JournalMode
+            && _subscriptionOptions.Value.EnforceAiJournalCap
+            && string.IsNullOrWhiteSpace(request.JournalSessionId))
+        {
+            try
+            {
+                await _entitlements.AssertAiJournalAllowedAsync(userId, cancellationToken);
+            }
+            catch (SubscriptionLimitException ex)
+            {
+                return StatusCode(StatusCodes.Status402PaymentRequired, new
+                {
+                    error = "subscription_required",
+                    code = ex.Code,
+                    upgrade_plan = ex.UpgradePlan,
+                    message = ex.Message,
                 });
             }
         }
@@ -89,6 +128,41 @@ public class MiloController : ControllerBase
         try
         {
             var response = await _reasoning.ChatAsync(userId, request, cancellationToken);
+            if (_subscriptionOptions.Value.EnforceMiloConversationCap && !requirePremiumMilo && !request.JournalMode)
+            {
+                var plan = await _entitlements.GetActivePlanAsync(userId, cancellationToken);
+                if (SubscriptionPlans.Rank(plan) < SubscriptionPlans.Rank(SubscriptionPlans.Individual))
+                {
+                    try
+                    {
+                        await _entitlements.IncrementMiloConversationUsageAsync(userId, cancellationToken);
+                    }
+                    catch (SubscriptionLimitException)
+                    {
+                        // Race: cap hit on increment after chat succeeded; still return answer.
+                    }
+                }
+            }
+
+            if (request.JournalMode
+                && _subscriptionOptions.Value.EnforceAiJournalCap
+                && response.JournalSessionComplete == true
+                && response.JournalEmergencyStop != true)
+            {
+                var plan = await _entitlements.GetActivePlanAsync(userId, cancellationToken);
+                if (SubscriptionPlans.Rank(plan) < SubscriptionPlans.Rank(SubscriptionPlans.Individual))
+                {
+                    try
+                    {
+                        await _entitlements.IncrementAiJournalUsageAsync(userId, cancellationToken);
+                    }
+                    catch (SubscriptionLimitException)
+                    {
+                        // Entry already saved in Milo flow; still return completion to client.
+                    }
+                }
+            }
+
             return Ok(response);
         }
         catch (Exception ex)

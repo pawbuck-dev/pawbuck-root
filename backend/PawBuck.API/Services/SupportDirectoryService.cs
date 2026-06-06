@@ -225,9 +225,16 @@ public class SupportDirectoryService : ISupportDirectoryService
                 """
                 SELECT u.id, u.email, u.created_at,
                        COALESCE(up.full_name, '') AS display_name,
-                       COALESCE(pc.cnt, 0)::int AS pet_count
+                       COALESCE(pc.cnt, 0)::int AS pet_count,
+                       CASE
+                         WHEN ue.plan = 'premium' THEN 'individual'
+                         WHEN ue.plan IN ('individual', 'family') THEN ue.plan
+                         ELSE 'free'
+                       END AS plan,
+                       COALESCE(ue.is_founding_member, FALSE) AS is_founding_member
                 FROM auth.users u
                 LEFT JOIN public.user_preferences up ON up.user_id = u.id
+                LEFT JOIN public.user_entitlements ue ON ue.user_id = u.id
                 LEFT JOIN (
                   SELECT user_id, COUNT(*)::bigint AS cnt
                   FROM public.pets
@@ -260,6 +267,8 @@ public class SupportDirectoryService : ISupportDirectoryService
                         CreatedAt = reader.IsDBNull(2) ? null : reader.GetFieldValue<DateTimeOffset>(2),
                         DisplayName = reader.IsDBNull(3) ? null : reader.GetString(3),
                         PetCount = reader.GetInt32(4),
+                        Plan = reader.IsDBNull(5) ? "free" : reader.GetString(5),
+                        IsFoundingMember = !reader.IsDBNull(6) && reader.GetBoolean(6),
                     });
                 }
             }

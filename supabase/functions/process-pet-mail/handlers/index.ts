@@ -2,6 +2,7 @@
 export { processAttachments } from "./attachmentProcessor.ts";
 export {
   sendCalendarImportsPendingNotification,
+  sendEmailParsingUpgradeNotification,
   sendFailedNotification,
   sendMicrochipMismatchNotification,
   sendProcessedNotification,

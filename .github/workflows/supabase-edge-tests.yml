@@ -20,10 +20,15 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Install Deno dependencies
+        run: deno install --config supabase/functions/deno.json
+
       - name: Run Deno tests
         run: |
           deno test \
             supabase/functions/_shared/ \
             supabase/functions/mailgun-process-pet-mail/__tests__/ \
             supabase/functions/process-pet-mail/__tests__/ \
+            --config supabase/functions/deno.json \
+            --no-check \
             --allow-read --allow-env

@@ -2,12 +2,20 @@ import { SupportApiError, createSupportClient } from "@/api/supportClient";
 import type { SubscriptionFeatureGateRow } from "@/types/support";
 import { useCallback, useEffect, useState } from "react";
 
+const PLAN_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "individual", label: "Individual" },
+  { value: "family", label: "Family" },
+] as const;
+
 type FeatureGatesPanelProps = {
   client: ReturnType<typeof createSupportClient>;
 };
 
 export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
   const [rows, setRows] = useState<SubscriptionFeatureGateRow[]>([]);
+  const [foundingPurchaseCount, setFoundingPurchaseCount] = useState<number | null>(null);
+  const [foundingSpotsRemaining, setFoundingSpotsRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -16,10 +24,17 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await client.listSubscriptionFeatureGates();
-      setRows(res.items);
+      const [gatesRes, foundingRes] = await Promise.all([
+        client.listSubscriptionFeatureGates(),
+        client.getFoundingMemberStats(),
+      ]);
+      setRows(gatesRes.items);
+      setFoundingPurchaseCount(foundingRes.purchaseCount);
+      setFoundingSpotsRemaining(foundingRes.spotsRemaining);
     } catch (e) {
       setRows([]);
+      setFoundingPurchaseCount(null);
+      setFoundingSpotsRemaining(null);
       setError(e instanceof SupportApiError ? e.message : "Failed to load paywall settings");
     } finally {
       setLoading(false);
@@ -30,11 +45,13 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
     void load();
   }, [load]);
 
-  const toggle = async (featureKey: string, requiresPremium: boolean) => {
+  const setMinimumPlan = async (featureKey: string, minimumPlan: string) => {
     setSavingKey(featureKey);
     setError(null);
     try {
-      const updated = await client.patchSubscriptionFeatureGate(featureKey, { requiresPremium });
+      const updated = await client.patchSubscriptionFeatureGate(featureKey, {
+        minimumPlan: minimumPlan as "free" | "individual" | "family",
+      });
       setRows((prev) => prev.map((r) => (r.featureKey === featureKey ? updated : r)));
     } catch (e) {
       setError(e instanceof SupportApiError ? e.message : "Save failed");
@@ -47,9 +64,16 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
     <section className="panel panel--flush">
       <h2 className="panel__title">Paywall features</h2>
       <p className="muted" style={{ maxWidth: "42rem" }}>
-        When <strong>Requires premium</strong> is on, free users see the upgrade flow for that area. Changes apply after
-        the app refreshes gates (within about a minute). Server enforcement uses the same data (e.g. Milo chat).
+        Set the <strong>minimum plan</strong> per feature. Free users see the upgrade flow when their plan is below
+        the minimum. Server enforcement uses the same data (Milo chat, document caps, etc.).
       </p>
+
+      {foundingPurchaseCount != null && foundingSpotsRemaining != null ? (
+        <p className="muted" style={{ marginTop: "0.75rem" }}>
+          Founding Member lifetime: <strong>{foundingPurchaseCount}</strong> / 500 sold ·{" "}
+          <strong>{foundingSpotsRemaining}</strong> spots remaining
+        </p>
+      ) : null}
 
       {loading ? <p className="muted">Loading…</p> : null}
       {error ? <div className="error">{error}</div> : null}
@@ -61,7 +85,7 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
               <tr>
                 <th>Feature</th>
                 <th>Key</th>
-                <th>Requires premium</th>
+                <th>Minimum plan</th>
               </tr>
             </thead>
             <tbody>
@@ -73,12 +97,17 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
                   </td>
                   <td>
                     <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-                      <input
-                        type="checkbox"
-                        checked={r.requiresPremium}
+                      <select
+                        value={r.minimumPlan}
                         disabled={savingKey === r.featureKey}
-                        onChange={(e) => void toggle(r.featureKey, e.target.checked)}
-                      />
+                        onChange={(e) => void setMinimumPlan(r.featureKey, e.target.value)}
+                      >
+                        {PLAN_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                       {savingKey === r.featureKey ? <span className="muted">Saving…</span> : null}
                     </label>
                   </td>

@@ -16,12 +16,16 @@ function miloDebug(...args: unknown[]) {
   }
 }
 
-/** API returned 402 Payment Required — PawBuck Premium required. */
+/** API returned 402 Payment Required — upgrade required. */
 export class SubscriptionRequiredError extends Error {
-  readonly code = "subscription_required" as const;
-  constructor(message: string) {
+  readonly code: string;
+  readonly upgradePlan: "individual" | "family";
+
+  constructor(message: string, code = "subscription_required", upgradePlan: "individual" | "family" = "individual") {
     super(message);
     this.name = "SubscriptionRequiredError";
+    this.code = code;
+    this.upgradePlan = upgradePlan;
   }
 }
 
@@ -214,14 +218,18 @@ export async function fetchMiloChat(params: {
   }
 
   if (res.status === 402) {
-    let msg = "PawBuck Premium is required to chat with Milo.";
+    let msg = "Upgrade to Individual to continue with Milo.";
+    let code = "subscription_required";
+    let upgradePlan: "individual" | "family" = "individual";
     try {
-      const j = (await res.json()) as { message?: string };
+      const j = (await res.json()) as { message?: string; code?: string; upgrade_plan?: string };
       if (j?.message) msg = j.message;
+      if (j?.code) code = j.code;
+      if (j?.upgrade_plan === "family") upgradePlan = "family";
     } catch {
       /* ignore */
     }
-    throw new SubscriptionRequiredError(msg);
+    throw new SubscriptionRequiredError(msg, code, upgradePlan);
   }
 
   if (!res.ok) {

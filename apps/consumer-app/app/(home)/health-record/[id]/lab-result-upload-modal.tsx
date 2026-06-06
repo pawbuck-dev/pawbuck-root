@@ -10,6 +10,7 @@ import { useLabResults } from "@/context/labResultsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { createLabResult } from "@/services/labResults";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { isDuplicateLabResult } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
@@ -55,11 +56,17 @@ export default function LabResultUploadModal() {
   const { pet } = useSelectedPet();
   const { labResults: existingLabResults } = useLabResults();
   const queryClient = useQueryClient();
+  const { atCap, ensureDocumentUploadAllowed } = useDocumentUploadQuota();
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
     if (!pet || !user) {
+      return;
+    }
+    if (atCap) {
+      ensureDocumentUploadAllowed(() => {});
+      router.back();
       return;
     }
     try {

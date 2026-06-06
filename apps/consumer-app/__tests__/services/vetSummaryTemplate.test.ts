@@ -115,6 +115,10 @@ describe("vetSummaryTemplate", () => {
           },
           storage_path: "",
           expiry_date: null,
+          clinical_sync_error: null,
+          clinical_synced_at: null,
+          metadata: null,
+          mime_type: "application/pdf",
         },
       ] as HealthExportBundle["vaultDocuments"],
       exams: [

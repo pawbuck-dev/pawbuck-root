@@ -2,7 +2,6 @@ import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
 import { JournalEntryInterviewDetail } from "@/components/journalInterview/JournalEntryInterviewDetail";
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
-import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
 import { getJournalSurfaceTokens } from "@/components/petJournal/journalSurfaceTokens";
 import {
@@ -59,8 +58,7 @@ export default function PetJournalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { canAccessFeature, isLoading: subLoading, ensurePremium } = useSubscription();
-  const canUseJournal = canAccessFeature("pet_journal");
+  const { isLoading: subLoading } = useSubscription();
   const { pets, loadingPets } = usePets();
   const { petId: petIdParam, focusEntryId, focusKind, domain: domainParam } = useLocalSearchParams<{
     petId?: string;
@@ -111,13 +109,13 @@ export default function PetJournalScreen() {
   const { data: transferHighlights = [] } = useQuery({
     queryKey: ["pet_journal_transfer_highlights", selectedPetId],
     queryFn: () => fetchTransferHighlightEntries(selectedPetId!),
-    enabled: !!selectedPetId && canUseJournal,
+    enabled: !!selectedPetId,
   });
 
   const { data: behaviorBaseline = null } = useQuery({
     queryKey: behaviorBaselineQueryKey(selectedPetId),
     queryFn: () => getBaselineContext(selectedPetId!),
-    enabled: !!selectedPetId && canUseJournal,
+    enabled: !!selectedPetId,
   });
 
   const openBaseline = () => {
@@ -190,33 +188,16 @@ export default function PetJournalScreen() {
 
   const openBriefing = () => {
     if (!selectedPetId) return;
-    ensurePremium(
-      () =>
-        router.push({
-          pathname: "/(home)/pet-journal/briefing",
-          params: { petId: selectedPetId },
-        } as any),
-      "pet_journal_briefing_button"
-    );
+    router.push({
+      pathname: "/(home)/pet-journal/briefing",
+      params: { petId: selectedPetId },
+    } as any);
   };
 
   if (subLoading) {
     return (
       <View className="flex-1" style={{ backgroundColor: theme.background, justifyContent: "center" }}>
         <ActivityIndicator color={theme.primary} size="large" />
-      </View>
-    );
-  }
-
-  if (!canUseJournal) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.background }}>
-        <PremiumFeatureLocked
-          title="Pet Journal"
-          onGoBack={() => router.back()}
-          feature="pet_journal_screen"
-        />
-        <BottomNavBar activeTab="profile" />
       </View>
     );
   }

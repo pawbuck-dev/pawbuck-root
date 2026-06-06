@@ -7,6 +7,7 @@ import { useTheme } from "@/context/themeContext";
 import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { useVaccinations } from "@/context/vaccinationsContext";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { VaccinationInsert } from "@/types/vaccination";
 import { isDuplicateVaccination } from "@/utils/duplicateDetection";
 import { pickPdfFile } from "@/utils/filePicker";
@@ -60,6 +61,7 @@ export default function VaccinationUploadModal() {
   const { vaccinations: existingVaccinations } = useVaccinations();
   const queryClient = useQueryClient();
   const { uploadAndAnalyze } = useMiloUpload();
+  const { atCap, ensureDocumentUploadAllowed } = useDocumentUploadQuota();
   const [extractedVaccinations, setExtractedVaccinations] = useState<
     VaccinationInsert[]
   >([]);
@@ -72,6 +74,11 @@ export default function VaccinationUploadModal() {
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
     if (!pet || !user) {
+      return;
+    }
+    if (atCap) {
+      ensureDocumentUploadAllowed(() => {});
+      router.back();
       return;
     }
     try {

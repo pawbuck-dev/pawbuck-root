@@ -38,6 +38,35 @@ export async function sendCalendarImportsPendingNotification(
 }
 
 /**
+ * Notify owner that email health-document parsing requires Individual plan.
+ */
+export async function sendEmailParsingUpgradeNotification(
+  pet: Pet,
+  attachmentCount: number
+): Promise<void> {
+  if (attachmentCount <= 0) return;
+
+  const fileWord = attachmentCount === 1 ? "document" : "documents";
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Upgrade to import records for ${pet.name}`,
+      body:
+        `We received ${attachmentCount} health ${fileWord} by email. Email parsing is included with Individual — upgrade in the app to import them automatically.`,
+      data: {
+        type: "email_parsing_upgrade_required",
+        petId: pet.id,
+        petName: pet.name,
+        attachmentCount,
+      },
+    });
+    console.log(`Email parsing upgrade notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send email parsing upgrade notification:", notificationError);
+  }
+}
+
+/**
  * Send push notification after successful email processing
  */
 export async function sendProcessedNotification(

@@ -42,7 +42,10 @@ function mockAuth(user: { id: string } | null) {
 }
 
 /** pets.select().eq().eq().single() */
-function mockPetOwned(result: { data: typeof PET | null; error: Error | null }) {
+function mockPetOwned(result: {
+  data: (typeof PET & { weight_value?: number; weight_unit?: string }) | null;
+  error: Error | null;
+}) {
   const single = jest.fn().mockResolvedValue(result);
   const eq2 = jest.fn().mockReturnValue({ single });
   const eq1 = jest.fn().mockReturnValue({ eq: eq2 });
@@ -272,7 +275,7 @@ describe("petTransfers service", () => {
     it("computes active meds and vet visit age", async () => {
       mockAuth(USER);
       mockPetOwned({
-        data: { id: PET.id, weight_value: 12, weight_unit: "kg" },
+        data: { ...PET, weight_value: 12, weight_unit: "kg" },
         error: null,
       });
 

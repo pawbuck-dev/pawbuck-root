@@ -4,6 +4,8 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { ownerMeetsMinimumPlan } from "../_shared/subscriptionEntitlement.ts";
 import {
   buildErrorResponse,
   buildNotFoundResponse,
@@ -14,6 +16,7 @@ import {
   logProcessingSummary,
   processAttachments,
   sendAttachmentFailureNotification,
+  sendEmailParsingUpgradeNotification,
   sendFailedNotification,
   sendProcessedNotification,
   verifySender,
@@ -66,6 +69,15 @@ import {
 import { sendCalendarImportsPendingNotification } from "../process-pet-mail/handlers/notificationSender.ts";
 
 console.log("mailgun-process-pet-mail function initialized");
+
+function createSupabaseClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 /** Map API / app doc type strings to pipeline `DocumentType` (forced classification). */
 function mapDocumentTypeOverride(
@@ -556,6 +568,26 @@ Deno.serve(async (req) => {
         emailInfo,
         [],
         "Calendar-only email processed",
+      );
+    }
+
+    // Step 10.5: Health-document parsing requires Individual+
+    const supabase = createSupabaseClient();
+    const canParseEmail = await ownerMeetsMinimumPlan(supabase, pet.user_id, "individual");
+    if (!canParseEmail) {
+      console.log(
+        `[MONITORING] Skipping health attachment processing — owner on Free plan (${otherAttachments.length} files)`
+      );
+      await sendEmailParsingUpgradeNotification(pet, otherAttachments.length);
+      await finalizeEmail(allAttachments.length, { reviewStatus: "resolved" });
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        "Health documents received — upgrade to Individual for email parsing"
       );
     }
 

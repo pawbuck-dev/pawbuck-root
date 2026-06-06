@@ -30,6 +30,9 @@ public class SupportUserDirectoryRow
     public string? DisplayName { get; set; }
     public DateTimeOffset? CreatedAt { get; set; }
     public int PetCount { get; set; }
+    /// <summary>free, individual, or family (legacy premium → individual).</summary>
+    public string Plan { get; set; } = "free";
+    public bool IsFoundingMember { get; set; }
 }
 
 public class SupportUserDirectoryResponse

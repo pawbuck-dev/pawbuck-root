@@ -1,6 +1,5 @@
 import PrivateImage from "@/components/common/PrivateImage";
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
-import PremiumFeatureLocked from "@/components/subscription/PremiumFeatureLocked";
 import { subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import { usePets } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
@@ -67,8 +66,8 @@ export default function HealthBriefingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { pets } = usePets();
-  const { canAccessFeature, isLoading: subLoading } = useSubscription();
-  const canUseBriefing = canAccessFeature("health_briefing");
+  const { canAccessFeature, isLoading: subLoading, openPaywall } = useSubscription();
+  const isFullBriefing = canAccessFeature("health_briefing");
   const { petId } = useLocalSearchParams<{ petId?: string }>();
 
   const pet = pets.find((p) => p.id === petId);
@@ -149,6 +148,10 @@ export default function HealthBriefingScreen() {
 
   const downloadVetSummary = async () => {
     if (!pet || downloadingPdf) return;
+    if (!isFullBriefing) {
+      openPaywall({ source: "vet_brief_teaser", copyVariant: "vet_brief_teaser", requiredPlan: "individual" });
+      return;
+    }
     setDownloadingPdf(true);
     try {
       await shareVetSummaryPdf(pet);
@@ -176,15 +179,7 @@ export default function HealthBriefingScreen() {
     );
   }
 
-  if (!canUseBriefing) {
-    return (
-      <PremiumFeatureLocked
-        title="Health Briefing"
-        onGoBack={() => router.back()}
-        feature="health_briefing_screen"
-      />
-    );
-  }
+  const showTeaser = !isFullBriefing;
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -272,13 +267,40 @@ export default function HealthBriefingScreen() {
               text={summaryExpanded ? summaryText : summaryCollapsed.preview}
               style={{ fontSize: 15, lineHeight: 22 }}
             />
-            {summaryCollapsed.truncated && !summaryExpanded ? (
+            {summaryCollapsed.truncated && !summaryExpanded && isFullBriefing ? (
               <TouchableOpacity onPress={() => setSummaryExpanded(true)} style={{ marginTop: 10 }}>
                 <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>Show more</Text>
               </TouchableOpacity>
             ) : null}
+            {showTeaser ? (
+              <TouchableOpacity
+                onPress={() =>
+                  openPaywall({
+                    source: "vet_brief_teaser",
+                    copyVariant: "vet_brief_teaser",
+                    requiredPlan: "individual",
+                  })
+                }
+                style={{
+                  marginTop: 14,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 12,
+                  backgroundColor: isDark ? "rgba(59,208,210,0.15)" : "rgba(43,168,158,0.12)",
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "700", color: theme.primary }}>
+                  Unlock full vet prep brief →
+                </Text>
+                <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }}>
+                  Individual includes complete pre-visit summary, alerts, and PDF export.
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </BriefingCard>
 
+          {!showTeaser ? (
+          <>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
             <View style={{ width: "48%", flexGrow: 1 }}>
               <BriefingCard isDark={isDark} borderColor={borderColor}>
@@ -434,6 +456,10 @@ export default function HealthBriefingScreen() {
             </>
           )}
 
+          </>
+          ) : null}
+
+          {!showTeaser ? (
           <TouchableOpacity
             onPress={downloadVetSummary}
             disabled={downloadingPdf}
@@ -453,6 +479,7 @@ export default function HealthBriefingScreen() {
               4-page PDF for your clinic
             </Text>
           </TouchableOpacity>
+          ) : null}
 
           <Text
             style={{

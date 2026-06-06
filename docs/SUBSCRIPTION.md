@@ -1,50 +1,55 @@
 # Subscription tiers and enforcement
 
-This document defines the free vs paid split and where each feature is enforced. Update this table when product changes.
+Canonical pricing: [`PRICING.md`](PRICING.md).
 
-## Feature matrix
+## Plans
 
-| Feature | Tier | Client UI | Server enforcement |
-|--------|------|-----------|---------------------|
-| Health records (storage, viewing, uploads) | Free | — | — (RLS as today) |
-| Milo AI chat | Premium | `SubscriptionProvider`, `BottomNavBar`, `MiloChatModal` / `chatContext` | `POST /api/milo/chat` returns **402** when `Subscription:RequirePremiumForMilo` is true and user has no active premium row in `public.user_entitlements` |
-| Pet journal (timeline, briefing entry) | Premium | Home pet journal row, briefing card, `pet-journal` routes | Future: optional Edge/API if journal syncs server-side beyond health records |
-| Weekly challenge card (leaderboard entry) | Premium | `WeeklyChallengeCard` on Home | Same as Pawthon hub if API added later |
-| Vet booking wizard | Premium | `BookVetVisitSection` | Future: `BookingsController` + JWT when booking is wired for production |
-| Pawthon walk (GPS walk) | Free | — | — (product may change) |
+| Plan | Rank | Enforcement source |
+|------|------|-------------------|
+| `free` | 0 | Default for new users |
+| `individual` | 1 | RevenueCat `Pawbuck Individual` or legacy `premium` |
+| `family` | 2 | RevenueCat `Pawbuck Family` |
+
+## Feature matrix (enforcement owner)
+
+| Feature | Min plan | Client | Server |
+|---------|----------|--------|--------|
+| Health records (view/upload manual log) | free | — | RLS |
+| Pet journal + streak | free | Ungated | — |
+| Milo AI (3 lifetime on free) | free + usage | `subscriptionContext` | `MiloController` + `increment_milo_conversation_usage` |
+| AI journal entries (2 lifetime on free) | free + usage | journal interview entry | `increment_ai_journal_usage` |
+| Vet documents | free cap 10 | upload modals | `assert_document_quota` / triggers |
+| Symptom trees, email parsing, passport PDF, alerts | individual | paywall | gates + API |
+| Full vet prep brief | individual | `briefing.tsx` teaser vs full | gate `health_briefing` |
+| Multi-pet | family | add-pet flow | `enforce_pet_plan_limit` trigger |
+| Family sharing (5 members) | family | `family-access.tsx` | RLS + `auth_user_meets_plan_gate` |
+| Book vet, pet transfer, weekly challenge, Pawthon | free | ungated | gates `minimum_plan = free` |
 
 ## Data model
 
-- Table: `public.user_entitlements` (see migration). `plan = 'premium'` and (`expires_at` is null or in the future) means active premium.
-- Updates from App Store / Google Play should flow through **RevenueCat** (or equivalent) webhooks into Supabase via `supabase/functions/revenuecat-webhook` (see function README). Do not trust client-only entitlement flags for paid APIs.
+- `public.user_entitlements` — plan, expiry, founding flag, product_id
+- `public.user_subscription_usage` — lifetime Milo + AI journal counters
+- `public.subscription_limits` — numeric caps per plan
+- `public.subscription_feature_gates` — `minimum_plan` per feature key
+- Webhook: `supabase/functions/revenuecat-webhook`
+
+## API
+
+- `GET /api/subscription/feature-gates` — gate list with `minimumPlan`
+- `GET /api/subscription/status` — plan, usage, limits, founding spots remaining
+- `POST /api/milo/chat` — 402 when free Milo cap exceeded
 
 ## Configuration
 
-### PawBuck.API (`appsettings.json`)
-
 ```json
 "Subscription": {
-  "RequirePremiumForMilo": false
+  "RequirePremiumForMilo": false,
+  "EnforceMiloConversationCap": true
 }
 ```
 
-Set `RequirePremiumForMilo` to `true` in production when subscriptions are live and `user_entitlements` is populated. When `false`, Milo chat does not check the database (backward compatible for local dev).
-
-### Consumer app
-
-- `EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM=true` — treats the user as premium in development only (never ship in production builds).
+`EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM=true` — dev only; treats user as `family`.
 
 ## Analytics
 
-Events (see `trackSubscriptionEvent` in `apps/consumer-app/utils/subscriptionAnalytics.ts`):
-
-- `paywall_impression`
-- `paywall_subscribe_tap`
-- `paywall_dismiss`
-- `premium_feature_blocked`
-
-## Compliance
-
-- Disclose subscription terms in App Store / Play listings and in-app before purchase.
-- Implement **Restore purchases** when IAP is integrated (RevenueCat handles this).
-- Account deletion: billing remains with Apple/Google; see `docs/COMPLIANCE-BACKLOG.md`.
+See `trackSubscriptionEvent` in `apps/consumer-app/utils/subscriptionAnalytics.ts`.
