@@ -29,4 +29,6 @@ public interface IUserEntitlementService
     Task<int> IncrementAiJournalUsageAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task<FoundingMemberStatsResponse?> GetFoundingMemberStatsAsync(CancellationToken cancellationToken = default);
+
+    Task<SubscriptionPlanBreakdownResponse?> GetPlanBreakdownAsync(CancellationToken cancellationToken = default);
 }

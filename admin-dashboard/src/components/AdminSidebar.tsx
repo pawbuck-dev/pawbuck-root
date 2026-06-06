@@ -74,6 +74,7 @@ export function AdminSidebar({ queues, queuesLoading }: Props) {
     {
       label: "Product",
       items: [
+        { to: "/product/subscriptions", label: "Subscriptions" },
         { to: "/product/gates", label: "Feature gates" },
         { to: "/product/verification", label: "Verification rules" },
         { to: "/product/document-sync", label: "Document sync" },

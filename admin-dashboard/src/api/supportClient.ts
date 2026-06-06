@@ -17,6 +17,8 @@ import type {
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
   FoundingMemberStatsResponse,
+  SubscriptionPlanBreakdownResponse,
+  SubscriptionStatusResponse,
   SupportDocumentProcessingMetricsResponse,
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
@@ -186,6 +188,12 @@ export function createSupportClient(
 
     getFoundingMemberStats: () =>
       request<FoundingMemberStatsResponse>("/api/support/subscription/founding-stats"),
+
+    getSubscriptionPlanBreakdown: () =>
+      request<SubscriptionPlanBreakdownResponse>("/api/support/subscription/plan-breakdown"),
+
+    getUserSubscriptionStatus: (userId: string) =>
+      request<SubscriptionStatusResponse>(`/api/support/subscription/users/${encodeURIComponent(userId)}/status`),
 
     listEmailDocumentVerificationRules: () =>
       request<CountryEmailDocumentVerificationListResponse>(

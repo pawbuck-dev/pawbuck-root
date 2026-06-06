@@ -10,8 +10,9 @@ import type {
   SupportPetRow,
   SupportUserRow,
   SupportVaccinationRow,
+  SubscriptionStatusResponse,
 } from "@/types/support";
-import { placeholderUser } from "@/utils/adminApp";
+import { formatSubscriptionPlanLabel, placeholderUser } from "@/utils/adminApp";
 import { PageHeader } from "@/ui/PageHeader";
 
 type WorkspaceLocationState = {
@@ -34,6 +35,8 @@ export function AccountWorkspacePage() {
   const [vacLoading, setVacLoading] = useState(false);
   const [timeline, setTimeline] = useState<SupportHealthTimelineEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionStatusResponse | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   const [vacName, setVacName] = useState("");
   const [vacDate, setVacDate] = useState("");
@@ -113,6 +116,28 @@ export function AccountWorkspacePage() {
     };
   }, [client, userId]);
 
+  useEffect(() => {
+    if (!userId) {
+      setSubscription(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      setSubscriptionLoading(true);
+      try {
+        const status = await client.getUserSubscriptionStatus(userId);
+        if (!cancelled) setSubscription(status);
+      } catch {
+        if (!cancelled) setSubscription(null);
+      } finally {
+        if (!cancelled) setSubscriptionLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, userId]);
+
   const submitNewVaccination = async () => {
     if (!selectedPet || !userId) return;
     const name = vacName.trim();
@@ -175,6 +200,83 @@ export function AccountWorkspacePage() {
                   {user.id}
                 </span>
               </p>
+
+              <h3 className="panel-sub">Subscription</h3>
+              {subscriptionLoading ? (
+                <p className="muted">Loading subscription…</p>
+              ) : subscription ? (
+                <table>
+                  <tbody>
+                    <tr>
+                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                        Plan
+                      </th>
+                      <td>{formatSubscriptionPlanLabel(subscription.plan, subscription.isFoundingMember)}</td>
+                    </tr>
+                    {subscription.expiresAt ? (
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          Expires
+                        </th>
+                        <td>{subscription.expiresAt.slice(0, 10)}</td>
+                      </tr>
+                    ) : subscription.isFoundingMember ? (
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          Expires
+                        </th>
+                        <td>Lifetime (founding)</td>
+                      </tr>
+                    ) : null}
+                    {subscription.productId ? (
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          Product
+                        </th>
+                        <td className="muted" style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem" }}>
+                          {subscription.productId}
+                        </td>
+                      </tr>
+                    ) : null}
+                    <tr>
+                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                        Documents
+                      </th>
+                      <td>
+                        {subscription.documentCount}
+                        {subscription.limits.maxDocuments != null
+                          ? ` / ${subscription.limits.maxDocuments} cap`
+                          : " (unlimited cap)"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                        Milo chats (month)
+                      </th>
+                      <td>
+                        {subscription.usage.miloConversationsUsed}
+                        {subscription.limits.maxMiloConversations != null
+                          ? ` / ${subscription.limits.maxMiloConversations}`
+                          : " (unlimited)"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                        AI journal entries
+                      </th>
+                      <td>
+                        {subscription.usage.aiJournalEntriesUsed}
+                        {subscription.limits.maxAiJournalEntries != null
+                          ? ` / ${subscription.limits.maxAiJournalEntries}`
+                          : " (unlimited)"}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">Could not load subscription status.</p>
+              )}
+
               <h3 className="panel-sub">Pets</h3>
               {petsLoading ? (
                 <p className="muted">Loading pets…</p>

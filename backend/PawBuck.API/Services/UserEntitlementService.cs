@@ -275,6 +275,112 @@ public sealed class UserEntitlementService : IUserEntitlementService
             Cap = cap,
         };
     }
+
+    /// <inheritdoc />
+    public async Task<SubscriptionPlanBreakdownResponse?> GetPlanBreakdownAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+            return null;
+
+        const string sql = """
+            WITH owners AS (
+              SELECT id AS user_id FROM auth.users
+            ),
+            ent AS (
+              SELECT
+                o.user_id,
+                CASE
+                  WHEN u.plan = 'premium' THEN 'individual'
+                  WHEN u.plan IN ('individual', 'family') THEN u.plan
+                  ELSE 'free'
+                END AS plan,
+                COALESCE(u.is_founding_member, FALSE) AS is_founding_member,
+                u.expires_at,
+                u.user_id IS NULL AS missing_row
+              FROM owners o
+              LEFT JOIN public.user_entitlements u ON u.user_id = o.user_id
+            ),
+            normalized AS (
+              SELECT
+                user_id,
+                plan,
+                is_founding_member,
+                missing_row,
+                CASE
+                  WHEN is_founding_member THEN TRUE
+                  WHEN plan IN ('individual', 'family') AND (expires_at IS NULL OR expires_at > now()) THEN TRUE
+                  WHEN plan IN ('individual', 'family') THEN FALSE
+                  ELSE TRUE
+                END AS is_active_paid
+              FROM ent
+            )
+            SELECT
+              (SELECT COUNT(*)::int FROM owners) AS total_users,
+              (SELECT COUNT(*)::int FROM normalized WHERE missing_row) AS no_row,
+              (SELECT COUNT(*)::int FROM normalized WHERE NOT is_active_paid AND plan IN ('individual', 'family') AND NOT is_founding_member) AS expired_paid,
+              (SELECT COUNT(*)::int FROM normalized WHERE is_founding_member) AS founding_total,
+              plan,
+              COUNT(*)::int AS user_count,
+              COUNT(*) FILTER (WHERE is_founding_member)::int AS founding_in_tier
+            FROM normalized
+            GROUP BY plan
+            ORDER BY plan
+            """;
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+        var tiers = new List<SubscriptionPlanTierCountDto>();
+        int totalUsers = 0;
+        int noRow = 0;
+        int expiredPaid = 0;
+        int foundingTotal = 0;
+        var firstRow = true;
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (firstRow)
+            {
+                totalUsers = reader.GetInt32(0);
+                noRow = reader.GetInt32(1);
+                expiredPaid = reader.GetInt32(2);
+                foundingTotal = reader.GetInt32(3);
+                firstRow = false;
+            }
+
+            tiers.Add(new SubscriptionPlanTierCountDto
+            {
+                Plan = reader.GetString(4),
+                UserCount = reader.GetInt32(5),
+                FoundingMembers = reader.GetInt32(6),
+            });
+        }
+
+        if (firstRow)
+        {
+            return new SubscriptionPlanBreakdownResponse
+            {
+                TotalUsers = 0,
+                UsersWithoutEntitlementRow = 0,
+                ExpiredPaidSubscriptions = 0,
+                FoundingMembers = 0,
+                Tiers = [],
+                AsOf = DateTimeOffset.UtcNow,
+            };
+        }
+
+        return new SubscriptionPlanBreakdownResponse
+        {
+            TotalUsers = totalUsers,
+            UsersWithoutEntitlementRow = noRow,
+            ExpiredPaidSubscriptions = expiredPaid,
+            FoundingMembers = foundingTotal,
+            Tiers = tiers,
+            AsOf = DateTimeOffset.UtcNow,
+        };
+    }
 }
 
 /// <summary>Thrown when a free-tier lifetime cap is exceeded.</summary>

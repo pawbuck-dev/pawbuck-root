@@ -6,6 +6,7 @@ export const supportQueryKeys = {
   all: ["support"] as const,
   metrics: () => [...supportQueryKeys.all, "metrics"] as const,
   queuesSummary: () => [...supportQueryKeys.all, "queues", "summary"] as const,
+  subscriptionPlanBreakdown: () => [...supportQueryKeys.all, "subscription", "plan-breakdown"] as const,
 };
 
 const REFETCH_MS = 60_000;
@@ -24,6 +25,15 @@ export function useQueuesSummary() {
   return useQuery({
     queryKey: supportQueryKeys.queuesSummary(),
     queryFn: () => client.getQueuesSummary(),
+    refetchInterval: REFETCH_MS,
+  });
+}
+
+export function useSubscriptionPlanBreakdown() {
+  const { client } = useAdminApp();
+  return useQuery({
+    queryKey: supportQueryKeys.subscriptionPlanBreakdown(),
+    queryFn: () => client.getSubscriptionPlanBreakdown(),
     refetchInterval: REFETCH_MS,
   });
 }

@@ -54,3 +54,20 @@ public sealed class FoundingMemberStatsResponse
     public int SpotsRemaining { get; init; }
     public int Cap { get; init; } = 500;
 }
+
+public sealed class SubscriptionPlanTierCountDto
+{
+    public required string Plan { get; init; }
+    public int UserCount { get; init; }
+    public int FoundingMembers { get; init; }
+}
+
+public sealed class SubscriptionPlanBreakdownResponse
+{
+    public int TotalUsers { get; init; }
+    public int UsersWithoutEntitlementRow { get; init; }
+    public int ExpiredPaidSubscriptions { get; init; }
+    public int FoundingMembers { get; init; }
+    public required IReadOnlyList<SubscriptionPlanTierCountDto> Tiers { get; init; }
+    public DateTimeOffset AsOf { get; init; }
+}

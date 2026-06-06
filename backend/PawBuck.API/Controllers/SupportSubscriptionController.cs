@@ -29,4 +29,28 @@ public class SupportSubscriptionController : ControllerBase
 
         return Ok(stats);
     }
+
+    [HttpGet("plan-breakdown")]
+    [ProducesResponseType(typeof(SubscriptionPlanBreakdownResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<SubscriptionPlanBreakdownResponse>> GetPlanBreakdown(CancellationToken cancellationToken)
+    {
+        var breakdown = await _entitlements.GetPlanBreakdownAsync(cancellationToken);
+        if (breakdown is null)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Database not configured" });
+
+        return Ok(breakdown);
+    }
+
+    [HttpGet("users/{userId:guid}/status")]
+    [ProducesResponseType(typeof(SubscriptionStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<SubscriptionStatusResponse>> GetUserStatus(Guid userId, CancellationToken cancellationToken)
+    {
+        var status = await _entitlements.GetStatusAsync(userId, cancellationToken);
+        if (status is null)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Database not configured" });
+
+        return Ok(status);
+    }
 }

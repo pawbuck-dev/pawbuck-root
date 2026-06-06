@@ -22,6 +22,47 @@ export interface FoundingMemberStatsResponse {
   cap: number;
 }
 
+export type SubscriptionPlanTier = "free" | "individual" | "family";
+
+export interface SubscriptionPlanTierCount {
+  plan: SubscriptionPlanTier | string;
+  userCount: number;
+  foundingMembers: number;
+}
+
+export interface SubscriptionPlanBreakdownResponse {
+  totalUsers: number;
+  usersWithoutEntitlementRow: number;
+  expiredPaidSubscriptions: number;
+  foundingMembers: number;
+  tiers: SubscriptionPlanTierCount[];
+  asOf: string;
+}
+
+export interface SubscriptionUsage {
+  miloConversationsUsed: number;
+  aiJournalEntriesUsed: number;
+}
+
+export interface SubscriptionLimits {
+  maxPets?: number | null;
+  maxDocuments?: number | null;
+  maxFamilyMembers: number;
+  maxMiloConversations?: number | null;
+  maxAiJournalEntries?: number | null;
+}
+
+export interface SubscriptionStatusResponse {
+  plan: SubscriptionPlanTier | string;
+  isFoundingMember: boolean;
+  productId?: string | null;
+  expiresAt?: string | null;
+  usage: SubscriptionUsage;
+  limits: SubscriptionLimits;
+  foundingSpotsRemaining?: number | null;
+  documentCount: number;
+}
+
 export type EmailDocumentType =
   | "medications"
   | "lab_results"
@@ -94,6 +135,8 @@ export interface SupportUserDirectoryRow {
   displayName: string | null;
   createdAt: string | null;
   petCount: number;
+  plan: SubscriptionPlanTier | string;
+  isFoundingMember: boolean;
 }
 
 export interface SupportUserDirectoryResponse {

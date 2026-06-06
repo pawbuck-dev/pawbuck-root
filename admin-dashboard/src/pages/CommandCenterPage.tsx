@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { DashboardOverview } from "@/components/DashboardOverview";
+import { SubscriptionOverviewPanel } from "@/components/SubscriptionOverviewPanel";
 import { AdminGlobalSearch } from "@/components/AdminGlobalSearch";
 import { useQueuesSummary, useSupportMetrics } from "@/hooks/supportQueries";
 import type { SupportQueuesSummary } from "@/types/support";
@@ -40,6 +41,11 @@ const QUEUE_LINKS: QueueLink[] = [
     to: "/customers/pets",
     title: "Pet health explorer",
     desc: "Search pets and health records.",
+  },
+  {
+    to: "/product/subscriptions",
+    title: "Subscriptions",
+    desc: "Plan tiers, founding cap, and gates.",
   },
   {
     to: "/product/document-sync",
@@ -93,6 +99,10 @@ export function CommandCenterPage() {
       ) : null}
 
       <DashboardOverview metrics={metricsQuery.data ?? null} loading={metricsQuery.isLoading} />
+
+      <div style={{ marginTop: "1.5rem" }}>
+        <SubscriptionOverviewPanel compact />
+      </div>
     </div>
   );
 }

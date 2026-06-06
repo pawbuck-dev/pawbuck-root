@@ -12,6 +12,7 @@ import { ClassifyPage } from "@/pages/milo/ClassifyPage";
 import { JournalPage } from "@/pages/milo/JournalPage";
 import { DocumentSyncPage } from "@/pages/product/DocumentSyncPage";
 import { GatesPage } from "@/pages/product/GatesPage";
+import { SubscriptionsPage } from "@/pages/product/SubscriptionsPage";
 import { VerificationPage } from "@/pages/product/VerificationPage";
 
 export function AdminRoutes() {
@@ -30,6 +31,7 @@ export function AdminRoutes() {
         <Route path="milo/classify" element={<ClassifyPage />} />
         <Route path="milo/adr" element={<AdrPage />} />
         <Route path="product/gates" element={<GatesPage />} />
+        <Route path="product/subscriptions" element={<SubscriptionsPage />} />
         <Route path="product/verification" element={<VerificationPage />} />
         <Route path="product/document-sync" element={<DocumentSyncPage />} />
         <Route path="*" element={<Navigate to="/home" replace />} />

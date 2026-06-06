@@ -49,7 +49,9 @@ export function FeatureGatesPanel({ client }: FeatureGatesPanelProps) {
     setSavingKey(featureKey);
     setError(null);
     try {
-      const updated = await client.patchSubscriptionFeatureGate(featureKey, { minimumPlan });
+      const updated = await client.patchSubscriptionFeatureGate(featureKey, {
+        minimumPlan: minimumPlan as "free" | "individual" | "family",
+      });
       setRows((prev) => prev.map((r) => (r.featureKey === featureKey ? updated : r)));
     } catch (e) {
       setError(e instanceof SupportApiError ? e.message : "Save failed");
