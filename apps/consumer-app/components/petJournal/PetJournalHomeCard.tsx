@@ -37,9 +37,9 @@ type Props = {
 
 export default function PetJournalHomeCard({ pet }: Props) {
   const { theme, mode } = useTheme();
+  const { aiJournalEntriesRemaining } = useSubscription();
   const isDark = mode === "dark";
   const router = useRouter();
-  const { ensurePremium } = useSubscription();
 
   const { data: entries = [], isPending } = useQuery({
     queryKey: ["pet_journal_home", pet.id],
@@ -65,45 +65,34 @@ export default function PetJournalHomeCard({ pet }: Props) {
           borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
         };
 
-  const withPremium = useCallback(
-    (fn: () => void) => ensurePremium(fn, "pet_journal_home_row"),
-    [ensurePremium]
-  );
-
   const openJournal = useCallback(
     (params?: { focusEntryId?: string }) => {
-      withPremium(() =>
-        router.push({
-          pathname: "/(home)/pet-journal",
-          params: {
-            petId: pet.id,
-            ...(params?.focusEntryId ? { focusEntryId: params.focusEntryId, focusKind: "server" } : {}),
-          },
-        } as any)
-      );
+      router.push({
+        pathname: "/(home)/pet-journal",
+        params: {
+          petId: pet.id,
+          ...(params?.focusEntryId ? { focusEntryId: params.focusEntryId, focusKind: "server" } : {}),
+        },
+      } as any);
     },
-    [pet.id, router, withPremium]
+    [pet.id, router]
   );
 
   const openMiloCheckIn = useCallback(() => {
-    withPremium(() =>
-      router.push({
-        pathname: "/(home)/pet-journal",
-        params: { petId: pet.id, domain: "health" },
-      } as any)
-    );
-  }, [pet.id, router, withPremium]);
+    router.push({
+      pathname: "/(home)/pet-journal",
+      params: { petId: pet.id, domain: "health" },
+    } as any);
+  }, [pet.id, router]);
 
   const openNewEntry = useCallback(
     (domain: JournalDomain, subtype: string) => {
-      withPremium(() =>
-        router.push({
-          pathname: "/(home)/pet-journal/new",
-          params: { petId: pet.id, domain, subtype },
-        } as any)
-      );
+      router.push({
+        pathname: "/(home)/pet-journal/new",
+        params: { petId: pet.id, domain, subtype },
+      } as any);
     },
-    [pet.id, router, withPremium]
+    [pet.id, router]
   );
 
   const journalShortcuts: JournalShortcut[] = useMemo(
@@ -253,6 +242,19 @@ export default function PetJournalHomeCard({ pet }: Props) {
         </Text>
         <Ionicons name="chevron-forward" size={18} color={theme.primaryForeground} />
       </Pressable>
+      {aiJournalEntriesRemaining != null ? (
+        <Text
+          style={{
+            fontSize: 12,
+            color: theme.secondary,
+            textAlign: "center",
+            marginTop: -8,
+            marginBottom: 14,
+          }}
+        >
+          {aiJournalEntriesRemaining} AI check-in{aiJournalEntriesRemaining === 1 ? "" : "s"} left on Free
+        </Text>
+      ) : null}
 
       <View
         style={{

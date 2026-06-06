@@ -1,7 +1,6 @@
 # Free vs Pawbuck Pro — implementation plan (saved)
 
-**Status:** Deferred — product to decide before implementation.  
-**Related:** [docs/SUBSCRIPTION.md](../SUBSCRIPTION.md) (current enforcement matrix).
+**Status:** Superseded by [`docs/PRICING.md`](../PRICING.md) (v1.5 tiers: Free / Individual / Family). Kept for historical context only.
 
 This file mirrors the Cursor plan **Free vs Pro enforcement** for version control. Todos are checklists only (not synced to Cursor).
 

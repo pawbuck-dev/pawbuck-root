@@ -91,7 +91,7 @@ export default function FamilyAccess() {
   const isDarkMode = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
-  const { ensurePremium } = useSubscription();
+  const { ensurePlan } = useSubscription();
   const queryClient = useQueryClient();
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -163,7 +163,7 @@ export default function FamilyAccess() {
   });
 
   const handleGenerateInvite = () => {
-    ensurePremium(() => {
+    ensurePlan("family", () => {
       setGenerating(true);
       createInviteMutation.mutate(30);
     }, "family_access_invite");
@@ -181,7 +181,7 @@ export default function FamilyAccess() {
       Alert.alert("Invalid email", "Enter a valid email address.");
       return;
     }
-    ensurePremium(async () => {
+    ensurePlan("family", async () => {
       setSendingEmailInvite(true);
       try {
         const result = await sendPetFamilyInvite({

@@ -2,6 +2,7 @@ import { ViewMode } from "@/app/(home)/health-record/[id]/medication-upload-moda
 import { useAuth } from "@/context/authContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { pickPdfFile } from "@/utils/filePicker";
 import { uploadFile } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
@@ -38,12 +39,18 @@ const UploadOptions = ({
   const { theme } = useTheme();
   const { user } = useAuth();
   const { pet } = useSelectedPet();
+  const { atCap, ensureDocumentUploadAllowed } = useDocumentUploadQuota();
   const uploadIntentHandled = useRef(false);
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset
   ) => {
     if (!pet || !user) {
+      return;
+    }
+    if (atCap) {
+      ensureDocumentUploadAllowed(() => {});
+      router.back();
       return;
     }
     try {

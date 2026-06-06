@@ -18,6 +18,7 @@ import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
@@ -57,7 +58,11 @@ export default function Profile() {
   const { resetOnboarding, setPostPetCreationRoute } = useOnboarding();
   const { pets } = usePets();
   const { selectedPet, selectedPetId, setSelectedPetId } = useSelectedPet();
+  const { plan, isFoundingMember, openPaywall, refetchEntitlement } = useSubscription();
   const queryClient = useQueryClient();
+
+  const planLabel =
+    plan === "family" ? "Family" : plan === "individual" ? "Individual" : "Free";
 
   const screenTokens = useMemo(() => getProfileScreenTokens(theme, isDarkMode), [theme, isDarkMode]);
 
@@ -364,6 +369,36 @@ export default function Profile() {
           onAvatarError={() => setAvatarLoadFailed(true)}
           onEditPress={() => void handleEdit()}
         />
+
+        <ProfileSectionHeading>Subscription</ProfileSectionHeading>
+        <ProfileListCard>
+          <ProfileFigmaRow
+            icon="sparkles-outline"
+            title={isFoundingMember ? "Founding Member" : planLabel}
+            subtitle={
+              isFoundingMember
+                ? "Lifetime access — thank you for building PawBuck with us"
+                : plan === "free"
+                  ? "Upgrade for unlimited Milo, documents, and more"
+                  : "Manage in App Store or Google Play"
+            }
+            onPress={() => {
+              if (plan === "free") {
+                openPaywall({ source: "profile_subscription", requiredPlan: "individual" });
+              } else {
+                void refetchEntitlement();
+              }
+            }}
+          />
+          {plan === "free" ? (
+            <ProfileFigmaRow
+              icon="people-outline"
+              title="Family plan"
+              subtitle="Unlimited pets · up to 5 household members"
+              onPress={() => openPaywall({ source: "profile_family_plan", requiredPlan: "family" })}
+            />
+          ) : null}
+        </ProfileListCard>
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
         {/* Current pet — own card (Figma / light ref: separate from action rows) */}

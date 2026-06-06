@@ -1,9 +1,22 @@
 import PremiumPaywallModal from "@/components/subscription/PremiumPaywallModal";
 import { resolveFeatureGateKey } from "@/constants/featureGates";
+import {
+  meetsMinimumPlan,
+  normalizePlan,
+  PAYWALL_COPY,
+  type OpenPaywallOptions,
+  type SubscriptionPlan,
+} from "@/constants/subscriptionPlans";
 import { useAuth } from "@/context/authContext";
 import { fetchSubscriptionFeatureGates } from "@/services/featureGatesApi";
-import { getHasPawbuckProEntitlement } from "@/services/revenuecat";
-import { fetchUserEntitlement, isActivePremium } from "@/services/userEntitlements";
+import { getRevenueCatPlan } from "@/services/revenuecat";
+import { fetchSubscriptionStatus, type SubscriptionStatus } from "@/services/subscriptionStatusApi";
+import {
+  fetchUserEntitlement,
+  getActivePlanFromRow,
+  isActivePremium,
+  isFoundingMember,
+} from "@/services/userEntitlements";
 import { trackSubscriptionEvent } from "@/utils/subscriptionAnalytics";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
@@ -19,25 +32,34 @@ import React, {
   useState,
 } from "react";
 
-const DEV_PREMIUM =
+const DEV_PREMIUM_PLAN: SubscriptionPlan =
   typeof __DEV__ !== "undefined" &&
   __DEV__ &&
-  process.env.EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM === "true";
+  process.env.EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM === "true"
+    ? "family"
+    : "free";
 
 type SubscriptionContextValue = {
-  /** True when user has active premium via Supabase, RevenueCat "Pawbuck Pro", or dev override. */
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus | null | undefined;
+  isFoundingMember: boolean;
+  /** True when plan is individual or family. */
   isPremium: boolean;
   isLoading: boolean;
   paywallVisible: boolean;
-  openPaywall: (source?: string) => void;
+  paywallOptions: OpenPaywallOptions;
+  openPaywall: (options?: OpenPaywallOptions | string) => void;
   closePaywall: () => void;
-  /** Runs `onAllowed` only if premium (or feature gate is off); otherwise opens paywall and tracks `premium_feature_blocked`. */
+  isAtLeast: (minimum: SubscriptionPlan) => boolean;
+  ensurePlan: (minimumPlan: SubscriptionPlan, onAllowed: () => void, feature?: string) => void;
   ensurePremium: (onAllowed: () => void, feature?: string) => void;
   refetchEntitlement: () => Promise<void>;
-  /** Admin-controlled: false when this feature does not require premium. */
   featureRequiresPremium: (gateKey: string) => boolean;
-  /** True when user may use the feature (gate off or has premium). */
+  minimumPlanForFeature: (gateKey: string) => SubscriptionPlan;
   canAccessFeature: (gateKey: string) => boolean;
+  miloConversationsRemaining: number | null;
+  aiJournalEntriesRemaining: number | null;
+  canStartAiJournal: boolean;
 };
 
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
@@ -47,7 +69,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const apiConfigured = !!getPawbuckApiBaseUrl();
   const [paywallVisible, setPaywallVisible] = useState(false);
-  const [paywallSource, setPaywallSource] = useState<string | undefined>();
+  const [paywallOptions, setPaywallOptions] = useState<OpenPaywallOptions>({});
 
   const { data: entitlement, isLoading: supabaseLoading, refetch: refetchSupabase } = useQuery({
     queryKey: ["user_entitlements", user?.id],
@@ -56,15 +78,23 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     staleTime: 60_000,
   });
 
-  const { data: revenueCatPro, isLoading: revenueCatLoading } = useQuery({
-    queryKey: ["revenuecat_pawbuck_pro", user?.id],
-    queryFn: getHasPawbuckProEntitlement,
+  const { data: revenueCatPlan, isLoading: revenueCatLoading } = useQuery({
+    queryKey: ["revenuecat_plan", user?.id],
+    queryFn: getRevenueCatPlan,
     enabled: !!user,
     staleTime: 30_000,
   });
 
+  const { data: subscriptionStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
+    queryKey: ["subscription_status", user?.id],
+    queryFn: fetchSubscriptionStatus,
+    enabled: !!user && apiConfigured,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
   const {
-    data: featureGatesMap,
+    data: featureGates,
     isLoading: featureGatesLoading,
     isError: featureGatesError,
     error: featureGatesQueryError,
@@ -72,103 +102,148 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     queryKey: ["subscription_feature_gates", user?.id],
     queryFn: fetchSubscriptionFeatureGates,
     enabled: !!user && apiConfigured,
-    /** Admin paywall changes: root QueryClient sets refetchOnMount/focus to false — override here. */
     staleTime: 30_000,
     retry: 1,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    /** Matches admin copy (~1 min); keeps long sessions from stale “all premium” gates. */
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });
 
   const gatesLoading = apiConfigured && !!user && featureGatesLoading;
+  const isLoading = !!user && (supabaseLoading || revenueCatLoading || statusLoading || gatesLoading);
 
-  const isLoading = !!user && (supabaseLoading || revenueCatLoading || gatesLoading);
+  const plan = useMemo((): SubscriptionPlan => {
+    if (DEV_PREMIUM_PLAN !== "free") return DEV_PREMIUM_PLAN;
+    if (subscriptionStatus?.plan) return subscriptionStatus.plan;
+    const fromRow = getActivePlanFromRow(entitlement ?? undefined);
+    if (fromRow !== "free") return fromRow;
+    if (revenueCatPlan) return revenueCatPlan;
+    return "free";
+  }, [entitlement, revenueCatPlan, subscriptionStatus?.plan]);
 
-  const isPremium = useMemo(() => {
-    if (DEV_PREMIUM) return true;
-    if (isActivePremium(entitlement ?? undefined)) return true;
-    if (revenueCatPro === true) return true;
-    return false;
-  }, [entitlement, revenueCatPro]);
+  const isPremium = plan === "individual" || plan === "family";
+  const founding = subscriptionStatus?.isFoundingMember ?? isFoundingMember(entitlement ?? undefined);
+
+  const minimumPlanForFeature = useCallback(
+    (gateKey: string): SubscriptionPlan => {
+      if (!apiConfigured || featureGatesError || !featureGates) return "individual";
+      return featureGates.minimumPlan[gateKey] ?? "individual";
+    },
+    [apiConfigured, featureGates, featureGatesError]
+  );
 
   const featureRequiresPremium = useCallback(
     (gateKey: string) => {
-      if (!apiConfigured) return true;
-      if (featureGatesError) return true;
-      if (featureGatesMap === undefined) return true;
-      return featureGatesMap[gateKey] ?? true;
+      const min = minimumPlanForFeature(gateKey);
+      return min !== "free";
     },
-    [apiConfigured, featureGatesError, featureGatesMap]
+    [minimumPlanForFeature]
+  );
+
+  const isAtLeast = useCallback(
+    (minimum: SubscriptionPlan) => meetsMinimumPlan(plan, minimum),
+    [plan]
   );
 
   const canAccessFeature = useCallback(
-    (gateKey: string) => {
-      if (!featureRequiresPremium(gateKey)) return true;
-      return isPremium;
-    },
-    [featureRequiresPremium, isPremium]
+    (gateKey: string) => isAtLeast(minimumPlanForFeature(gateKey)),
+    [isAtLeast, minimumPlanForFeature]
   );
+
+  const miloConversationsRemaining = useMemo(() => {
+    if (isAtLeast("individual")) return null;
+    const max = subscriptionStatus?.limits.maxMiloConversations ?? 3;
+    const used = subscriptionStatus?.usage.miloConversationsUsed ?? 0;
+    return Math.max(0, max - used);
+  }, [isAtLeast, subscriptionStatus]);
+
+  const aiJournalEntriesRemaining = useMemo(() => {
+    if (isAtLeast("individual")) return null;
+    const max = subscriptionStatus?.limits.maxAiJournalEntries ?? 2;
+    const used = subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0;
+    return Math.max(0, max - used);
+  }, [isAtLeast, subscriptionStatus]);
+
+  const canStartAiJournal =
+    aiJournalEntriesRemaining === null || aiJournalEntriesRemaining > 0;
 
   const refetchEntitlement = useCallback(async () => {
     await refetchSupabase();
+    await refetchStatus();
     await queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
-    await queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+    await queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
+    await queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
     await queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
-  }, [queryClient, refetchSupabase]);
+  }, [queryClient, refetchStatus, refetchSupabase]);
 
-  const openPaywall = useCallback((source?: string) => {
-    setPaywallSource(source);
+  const openPaywall = useCallback((options?: OpenPaywallOptions | string) => {
+    const opts: OpenPaywallOptions =
+      typeof options === "string" ? { source: options } : (options ?? {});
+    setPaywallOptions(opts);
     setPaywallVisible(true);
-    void trackSubscriptionEvent("paywall_impression", { source: source ?? "unknown" });
-  }, []);
+    void trackSubscriptionEvent("paywall_impression", {
+      source: opts.source ?? "unknown",
+      target_plan: opts.requiredPlan ?? opts.copyVariant ?? "individual",
+      current_plan: plan,
+    });
+  }, [plan]);
 
   const closePaywall = useCallback(() => {
     setPaywallVisible(false);
-    setPaywallSource(undefined);
+    setPaywallOptions({});
   }, []);
+
+  const ensurePlan = useCallback(
+    (minimumPlan: SubscriptionPlan, onAllowed: () => void, feature?: string) => {
+      if (isLoading) return;
+      const gateKey = resolveFeatureGateKey(feature);
+      if (gateKey && canAccessFeature(gateKey)) {
+        onAllowed();
+        return;
+      }
+      if (isAtLeast(minimumPlan)) {
+        onAllowed();
+        return;
+      }
+      void trackSubscriptionEvent("premium_feature_blocked", {
+        feature: feature ?? "unknown",
+        target_plan: minimumPlan,
+        current_plan: plan,
+      });
+      openPaywall({ source: feature, requiredPlan: minimumPlan });
+    },
+    [canAccessFeature, isAtLeast, isLoading, openPaywall, plan]
+  );
 
   const ensurePremium = useCallback(
     (onAllowed: () => void, feature?: string) => {
-      if (isLoading) return;
-      const gateKey = resolveFeatureGateKey(feature);
-      if (gateKey && !featureRequiresPremium(gateKey)) {
-        onAllowed();
-        return;
-      }
-      if (isPremium) {
-        onAllowed();
-        return;
-      }
-      void trackSubscriptionEvent("premium_feature_blocked", { feature: feature ?? "unknown" });
-      openPaywall(feature);
+      ensurePlan("individual", onAllowed, feature);
     },
-    [isLoading, featureRequiresPremium, isPremium, openPaywall]
+    [ensurePlan]
   );
 
   React.useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      // Supabase can invoke this synchronously on subscribe; defer invalidation so
-      // observers (e.g. home stack) are not updated mid-commit / before mount settles.
       queueMicrotask(() => {
         queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
-        queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+        queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
+        queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
         queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
       });
     });
     return () => subscription.unsubscribe();
   }, [queryClient]);
 
-  /** React Query “window focus” is unreliable on RN; refresh gates when app returns to foreground. */
   React.useEffect(() => {
     const onChange = (state: AppStateStatus) => {
       if (state === "active" && user && apiConfigured) {
         queueMicrotask(() => {
           void queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
+          void queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
         });
       }
     };
@@ -182,18 +257,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       featureGatesQueryError instanceof Error
         ? featureGatesQueryError.message
         : String(featureGatesQueryError);
-    console.warn(
-      "[subscription] Feature gates failed to load — all areas treat as premium until this succeeds.",
-      msg,
-      "If testing on a physical device, EXPO_PUBLIC_PAWBUCK_API_URL cannot be http://127.0.0.1 — use your Mac LAN IP or the deployed API URL."
-    );
+    console.warn("[subscription] Feature gates failed to load", msg);
   }, [featureGatesError, featureGatesQueryError]);
 
   React.useEffect(() => {
     if (Platform.OS === "web") return;
     const onUpdate = () => {
       queueMicrotask(() => {
-        queryClient.invalidateQueries({ queryKey: ["revenuecat_pawbuck_pro"] });
+        queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
       });
     };
     Purchases.addCustomerInfoUpdateListener(onUpdate);
@@ -201,28 +272,53 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SubscriptionContextValue>(
     () => ({
+      plan,
+      status: subscriptionStatus,
+      isFoundingMember: founding,
       isPremium,
       isLoading,
       paywallVisible,
+      paywallOptions,
       openPaywall,
       closePaywall,
+      isAtLeast,
+      ensurePlan,
       ensurePremium,
       refetchEntitlement,
       featureRequiresPremium,
+      minimumPlanForFeature,
       canAccessFeature,
+      miloConversationsRemaining,
+      aiJournalEntriesRemaining,
+      canStartAiJournal,
     }),
     [
+      plan,
+      subscriptionStatus,
+      founding,
       isPremium,
       isLoading,
       paywallVisible,
+      paywallOptions,
       openPaywall,
       closePaywall,
+      isAtLeast,
+      ensurePlan,
       ensurePremium,
       refetchEntitlement,
       featureRequiresPremium,
+      minimumPlanForFeature,
       canAccessFeature,
+      miloConversationsRemaining,
+      aiJournalEntriesRemaining,
+      canStartAiJournal,
     ]
   );
+
+  const paywallCopy =
+    paywallOptions.copyVariant && PAYWALL_COPY[paywallOptions.copyVariant]
+      ? PAYWALL_COPY[paywallOptions.copyVariant]
+      : PAYWALL_COPY.default;
 
   return (
     <SubscriptionContext.Provider value={value}>
@@ -230,7 +326,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       <PremiumPaywallModal
         visible={paywallVisible}
         onClose={closePaywall}
-        source={paywallSource}
+        source={paywallOptions.source}
+        requiredPlan={paywallOptions.requiredPlan ?? paywallCopy.requiredPlan}
+        title={paywallCopy.title}
+        body={paywallCopy.body}
+        foundingSpotsRemaining={subscriptionStatus?.foundingSpotsRemaining ?? null}
         refetchEntitlement={refetchEntitlement}
       />
     </SubscriptionContext.Provider>
@@ -244,3 +344,5 @@ export function useSubscription() {
   }
   return ctx;
 }
+
+export { isActivePremium, getActivePlanFromRow };

@@ -12,10 +12,14 @@ public interface ISubscriptionFeatureGateService
     /// <summary>
     /// Whether this feature requires premium when the gate is enabled (reads cached row).
     /// </summary>
+    /// <summary>
+    /// Whether this feature requires premium when the gate is enabled (reads cached row).
+    /// </summary>
     Task<bool> IsPremiumRequiredForFeatureAsync(string featureKey, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Admin: update <paramref name="requiresPremium"/> for <paramref name="featureKey"/> and invalidate cache.
-    /// </summary>
+    Task<string> GetMinimumPlanForFeatureAsync(string featureKey, CancellationToken cancellationToken = default);
+
     Task<bool> TryUpdateRequiresPremiumAsync(string featureKey, bool requiresPremium, CancellationToken cancellationToken = default);
+
+    Task<bool> TryUpdateMinimumPlanAsync(string featureKey, string minimumPlan, CancellationToken cancellationToken = default);
 }

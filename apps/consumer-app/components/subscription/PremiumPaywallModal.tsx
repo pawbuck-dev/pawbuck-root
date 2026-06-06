@@ -1,3 +1,4 @@
+import type { SubscriptionPlan } from "@/constants/subscriptionPlans";
 import { useTheme } from "@/context/themeContext";
 import { isRevenueCatConfigured } from "@/services/revenuecat";
 import { presentRevenueCatPaywall } from "@/services/revenuecatPaywall";
@@ -18,11 +19,34 @@ import {
 type PremiumPaywallModalProps = {
   visible: boolean;
   onClose: () => void;
-  /** Where the paywall was opened from (analytics). */
   source?: string;
-  /** Refresh Supabase + RevenueCat entitlement after a successful purchase/restore. */
+  requiredPlan?: SubscriptionPlan;
+  title?: string;
+  body?: string;
+  foundingSpotsRemaining?: number | null;
   refetchEntitlement: () => Promise<void>;
 };
+
+const PLAN_LABEL: Record<SubscriptionPlan, string> = {
+  free: "Free",
+  individual: "Individual",
+  family: "Family",
+};
+
+const INDIVIDUAL_FEATURES = [
+  "Unlimited Milo AI conversations",
+  "Unlimited AI journal entries",
+  "Unlimited document uploads",
+  "Pet Passport PDF export",
+  "Full vet prep briefs",
+];
+
+const FAMILY_FEATURES = [
+  "Everything in Individual",
+  "Unlimited pet profiles",
+  "Family sharing (up to 5 members)",
+  "Multi-pet household dashboard",
+];
 
 function openStoreSubscriptionSettings(): void {
   if (Platform.OS === "ios") {
@@ -32,21 +56,28 @@ function openStoreSubscriptionSettings(): void {
   }
 }
 
-/**
- * Contextual upgrade sheet; primary CTA presents the RevenueCat paywall on iOS/Android when configured.
- */
 export default function PremiumPaywallModal({
   visible,
   onClose,
   source,
+  requiredPlan = "individual",
+  title,
+  body,
+  foundingSpotsRemaining,
   refetchEntitlement,
 }: PremiumPaywallModalProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const [presenting, setPresenting] = useState(false);
 
+  const planLabel = PLAN_LABEL[requiredPlan];
+  const featureLines = requiredPlan === "family" ? FAMILY_FEATURES : INDIVIDUAL_FEATURES;
+
   const handleSubscribe = async () => {
-    void trackSubscriptionEvent("paywall_subscribe_tap", { source: source ?? "unknown" });
+    void trackSubscriptionEvent("paywall_subscribe_tap", {
+      source: source ?? "unknown",
+      target_plan: requiredPlan,
+    });
 
     if (Platform.OS === "web") {
       openStoreSubscriptionSettings();
@@ -58,7 +89,10 @@ export default function PremiumPaywallModal({
       const success = await presentRevenueCatPaywall();
       if (success) {
         await refetchEntitlement();
-        void trackSubscriptionEvent("paywall_purchase_success", { source: source ?? "unknown" });
+        void trackSubscriptionEvent("paywall_purchase_success", {
+          source: source ?? "unknown",
+          target_plan: requiredPlan,
+        });
         onClose();
         return;
       }
@@ -111,24 +145,37 @@ export default function PremiumPaywallModal({
               <Ionicons name="sparkles" size={24} color="#2BA89E" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground, flex: 1 }}>
-              PawBuck Premium
+              {title ?? `Upgrade to ${planLabel}`}
             </Text>
             <TouchableOpacity onPress={handleClose} hitSlop={10}>
               <Ionicons name="close" size={24} color={theme.secondary} />
             </TouchableOpacity>
           </View>
-          <Text style={{ fontSize: 15, color: theme.secondary, marginBottom: 16, lineHeight: 22 }}>
-            Unlock Milo AI, weekly challenges, pet journal tools, and vet booking when available. Health records stay free.
+          <Text style={{ fontSize: 15, color: theme.secondary, marginBottom: 12, lineHeight: 22 }}>
+            {body ??
+              (requiredPlan === "family"
+                ? "Manage unlimited pets and share access with your household."
+                : "Unlock unlimited Milo, documents, and vet prep tools. Health records stay free.")}
           </Text>
+          {foundingSpotsRemaining != null && foundingSpotsRemaining > 0 ? (
+            <Text
+              style={{
+                fontSize: 13,
+                color: "#2BA89E",
+                fontWeight: "600",
+                marginBottom: 12,
+              }}
+            >
+              Founding Member lifetime — {foundingSpotsRemaining} spots left
+            </Text>
+          ) : null}
           <View style={{ gap: 10, marginBottom: 18 }}>
-            {["Milo AI assistant", "Weekly challenges & leaderboard", "Pet journal & Milo interviews", "Vet booking (coming soon)"].map(
-              (line) => (
-                <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="checkmark-circle" size={18} color="#2BA89E" />
-                  <Text style={{ fontSize: 14, color: theme.foreground, flex: 1 }}>{line}</Text>
-                </View>
-              )
-            )}
+            {featureLines.map((line) => (
+              <View key={line} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={18} color="#2BA89E" />
+                <Text style={{ fontSize: 14, color: theme.foreground, flex: 1 }}>{line}</Text>
+              </View>
+            ))}
           </View>
           <TouchableOpacity
             onPress={() => void handleSubscribe()}
@@ -145,14 +192,16 @@ export default function PremiumPaywallModal({
             {presenting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>View subscription options</Text>
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
+                View {planLabel} plans
+              </Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={handleClose} style={{ paddingVertical: 10, alignItems: "center" }}>
             <Text style={{ color: theme.secondary, fontWeight: "600", fontSize: 15 }}>Maybe later</Text>
           </TouchableOpacity>
           <Text style={{ fontSize: 11, color: theme.secondary, textAlign: "center", marginTop: 8 }}>
-            Subscriptions are billed by Apple or Google. Restore purchases from your store account after subscribing in-app (when enabled).
+            Individual from $5.99/mo · Family from $9.99/mo. Billed by Apple or Google.
           </Text>
         </Pressable>
       </Pressable>

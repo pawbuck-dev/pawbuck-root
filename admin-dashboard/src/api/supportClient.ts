@@ -16,6 +16,7 @@ import type {
   PatchSubscriptionFeatureGateBody,
   SubscriptionFeatureGateRow,
   SubscriptionFeatureGatesResponse,
+  FoundingMemberStatsResponse,
   SupportDocumentProcessingMetricsResponse,
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
@@ -182,6 +183,9 @@ export function createSupportClient(
           json: body,
         },
       ),
+
+    getFoundingMemberStats: () =>
+      request<FoundingMemberStatsResponse>("/api/support/subscription/founding-stats"),
 
     listEmailDocumentVerificationRules: () =>
       request<CountryEmailDocumentVerificationListResponse>(

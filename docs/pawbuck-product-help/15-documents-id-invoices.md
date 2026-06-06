@@ -10,7 +10,9 @@ Expand **Microchip** to view or add your pet's microchip number when you have ed
 
 ## Insurance, pedigree, travel, and other files
 
-Use **Add document** (or equivalent) to upload a **photo or PDF**. Milo classifies the file and extracts key details where possible. Common types include **insurance policy**, **pedigree**, **travel certificate**, and other registration or legal paperwork—each appears in its own subsection when recognized.
+Use **Add document** (or equivalent) to upload a **photo or PDF**. Milo classifies the file and extracts key details where possible. **Free** accounts share a **10 document** cap across all upload types; **Individual** and **Family** are unlimited.
+
+Common types include **insurance policy**, **pedigree**, **travel certificate**, and other registration or legal paperwork—each appears in its own subsection when recognized.
 
 ## Financial / invoices
 

@@ -3,6 +3,7 @@ export { processAttachments } from "./attachmentProcessor.ts";
 export {
   formatSkipReason,
   sendAttachmentFailureNotification,
+  sendEmailParsingUpgradeNotification,
   sendFailedNotification,
   sendMicrochipMismatchNotification,
   sendProcessedNotification,

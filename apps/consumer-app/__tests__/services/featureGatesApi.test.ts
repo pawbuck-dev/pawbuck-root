@@ -43,8 +43,8 @@ describe("fetchSubscriptionFeatureGates", () => {
       new Response(
         JSON.stringify({
           items: [
-            { featureKey: "pet_transfer", requiresPremium: true, label: "T", sortOrder: 1, updatedAt: "x" },
-            { featureKey: "family_sharing", requiresPremium: false, label: "F", sortOrder: 2, updatedAt: "y" },
+            { featureKey: "pet_transfer", requiresPremium: true, minimumPlan: "individual", label: "T", sortOrder: 1, updatedAt: "x" },
+            { featureKey: "family_sharing", requiresPremium: false, minimumPlan: "free", label: "F", sortOrder: 2, updatedAt: "y" },
           ],
         }),
         { status: 200 }
@@ -52,7 +52,8 @@ describe("fetchSubscriptionFeatureGates", () => {
     );
 
     const map = await fetchSubscriptionFeatureGates();
-    expect(map).toEqual({ pet_transfer: true, family_sharing: false });
+    expect(map.requiresPremium).toEqual({ pet_transfer: true, family_sharing: false });
+    expect(map.minimumPlan).toEqual({ pet_transfer: "individual", family_sharing: "free" });
     expect(fetch).toHaveBeenCalledWith(
       "https://api.example.test/api/subscription/feature-gates",
       expect.objectContaining({

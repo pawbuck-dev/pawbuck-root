@@ -1,5 +1,7 @@
 # Family sharing and household access
 
+**Family plan required.** **Manage Access** (family invites, household codes, multi-member permissions) is available on the **Family** plan only. **Free** and **Individual** show an upgrade prompt when you open **Profile → Manage Access**.
+
 ## How do I set up family sharing?
 
 1. Open **Profile** → **Manage Access** (Care Team / Family access screen).

@@ -5,6 +5,7 @@ import { PetActivityFeed } from "@/components/pet/PetActivityFeed";
 import { PetNotificationPrefsSection } from "@/components/pet/PetNotificationPrefsSection";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { getPetTransferHistory } from "@/services/petTransfers";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
@@ -30,6 +31,7 @@ export default function PetProfile() {
   const isDarkMode = mode === "dark";
   const { pets, deletePet, deletingPet, loadingPets, updatePet, updatingPet } = usePets();
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
+  const { ensurePlan } = useSubscription();
   const [weightUnit, setWeightUnit] = useState<"kg" | "lbs">("kg");
   const [petImageUrl, setPetImageUrl] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -365,19 +367,21 @@ export default function PetProfile() {
           {/* Download Pet Passport Button */}
           <View className="px-0 mb-6">
             <Pressable
-              onPress={async () => {
+              onPress={() => {
                 if (downloading || !currentPet) return;
-                setDownloading(true);
-                try {
-                  await generateAndSharePetPassport({
-                    pet: currentPet,
-                    vaccinations: [],
-                  });
-                } catch (error: any) {
-                  Alert.alert("Error", error.message || "Failed to generate PDF");
-                } finally {
-                  setDownloading(false);
-                }
+                ensurePlan("individual", async () => {
+                  setDownloading(true);
+                  try {
+                    await generateAndSharePetPassport({
+                      pet: currentPet,
+                      vaccinations: [],
+                    });
+                  } catch (error: any) {
+                    Alert.alert("Error", error.message || "Failed to generate PDF");
+                  } finally {
+                    setDownloading(false);
+                  }
+                }, "pet_passport_export");
               }}
               disabled={downloading}
               className="rounded-2xl py-4 px-4 flex-row items-center active:opacity-80"

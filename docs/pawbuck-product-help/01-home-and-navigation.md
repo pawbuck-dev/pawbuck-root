@@ -9,7 +9,7 @@ The signed-in app uses a **pill-shaped bar** with four destinations, plus **Milo
 3. **Messages** — inbox for pet email threads and related conversations.
 4. **Profile** — your account, pet management, settings-style rows, help, and sign-out.
 
-Tap the **Milo** avatar next to the bar to open the in-app assistant (some actions may require an active subscription).
+Tap the **Milo** avatar next to the bar to open the in-app assistant. **Free** includes **3 lifetime** Milo conversations; **Individual** and **Family** are unlimited (see subscription help).
 
 ## Home screen (typical layout)
 

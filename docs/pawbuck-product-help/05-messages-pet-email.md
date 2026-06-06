@@ -2,7 +2,13 @@
 
 ## Pet email address
 
-Each pet has a unique **@pawbuck.app** address. It appears on **Home** (pet email card when set up), in **Pet profile**, and wherever the product surfaces "copy email" actions. Anyone who sends health documents to that address triggers ingestion into your pet's record and messaging threads.
+Each pet has a unique **@pawbuck.app** address. It appears on **Home** (pet email card when set up), in **Pet profile**, and wherever the product surfaces "copy email" actions.
+
+## Automatic parsing (Individual / Family)
+
+When someone emails **health documents** (PDFs, photos of records) to that address, PawBuck can automatically classify and import them into the pet's health record—**Individual** and **Family** only.
+
+On **Free**, calendar invites (`.ics`) may still import as pending appointments, but **health attachment parsing** is skipped and you may get a push notification to upgrade. You can still upload documents manually (within the Free document cap) or upgrade to **Individual**.
 
 ## Messages inbox
 

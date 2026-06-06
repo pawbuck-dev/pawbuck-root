@@ -460,6 +460,45 @@ export type Database = {
         }
         Relationships: []
       }
+      founding_member_counter: {
+        Row: {
+          id: number
+          purchase_count: number
+        }
+        Insert: {
+          id?: number
+          purchase_count?: number
+        }
+        Update: {
+          id?: number
+          purchase_count?: number
+        }
+        Relationships: []
+      }
+      founding_member_purchases: {
+        Row: {
+          id: string
+          plan: string
+          product_id: string | null
+          purchased_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          plan: string
+          product_id?: string | null
+          purchased_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          plan?: string
+          product_id?: string | null
+          purchased_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       household_invites: {
         Row: {
           code: string
@@ -2170,6 +2209,7 @@ export type Database = {
         Row: {
           feature_key: string
           label: string
+          minimum_plan: string
           requires_premium: boolean
           sort_order: number
           updated_at: string
@@ -2177,6 +2217,7 @@ export type Database = {
         Insert: {
           feature_key: string
           label: string
+          minimum_plan?: string
           requires_premium?: boolean
           sort_order?: number
           updated_at?: string
@@ -2184,8 +2225,39 @@ export type Database = {
         Update: {
           feature_key?: string
           label?: string
+          minimum_plan?: string
           requires_premium?: boolean
           sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_limits: {
+        Row: {
+          max_ai_journal_entries: number | null
+          max_documents: number | null
+          max_family_members: number
+          max_milo_conversations: number | null
+          max_pets: number | null
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          max_ai_journal_entries?: number | null
+          max_documents?: number | null
+          max_family_members?: number
+          max_milo_conversations?: number | null
+          max_pets?: number | null
+          plan: string
+          updated_at?: string
+        }
+        Update: {
+          max_ai_journal_entries?: number | null
+          max_documents?: number | null
+          max_family_members?: number
+          max_milo_conversations?: number | null
+          max_pets?: number | null
+          plan?: string
           updated_at?: string
         }
         Relationships: []
@@ -2269,7 +2341,9 @@ export type Database = {
       user_entitlements: {
         Row: {
           expires_at: string | null
+          is_founding_member: boolean
           plan: string
+          product_id: string | null
           provider_customer_id: string | null
           subscription_status: string | null
           updated_at: string
@@ -2277,7 +2351,9 @@ export type Database = {
         }
         Insert: {
           expires_at?: string | null
+          is_founding_member?: boolean
           plan?: string
+          product_id?: string | null
           provider_customer_id?: string | null
           subscription_status?: string | null
           updated_at?: string
@@ -2285,7 +2361,9 @@ export type Database = {
         }
         Update: {
           expires_at?: string | null
+          is_founding_member?: boolean
           plan?: string
+          product_id?: string | null
           provider_customer_id?: string | null
           subscription_status?: string | null
           updated_at?: string
@@ -2341,6 +2419,27 @@ export type Database = {
           user_id?: string
           vaccination_reminder_days?: number
           vet_appointment_reminder_push_enabled?: boolean
+        }
+        Relationships: []
+      }
+      user_subscription_usage: {
+        Row: {
+          ai_journal_entries_used: number
+          milo_conversations_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_journal_entries_used?: number
+          milo_conversations_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_journal_entries_used?: number
+          milo_conversations_used?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2604,10 +2703,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      accept_household_invite_code: {
-        Args: { p_code: string }
-        Returns: Json
-      }
+      accept_household_invite_code: { Args: { p_code: string }; Returns: Json }
       accept_pet_transfer: {
         Args: { p_code: string; p_pet_parent_display_name?: string }
         Returns: string
@@ -2616,6 +2712,16 @@ export type Database = {
       app_registered_user_count_for_country: {
         Args: { p_country: string }
         Returns: number
+      }
+      assert_ai_journal_quota: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      assert_document_quota: { Args: { p_user_id: string }; Returns: undefined }
+      auth_user_active_plan: { Args: never; Returns: string }
+      auth_user_meets_plan_gate: {
+        Args: { p_feature_key: string }
+        Returns: boolean
       }
       auth_user_passes_premium_gate: {
         Args: { p_feature_key: string }
@@ -2631,7 +2737,16 @@ export type Database = {
       }
       decline_pet_transfer: { Args: { p_code: string }; Returns: string }
       display_name_for_user: { Args: { p_user_id: string }; Returns: string }
+      get_user_document_count: { Args: { p_user_id: string }; Returns: number }
       get_user_pet_role: { Args: { p_pet_id: string }; Returns: string }
+      increment_ai_journal_usage: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      increment_milo_conversation_usage: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       insert_pet_activity_event: {
         Args: {
           p_actor_id: string
@@ -2728,13 +2843,18 @@ export type Database = {
       }
       pet_family_slots_used: { Args: { p_pet_id: string }; Returns: number }
       preview_pet_transfer: { Args: { p_code: string }; Returns: Json }
+      process_pet_family_invite_token: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       revoke_household_member_access: {
         Args: { p_member_id: string }
         Returns: Json
       }
-      process_pet_family_invite_token: {
-        Args: { p_token: string }
-        Returns: Json
+      subscription_plan_rank: { Args: { p_plan: string }; Returns: number }
+      try_register_founding_purchase: {
+        Args: { p_plan: string; p_product_id?: string; p_user_id: string }
+        Returns: boolean
       }
       user_can_access_pet: { Args: { p_pet_id: string }; Returns: boolean }
       user_can_write_pet_health: {

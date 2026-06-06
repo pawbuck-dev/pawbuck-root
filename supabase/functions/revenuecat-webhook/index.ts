@@ -1,11 +1,5 @@
 /**
  * RevenueCat (or compatible) webhook: upserts `public.user_entitlements`.
- *
- * Configure in RevenueCat dashboard → Webhooks → URL: `https://<project>.supabase.co/functions/v1/revenuecat-webhook`
- * Set secret env `REVENUECAT_WEBHOOK_SECRET` (same value in RevenueCat webhook authorization if using Bearer).
- *
- * Expect `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>`.
- * Use Supabase `auth.users.id` as RevenueCat `app_user_id` so rows align.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -14,6 +8,44 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+type Plan = "free" | "individual" | "family";
+
+const FOUNDING_PRODUCTS: Record<string, Plan> = {
+  founding_individual: "individual",
+  founding_family: "family",
+};
+
+const SUBSCRIPTION_PRODUCTS: Record<string, Plan> = {
+  individual_monthly: "individual",
+  individual_annual: "individual",
+  family_monthly: "family",
+  family_annual: "family",
+};
+
+function resolvePlanFromEvent(evt: Record<string, unknown>): Plan | null {
+  const entitlements = evt.entitlement_ids;
+  if (Array.isArray(entitlements)) {
+    if (entitlements.includes("Pawbuck Family")) return "family";
+    if (entitlements.includes("Pawbuck Individual") || entitlements.includes("Pawbuck Pro")) {
+      return "individual";
+    }
+  }
+
+  const productId = String(evt.product_id ?? evt.product_identifier ?? "");
+  if (FOUNDING_PRODUCTS[productId]) return FOUNDING_PRODUCTS[productId];
+  if (SUBSCRIPTION_PRODUCTS[productId]) return SUBSCRIPTION_PRODUCTS[productId];
+
+  if (productId.includes("family")) return "family";
+  if (productId.includes("individual") || productId.includes("pro")) return "individual";
+
+  return null;
+}
+
+function isFoundingProduct(evt: Record<string, unknown>): boolean {
+  const productId = String(evt.product_id ?? evt.product_identifier ?? "");
+  return productId in FOUNDING_PRODUCTS || productId.startsWith("founding_");
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -76,17 +108,48 @@ Deno.serve(async (req) => {
   ];
   const expireTypes = ["EXPIRATION"];
 
-  let plan: "free" | "premium" = "free";
+  let plan: Plan = "free";
   let expiresAt: string | null = null;
+  let isFounding = false;
+  const productId = String(evt.product_id ?? evt.product_identifier ?? "") || null;
 
   if (premiumTypes.includes(type)) {
-    plan = "premium";
-    const ms = evt.expiration_at_ms;
-    if (typeof ms === "number") {
-      expiresAt = new Date(ms).toISOString();
+    const resolved = resolvePlanFromEvent(evt);
+    plan = resolved ?? "individual";
+    isFounding = isFoundingProduct(evt) || type === "NON_RENEWING_PURCHASE";
+
+    if (isFounding) {
+      const { data: ok, error: foundingErr } = await supabase.rpc("try_register_founding_purchase", {
+        p_user_id: appUserId,
+        p_plan: plan,
+        p_product_id: productId,
+      });
+      if (foundingErr) {
+        return new Response(JSON.stringify({ error: foundingErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (ok === false) {
+        return new Response(JSON.stringify({ error: "founding_cap_reached" }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      expiresAt = null;
+    } else {
+      const ms = evt.expiration_at_ms;
+      if (typeof ms === "number") {
+        expiresAt = new Date(ms).toISOString();
+      }
     }
   } else if (expireTypes.includes(type)) {
     plan = "free";
+    isFounding = false;
+  } else {
+    return new Response(JSON.stringify({ ok: true, skipped: true }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const { error } = await supabase.from("user_entitlements").upsert(
@@ -95,6 +158,8 @@ Deno.serve(async (req) => {
       plan,
       subscription_status: type || null,
       expires_at: expiresAt,
+      is_founding_member: isFounding,
+      product_id: productId,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
@@ -107,7 +172,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok: true, plan, isFounding }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

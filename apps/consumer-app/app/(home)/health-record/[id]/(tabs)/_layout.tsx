@@ -15,6 +15,7 @@ import {
 } from "@react-navigation/material-top-tabs";
 import { ParamListBase, TabNavigationState } from "@react-navigation/native";
 import { useSelectedPet } from "@/context/selectedPetContext";
+import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { useHealthRecordPetId } from "@/hooks/useHealthRecordPetId";
 import {
   HealthRecordTab,
@@ -58,6 +59,7 @@ export default function HealthRecordsLayout() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<HealthRecordTab>("vaccinations");
   const [showUploadSheet, setShowUploadSheet] = useState(false);
+  const { ensureDocumentUploadAllowed } = useDocumentUploadQuota();
   /** When set, <Redirect> remounts the stack with the new pet id (router.replace alone often no-ops here). */
   const [redirectPetId, setRedirectPetId] = useState<string | null>(null);
 
@@ -102,6 +104,12 @@ export default function HealthRecordsLayout() {
     const opts: UploadSheetOption[] = [];
     let title = "Upload";
 
+    const go = (route: string, skipQuota = false) => {
+      const nav = () => router.push(route as any);
+      if (skipQuota) nav();
+      else ensureDocumentUploadAllowed(nav);
+    };
+
     switch (activeTab) {
       case "vaccinations":
         title = "Upload Vaccine Document";
@@ -111,18 +119,14 @@ export default function HealthRecordsLayout() {
             label: "Take Photo",
             icon: "camera-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=camera` as any
-              ),
+              go(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=camera`),
           },
           {
             id: "lib",
             label: "Choose From Photos",
             icon: "images-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=library` as any
-              ),
+              go(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=library`),
           },
           {
             id: "pdf",
@@ -130,9 +134,7 @@ export default function HealthRecordsLayout() {
             icon: "document-text-outline",
             usePdfBadge: true,
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/vaccination-upload-modal?upload=pdf` as any
-              ),
+              go(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=pdf`),
           }
         );
         break;
@@ -144,18 +146,14 @@ export default function HealthRecordsLayout() {
             label: "Take Photo",
             icon: "camera-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/medication-upload-modal?upload=camera` as any
-              ),
+              go(`/(home)/health-record/${pid}/medication-upload-modal?upload=camera`),
           },
           {
             id: "lib",
             label: "Choose From Photos",
             icon: "images-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/medication-upload-modal?upload=library` as any
-              ),
+              go(`/(home)/health-record/${pid}/medication-upload-modal?upload=library`),
           },
           {
             id: "pdf",
@@ -163,16 +161,14 @@ export default function HealthRecordsLayout() {
             icon: "document-text-outline",
             usePdfBadge: true,
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/medication-upload-modal?upload=pdf` as any
-              ),
+              go(`/(home)/health-record/${pid}/medication-upload-modal?upload=pdf`),
           },
           {
             id: "man",
             label: "Add Manually",
             icon: "create-outline",
             onPress: () =>
-              router.push(`/(home)/health-record/${pid}/medication-upload-modal?mode=manual` as any),
+              go(`/(home)/health-record/${pid}/medication-upload-modal?mode=manual`, true),
           }
         );
         break;
@@ -183,20 +179,20 @@ export default function HealthRecordsLayout() {
             id: "cam",
             label: "Take Photo",
             icon: "camera-outline",
-            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+            onPress: () => go(`/(home)/health-record/${pid}/exam-upload-modal`),
           },
           {
             id: "lib",
             label: "Choose From Photos",
             icon: "images-outline",
-            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+            onPress: () => go(`/(home)/health-record/${pid}/exam-upload-modal`),
           },
           {
             id: "pdf",
             label: "Choose PDF File",
             icon: "document-text-outline",
             usePdfBadge: true,
-            onPress: () => router.push(`/(home)/health-record/${pid}/exam-upload-modal` as any),
+            onPress: () => go(`/(home)/health-record/${pid}/exam-upload-modal`),
           }
         );
         break;
@@ -208,18 +204,14 @@ export default function HealthRecordsLayout() {
             label: "Take Photo",
             icon: "camera-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=camera` as any
-              ),
+              go(`/(home)/health-record/${pid}/lab-result-upload-modal?upload=camera`),
           },
           {
             id: "lib",
             label: "Choose From Photos",
             icon: "images-outline",
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=library` as any
-              ),
+              go(`/(home)/health-record/${pid}/lab-result-upload-modal?upload=library`),
           },
           {
             id: "pdf",
@@ -227,9 +219,7 @@ export default function HealthRecordsLayout() {
             icon: "document-text-outline",
             usePdfBadge: true,
             onPress: () =>
-              router.push(
-                `/(home)/health-record/${pid}/lab-result-upload-modal?upload=pdf` as any
-              ),
+              go(`/(home)/health-record/${pid}/lab-result-upload-modal?upload=pdf`),
           }
         );
         break;
@@ -238,7 +228,7 @@ export default function HealthRecordsLayout() {
     }
 
     return { title, options: opts };
-  }, [activeTab, displayPetId]);
+  }, [activeTab, displayPetId, ensureDocumentUploadAllowed]);
 
   const handleFabPress = () => {
     setShowUploadSheet((s) => !s);

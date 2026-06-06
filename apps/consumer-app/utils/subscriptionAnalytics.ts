@@ -6,7 +6,8 @@ export type SubscriptionAnalyticsEventType =
   | "paywall_subscribe_tap"
   | "paywall_purchase_success"
   | "paywall_dismiss"
-  | "premium_feature_blocked";
+  | "premium_feature_blocked"
+  | "streak_upgrade_prompt";
 
 /**
  * Subscription funnel events (stored in analytics_events like onboarding events).

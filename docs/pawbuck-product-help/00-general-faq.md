@@ -20,7 +20,9 @@ Anything health-related: vet invoices, vaccination certificates, prescription re
 
 ## Does PawBuck read the documents?
 
-Yes. Our system automatically extracts key information like visit dates, vaccinations, medications, and costs so you don't have to enter everything manually.
+Yes, on **Individual** and **Family** plans. Our system extracts visit dates, vaccinations, medications, and costs from uploads and from health attachments on your pet's email.
+
+On **Free**, you can still upload up to **10 documents** manually and forward email, but **automatic email parsing** of health attachments requires **Individual** or **Family** (you may receive a notification to upgrade when health files arrive by email).
 
 ## What if my vet doesn't use PawBuck?
 
@@ -44,7 +46,13 @@ Start fresh and forward documents from now on. You can request past records from
 
 ## How much does PawBuck cost?
 
-Core health record features described in the app store listing apply; optional premium features may exist—check the store listing, in-app upgrade prompts, and **Profile** for current pricing and entitlements.
+PawBuck has **Free**, **Individual**, and **Family** plans (USD via App Store / Google Play):
+
+- **Free** — $0: one pet, manual journal, Pawthon walks, 3 lifetime Milo chats, 2 lifetime AI journal check-ins, 10 document uploads, vet brief teaser.
+- **Individual** — from $5.99/month or $49.99/year: unlimited Milo, unlimited documents, full vet briefs, pet email parsing, Pet Passport PDF, and more.
+- **Family** — from $9.99/month or $79.99/year: everything in Individual plus unlimited pets and up to five family members with **Manage Access**.
+
+See **Profile → Subscription** for your plan, restore purchases, and upgrade. Full matrix: help article **Subscription plans — Free, Individual, and Family**.
 
 ## How do I get started?
 
@@ -56,7 +64,10 @@ Not required, but recommended. A microchip helps uniquely identify your pet if t
 
 ## Can I manage multiple pets?
 
-Yes. Each pet gets their own profile and email address under one account. Switch pets from **Home** or **Profile** using the pet selector.
+- **Free** and **Individual** include **one pet** per account. Adding a second pet prompts a **Family** upgrade.
+- **Family** supports **unlimited pets** and up to **five** invited household members.
+
+Each pet gets their own profile and **@pawbuck.app** email address. Switch pets from **Home** or **Profile** using the pet selector.
 
 ## Do I need to enter all health information at once?
 

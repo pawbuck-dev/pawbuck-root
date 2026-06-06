@@ -4,6 +4,8 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { ownerMeetsMinimumPlan } from "../_shared/subscriptionEntitlement.ts";
 import { parseEmail } from "./emailParser.ts";
 import {
   buildErrorResponse,
@@ -13,6 +15,7 @@ import {
   logProcessingSummary,
   processAttachments,
   sendCalendarImportsPendingNotification,
+  sendEmailParsingUpgradeNotification,
   sendFailedNotification,
   sendProcessedNotification,
   sendSkippedAttachmentsNotification,
@@ -42,6 +45,15 @@ import {
 import type { EmailContext, EmailInfo, Pet, ProcessedAttachment, S3Config } from "./types.ts";
 
 console.log("process-pet-mail function initialized");
+
+function createSupabaseClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 Deno.serve(async (req) => {
   const startTime = Date.now();
@@ -335,6 +347,23 @@ Deno.serve(async (req) => {
         icsAttachments.length > 0
           ? "Calendar invite(s) imported — confirm in the app calendar"
           : "No health attachments to process"
+      );
+    }
+
+    // Step 10.5: Health-document parsing requires Individual+
+    const supabase = createSupabaseClient();
+    const canParseEmail = await ownerMeetsMinimumPlan(supabase, pet.user_id, "individual");
+    if (!canParseEmail) {
+      console.log(
+        `[MONITORING] Skipping health attachment processing — owner on Free plan (${otherAttachments.length} files)`
+      );
+      await sendEmailParsingUpgradeNotification(pet, otherAttachments.length);
+      await finalizeEmail(allAttachments.length);
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        "Health documents received — upgrade to Individual for email parsing"
       );
     }
 

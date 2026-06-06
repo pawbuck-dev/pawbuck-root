@@ -27,11 +27,17 @@ The journal screen shows a **Set behavior baseline** row near the top (it switch
 
 Saving stores one baseline per pet. PawBuck and Milo use this to **notice changes vs usual** when you log a journal entry (for example, "skipped two meals" reads differently for a high-food-motivation dog than a finicky one). You can update the baseline any time; if a pet is transferred to another household, the baseline travels with the pet and the new owner can review or reset it.
 
-## Milo journal mode
+## Health Briefing and vet prep
 
-When you open **Milo** for a journal check-in, the assistant runs a short **structured interview**. It introduces itself as **Milo AI** (or **Milo**) only when your **pet's name is Milo**; otherwise it uses **PawBuck's journal helper**.
+The **Health briefing** card on Home opens a **vet prep brief** for that pet. On **Free**, you see a **teaser**; **Individual** and **Family** unlock the full pre-visit summary.
+
+## Milo journal mode and AI limits
+
+When you open **Milo** for a journal check-in, the assistant runs a short **structured interview**. On **Free**, you get **2 lifetime** AI journal sessions (shown as "AI check-ins left" in the UI). **Manual** journal entries you type yourself do not count toward that cap.
 
 ### Tree-driven interviews (v1.5, when enabled)
+
+When you open **Milo** for a journal check-in, the assistant introduces itself as **Milo AI** (or **Milo**) only when your **pet's name is Milo**; otherwise it uses **PawBuck's journal helper**.
 
 1. **Context surfacing** — Milo shows what it already knows from your pet's record (vaccines, meds, prior notes) and any medication flags. Tap **Looks right — continue** to start questions.
 2. **Clinical questions** (about 4–6) — Topic-specific chips (e.g. vomiting: timing, what it looks like, appetite, triggers).

@@ -1,6 +1,7 @@
 export interface SubscriptionFeatureGateRow {
   featureKey: string;
   requiresPremium: boolean;
+  minimumPlan: "free" | "individual" | "family";
   label: string;
   sortOrder: number;
   updatedAt: string;
@@ -11,7 +12,14 @@ export interface SubscriptionFeatureGatesResponse {
 }
 
 export interface PatchSubscriptionFeatureGateBody {
-  requiresPremium: boolean;
+  requiresPremium?: boolean;
+  minimumPlan?: "free" | "individual" | "family";
+}
+
+export interface FoundingMemberStatsResponse {
+  purchaseCount: number;
+  spotsRemaining: number;
+  cap: number;
 }
 
 export type EmailDocumentType =
