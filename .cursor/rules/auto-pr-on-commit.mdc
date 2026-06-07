@@ -1,0 +1,29 @@
+---
+description: After the user asks to commit/check in, push the branch and open or update a GitHub PR
+alwaysApply: true
+---
+
+# Auto PR after commit
+
+When the user asks to **commit**, **check in**, **push**, or otherwise land work on a branch:
+
+1. Follow the git safety protocol in user rules (status, diff, log, HEREDOC commit message).
+2. **After a successful commit**, unless the user explicitly says not to:
+   - Push the branch: `git push -u origin HEAD` (or the remote the branch tracks, e.g. `fork`).
+   - Check for an open PR: `gh pr list --head $(git branch --show-current)`.
+   - If none exists, create one with `gh pr create` against `main` (or the repo’s default base branch):
+     - Title: concise summary of the branch intent.
+     - Body: Summary bullets + Test plan checklist (include `pnpm --filter pawbuck typecheck` when consumer-app changed).
+   - If a PR already exists, push only; mention the existing PR URL in the reply.
+3. Return the **PR URL** to the user when a PR is created or updated.
+
+## Skip auto-PR only when the user says
+
+- “commit only”, “no PR”, “don’t push”, or similar.
+- Work is on `main`/`master` with no feature branch.
+
+## Do not
+
+- Force-push unless explicitly requested.
+- Open duplicate PRs for the same branch.
+- Amend/push without user request when prior commit was already pushed.
