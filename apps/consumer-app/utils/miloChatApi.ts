@@ -133,9 +133,7 @@ function parseTurnIdFromChatJson(data: {
 export function petToMiloApiContext(pet: Pet) {
   const rawWeight = pet.weight_value;
   const weightValue =
-    rawWeight != null && rawWeight !== "" && !Number.isNaN(Number(rawWeight))
-      ? Number(rawWeight)
-      : null;
+    typeof rawWeight === "number" && Number.isFinite(rawWeight) ? rawWeight : null;
 
   return {
     id: pet.id,
