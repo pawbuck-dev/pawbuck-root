@@ -1,8 +1,10 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import PetSelector from "@/components/home/PetSelector";
-import { JournalEntryInterviewDetail } from "@/components/journalInterview/JournalEntryInterviewDetail";
 import { JournalNoteText } from "@/components/journal/JournalNoteText";
-import { MiloJournalBar } from "@/components/petJournal/MiloJournalBar";
+import TodayHabitPanel from "@/components/home/TodayHabitPanel";
+import { PetJournalCaptureSection } from "@/components/petJournal/PetJournalCaptureSection";
+import { PetJournalHistorySection } from "@/components/petJournal/PetJournalHistorySection";
+import type { PetJournalTimelineRow } from "@/components/petJournal/PetJournalEntryCard";
 import { getJournalSurfaceTokens } from "@/components/petJournal/journalSurfaceTokens";
 import {
   JOURNAL_DOMAIN_LABEL,
@@ -17,22 +19,19 @@ import {
   behaviorBaselineQueryKey,
   getBaselineContext,
 } from "@/services/behaviorBaseline";
-import type { PetJournalEntry } from "@/services/petJournal";
 import { fetchJournalEntries, fetchTransferHighlightEntries } from "@/services/petJournal";
-import type { PetLogEntry } from "@/types/petLog";
-import { parseInterviewMetadata } from "@/types/journalInterview";
-import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { loadPetLogsForPet } from "@/utils/miloJournalStorage";
+import type { PetLogEntry } from "@/types/petLog";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -46,10 +45,6 @@ function domainIcon(d: JournalDomain): React.ComponentProps<typeof Ionicons>["na
   if (d === "behavioral") return "paw-outline";
   return "globe-outline";
 }
-
-type TimelineRow =
-  | { kind: "server"; entry: PetJournalEntry }
-  | { kind: "milo"; entry: PetLogEntry };
 
 export default function PetJournalScreen() {
   const { theme, mode } = useTheme();
@@ -67,13 +62,13 @@ export default function PetJournalScreen() {
     domain?: string;
   }>();
   const [miloLogs, setMiloLogs] = useState<PetLogEntry[]>([]);
-  const listRef = useRef<FlatList<TimelineRow>>(null);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null);
 
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [domain, setDomain] = useState<JournalDomain>("health");
-  const selectedPetName = useMemo(
-    () => pets.find((p) => p.id === selectedPetId)?.name,
+  const selectedPet = useMemo(
+    () => pets.find((p) => p.id === selectedPetId),
     [pets, selectedPetId]
   );
 
@@ -141,9 +136,9 @@ export default function PetJournalScreen() {
     }, [user?.id, selectedPetId])
   );
 
-  const mergedRows: TimelineRow[] = useMemo(() => {
-    const serverRows: TimelineRow[] = entries.map((e) => ({ kind: "server", entry: e }));
-    const miloRows: TimelineRow[] = miloLogs
+  const mergedRows: PetJournalTimelineRow[] = useMemo(() => {
+    const serverRows: PetJournalTimelineRow[] = entries.map((e) => ({ kind: "server", entry: e }));
+    const miloRows: PetJournalTimelineRow[] = miloLogs
       .filter((e) => e.domain === domain && e.pet_id === selectedPetId)
       .map((e) => ({ kind: "milo", entry: e }));
     const all = [...serverRows, ...miloRows];
@@ -166,18 +161,17 @@ export default function PetJournalScreen() {
     const fid = String(focusEntryId);
     const fk = focusKind === "server" || focusKind === "milo" ? focusKind : null;
     if (!fk || mergedRows.length === 0) return;
+
     const idx = mergedRows.findIndex((row) => {
       if (fk === "server" && row.kind === "server") return row.entry.id === fid;
       if (fk === "milo" && row.kind === "milo") return row.entry.id === fid;
       return false;
     });
     if (idx < 0) return;
-    const scrollTimer = setTimeout(() => {
-      listRef.current?.scrollToIndex({ index: idx, viewPosition: 0.12, animated: true });
-      setHighlightEntryId(fid);
-      router.setParams({ focusEntryId: undefined, focusKind: undefined } as Record<string, undefined>);
-    }, 200);
-    return () => clearTimeout(scrollTimer);
+
+    if (idx > 0) setHistoryExpanded(true);
+    setHighlightEntryId(fid);
+    router.setParams({ focusEntryId: undefined, focusKind: undefined } as Record<string, undefined>);
   }, [focusEntryId, focusKind, mergedRows, router]);
 
   useEffect(() => {
@@ -194,6 +188,50 @@ export default function PetJournalScreen() {
     } as any);
   };
 
+  const transferHighlightsNode =
+    transferHighlights.length === 0 ? null : (
+      <View style={{ marginBottom: 20 }}>
+        <Text
+          style={{
+            fontSize: 13,
+            fontWeight: "700",
+            letterSpacing: 0.4,
+            color: theme.secondary,
+            marginBottom: 10,
+            textTransform: "uppercase",
+          }}
+        >
+          Highlighted by previous owner
+        </Text>
+        {transferHighlights.map(({ entry, sort_order }) => (
+          <Pressable
+            key={entry.id}
+            onPress={() => setDomain(entry.domain as JournalDomain)}
+            style={{
+              backgroundColor: surfaces.cardBackground,
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 10,
+              borderWidth: 1,
+              borderColor: surfaces.borderColor,
+            }}
+          >
+            <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 8 }}>
+              #{sort_order} · {JOURNAL_DOMAIN_LABEL[entry.domain as JournalDomain]} ·{" "}
+              {subtypeLabel(entry.domain as JournalDomain, entry.subtype)}
+            </Text>
+            {entry.note ? (
+              <JournalNoteText
+                text={entry.note}
+                petName={selectedPet?.name}
+                style={{ fontSize: 17, lineHeight: 25 }}
+              />
+            ) : null}
+          </Pressable>
+        ))}
+      </View>
+    );
+
   if (subLoading) {
     return (
       <View className="flex-1" style={{ backgroundColor: theme.background, justifyContent: "center" }}>
@@ -209,7 +247,7 @@ export default function PetJournalScreen() {
         style={{
           paddingTop: insets.top + 8,
           paddingHorizontal: 16,
-          paddingBottom: 12,
+          paddingBottom: 10,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
@@ -228,25 +266,12 @@ export default function PetJournalScreen() {
           >
             <Ionicons name="arrow-back" size={22} color={theme.foreground} />
           </TouchableOpacity>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              backgroundColor: surfaces.iconBadgeBackground,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
-            }}
-          >
-            <Ionicons name="book-outline" size={24} color={theme.primary} />
-          </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: theme.foreground }}>
+            <Text style={{ fontSize: 24, fontWeight: "700", color: theme.foreground }}>
               Pet Journal
             </Text>
             <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
-              Structured notes with Milo · health, behavior & environment
+              Notes for Milo & your vet briefing
             </Text>
           </View>
           <TouchableOpacity
@@ -260,12 +285,8 @@ export default function PetJournalScreen() {
         </View>
 
         {pets.length > 0 && (
-          <View style={{ marginBottom: 14 }}>
-            <PetSelector
-              pets={pets}
-              selectedPetId={selectedPetId}
-              onSelectPet={setSelectedPetId}
-            />
+          <View style={{ marginBottom: 12 }}>
+            <PetSelector pets={pets} selectedPetId={selectedPetId} onSelectPet={setSelectedPetId} />
           </View>
         )}
 
@@ -317,67 +338,14 @@ export default function PetJournalScreen() {
             );
           })}
         </View>
-
-        {selectedPetId && pets.find((p) => p.id === selectedPetId) && (
-          <MiloJournalBar pet={pets.find((p) => p.id === selectedPetId)!} domain={domain} />
-        )}
-
-        {selectedPetId && (
-          <Pressable
-            onPress={openBaseline}
-            accessibilityLabel={
-              behaviorBaseline ? "Edit behavior baseline" : "Set behavior baseline"
-            }
-            style={{
-              marginTop: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: surfaces.subduedBackground,
-              borderWidth: 1,
-              borderColor: surfaces.borderColor,
-              borderRadius: 14,
-              paddingVertical: 10,
-              paddingHorizontal: 12,
-              gap: 10,
-            }}
-          >
-            <Ionicons name="pulse-outline" size={18} color={theme.primary} />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: theme.foreground,
-                }}
-              >
-                {behaviorBaseline ? "Behavior baseline saved" : "Set behavior baseline"}
-              </Text>
-              <Text style={{ fontSize: 11, color: theme.secondary, marginTop: 2 }}>
-                {behaviorBaseline
-                  ? "Update what's normal for your pet — Milo uses this to spot changes."
-                  : "Tell Milo what's normal so changes vs usual are easier to notice."}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.secondary} />
-          </Pressable>
-        )}
       </View>
 
-      {loadingPets || !selectedPetId ? (
+      {loadingPets || !selectedPetId || !selectedPet ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={theme.primary} />
         </View>
       ) : (
-        <FlatList
-          ref={listRef}
-          data={mergedRows}
-          keyExtractor={(item) =>
-            item.kind === "server" ? item.entry.id : `milo-${item.entry.id}`
-          }
-          onScrollToIndexFailed={({ averageItemLength, index }) => {
-            const offset = Math.max(0, averageItemLength * index);
-            listRef.current?.scrollToOffset({ offset, animated: true });
-          }}
+        <ScrollView
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingBottom: 120,
@@ -385,196 +353,42 @@ export default function PetJournalScreen() {
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={theme.primary} />
           }
-          ListHeaderComponent={
-            transferHighlights.length === 0 ? null : (
-              <View style={{ marginBottom: 16 }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "700",
-                    color: theme.foreground,
-                    marginBottom: 8,
-                  }}
-                >
-                  Highlighted by previous owner
-                </Text>
-                {transferHighlights.map(({ entry, sort_order }) => (
-                  <Pressable
-                    key={entry.id}
-                    onPress={() => {
-                      setDomain(entry.domain as JournalDomain);
-                    }}
-                    style={{
-                      backgroundColor: surfaces.cardBackground,
-                      borderRadius: 14,
-                      padding: 12,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: surfaces.borderColor,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, color: theme.secondary, marginBottom: 4 }}>
-                      #{sort_order} · {JOURNAL_DOMAIN_LABEL[entry.domain as JournalDomain]} ·{" "}
-                      {subtypeLabel(entry.domain as JournalDomain, entry.subtype)}
-                    </Text>
-                    {entry.note ? (
-                      <JournalNoteText text={entry.note} petName={selectedPetName} />
-                    ) : null}
-                  </Pressable>
-                ))}
-              </View>
-            )
-          }
-          ListEmptyComponent={
-            isLoading ? (
-              <ActivityIndicator style={{ marginTop: 24 }} color={theme.primary} />
-            ) : (
-              <Text
-                style={{
-                  textAlign: "center",
-                  marginTop: 32,
-                  color: theme.secondary,
-                  fontSize: 15,
-                }}
-              >
-                No entries yet. Tell Milo above or use Manual entry.
+          keyboardShouldPersistTaps="handled"
+        >
+          <TodayHabitPanel petId={selectedPet.id} embedded showDateHeader />
+
+          <PetJournalCaptureSection pet={selectedPet} domain={domain} />
+
+          <Pressable
+            onPress={openBaseline}
+            accessibilityLabel={behaviorBaseline ? "Edit behavior baseline" : "Set behavior baseline"}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 20,
+              paddingVertical: 4,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+              <Ionicons name="pulse-outline" size={16} color={theme.primary} />
+              <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
+                {behaviorBaseline ? "Behavior baseline saved" : "Set behavior baseline"}
               </Text>
-            )
-          }
-          renderItem={({ item }) => {
-            if (item.kind === "milo") {
-              const e = item.entry;
-              const isFocused = highlightEntryId != null && e.id === highlightEntryId;
-              const sevColor =
-                e.severity === "urgent"
-                  ? "#b91c1c"
-                  : e.severity === "high"
-                    ? "#c2410c"
-                    : e.severity === "medium"
-                      ? "#b45309"
-                      : "#15803d";
-              return (
-                <View
-                  style={{
-                    backgroundColor: surfaces.cardBackground,
-                    borderRadius: 16,
-                    padding: 14,
-                    marginBottom: 10,
-                    borderWidth: isFocused ? 2 : 1,
-                    borderColor: isFocused ? theme.primary : surfaces.borderColor,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                      <Ionicons name="sparkles" size={20} color={theme.primary} />
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: "700",
-                          letterSpacing: 0.5,
-                          color: theme.secondary,
-                        }}
-                      >
-                        MILO · {e.severity.toUpperCase()}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 12, color: theme.secondary }}>
-                      {e.created_at.slice(0, 10)}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      alignSelf: "flex-start",
-                      backgroundColor: `${sevColor}22`,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: sevColor }}>
-                      {e.severity}
-                    </Text>
-                  </View>
-                  {e.note ? <JournalNoteText text={e.note} petName={selectedPetName} /> : null}
-                  <JournalEntryInterviewDetail
-                    metadata={parseInterviewMetadata(e.interview_metadata)}
-                  />
-                </View>
-              );
-            }
-            const journal = item.entry;
-            const isFocused = highlightEntryId != null && journal.id === highlightEntryId;
-            return (
-              <View
-                style={{
-                  backgroundColor: surfaces.cardBackground,
-                  borderRadius: 16,
-                  padding: 14,
-                  marginBottom: 10,
-                  borderWidth: isFocused ? 2 : 1,
-                  borderColor: isFocused ? theme.primary : surfaces.borderColor,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 8,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                    <Ionicons
-                      name={domainIcon(journal.domain as JournalDomain)}
-                      size={20}
-                      color={theme.primary}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: "700",
-                        letterSpacing: 0.5,
-                        color: theme.secondary,
-                      }}
-                    >
-                      {subtypeLabel(journal.domain as JournalDomain, journal.subtype).toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 12, color: theme.secondary }}>{journal.entry_date}</Text>
-                </View>
-                {journalEntryNeedsTriageAttention(journal) && (
-                  <View
-                    style={{
-                      alignSelf: "flex-start",
-                      backgroundColor: "rgba(249,115,22,0.15)",
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#C2410C" }}>Vet</Text>
-                  </View>
-                )}
-                {journal.note ? (
-                  <JournalNoteText text={journal.note} petName={selectedPetName} />
-                ) : null}
-                <JournalEntryInterviewDetail
-                  metadata={parseInterviewMetadata(journal.interview_metadata)}
-                  showPostVetFeedback={journal.vet_flagged === true}
-                />
-              </View>
-            );
-          }}
-        />
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.secondary} />
+          </Pressable>
+
+          <PetJournalHistorySection
+            rows={mergedRows}
+            petName={selectedPet.name}
+            expanded={historyExpanded}
+            onToggle={() => setHistoryExpanded((v) => !v)}
+            highlightEntryId={highlightEntryId}
+            isLoading={isLoading}
+            transferHighlights={transferHighlightsNode}
+          />
+        </ScrollView>
       )}
 
       <BottomNavBar activeTab="profile" />

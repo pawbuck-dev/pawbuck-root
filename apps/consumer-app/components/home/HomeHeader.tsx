@@ -114,8 +114,11 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => router.push("/(home)/messages" as any)}
             activeOpacity={0.7}
             style={btnStyle}
+            accessibilityRole="button"
+            accessibilityLabel="Open messages and notifications"
           >
             <Ionicons name="notifications-outline" size={20} color={theme.foreground} />
             {notificationCount > 0 && (

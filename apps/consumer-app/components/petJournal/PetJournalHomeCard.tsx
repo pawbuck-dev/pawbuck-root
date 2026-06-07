@@ -10,6 +10,7 @@ import {
   formatLatestEntrySubtitle,
   formatLatestEntryTitle,
 } from "@/utils/journalContinuity";
+import { openMiloJournalCheckIn } from "@/utils/openMiloJournalCheckIn";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -33,11 +34,18 @@ type JournalShortcut = {
 
 type Props = {
   pet: Pet;
+  /** `recent` — last entry only (home). `default` — full card with Milo CTA. */
+  variant?: "default" | "recent";
 };
 
-export default function PetJournalHomeCard({ pet }: Props) {
+export default function PetJournalHomeCard({ pet, variant = "default" }: Props) {
   const { theme, mode } = useTheme();
-  const { aiJournalEntriesRemaining } = useSubscription();
+  const { aiJournalEntriesRemaining, status: subscriptionStatus } = useSubscription();
+  const isRecentMode = variant === "recent";
+  const showAiJournalQuota =
+    !isRecentMode &&
+    aiJournalEntriesRemaining != null &&
+    (subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0) > 0;
   const isDark = mode === "dark";
   const router = useRouter();
 
@@ -79,10 +87,7 @@ export default function PetJournalHomeCard({ pet }: Props) {
   );
 
   const openMiloCheckIn = useCallback(() => {
-    router.push({
-      pathname: "/(home)/pet-journal",
-      params: { petId: pet.id, domain: "health" },
-    } as any);
+    openMiloJournalCheckIn(router, pet.id);
   }, [pet.id, router]);
 
   const openNewEntry = useCallback(
@@ -117,29 +122,35 @@ export default function PetJournalHomeCard({ pet }: Props) {
         ...borderStyle,
       }}
     >
-      <View style={{ marginBottom: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: isDark ? "rgba(56, 189, 189, 0.2)" : "rgba(59, 208, 210, 0.18)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
-            }}
-          >
-            <Ionicons name="sparkles" size={20} color={theme.primary} />
+      <View style={{ marginBottom: isRecentMode ? 0 : 12 }}>
+        {!isRecentMode ? (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: isDark ? "rgba(56, 189, 189, 0.2)" : "rgba(59, 208, 210, 0.18)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color={theme.primary} />
+            </View>
+            <Text
+              style={{ flex: 1, fontSize: 16, fontWeight: "700", color: theme.foreground }}
+              numberOfLines={1}
+            >
+              {`${pet.name}'s Journal`}
+            </Text>
+            {isPending ? <ActivityIndicator size="small" color={theme.primary} /> : null}
           </View>
-          <Text
-            style={{ flex: 1, fontSize: 16, fontWeight: "700", color: theme.foreground }}
-            numberOfLines={1}
-          >
-            {pet.name}&apos;s Journal
+        ) : (
+          <Text style={{ fontSize: 13, fontWeight: "700", color: theme.secondary, marginBottom: 8 }}>
+            Recent notes
           </Text>
-          {isPending ? <ActivityIndicator size="small" color={theme.primary} /> : null}
-        </View>
+        )}
         {!isPending ? (
           <Pressable
             onPress={() => openJournal()}
@@ -167,7 +178,7 @@ export default function PetJournalHomeCard({ pet }: Props) {
             backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
             borderRadius: 14,
             padding: 12,
-            marginBottom: 14,
+            marginBottom: isRecentMode ? 0 : 14,
           }}
           accessibilityRole="button"
           accessibilityLabel="View latest journal entry"
@@ -215,76 +226,86 @@ export default function PetJournalHomeCard({ pet }: Props) {
             </View>
           </View>
         </Pressable>
-      ) : !isPending ? (
+      ) : !isPending && !isRecentMode ? (
         <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 14, lineHeight: 19 }}>
           Notes help Milo and your Health Briefing understand day-to-day changes.
         </Text>
-      ) : null}
-
-      <Pressable
-        onPress={openMiloCheckIn}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          borderRadius: 14,
-          backgroundColor: theme.primary,
-          marginBottom: 14,
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`Check in with Milo about ${pet.name}`}
-      >
-        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
-          Check in with Milo
-        </Text>
-        <Ionicons name="chevron-forward" size={18} color={theme.primaryForeground} />
-      </Pressable>
-      {aiJournalEntriesRemaining != null ? (
-        <Text
-          style={{
-            fontSize: 12,
-            color: theme.secondary,
-            textAlign: "center",
-            marginTop: -8,
-            marginBottom: 14,
-          }}
-        >
-          {aiJournalEntriesRemaining} AI check-in{aiJournalEntriesRemaining === 1 ? "" : "s"} left on Free
+      ) : !isPending && isRecentMode ? (
+        <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 0, lineHeight: 19 }}>
+          No notes yet — use Check in with Milo above or log manually.
         </Text>
       ) : null}
 
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-        }}
-        accessibilityRole="toolbar"
-        accessibilityLabel="Add journal entry shortcuts"
-      >
-        {journalShortcuts.map((shortcut, index) => (
-          <React.Fragment key={shortcut.id}>
-            {index > 0 ? (
-              <Text style={{ fontSize: 13, color: theme.secondary, paddingHorizontal: 2 }}>·</Text>
-            ) : null}
-            <Pressable
-              onPress={shortcut.onPress}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel={`Add ${shortcut.label}`}
+      {!isRecentMode ? (
+        <>
+          <Pressable
+            onPress={openMiloCheckIn}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              borderRadius: 14,
+              backgroundColor: theme.primary,
+              marginBottom: 14,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Check in with Milo about ${pet.name}`}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "600", color: theme.primaryForeground }}>
+              Check in with Milo
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.primaryForeground} />
+          </Pressable>
+          {showAiJournalQuota ? (
+            <Text
+              style={{
+                fontSize: 12,
+                color: theme.secondary,
+                textAlign: "center",
+                marginTop: -8,
+                marginBottom: 14,
+              }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
-                {shortcut.label}
-              </Text>
-            </Pressable>
-          </React.Fragment>
-        ))}
-      </View>
+              {aiJournalEntriesRemaining} AI check-in{aiJournalEntriesRemaining === 1 ? "" : "s"} left on Free
+            </Text>
+          ) : null}
+        </>
+      ) : null}
+
+      {!isRecentMode ? (
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+          }}
+          accessibilityRole="toolbar"
+          accessibilityLabel="Add journal entry shortcuts"
+        >
+          {journalShortcuts.map((shortcut, index) => (
+            <React.Fragment key={shortcut.id}>
+              {index > 0 ? (
+                <Text style={{ fontSize: 13, color: theme.secondary, paddingHorizontal: 2 }}>·</Text>
+              ) : null}
+              <Pressable
+                onPress={shortcut.onPress}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${shortcut.label}`}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "600", color: theme.foreground }}>
+                  {shortcut.label}
+                </Text>
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

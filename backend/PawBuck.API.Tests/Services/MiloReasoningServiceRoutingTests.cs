@@ -139,11 +139,30 @@ public class MiloReasoningServiceRoutingTests
 
         var sut = CreateSut(journalConfig: journalConfig);
 
-        var response = await sut.ChatAsync(UserId, JournalRequest(), CancellationToken.None);
+        var response = await sut.ChatAsync(UserId, JournalRequest("I want to log something"), CancellationToken.None);
 
         response.SuggestedReplies.Should().NotBeEmpty();
         response.SuggestedReplies.Should().Contain("Coughing");
         response.JournalStatus.Should().Be("CONTINUE");
+    }
+
+    [Fact]
+    public async Task ChatAsync_JournalMode_TopicChipSelection_DoesNotRepeatTopicPicker_WhenTreeFails()
+    {
+        var journalConfig = new Mock<IMiloJournalConfigProvider>();
+        journalConfig.Setup(j => j.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new MiloJournalConfigSnapshot
+        {
+            JournalTreeInterviewEnabled = true,
+            PromptVersion = "v1",
+        });
+
+        var handler = new PlanAnswerHandler(needsRag: false);
+        var sut = CreateSut(handler: handler, journalConfig: journalConfig);
+
+        var response = await sut.ChatAsync(UserId, JournalRequest("Eye or ear issue"), CancellationToken.None);
+
+        response.Answer.Should().NotContain("What would you like to note about Rex today");
+        response.Answer.Should().NotContain("pick a topic");
     }
 
     [Fact]

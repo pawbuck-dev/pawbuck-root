@@ -6,6 +6,7 @@
 import {
   isDietLogText,
   isHydrationLogText,
+  isJournalCheckInStartText,
   isLogIntentText,
   isRoutineJournalLogText,
 } from "@/utils/miloJournalIntent";
@@ -17,12 +18,19 @@ export type OfflineJournalTurnResult = {
   structuredFields?: Record<string, string>;
 };
 
-type OfflineTree = "vomiting_v1.5" | "lethargy_v1.5" | "diet_log" | "hydration_log" | "generic";
+type OfflineTree =
+  | "vomiting_v1.5"
+  | "lethargy_v1.5"
+  | "eye_ear_v1.5"
+  | "diet_log"
+  | "hydration_log"
+  | "generic";
 
 function detectTree(text: string): OfflineTree {
   const lower = text.toLowerCase();
   if (lower.includes("vomit") || lower.includes("diarr")) return "vomiting_v1.5";
   if (lower.includes("letharg") || lower.includes("tired")) return "lethargy_v1.5";
+  if (lower.includes("eye") || lower.includes("ear")) return "eye_ear_v1.5";
 
   if (isRoutineJournalLogText(text)) {
     if (isHydrationLogText(text) && !isDietLogText(text)) return "hydration_log";
@@ -181,13 +189,61 @@ export function getOfflineJournalTurn(userTurns: string[], petName: string): Off
     }
   }
 
+  if (tree === "eye_ear_v1.5") {
+    switch (step) {
+      case 0:
+        return {
+          answer: `I'll note an eye or ear concern for ${petName} (offline). Which is it?`,
+          suggestedReplies: ["Eye", "Ear", "Both", "Not sure"],
+          journalSessionComplete: false,
+        };
+      case 1:
+        return {
+          answer: "When did you first notice it?",
+          suggestedReplies: ["Just today", "1–2 days", "About a week", "On and off", "Not sure"],
+          journalSessionComplete: false,
+        };
+      default:
+        return {
+          answer: `Saved an offline eye/ear draft for ${petName}. Sync when you're back online for full Milo notes.`,
+          suggestedReplies: [],
+          journalSessionComplete: true,
+          structuredFields: {
+            SYMPTOM: "Eye or ear issue (offline draft)",
+            TIMING: "See chat",
+          },
+        };
+    }
+  }
+
+  const checkInStart = userTurns.some(isJournalCheckInStartText);
+
   switch (step) {
     case 0:
-      return {
-        answer: `Thanks for the update on ${petName}. How long has this been going on?`,
-        suggestedReplies: ["Just started today", "A couple of days", "About a week", "Not sure", "+ Add details"],
-        journalSessionComplete: false,
-      };
+      return checkInStart
+        ? {
+            answer: `What would you like to note about ${petName} today?`,
+            suggestedReplies: [
+              "All good today",
+              "Vomiting or diarrhea",
+              "Lethargic today",
+              "Changed appetite",
+              "Scratching a lot",
+              "Not sure",
+            ],
+            journalSessionComplete: false,
+          }
+        : {
+            answer: `What's going on with ${petName}?`,
+            suggestedReplies: [
+              "Just started today",
+              "A couple of days",
+              "About a week",
+              "Not sure",
+              "+ Add details",
+            ],
+            journalSessionComplete: false,
+          };
     case 1:
       return {
         answer: `Anything else different about ${petName}?`,

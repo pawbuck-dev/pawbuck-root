@@ -64,7 +64,14 @@ public class MiloController : ControllerBase
     [ProducesResponseType(StatusCodes.Status402PaymentRequired)]
     public async Task<IActionResult> Chat([FromBody] MiloChatRequest? request, CancellationToken cancellationToken)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.Message))
+        if (request == null)
+            return BadRequest(new { error = "message is required" });
+
+        var isJournalCheckInStart = string.Equals(
+            request.JournalAction,
+            "start_checkin",
+            StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(request.Message) && !isJournalCheckInStart)
             return BadRequest(new { error = "message is required" });
 
         var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);

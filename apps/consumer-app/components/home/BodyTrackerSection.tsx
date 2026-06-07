@@ -28,7 +28,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -39,9 +38,11 @@ import Svg, { Polyline } from "react-native-svg";
 
 type BodyTrackerSectionProps = {
   petId: string;
+  showTitle?: boolean;
+  initialSegment?: BodyTrackerSegment;
 };
 
-type BodyTrackerSegment = "intake" | "output" | "weight";
+export type BodyTrackerSegment = "intake" | "output" | "weight";
 
 const EMPTY_TAG_LIST: string[] = [];
 
@@ -180,7 +181,11 @@ function OutputDropIcons({
   );
 }
 
-export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
+export default function BodyTrackerSection({
+  petId,
+  showTitle = true,
+  initialSegment = "intake",
+}: BodyTrackerSectionProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const { width: winW } = useWindowDimensions();
@@ -196,8 +201,11 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
   const [displayUnit, setDisplayUnit] = useState<WeightUnit>(
     pet?.weight_unit === "kg" ? "kg" : "lbs"
   );
-  const [activeSegment, setActiveSegment] = useState<BodyTrackerSegment>("intake");
-  const [trendsOpen, setTrendsOpen] = useState(false);
+  const [activeSegment, setActiveSegment] = useState<BodyTrackerSegment>(initialSegment);
+
+  useEffect(() => {
+    setActiveSegment(initialSegment);
+  }, [initialSegment]);
   const [logOpen, setLogOpen] = useState(false);
   const [logValue, setLogValue] = useState("");
   const [targetDraft, setTargetDraft] = useState("");
@@ -622,42 +630,21 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
 
   return (
     <View style={{ paddingHorizontal: 20 }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: "500",
-            color: isDark ? "#FFFFFF" : "#0D0F0F",
-            lineHeight: 21.6,
-            textTransform: "capitalize",
-          }}
-        >
-          Body Tracker
-        </Text>
-        <TouchableOpacity
-          onPress={() => setTrendsOpen(true)}
-          activeOpacity={0.75}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: btnBg,
-          }}
-        >
-          <Ionicons name="bar-chart-outline" size={18} color={theme.secondary} />
-          <Text style={{ fontSize: 14, fontWeight: "600", color: theme.secondary }}>Trends</Text>
-        </TouchableOpacity>
-      </View>
+      {showTitle ? (
+        <View style={{ marginBottom: 14 }}>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "500",
+              color: isDark ? "#FFFFFF" : "#0D0F0F",
+              lineHeight: 21.6,
+              textTransform: "capitalize",
+            }}
+          >
+            Body Tracker
+          </Text>
+        </View>
+      ) : null}
 
       <View
         style={{
@@ -1018,79 +1005,6 @@ export default function BodyTrackerSection({ petId }: BodyTrackerSectionProps) {
         </View>
       </View>
       )}
-
-      <Modal visible={trendsOpen} transparent animationType="slide" onRequestClose={() => setTrendsOpen(false)}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }} onPress={() => setTrendsOpen(false)}>
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: theme.card,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingHorizontal: 20,
-              paddingTop: 16,
-              paddingBottom: 32,
-              maxHeight: "85%",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: theme.foreground }}>Trends</Text>
-              <TouchableOpacity onPress={() => setTrendsOpen(false)} hitSlop={12}>
-                <Ionicons name="close" size={24} color={theme.secondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginBottom: 8 }}>Weight</Text>
-              {sparklinePoints ? (
-                <View style={{ marginBottom: 8 }}>
-                  <Svg width={chartW} height={chartH}>
-                    <Polyline points={sparklinePoints} fill="none" stroke={primaryTeal} strokeWidth={2} />
-                  </Svg>
-                </View>
-              ) : (
-                <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 12 }}>
-                  Log at least two weigh-ins to see a trend line.
-                </Text>
-              )}
-              {weightLogs.length > 0 ? (
-                <View style={{ marginBottom: 20 }}>
-                  {weightLogs.map((log) => {
-                    const w = convertWeight(log.weight_value, log.weight_unit as WeightUnit, displayUnit);
-                    const dateStr = new Date(log.recorded_at).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    });
-                    return (
-                      <View
-                        key={log.id}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          paddingVertical: 10,
-                          borderBottomWidth: 1,
-                          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-                        }}
-                      >
-                        <Text style={{ fontSize: 14, color: theme.secondary }}>{dateStr}</Text>
-                        <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>
-                          {formatWeight(w, displayUnit)} {displayUnit}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 16 }}>No weigh-ins recorded yet.</Text>
-              )}
-              <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }}>
-                Intake and output trends can be added in a future update.
-              </Text>
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <DailyIntakeConfigModal
         visible={showConfigModal}

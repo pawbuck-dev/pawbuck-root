@@ -31,6 +31,8 @@ export type PawthonHomeCardProps = {
   onViewLog: () => void;
   onViewLastWalk: () => void;
   variant?: "hero" | "compact";
+  /** Softer card styling when nested under Activity on home. */
+  tone?: "prominent" | "subtle";
 };
 
 export default function PawthonHomeCard({
@@ -42,10 +44,12 @@ export default function PawthonHomeCard({
   onViewLog,
   onViewLastWalk,
   variant = "compact",
+  tone = "prominent",
 }: PawthonHomeCardProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const isAndroid = Platform.OS === "android";
+  const isSubtle = tone === "subtle";
 
   const cardBorderStyle = isAndroid
     ? {}
@@ -54,8 +58,12 @@ export default function PawthonHomeCard({
         borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
       };
 
-  const skyLight = ["#F5FAFF", "#E3F2FD", "#D6EBFA"] as const;
-  const skyDark = ["#1A2832", "#243B47", "#1E3240"] as const;
+  const skyLight = isSubtle
+    ? (["#FAFCFC", "#F2F7F7", "#EEF4F4"] as const)
+    : (["#F5FAFF", "#E3F2FD", "#D6EBFA"] as const);
+  const skyDark = isSubtle
+    ? (["#1A2224", "#1E282A", "#1A2224"] as const)
+    : (["#1A2832", "#243B47", "#1E3240"] as const);
   const rayColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.65)";
   const badgeBorder = isDark ? "rgba(38, 193, 193, 0.55)" : "rgba(11, 150, 150, 0.35)";
   const badgeLabel = isDark ? "#7DD3D3" : "#0B9696";
@@ -73,7 +81,7 @@ export default function PawthonHomeCard({
         ? `${remainingMi} mi to go`
         : `Today's goal: ${goalMi} mi`;
 
-  const showIllustration = variant === "compact";
+  const showIllustration = variant === "compact" && !isSubtle;
   const contentPadding = variant === "compact" ? 16 : 20;
   const illoReserve = showIllustration ? 88 : 0;
 
@@ -99,7 +107,7 @@ export default function PawthonHomeCard({
             height: 160,
             borderRadius: 80,
             backgroundColor: rayColor,
-            opacity: 0.55,
+            opacity: isSubtle ? 0.2 : 0.55,
           }}
         />
 

@@ -54,6 +54,7 @@ import {
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 import { isRoutineJournalLogText } from "@/utils/miloJournalIntent";
+import { formatJournalFallbackReason } from "@/utils/formatJournalFallbackReason";
 import { SubscriptionRequiredError } from "@/utils/miloChatApi";
 import {
   extractPetLogEntry,
@@ -174,6 +175,7 @@ export default function MiloJournalChatScreen() {
     pet?: string;
     context?: string;
     journalDomain?: string;
+    journalStart?: string;
   }>();
 
   const petId = params.pet ? String(params.pet) : null;
@@ -580,9 +582,7 @@ export default function MiloJournalChatScreen() {
       const severityForTurn = severityFromConversationText(userTurns, triageCtx);
 
       try {
-        const treeId =
-          pendingJournalTreeIdRef.current ??
-          (treeUxActive || JOURNAL_TREE_INTERVIEW_ENABLED ? resolveJournalTreeId(text) : undefined);
+        const treeId = pendingJournalTreeIdRef.current ?? resolveJournalTreeId(text);
         if (treeId && !journalSessionIdRef.current) {
           pendingJournalTreeIdRef.current = treeId;
         }
@@ -689,7 +689,7 @@ export default function MiloJournalChatScreen() {
         const reason = e instanceof Error ? e.message : "Request failed";
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
-        setJournalFallbackReason(reason);
+        setJournalFallbackReason(formatJournalFallbackReason(reason));
         const offline = getOfflineJournalTurn(userTurns, pet.name);
         const offlineSummary =
           offline.structuredFields?.NOTE ??
@@ -728,19 +728,100 @@ export default function MiloJournalChatScreen() {
     ]
   );
 
+  const beginJournalCheckIn = useCallback(async () => {
+    if (!pet || !user || triageDisclaimerStatus !== "accepted") return;
+    if (!canStartAiJournal) {
+      openPaywall({
+        source: "ai_journal",
+        copyVariant: "ai_journal_entry_cap",
+        requiredPlan: "individual",
+      });
+      void refetchEntitlement();
+      return;
+    }
+
+    setBusy(true);
+    setOfflineJournalActive(false);
+    setJournalFallbackReason(null);
+
+    try {
+      const result = await fetchMiloChat({
+        message: "start",
+        pet,
+        history: [],
+        journalMode: true,
+        journalAction: "start_checkin",
+      });
+
+      pushAssistant(result.answer, "low", {
+        suggestedReplies: result.suggestedReplies,
+        interviewPhase: result.interviewPhase,
+        contextSurface: result.contextSurface,
+        structuredSummary: result.structuredSummary,
+        currentQuestion: result.currentQuestion,
+        emergencyDetected: result.emergencyDetected,
+        treeId: result.treeId,
+        treeVersion: result.treeVersion,
+        journalSessionComplete: result.journalSessionComplete,
+        journalSummary: result.journalSummary ?? undefined,
+        journalEmergencyStop: result.journalEmergencyStop,
+        turnId: result.turnId ?? result.responseId,
+        fileAttachments: result.fileAttachments,
+      });
+    } catch (e) {
+      if (e instanceof SubscriptionRequiredError) {
+        openPaywall({
+          source: "ai_journal",
+          requiredPlan: e.upgradePlan,
+          copyVariant: e.code === "ai_journal_entry_cap" ? "ai_journal_entry_cap" : "default",
+        });
+        void refetchEntitlement();
+        return;
+      }
+      const reason = e instanceof Error ? e.message : "Request failed";
+      console.warn("Milo journal check-in start failed; using offline flow:", e);
+      setOfflineJournalActive(true);
+      setJournalFallbackReason(formatJournalFallbackReason(reason));
+      const offline = getOfflineJournalTurn(["start_checkin"], pet.name);
+      pushAssistant(offline.answer, "low", {
+        suggestedReplies: offline.suggestedReplies,
+        journalSessionComplete: offline.journalSessionComplete,
+        offlineFallback: true,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    pet,
+    user,
+    triageDisclaimerStatus,
+    canStartAiJournal,
+    openPaywall,
+    refetchEntitlement,
+    pushAssistant,
+  ]);
+
   useEffect(() => {
     if (triageDisclaimerStatus !== "accepted") return;
-    const ctx = params.context ? String(params.context) : "";
-    if (!ctx || !pet || autoSentRef.current) return;
-    autoSentRef.current = true;
-    let decoded = ctx;
-    try {
-      decoded = decodeURIComponent(ctx);
-    } catch {
-      /* use raw */
+    if (!pet || autoSentRef.current) return;
+
+    if (params.context) {
+      autoSentRef.current = true;
+      let message = String(params.context);
+      try {
+        message = decodeURIComponent(message);
+      } catch {
+        /* use raw */
+      }
+      void handleSend(message);
+      return;
     }
-    void handleSend(decoded);
-  }, [params.context, pet, handleSend, triageDisclaimerStatus]);
+
+    if (params.journalStart === "1") {
+      autoSentRef.current = true;
+      void beginJournalCheckIn();
+    }
+  }, [params.context, params.journalStart, pet, handleSend, beginJournalCheckIn, triageDisclaimerStatus]);
 
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -1271,7 +1352,9 @@ export default function MiloJournalChatScreen() {
           <Ionicons name="arrow-back" size={22} color={theme.foreground} />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: "center", paddingHorizontal: 8 }}>
-          <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>New Chat</Text>
+          <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>
+            {params.journalStart === "1" ? "Journal check-in" : "New Chat"}
+          </Text>
           <Text style={{ fontSize: 12, color: theme.secondary }} numberOfLines={1}>
             Talking about {pet.name}
             {aiJournalEntriesRemaining != null
@@ -1346,7 +1429,7 @@ export default function MiloJournalChatScreen() {
           <Text style={{ fontSize: 12, lineHeight: 17, color: theme.secondary }}>
             {isRoutineJournalLogText(messages.filter((m) => m.role === "user").map((m) => m.content).join("\n"))
               ? "Full Milo journal interview couldn’t load — using a quick log on this device. Your entry can still save."
-              : `Journal interview couldn’t load (${journalFallbackReason ?? "server error"}). Using guided questions on this device — try again later for full Milo.`}
+              : `Journal interview couldn't load (${journalFallbackReason ?? "server error"}). Using guided questions on this device — try again later for full Milo.`}
             {__DEV__
               ? " Dev: ensure PawBuck.API is running and EXPO_PUBLIC_PAWBUCK_API_URL points at it."
               : ""}

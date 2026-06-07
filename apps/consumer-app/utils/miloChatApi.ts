@@ -131,6 +131,12 @@ function parseTurnIdFromChatJson(data: {
 
 /** Pet fields sent to POST /api/milo/chat (matches chatContext PetContext). */
 export function petToMiloApiContext(pet: Pet) {
+  const rawWeight = pet.weight_value;
+  const weightValue =
+    rawWeight != null && rawWeight !== "" && !Number.isNaN(Number(rawWeight))
+      ? Number(rawWeight)
+      : null;
+
   return {
     id: pet.id,
     name: pet.name,
@@ -138,8 +144,7 @@ export function petToMiloApiContext(pet: Pet) {
     breed: pet.breed,
     date_of_birth: pet.date_of_birth,
     sex: pet.sex,
-    weight_value: pet.weight_value,
-    weight_unit: pet.weight_unit,
+    ...(weightValue != null ? { weight_value: weightValue, weight_unit: pet.weight_unit } : {}),
   };
 }
 
