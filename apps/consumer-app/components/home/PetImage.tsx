@@ -1,21 +1,14 @@
-import { useAuth } from "@/context/authContext";
-import { Pet } from "@/context/petsContext";
+import PrivateImage from "@/components/common/PrivateImage";
 import { useTheme } from "@/context/themeContext";
-import { updatePet } from "@/services/pets";
-import { clearUrlCache, uploadFile } from "@/utils/image";
-import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
+import type { Pet } from "@/context/petsContext";
+import { usePetPhotoUpload } from "@/hooks/usePetPhotoUpload";
 import { Ionicons } from "@expo/vector-icons";
-import { useQueryClient } from "@tanstack/react-query";
-import { ImagePickerAsset } from "expo-image-picker";
-import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import PrivateImage from "@/components/common/PrivateImage";
 
 type PetImageProps = {
   pet: Pet;
@@ -23,56 +16,8 @@ type PetImageProps = {
 };
 
 export default function PetImage({ pet, style = "default" }: PetImageProps) {
-  const { theme, mode } = useTheme();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [uploading, setUploading] = useState(false);
-  const isDark = mode === "dark";
-
-  const updateImage = async (image: ImagePickerAsset) => {
-    try {
-      setUploading(true);
-      const fileExtension = image.uri.split(".").pop() || "jpg";
-      const filePath = `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/profile.${fileExtension}`;
-      const data = await uploadFile(image, filePath);
-      clearUrlCache(filePath);
-
-      await updatePet(pet.id, {
-        photo_url: data.path,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
-      Alert.alert("Success", "Photo uploaded successfully!");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert("Error", "Failed to upload image. Please try again.");
-      throw error;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    const image = await takePhoto();
-    if (image) await updateImage(image);
-  };
-
-  const handleUpload = async () => {
-    const image = await pickImageFromLibrary();
-    if (image) await updateImage(image);
-  };
-
-  const handlePhotoUpload = () => {
-    Alert.alert(
-      "Upload Photo",
-      "Choose an option",
-      [
-        { text: "Take Photo", onPress: handleTakePhoto },
-        { text: "Choose from Gallery", onPress: handleUpload },
-        { text: "Cancel", style: "cancel" },
-      ],
-      { cancelable: true }
-    );
-  };
+  const { theme } = useTheme();
+  const { uploading, promptPhotoUpload } = usePetPhotoUpload(pet);
 
   if (style === "hero") {
     return (
@@ -85,7 +30,7 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
         }}
       >
         <TouchableOpacity
-          onPress={handlePhotoUpload}
+          onPress={promptPhotoUpload}
           activeOpacity={0.9}
           disabled={uploading}
           style={{ width: "100%", aspectRatio: 16 / 10, justifyContent: "center", alignItems: "center" }}
@@ -124,7 +69,6 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
             </View>
           )}
 
-          {/* Camera icon overlay */}
           {pet.photo_url && !uploading && (
             <View
               style={{
@@ -150,7 +94,7 @@ export default function PetImage({ pet, style = "default" }: PetImageProps) {
   return (
     <View style={{ alignItems: "center", marginBottom: 20 }}>
       <TouchableOpacity
-        onPress={handlePhotoUpload}
+        onPress={promptPhotoUpload}
         activeOpacity={0.7}
         disabled={uploading}
         style={{

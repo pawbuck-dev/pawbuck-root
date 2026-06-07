@@ -1,21 +1,23 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
+import BodyTrackerTeaser, { type BodyTrackerSegment } from "@/components/home/BodyTrackerTeaser";
+import TodayHabitPanel from "@/components/home/TodayHabitPanel";
+import HealthNotesFlowConnector from "@/components/home/HealthNotesFlowConnector";
+import HomePetHeroCard from "@/components/home/HomePetHeroCard";
+import HomeSectionHeader from "@/components/home/HomeSectionHeader";
 import PawthonHomeCard from "@/components/home/PawthonHomeCard";
-import PetEmailMoatCard from "@/components/home/PetEmailMoatCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
 } from "@/components/home/CareTeamMemberModal";
-import CatchUpSection from "@/components/home/CatchUpSection";
-import BodyTrackerSection from "@/components/home/BodyTrackerSection";
 import HomeHeader from "@/components/home/HomeHeader";
 import MyCareTeamSection from "@/components/home/MyCareTeamSection";
-import PetImage from "@/components/home/PetImage";
 import PetSelector from "@/components/home/PetSelector";
 import HealthBriefingSummaryCard from "@/components/petJournal/HealthBriefingSummaryCard";
 import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
 import { StreakUpgradeBanner } from "@/components/subscription/StreakUpgradeBanner";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
@@ -30,6 +32,7 @@ import {
 } from "@/services/careTeamMembers";
 import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
+import { fetchHealthBriefingBundle } from "@/services/healthBriefing";
 import { PAWTHON_DEFAULT_GOAL_METERS } from "@/constants/pawthonGoals";
 import {
   fetchMyWeeklyWalkerRankForCountry,
@@ -41,6 +44,10 @@ import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
+import { buildHomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
+import { openMiloJournalCheckIn } from "@/utils/openMiloJournalCheckIn";
+import { computeBriefingCategorySignals } from "@/utils/healthBriefingUi";
+import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import {
   CareTeamMemberType,
   createVetInformation,
@@ -51,7 +58,6 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
@@ -84,10 +90,18 @@ export default function Home() {
   const { user } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(selectedPet?.country);
+  const {
+    aiJournalEntriesRemaining,
+    status: subscriptionStatus,
+    canStartAiJournal,
+    openPaywall,
+    refetchEntitlement,
+  } = useSubscription();
   const queryClient = useQueryClient();
 
-  const [emailCopied, setEmailCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [bodyTrackerExpanded, setBodyTrackerExpanded] = useState(false);
+  const [bodyTrackerSegment, setBodyTrackerSegment] = useState<BodyTrackerSegment>("intake");
   const [showCareTeamModal, setShowCareTeamModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
@@ -122,6 +136,48 @@ export default function Home() {
     queryFn: () => fetchMedicines(selectedPetId!),
     enabled: !!selectedPetId,
   });
+
+  const { data: healthBriefing } = useQuery({
+    queryKey: ["health_briefing", selectedPetId],
+    queryFn: () => fetchHealthBriefingBundle(selectedPetId!),
+    enabled: !!selectedPetId,
+  });
+
+  const todaySnapshot = useMemo(() => {
+    if (!selectedPetId) return null;
+    const vetFlaggedCount =
+      healthBriefing?.journal.filter((j) => journalEntryNeedsTriageAttention(j)).length ?? 0;
+    const categories = healthBriefing
+      ? computeBriefingCategorySignals({
+          weightValue: selectedPet?.weight_value,
+          allergiesCount: healthBriefing.allergies.length,
+          vaccinations: healthBriefing.vaccinations,
+          medicines: healthBriefing.medicines,
+        })
+      : null;
+    return buildHomeTodaySnapshot({
+      petId: selectedPetId,
+      vaccinations,
+      medicines,
+      petCountry: selectedPet?.country,
+      vetFlaggedCount,
+      categories,
+    });
+  }, [selectedPetId, selectedPet, vaccinations, medicines, healthBriefing]);
+
+  const openMiloCheckIn = useCallback(() => {
+    if (!selectedPet) return;
+    if (!canStartAiJournal) {
+      openPaywall({
+        source: "ai_journal",
+        copyVariant: "ai_journal_entry_cap",
+        requiredPlan: "individual",
+      });
+      void refetchEntitlement();
+      return;
+    }
+    openMiloJournalCheckIn(router, selectedPet.id);
+  }, [canStartAiJournal, openPaywall, refetchEntitlement, router, selectedPet]);
 
   const { data: careTeamMembers = [] } = useQuery({
     queryKey: ["care_team_members", selectedPetId],
@@ -236,17 +292,10 @@ export default function Home() {
     })
     .runOnJS(true);
 
-  const handleCopyEmail = useCallback(async () => {
-    if (!selectedPet) return;
-    const email = `${selectedPet.email_id}@pawbuck.app`;
-    await Clipboard.setStringAsync(email);
-    setEmailCopied(true);
-    setTimeout(() => setEmailCopied(false), 2000);
-  }, [selectedPet]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["health_briefing", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["pet_journal_home", selectedPetId] }),
@@ -308,6 +357,7 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       if (selectedPetId) {
+        queryClient.invalidateQueries({ queryKey: ["health_briefing", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["vaccinations", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["medicines", selectedPetId] });
         queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] });
@@ -509,132 +559,138 @@ export default function Home() {
             />
           }
         >
-          {/* 1. Pet selector + profile photo */}
-          <View style={{ marginBottom: 16 }}>
+          {/* Pet selector */}
+          <View style={{ marginBottom: 12 }}>
             <PetSelector
               pets={pets}
               selectedPetId={selectedPetId}
               onSelectPet={handleSelectPet}
               notificationCounts={notificationCounts}
             />
+            {pets.length > 1 ? (
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: theme.secondary,
+                  textAlign: "center",
+                  marginTop: 8,
+                  paddingHorizontal: 20,
+                }}
+              >
+                Swipe anywhere on the screen to switch pets
+              </Text>
+            ) : null}
           </View>
 
-          {selectedPet && (
-            <View style={{ marginBottom: 20 }}>
-              <PetImage pet={selectedPet} style="hero" />
-            </View>
-          )}
-
-          {/* Pet Journal — primary home entry (Milo via bottom nav) */}
-          {selectedPet && (
-            <View style={{ marginBottom: 20, paddingHorizontal: 20 }}>
-              <PetJournalHomeCard pet={selectedPet} />
-            </View>
-          )}
-
-          {/* Health Briefing + journal continuity */}
-          {selectedPet && (
-            <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-              <HealthBriefingSummaryCard
-                petId={selectedPet.id}
-                pet={selectedPet}
-                onPress={() =>
-                  router.push({
-                    pathname: "/(home)/pet-journal/briefing",
-                    params: { petId: selectedPet.id },
-                  } as any)
-                }
-              />
-            </View>
-          )}
-
-          {/* Pet email (moat) + share with vet */}
-          {selectedPet?.email_id ? (
-            <PetEmailMoatCard
-              petName={selectedPet.name}
-              emailLocalPart={selectedPet.email_id}
-              onCopy={handleCopyEmail}
-              copied={emailCopied}
-            />
-          ) : null}
-
-          {/* Catch up */}
-          {selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <CatchUpSection
-                petId={selectedPet.id}
-                vaccinations={vaccinations}
-                medicines={medicines}
-                petCountry={selectedPet.country}
-              />
-            </View>
-          )}
-
-          {/* Body Tracker */}
-          {selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <BodyTrackerSection petId={selectedPet.id} />
-            </View>
-          )}
-
-          {/* Daily walking goal (compact) */}
-          {selectedPet && (
-            <PawthonHomeCard
-              variant="compact"
-              petName={selectedPet.name}
-              goalMeters={goalMeters}
-              todayMeters={pawthonHome?.todayMeters ?? 0}
-              lastWalk={pawthonHome?.lastWalk ?? null}
-              onStartWalk={() => router.push("/pawthon-walk")}
-              onViewLog={() => router.push("/(home)/pawthon/history" as any)}
-              onViewLastWalk={() => {
-                const id = pawthonHome?.lastWalk?.id;
-                if (id) router.push(`/(home)/pawthon/walk/${id}` as any);
-              }}
-            />
-          )}
-
-          {/* Streak milestone upgrade prompt (Free, 10+ day streak) */}
           {selectedPet ? (
-            <StreakUpgradeBanner
-              streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
-            />
-          ) : null}
+            <>
+              {todaySnapshot ? (
+                <HomePetHeroCard
+                  pet={selectedPet}
+                  snapshot={todaySnapshot}
+                  streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
+                  onCheckInWithMilo={openMiloCheckIn}
+                  aiJournalEntriesRemaining={aiJournalEntriesRemaining}
+                  aiJournalEntriesUsed={subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0}
+                />
+              ) : null}
 
-          {/* Weekly Challenge — only when enough walkers in pet's country */}
-          {weeklyChallengeEnabled && selectedPet && (
-            <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-              <WeeklyChallengeCard
-                petName={selectedPet.name}
-                weekKm={pawthonHome?.weekKm ?? pawthonStats?.weekKm ?? 0}
+              <HomeSectionHeader
+                title="Health"
+                subtitle="Notes in → vet briefing out"
+              />
+
+              <TodayHabitPanel
+                petId={selectedPet.id}
                 streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
-                walkerRank={weeklyWalkerRank?.rank ?? null}
-                walkerTotal={weeklyWalkerRank?.total ?? 0}
-                  onPress={() => router.push("/(home)/pawthon/weekly" as any)}
+                onOpenBodyTracker={(segment) => {
+                  setBodyTrackerSegment(segment ?? "intake");
+                  setBodyTrackerExpanded(true);
+                }}
               />
-            </View>
-          )}
 
-          {/* Book a vet visit (hidden until re-enabled) */}
-          {SHOW_VET_BOOKING_UI && selectedPet && (
-            <View style={{ marginBottom: 24 }}>
-              <BookVetVisitSection
+              <View style={{ marginBottom: 0, paddingHorizontal: 20 }}>
+                <PetJournalHomeCard pet={selectedPet} variant="recent" />
+              </View>
+
+              <HealthNotesFlowConnector />
+
+              <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+                <HealthBriefingSummaryCard
+                  petId={selectedPet.id}
+                  pet={selectedPet}
+                  title="Vet briefing"
+                  hidePetAvatar
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(home)/pet-journal/briefing",
+                      params: { petId: selectedPet.id },
+                    } as any)
+                  }
+                />
+              </View>
+
+              <HomeSectionHeader title="Activity" subtitle="Walks and daily wellness habits" />
+
+              <PawthonHomeCard
+                variant="compact"
+                tone="subtle"
                 petName={selectedPet.name}
-                onSchedule={() => router.push("/book-vet-visit" as any)}
+                goalMeters={goalMeters}
+                todayMeters={pawthonHome?.todayMeters ?? 0}
+                lastWalk={pawthonHome?.lastWalk ?? null}
+                onStartWalk={() => router.push("/pawthon-walk")}
+                onViewLog={() => router.push("/(home)/pawthon/history" as any)}
+                onViewLastWalk={() => {
+                  const id = pawthonHome?.lastWalk?.id;
+                  if (id) router.push(`/(home)/pawthon/walk/${id}` as any);
+                }}
               />
-            </View>
-          )}
 
-          {/* My Care Team */}
-          {selectedPet && (
-            <View style={{ marginBottom: 32 }}>
-              <MyCareTeamSection
-                careTeamMembers={careTeamMembers}
-                onAddMember={handleAddCareTeamMember}
-                onEditMember={handleEditCareTeamMember}
+              <BodyTrackerTeaser
+                petId={selectedPet.id}
+                expanded={bodyTrackerExpanded}
+                onExpandedChange={setBodyTrackerExpanded}
+                initialSegment={bodyTrackerSegment}
               />
-            </View>
-          )}
+
+              <StreakUpgradeBanner
+                streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
+              />
+
+              {weeklyChallengeEnabled ? (
+                <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+                  <WeeklyChallengeCard
+                    petName={selectedPet.name}
+                    weekKm={pawthonHome?.weekKm ?? pawthonStats?.weekKm ?? 0}
+                    streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
+                    walkerRank={weeklyWalkerRank?.rank ?? null}
+                    walkerTotal={weeklyWalkerRank?.total ?? 0}
+                    onPress={() => router.push("/(home)/pawthon/weekly" as any)}
+                  />
+                </View>
+              ) : null}
+
+              {SHOW_VET_BOOKING_UI ? (
+                <View style={{ marginBottom: 24 }}>
+                  <BookVetVisitSection
+                    petName={selectedPet.name}
+                    onSchedule={() => router.push("/book-vet-visit" as any)}
+                  />
+                </View>
+              ) : null}
+
+              <HomeSectionHeader title="Care team" subtitle="Vets and caregivers on file" />
+
+              <View style={{ marginBottom: 32 }}>
+                <MyCareTeamSection
+                  careTeamMembers={careTeamMembers}
+                  onAddMember={handleAddCareTeamMember}
+                  onEditMember={handleEditCareTeamMember}
+                />
+              </View>
+            </>
+          ) : null}
 
           <View style={{ height: 8 }} />
         </ScrollView>

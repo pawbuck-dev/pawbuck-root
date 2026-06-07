@@ -28,9 +28,22 @@ type Props = {
   petId: string;
   pet: Pet | undefined;
   onPress: () => void;
+  /** When set, replaces default helper line under title. */
+  helperText?: string;
+  /** Home dashboard: hide duplicate pet photo; show Milo output icon instead. */
+  hidePetAvatar?: boolean;
+  /** Override card title (e.g. "Vet briefing" on home). */
+  title?: string;
 };
 
-export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props) {
+export default function HealthBriefingSummaryCard({
+  petId,
+  pet,
+  onPress,
+  helperText,
+  hidePetAvatar = false,
+  title = "Health Briefing",
+}: Props) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const [subtitleExpanded, setSubtitleExpanded] = useState(false);
@@ -103,6 +116,59 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
   if (!pet) return null;
 
   const summaryReady = !!data && !!categories;
+  const journalNoteCount = data?.journal?.length ?? 0;
+  const needsJournalForBriefing = summaryReady && journalNoteCount === 0;
+
+  const headerIcon = hidePetAvatar ? (
+    <View
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        marginRight: 12,
+        backgroundColor: isDark ? "rgba(56, 189, 189, 0.2)" : "rgba(59, 208, 210, 0.18)",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Ionicons name="document-text" size={22} color={theme.primary} />
+    </View>
+  ) : (
+    <View style={{ position: "relative", marginRight: 12 }}>
+      <View
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          overflow: "hidden",
+          borderWidth: 2,
+          borderColor: theme.primary,
+          backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+        }}
+      >
+        {pet.photo_url ? (
+          <PrivateImage bucketName="pets" filePath={pet.photo_url} style={{ width: 48, height: 48 }} />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="paw" size={22} color={theme.secondary} />
+          </View>
+        )}
+      </View>
+      <View
+        style={{
+          position: "absolute",
+          right: -1,
+          bottom: -1,
+          width: 14,
+          height: 14,
+          borderRadius: 7,
+          backgroundColor: "#22C55E",
+          borderWidth: 2,
+          borderColor: isDark ? theme.background : "#FFFFFF",
+        }}
+      />
+    </View>
+  );
 
   return (
     <TouchableOpacity
@@ -118,55 +184,37 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-        <View style={{ position: "relative", marginRight: 12 }}>
-          <View
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              overflow: "hidden",
-              borderWidth: 2,
-              borderColor: theme.primary,
-              backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-            }}
-          >
-            {pet.photo_url ? (
-              <PrivateImage bucketName="pets" filePath={pet.photo_url} style={{ width: 48, height: 48 }} />
-            ) : (
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name="paw" size={22} color={theme.secondary} />
-              </View>
-            )}
-          </View>
-          <View
-            style={{
-              position: "absolute",
-              right: -1,
-              bottom: -1,
-              width: 14,
-              height: 14,
-              borderRadius: 7,
-              backgroundColor: "#22C55E",
-              borderWidth: 2,
-              borderColor: isDark ? theme.background : "#FFFFFF",
-            }}
-          />
-        </View>
+        {headerIcon}
 
         <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+          {hidePetAvatar ? (
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "700",
+                letterSpacing: 0.6,
+                color: theme.secondary,
+                marginBottom: 4,
+              }}
+            >
+              OUTPUT
+            </Text>
+          ) : null}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>Health Briefing</Text>
+            <Text style={{ fontSize: 17, fontWeight: "700", color: theme.foreground }}>{title}</Text>
             <Ionicons name="sparkles" size={18} color={theme.primary} />
           </View>
           <View style={{ marginTop: 4 }}>
             <Text style={{ fontSize: 13, color: theme.secondary }}>
-              {isPending && !data
-                ? pendingSubtitle
-                : subtitleExpanded
-                  ? subtitle
-                  : subtitleCollapsed.preview}
+              {needsJournalForBriefing
+                ? "Add a daily note above and Milo will enrich this summary."
+                : isPending && !data
+                  ? pendingSubtitle
+                  : subtitleExpanded
+                    ? subtitle
+                    : subtitleCollapsed.preview}
             </Text>
-            {!isPending && data && subtitleCollapsed.truncated && !subtitleExpanded ? (
+            {!needsJournalForBriefing && !isPending && data && subtitleCollapsed.truncated && !subtitleExpanded ? (
               <TouchableOpacity
                 onPress={() => setSubtitleExpanded(true)}
                 hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
@@ -176,7 +224,7 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
               </TouchableOpacity>
             ) : null}
           </View>
-          {lastJournalLine ? (
+          {lastJournalLine && !needsJournalForBriefing ? (
             <Text
               style={{
                 fontSize: 12,
@@ -189,9 +237,12 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
               {lastJournalLine}
             </Text>
           ) : null}
-          <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 6, lineHeight: 17 }}>
-            Vet-ready summary from journal notes, allergies, conditions, vaccines & meds.
-          </Text>
+          {!hidePetAvatar ? (
+            <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 6, lineHeight: 17 }}>
+              {helperText ??
+                "Vet-ready summary from journal notes, allergies, conditions, vaccines & meds."}
+            </Text>
+          ) : null}
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -236,6 +287,40 @@ export default function HealthBriefingSummaryCard({ petId, pet, onPress }: Props
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 28 }}>
           <ActivityIndicator color={theme.primary} />
           <Text style={{ fontSize: 12, color: theme.secondary }}>Loading health snapshot…</Text>
+        </View>
+      ) : needsJournalForBriefing ? (
+        <View style={{ gap: 12 }}>
+          <View
+            style={{
+              paddingVertical: 12,
+              paddingHorizontal: 12,
+              borderRadius: 12,
+              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            }}
+          >
+            <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 19 }}>
+              Records and vaccines still appear here. Daily notes help Milo explain recent changes at the vet.
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
+            {categories!.map((c) => (
+              <View
+                key={c.key}
+                style={{ flexDirection: "row", alignItems: "center", marginRight: 12, marginBottom: 4 }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: c.ok ? "#22C55E" : "#F97316",
+                    marginRight: 6,
+                  }}
+                />
+                <Text style={{ fontSize: 12, color: theme.secondary }}>{CATEGORY_LABEL[c.key]}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

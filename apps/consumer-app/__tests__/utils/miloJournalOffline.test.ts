@@ -42,6 +42,22 @@ describe("getOfflineJournalTurn", () => {
     expect(r.structuredFields?.SYMPTOM).toBeDefined();
   });
 
+  it("check-in start asks what to note, not symptom duration", () => {
+    const r = getOfflineJournalTurn(["start_checkin"], "Milo");
+    expect(r.journalSessionComplete).toBe(false);
+    expect(r.answer).toContain("note about Milo");
+    expect(r.answer).not.toContain("How long has this been going on");
+    expect(r.suggestedReplies).toContain("All good today");
+  });
+
+  it("eye or ear chip starts eye/ear offline flow, not generic duration", () => {
+    const r = getOfflineJournalTurn(["Eye or ear issue"], "Milo");
+    expect(r.journalSessionComplete).toBe(false);
+    expect(r.answer).toContain("eye or ear");
+    expect(r.suggestedReplies).toContain("Eye");
+    expect(r.answer).not.toContain("How long has this been going on");
+  });
+
   it("generic flow completes on third turn", () => {
     const r = getOfflineJournalTurn(["something vague", "a couple of days", "Nothing else"], "Rex");
     expect(r.journalSessionComplete).toBe(true);

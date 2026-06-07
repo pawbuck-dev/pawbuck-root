@@ -27,9 +27,22 @@ export function isDietLogText(text: string): boolean {
   return false;
 }
 
-/** Meal / water logging — not a symptom interview. */
+/** Routine meal / water logging — not a symptom interview. */
 export function isRoutineJournalLogText(text: string): boolean {
+  if (isJournalCheckInStartText(text)) return false;
   if (isLogIntentText(text) && (isDietLogText(text) || isHydrationLogText(text))) return true;
   if (isHydrationLogText(text) && /\bglass(es)?\b/.test(normalize(text))) return true;
   return false;
+}
+
+/** Home “Check in with Milo” opener — not a symptom report. */
+export function isJournalCheckInStartText(text: string): boolean {
+  const h = normalize(text);
+  if (!h) return false;
+  return (
+    h.includes("health check-in") ||
+    h.includes("check-in for today") ||
+    h.includes("starting today's check-in") ||
+    h === "start_checkin"
+  );
 }

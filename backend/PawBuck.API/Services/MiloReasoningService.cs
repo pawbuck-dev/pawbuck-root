@@ -109,11 +109,15 @@ public class MiloReasoningService : IMiloReasoningService
         if (request.JournalMode && petId.HasValue && petHasAccess)
         {
             var petDisplayName = request.Pet?.Name?.Trim() ?? "your pet";
+            var journalConfig = await _journalConfig.GetAsync(cancellationToken);
+
+            if (string.Equals(request.JournalAction, "start_checkin", StringComparison.OrdinalIgnoreCase))
+                return BuildJournalTopicPickerResponse(petDisplayName, journalConfig.PromptVersion);
+
             var routineResponse = JournalRoutineLogHelper.TryBuildOneShotResponse(message, petDisplayName);
             if (routineResponse != null)
                 return routineResponse;
 
-            var journalConfig = await _journalConfig.GetAsync(cancellationToken);
             MiloChatResponse? treeResponse = null;
             try
             {
@@ -133,25 +137,10 @@ public class MiloReasoningService : IMiloReasoningService
                 return treeResponse;
 
             if (journalConfig.JournalTreeInterviewEnabled
-                && !Guid.TryParse(request.JournalSessionId, out _))
+                && !Guid.TryParse(request.JournalSessionId, out _)
+                && !IsExplicitJournalTopicSelection(request))
             {
-                return new MiloChatResponse
-                {
-                    Answer =
-                        $"Tell me what's going on with {request.Pet?.Name?.Trim() ?? "your pet"} — pick a topic or describe it in your own words.",
-                    SuggestedReplies =
-                    [
-                        "Vomiting or diarrhea",
-                        "Lethargic today",
-                        "Changed appetite",
-                        "Scratching a lot",
-                        "Limping",
-                        "Coughing",
-                        "Eye or ear issue",
-                    ],
-                    JournalStatus = "CONTINUE",
-                    PromptVersion = journalConfig.PromptVersion,
-                };
+                return BuildJournalTopicPickerResponse(petDisplayName, journalConfig.PromptVersion);
             }
 
             var journalResponse = await RunJournalInterviewAsync(
@@ -346,7 +335,7 @@ public class MiloReasoningService : IMiloReasoningService
             - Breed: {pet.Breed}
             - Age: {age}
             - Sex: {pet.Sex}
-            - Weight: {pet.WeightValue} {pet.WeightUnit}
+            - Weight: {(pet.WeightValue.HasValue ? $"{pet.WeightValue} {pet.WeightUnit}" : "unknown")}
 
             Pet health facts (when provided below) come only from this pet's authorized records.{viewOnlyNote}
             """;
@@ -1139,5 +1128,64 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         }
 
         return text;
+    }
+
+    private static bool IsExplicitJournalTopicSelection(MiloChatRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.JournalTreeId))
+            return true;
+
+        var msg = (request.Message ?? "").Trim();
+        if (string.IsNullOrEmpty(msg))
+            return false;
+
+        foreach (var chip in JournalTopicPickerChips)
+        {
+            if (string.Equals(msg, chip, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        var t = msg.ToLowerInvariant();
+        if (t.Contains("vomit") || t.Contains("diarr") || t.Contains("throw up"))
+            return true;
+        if (t.Contains("letharg") || t.Contains("low energy") || t.Contains("tired"))
+            return true;
+        if (t.Contains("appetite") || t.Contains("off food") || t.Contains("not eating"))
+            return true;
+        if (t.Contains("itch") || t.Contains("scratch"))
+            return true;
+        if (t.Contains("limp") || t.Contains("lameness"))
+            return true;
+        if (t.Contains("cough") || t.Contains("breath"))
+            return true;
+        if (t.Contains("eye") || t.Contains("ear"))
+            return true;
+
+        return false;
+    }
+
+    private static readonly string[] JournalTopicPickerChips =
+    [
+        "All good today",
+        "Vomiting or diarrhea",
+        "Lethargic today",
+        "Changed appetite",
+        "Scratching a lot",
+        "Limping",
+        "Coughing",
+        "Eye or ear issue",
+    ];
+
+    private static MiloChatResponse BuildJournalTopicPickerResponse(string petDisplayName, string? promptVersion)
+    {
+        var name = string.IsNullOrWhiteSpace(petDisplayName) ? "your pet" : petDisplayName.Trim();
+        return new MiloChatResponse
+        {
+            Answer =
+                $"What would you like to note about {name} today? Pick a topic or describe it in your own words.",
+            SuggestedReplies = JournalTopicPickerChips,
+            JournalStatus = "CONTINUE",
+            PromptVersion = promptVersion,
+        };
     }
 }

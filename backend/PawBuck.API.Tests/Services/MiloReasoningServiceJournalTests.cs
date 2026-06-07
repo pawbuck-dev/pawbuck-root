@@ -205,6 +205,24 @@ public class MiloReasoningServiceJournalTests
     }
 
     [Fact]
+    public async Task ChatAsync_JournalMode_StartCheckIn_ReturnsTopicPickerWithoutGemini()
+    {
+        var handler = new GeminiTestHandler { InnerTextPart = "should not be called" };
+        var sut = CreateService(handler, ConfigMock(), ContextMock(), TurnMock());
+
+        var request = JournalRequest("start");
+        request.JournalAction = "start_checkin";
+
+        var response = await sut.ChatAsync(UserId, request, CancellationToken.None);
+
+        response.JournalSessionComplete.Should().BeFalse();
+        response.Answer.Should().Contain("Rex");
+        response.Answer.Should().Contain("note about Rex");
+        response.SuggestedReplies.Should().Contain("All good today");
+        response.SuggestedReplies.Should().Contain("Vomiting or diarrhea");
+    }
+
+    [Fact]
     public async Task ChatAsync_JournalMode_WhenInnerTextIsNotValidJson_ReturnsGenericSorryMessage()
     {
         var handler = new GeminiTestHandler { InnerTextPart = "not valid json {{{" };

@@ -72,7 +72,7 @@ public class MiloPetContextDto
     public string? Sex { get; set; }
 
     [JsonPropertyName("weight_value")]
-    public double WeightValue { get; set; }
+    public double? WeightValue { get; set; }
 
     [JsonPropertyName("weight_unit")]
     public string? WeightUnit { get; set; }
