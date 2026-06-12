@@ -1,7 +1,11 @@
 import { IntakeProgressRing } from "@/components/home/IntakeProgressRing";
+import { habitRingPercent } from "@/constants/habitRingColors";
+import StartWalkSlider from "@/components/home/StartWalkSlider";
+import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
 import { useTheme } from "@/context/themeContext";
 import { getDailyIntake, updateDailyIntake, type DailyIntake } from "@/services/dailyIntake";
 import { buildTodayHabitSummary, formatTodayDateLine } from "@/utils/todayHabitSummary";
+import type { TodayDashboardProgress } from "@/utils/todayDashboardProgress";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useCallback } from "react";
@@ -11,22 +15,29 @@ export type BodyTrackerSegment = "intake" | "output" | "weight";
 
 type Props = {
   petId: string;
+  petName?: string;
+  todayProgress?: TodayDashboardProgress;
   streakDays?: number;
-  /** Opens full body tracker (weight, photos, quality tags). */
+  walkGoalMeters?: number;
+  walkTodayMeters?: number;
+  onStartWalk?: () => void;
+  onViewWalkLog?: () => void;
   onOpenBodyTracker?: (segment?: BodyTrackerSegment) => void;
   showDateHeader?: boolean;
-  /** When true, parent supplies horizontal padding (e.g. Pet Journal scroll). */
   embedded?: boolean;
 };
 
-function pct(count: number, target: number): number {
-  if (target <= 0) return 0;
-  return Math.round((Math.min(count, target) / target) * 100);
-}
+const HABIT_RING_SIZE = 58;
 
 export default function TodayHabitPanel({
   petId,
+  petName,
+  todayProgress,
   streakDays = 0,
+  walkGoalMeters = 0,
+  walkTodayMeters = 0,
+  onStartWalk,
+  onViewWalkLog,
   onOpenBodyTracker,
   showDateHeader = true,
   embedded = false,
@@ -65,6 +76,8 @@ export default function TodayHabitPanel({
   const waterTarget = intake?.water_target ?? 4;
   const poopCount = intake?.poop_count ?? 0;
   const peeCount = intake?.pee_count ?? 0;
+  const poopTarget = intake?.poop_target ?? 6;
+  const peeTarget = intake?.pee_target ?? 6;
 
   const bumpFood = useCallback(() => {
     if (foodIntake >= foodTarget) {
@@ -82,16 +95,25 @@ export default function TodayHabitPanel({
     mutation.mutate({ water_intake: waterIntake + 1 });
   }, [waterIntake, waterTarget, mutation, onOpenBodyTracker]);
 
-  const bumpOutput = useCallback(
-    (kind: "poop" | "pee") => {
-      if (kind === "poop") {
-        mutation.mutate({ poop_count: poopCount + 1 });
-      } else {
-        mutation.mutate({ pee_count: peeCount + 1 });
-      }
-    },
-    [mutation, poopCount, peeCount]
-  );
+  const bumpPoop = useCallback(() => {
+    if (poopCount >= poopTarget) {
+      onOpenBodyTracker?.("output");
+      return;
+    }
+    mutation.mutate({ poop_count: poopCount + 1 });
+  }, [poopCount, poopTarget, mutation, onOpenBodyTracker]);
+
+  const bumpPee = useCallback(() => {
+    if (peeCount >= peeTarget) {
+      onOpenBodyTracker?.("output");
+      return;
+    }
+    mutation.mutate({ pee_count: peeCount + 1 });
+  }, [peeCount, peeTarget, mutation, onOpenBodyTracker]);
+
+  const walkProgress = walkGoalMeters > 0 ? Math.min(1, walkTodayMeters / walkGoalMeters) : 0;
+  const todayMi = formatMiles(metersToMiles(walkTodayMeters));
+  const goalMi = formatMiles(metersToMiles(walkGoalMeters));
 
   const borderStyle =
     Platform.OS === "android"
@@ -129,27 +151,12 @@ export default function TodayHabitPanel({
             <Text style={{ fontSize: 13, color: theme.secondary }}>{formatTodayDateLine()}</Text>
           </View>
           {streakDays >= 3 ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 100,
-                backgroundColor: isDark ? "rgba(249,115,22,0.15)" : "rgba(249,115,22,0.1)",
-              }}
-            >
-              <Text style={{ fontSize: 12 }}>🔥</Text>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: "#EA580C" }}>
-                {streakDays}-day streak
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#EA580C" }}>🔥 {streakDays}d</Text>
           ) : null}
         </View>
       ) : null}
 
-      <Text style={{ fontSize: 14, color: theme.secondary, lineHeight: 20, marginBottom: 14 }}>
+      <Text style={{ fontSize: 14, color: theme.secondary, lineHeight: 20, marginBottom: 12 }}>
         {summary}
       </Text>
 
@@ -157,48 +164,12 @@ export default function TodayHabitPanel({
         <ActivityIndicator color={theme.primary} style={{ marginVertical: 12 }} />
       ) : (
         <>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: "700",
-              letterSpacing: 0.6,
-              color: theme.secondary,
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
-          >
-            Intake
-          </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-around",
-              paddingHorizontal: 8,
-              marginBottom: 16,
-            }}
-          >
-            <IntakeProgressRing
-              emoji="🍚"
-              label="Food"
-              value={`${foodIntake}/${foodTarget}`}
-              percent={pct(foodIntake, foodTarget)}
-              onPress={bumpFood}
-            />
-            <IntakeProgressRing
-              emoji="💧"
-              label="Water"
-              value={`${waterIntake}/${waterTarget}`}
-              percent={pct(waterIntake, waterTarget)}
-              onPress={bumpWater}
-            />
-          </View>
-
           <View
             style={{
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 8,
+              marginBottom: 10,
             }}
           >
             <Text
@@ -210,78 +181,98 @@ export default function TodayHabitPanel({
                 textTransform: "uppercase",
               }}
             >
-              Output
+              Intake & output
             </Text>
-            <Text style={{ fontSize: 11, color: theme.secondary }}>tap to log · hold for details</Text>
+            {onOpenBodyTracker ? (
+              <Text style={{ fontSize: 11, color: theme.secondary }}>hold poop/pee → Health Records</Text>
+            ) : null}
           </View>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <Pressable
-              onPress={() => bumpOutput("poop")}
-              onLongPress={() => onOpenBodyTracker?.("output")}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                padding: 14,
-                borderRadius: 14,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Poop, ${poopCount} today`}
-            >
-              <Text style={{ fontSize: 22 }}>💩</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: theme.foreground }}>Poop</Text>
-                <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
-                  {poopCount === 0 ? "0 today" : `${poopCount} today`}
-                </Text>
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={() => bumpOutput("pee")}
-              onLongPress={() => onOpenBodyTracker?.("output")}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                padding: 14,
-                borderRadius: 14,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Pee, ${peeCount} today`}
-            >
-              <Text style={{ fontSize: 22 }}>💦</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: theme.foreground }}>Pee</Text>
-                <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
-                  {peeCount === 0 ? "0 today" : `${peeCount} today`}
-                </Text>
-              </View>
-            </Pressable>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              paddingHorizontal: 2,
+              marginBottom: 14,
+            }}
+          >
+            <IntakeProgressRing
+              emoji="🍚"
+              label="Food"
+              value={`${foodIntake}/${foodTarget}`}
+              percent={habitRingPercent(foodIntake, foodTarget)}
+              variant="food"
+              onPress={bumpFood}
+              size={HABIT_RING_SIZE}
+            />
+            <IntakeProgressRing
+              emoji="💧"
+              label="Water"
+              value={`${waterIntake}/${waterTarget}`}
+              percent={habitRingPercent(waterIntake, waterTarget)}
+              variant="water"
+              onPress={bumpWater}
+              size={HABIT_RING_SIZE}
+            />
+            <IntakeProgressRing
+              emoji="💩"
+              label="Poop"
+              value={`${poopCount}/${poopTarget}`}
+              percent={habitRingPercent(poopCount, poopTarget)}
+              variant="poop"
+              onPress={bumpPoop}
+              onLongPress={onOpenBodyTracker ? () => onOpenBodyTracker("output") : undefined}
+              size={HABIT_RING_SIZE}
+            />
+            <IntakeProgressRing
+              emoji="💦"
+              label="Pee"
+              value={`${peeCount}/${peeTarget}`}
+              percent={habitRingPercent(peeCount, peeTarget)}
+              variant="pee"
+              onPress={bumpPee}
+              onLongPress={onOpenBodyTracker ? () => onOpenBodyTracker("output") : undefined}
+              size={HABIT_RING_SIZE}
+            />
           </View>
 
-          {onOpenBodyTracker ? (
-            <Pressable
-              onPress={() => onOpenBodyTracker("weight")}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                marginTop: 14,
-                paddingVertical: 8,
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Open body tracker for weight and photos"
-            >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: theme.primary }}>
-                Weight, photos & details
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={theme.primary} />
-            </Pressable>
+          {onStartWalk ? (
+            <>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "700",
+                    letterSpacing: 0.6,
+                    color: theme.secondary,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Walk
+                </Text>
+                {onViewWalkLog ? (
+                  <Pressable onPress={onViewWalkLog} hitSlop={8}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: theme.primary }}>Walk log</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <StartWalkSlider
+                onStartWalk={onStartWalk}
+                walkProgress={walkProgress}
+                todayMi={todayMi}
+                goalMi={goalMi}
+                walkGoalMeters={walkGoalMeters}
+                goalMet={todayProgress?.walkDone}
+                petName={petName}
+              />
+            </>
           ) : null}
         </>
       )}

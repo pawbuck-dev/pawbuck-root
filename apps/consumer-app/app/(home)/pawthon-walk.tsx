@@ -920,7 +920,7 @@ export default function PawthonWalkScreen() {
             ref={completeMapCaptureRef}
             collapsable={false}
             style={{
-              height: 200,
+              height: 240,
               borderRadius: 20,
               overflow: "hidden",
               marginBottom: 20,

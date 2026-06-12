@@ -1,6 +1,7 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import HealthRecordsSection from "@/components/home/HealthRecordsSection";
 import PetSelector from "@/components/home/PetSelector";
+import BodyTrackerHubCard from "@/components/health/BodyTrackerHubCard";
 import DocumentsAndIdSection from "@/components/health/DocumentsAndIdSection";
 import HealthRecordsAttentionBanner from "@/components/health/HealthRecordsAttentionBanner";
 import { useChat } from "@/context/chatContext";
@@ -158,6 +159,8 @@ export default function HealthRecordsHubScreen() {
             variant="hub"
             showTitle={false}
           />
+
+          {displayPetId ? <BodyTrackerHubCard petId={displayPetId} /> : null}
 
           <DocumentsAndIdSection pet={pet} />
         </View>

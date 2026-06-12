@@ -82,8 +82,6 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
           <View
             style={{
               height: routeHeight,
-              alignItems: "center",
-              justifyContent: "center",
               marginBottom: 14,
               borderRadius: 16,
               overflow: "hidden",
@@ -91,26 +89,28 @@ export const PawthonWalkShareCard = React.forwardRef<View, PawthonWalkShareCardP
             }}
           >
             {payload.mapSnapshotUri ? (
-              <>
-                <Image
-                  source={{ uri: payload.mapSnapshotUri }}
-                  style={StyleSheet.absoluteFillObject}
-                  contentFit="cover"
+              <Image
+                source={{ uri: payload.mapSnapshotUri }}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+                accessibilityLabel="Map of your walk route on the street"
+              />
+            ) : (
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 8,
+                }}
+              >
+                <PawthonWalkRouteGraphic
+                  path={payload.path}
+                  width={width - 48}
+                  height={routeHeight - 16}
                 />
-                <View
-                  style={{
-                    ...StyleSheet.absoluteFillObject,
-                    backgroundColor: "rgba(0,0,0,0.12)",
-                  }}
-                />
-              </>
-            ) : null}
-            <PawthonWalkRouteGraphic
-              path={payload.path}
-              width={width - 48}
-              height={routeHeight - 16}
-              strokeColor={payload.mapSnapshotUri ? "#FFFFFF" : undefined}
-            />
+              </View>
+            )}
           </View>
 
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>

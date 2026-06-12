@@ -12,7 +12,8 @@ import { captureRef } from "react-native-view-shot";
 
 export async function captureWalkMapSnapshot(mapRef: RefObject<View | null>): Promise<string | null> {
   try {
-    await new Promise((r) => setTimeout(r, 350));
+    // Let expo-maps tiles, camera, and route polyline finish rendering before capture.
+    await new Promise((r) => setTimeout(r, 700));
     const uri = await captureRef(mapRef, {
       format: "png",
       quality: 0.92,

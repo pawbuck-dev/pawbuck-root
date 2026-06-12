@@ -1,3 +1,5 @@
+import type { HabitRingVariant } from "@/constants/habitRingColors";
+import { HABIT_RING_STROKE } from "@/constants/habitRingColors";
 import { useTheme } from "@/context/themeContext";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
@@ -9,7 +11,9 @@ type Props = {
   value: string;
   /** 0–100 */
   percent: number;
+  variant: HabitRingVariant;
   onPress?: () => void;
+  onLongPress?: () => void;
   size?: number;
 };
 
@@ -18,12 +22,14 @@ export function IntakeProgressRing({
   label,
   value,
   percent,
+  variant,
   onPress,
+  onLongPress,
   size = 64,
 }: Props) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
-  const stroke = theme.primary;
+  const stroke = HABIT_RING_STROKE[variant];
   const track = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const r = size * 0.39;
   const cx = size / 2;
@@ -31,6 +37,7 @@ export function IntakeProgressRing({
   const circumference = 2 * Math.PI * r;
   const clamped = Math.min(100, Math.max(0, percent));
   const dashOffset = circumference - (circumference * clamped) / 100;
+  const goalMet = clamped >= 100;
 
   const inner = (
     <View style={{ alignItems: "center", gap: 8 }}>
@@ -48,6 +55,7 @@ export function IntakeProgressRing({
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={dashOffset}
             transform={`rotate(-90 ${cx} ${cy})`}
+            opacity={goalMet ? 1 : 0.95}
           />
         </Svg>
         <Text style={{ fontSize: size * 0.28 }}>{emoji}</Text>
@@ -59,11 +67,12 @@ export function IntakeProgressRing({
     </View>
   );
 
-  if (!onPress) return inner;
+  if (!onPress && !onLongPress) return inner;
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${value}. Tap to log.`}
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
