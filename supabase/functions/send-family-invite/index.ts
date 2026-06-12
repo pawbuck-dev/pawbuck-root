@@ -6,22 +6,17 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { errorResponse, handleCorsRequest, jsonResponse } from "../_shared/cors.ts";
+import {
+  buildFamilyInviteAcceptUrl,
+  buildFamilyInviteEmailBodies,
+  isPetFamilyRole,
+  looksLikeEmail,
+  type PetFamilyRole,
+} from "../_shared/familyInviteValidation.ts";
 import { createSupabaseClient, createUserSupabaseClient } from "../_shared/supabase-utils.ts";
 import { sendTransactionalEmailMailgun } from "../_shared/mailgun-transactional.ts";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://pawbuck.app";
-
-const ALLOWED_ROLES = ["view_only", "contributor", "admin"] as const;
-type PetFamilyRole = (typeof ALLOWED_ROLES)[number];
-
-function looksLikeEmail(s: string): boolean {
-  const t = s.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
-}
-
-function isPetFamilyRole(s: string): s is PetFamilyRole {
-  return (ALLOWED_ROLES as readonly string[]).includes(s);
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -159,17 +154,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const token = inserted?.token as string;
-  const acceptUrl = `${APP_URL.replace(/\/$/, "")}/accept-invite?token=${encodeURIComponent(token)}`;
-  const subject = `You're invited to ${petName}'s care team on PawBuck`;
-  const text =
-    `${inviterDisplay} has invited you to join ${petName}'s care team on PawBuck.\n\n` +
-    `Accept (valid until invite expires): ${acceptUrl}\n\n` +
-    `If you did not expect this, you can ignore this email.`;
-
-  const html =
-    `<p>${escapeHtml(inviterDisplay)} has invited you to join <strong>${escapeHtml(petName)}</strong>'s care team on PawBuck.</p>` +
-    `<p><a href="${escapeHtml(acceptUrl)}">Click here to accept</a></p>` +
-    `<p style="color:#666;font-size:12px">If you did not expect this, you can ignore this email.</p>`;
+  const acceptUrl = buildFamilyInviteAcceptUrl(APP_URL, token);
+  const { subject, text, html } = buildFamilyInviteEmailBodies({
+    inviterDisplay,
+    petName,
+    acceptUrl,
+  });
 
   const mail = await sendTransactionalEmailMailgun({
     to: email,
@@ -188,11 +178,3 @@ Deno.serve(async (req: Request) => {
     emailSent: mail.ok,
   });
 });
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}

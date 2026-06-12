@@ -14,8 +14,13 @@ Journey spec: [pet-transfer-recipient-journey.md](plans/pet-transfer-recipient-j
 | Preview RPC | `petTransfers.preview.test.ts` | Code trim/uppercase, payload parsing, null/error paths |
 | Service layer | `petTransfers.service.test.ts` | Create, verify, decline, accept RPC calls, cancel, prep snapshot, history |
 | Feature gates | `featureGates.test.ts` | `pet_transfer_create` / `pet_transfer_accept` keys |
+| Wizard (RTL) | `transfer-pet-wizard.test.tsx` | Step 1 verify; step 2 preview + accept/decline |
 
-**Not automated today:** UI screens (`transfer-pet.tsx`, `transfer-pet/step2.tsx`), QR scan (stub), Edge `pet-transfer-notify`, full two-account E2E.
+**Not automated today:** QR scan (stub), Edge notify delivery, Maestro (optional staging).
+
+## Supabase RPC integration
+
+See `tools/family-access-integration/` and `pnpm run family-access:integration` (requires `supabase start`).
 
 ## Manual E2E checklist (two accounts recommended)
 

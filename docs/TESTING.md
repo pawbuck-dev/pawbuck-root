@@ -30,7 +30,9 @@ pnpm run test:all
 - **Pure logic** — also `services/walkMetrics.ts`, `constants/pawthonUi.ts`.
 - **Booking** — `services/bookingsApi.ts`; tests in `__tests__/services/bookingsApi.test.ts` and `__tests__/utils/pawbuckApi.test.ts`.
 - **Account deletion** — `services/accountDeletion.ts`; tests in `__tests__/services/accountDeletion.test.ts`.
-- **Family sharing & pet transfer (journeys)** — `services/householdInvites.ts`, `services/petFamilyInvites.ts`, `services/petTransfers.ts`; navigation tests in `__tests__/navigation/familyTransferEntryPoints.test.ts`; see [TESTING_FAMILY_SHARING.md](./TESTING_FAMILY_SHARING.md) and [TESTING_PET_TRANSFER.md](./TESTING_PET_TRANSFER.md).
+- **Family sharing & pet transfer (journeys)** — `services/householdInvites.ts`, `services/petFamilyInvites.ts`, `services/petTransfers.ts`; navigation tests in `__tests__/navigation/familyTransferEntryPoints.test.ts`; wizard RTL in `join-household-wizard.test.tsx` / `transfer-pet-wizard.test.tsx`; see [TESTING_FAMILY_SHARING.md](./TESTING_FAMILY_SHARING.md) and [TESTING_PET_TRANSFER.md](./TESTING_PET_TRANSFER.md).
+- **Family RPC integration (local Supabase)** — `pnpm run family-access:integration` (`tools/family-access-integration/`). CI: `.github/workflows/family-access-integration.yml`.
+- **Maestro E2E (optional staging)** — `.maestro/flows/`; manual dispatch: `.github/workflows/maestro-family-transfer.yml`.
 
 ```bash
 pnpm --filter pawbuck test __tests__/navigation/familyTransferEntryPoints.test.tsx __tests__/services/householdInvites.service.test.ts __tests__/services/petFamilyInvites.service.test.ts __tests__/services/petTransfers.service.test.ts __tests__/app/accept-invite.test.tsx
