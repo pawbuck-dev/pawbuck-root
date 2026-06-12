@@ -20,7 +20,16 @@ export const MILO_LIGHT = {
   textSecondary: "#70787E",
   chipBg: "#FFFFFF",
   chipBorder: "#D1D5DB",
-  messageUserBg: "#2BA89E", // theme.primary for light
+  starterCardBg: "#FFFFFF",
+  starterCardBorder: "#E4E7E7",
+  starterSectionLabel: "#9097A1",
+  greetingEyebrow: "#2BA89E",
+  sendGradientStart: "#6FE3DE",
+  sendGradientEnd: "#54BAB7",
+  sendIconColor: "#06201F",
+  sendDisabledBg: "rgba(13,15,15,0.15)",
+  sendDisabledIcon: "#70787E",
+  messageUserBg: "#2BA89E",
   messageUserText: "#FFFFFF",
   messageAiBg: "#FFFFFF",
   messageAiText: "#0D0F0F",
@@ -33,29 +42,30 @@ export const MILO_LIGHT = {
 export const MILO_DARK = {
   /** Overridden by `getMiloChatTokens` with `theme.background` */
   screenBg: "#0B0F14",
-  // Composer input
-  /** Slightly lifted so the composer + starter pills read on `#0B0F14` shells */
   composerBorder: "rgba(255,255,255,0.16)",
   composerBg: "rgba(255,255,255,0.10)",
   placeholder: "rgba(255,255,255,0.5)",
-  // Icon/accent wells
   iconWell: "rgba(255,255,255,0.08)",
-  // Text colors
   textPrimary: "#FFFFFF",
   textSecondary: "rgba(255,255,255,0.7)",
-  // Suggested prompt chips / starter pills
   chipBg: "rgba(255,255,255,0.14)",
   chipBorder: "rgba(255,255,255,0.28)",
-  // Message styling
-  messageUserBg: "#5FC4C0", // theme.primary
+  starterCardBg: "rgba(255,255,255,0.025)",
+  starterCardBorder: "rgba(255,255,255,0.07)",
+  starterSectionLabel: "#6B717B",
+  greetingEyebrow: "#6FE3DE",
+  sendGradientStart: "#6FE3DE",
+  sendGradientEnd: "#54BAB7",
+  sendIconColor: "#06201F",
+  sendDisabledBg: "rgba(255,255,255,0.12)",
+  sendDisabledIcon: "rgba(255,255,255,0.35)",
+  messageUserBg: "#5FC4C0",
   messageUserText: "#FFFFFF",
   messageAiBg: "rgba(255,255,255,0.08)",
   messageAiText: "#FFFFFF",
 } as const;
 
-// ============================================================================
-// THEME SELECTOR FUNCTION
-// ============================================================================
+export type MiloChatTokens = ReturnType<typeof getMiloChatTokens>;
 
 /**
  * Get Milo chat color tokens based on theme mode.
@@ -66,5 +76,8 @@ export function getMiloChatTokens(theme: Theme, isDark: boolean) {
   return {
     ...base,
     screenBg: theme.background,
+    greetingEyebrow: isDark ? MILO_DARK.greetingEyebrow : theme.primary,
+    sendGradientStart: isDark ? MILO_DARK.sendGradientStart : theme.primary,
+    sendGradientEnd: isDark ? MILO_DARK.sendGradientEnd : "#2BA89E",
   };
 }

@@ -8,8 +8,6 @@ import { useChat } from "@/context/chatContext";
 import { Pet, usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import {
-  MILO_AVATAR_FRAME_SIZE,
-  MILO_BUSY_HERO_BOX_SIZE,
   useMiloDocumentAnalysisAnimations,
   useMiloDocumentAnalysisStatusCopy,
 } from "@/hooks/useMiloDocumentAnalysisAnimations";
@@ -55,7 +53,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatMessage } from "./ChatMessage";
-import { MiloStarterSuggestionPill } from "./MiloStarterSuggestionPill";
+import { MiloComposerSendButton } from "./MiloComposerSendButton";
+import { MiloEmptyHero } from "./MiloEmptyHero";
+import { MiloEmptyThreadStarters } from "./MiloEmptyThreadStarters";
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getMiloChatTokens } from "./miloUiTokens";
 
@@ -481,65 +481,42 @@ export const MiloChatModal: React.FC = () => {
         >
         {/* Messages Container */}
         <View style={{ flex: 1, minHeight: 0, flexShrink: 1 }}>
-          {messages.length === 0 ? (
+          {messages.length === 0 && !composerBusy ? (
+            <MiloEmptyThreadStarters
+              greetingSuffix={miloGreetingSuffix}
+              petName={selectedPet?.name}
+              prompts={suggestedQuestions}
+              tokens={tokens}
+              mode={mode}
+              onSelectPrompt={(q) => {
+                void handleSuggestedQuestion(q);
+              }}
+              onPressPetChip={
+                pets.length > 0 ? () => setShowPetPicker(true) : undefined
+              }
+              analysisBusy={heroAnimationsActive}
+              analysisAnimations={
+                heroAnimationsActive
+                  ? { sonarOpacity, sonarScale, breathScale }
+                  : undefined
+              }
+              idleFloatEnabled={!heroAnimationsActive}
+            />
+          ) : messages.length === 0 && composerBusy ? (
             <View
               style={{
                 flex: 1,
-                minHeight: 0,
-                flexShrink: 1,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <View
-                style={{
-                  width: MILO_BUSY_HERO_BOX_SIZE,
-                  height: MILO_BUSY_HERO_BOX_SIZE,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {heroAnimationsActive ? (
-                  <Animated.View
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      width: MILO_AVATAR_FRAME_SIZE,
-                      height: MILO_AVATAR_FRAME_SIZE,
-                      borderRadius: MILO_AVATAR_FRAME_SIZE / 2,
-                      borderWidth: 2,
-                      borderColor: theme.primary,
-                      backgroundColor:
-                        mode === "dark" ? "rgba(95, 196, 192, 0.14)" : "rgba(43, 168, 158, 0.14)",
-                      opacity: sonarOpacity,
-                      transform: [{ scale: sonarScale }],
-                    }}
-                  />
-                ) : null}
-                <Animated.View
-                  style={{
-                    transform: [{ scale: heroAnimationsActive ? breathScale : 1 }],
-                  }}
-                >
-                  <View
-                    style={{
-                      width: MILO_AVATAR_FRAME_SIZE,
-                      height: MILO_AVATAR_FRAME_SIZE,
-                      borderRadius: MILO_AVATAR_FRAME_SIZE / 2,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Image
-                      source={MILO_AVATAR}
-                      style={{
-                        width: MILO_AVATAR_FRAME_SIZE,
-                        height: MILO_AVATAR_FRAME_SIZE,
-                      }}
-                      contentFit="cover"
-                    />
-                  </View>
-                </Animated.View>
-              </View>
+              <MiloEmptyHero
+                primaryColor={theme.primary}
+                isDark={mode === "dark"}
+                analysisBusy={heroAnimationsActive}
+                analysisAnimations={{ sonarOpacity, sonarScale, breathScale }}
+                idleFloatEnabled={false}
+              />
             </View>
           ) : (
             <FlatList
@@ -602,66 +579,6 @@ export const MiloChatModal: React.FC = () => {
           )}
         </View>
 
-        {/* Starter prompts — empty thread; capsule pills (readable, tappable) */}
-        {messages.length === 0 && !composerBusy ? (
-          <View
-            style={{
-              width: "100%",
-              alignSelf: "stretch",
-              paddingHorizontal: 16,
-              paddingBottom: 8,
-              flexShrink: 0,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "700",
-                color: theme.foreground,
-              }}
-            >
-              Hi{miloGreetingSuffix}!
-            </Text>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "800",
-                color: theme.foreground,
-                marginTop: 6,
-                marginBottom: 14,
-              }}
-            >
-              Where should we start?
-            </Text>
-            <ScrollView
-              style={{ alignSelf: "stretch" }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              nestedScrollEnabled
-              contentContainerStyle={{
-                alignItems: "flex-start",
-                paddingRight: 4,
-                paddingBottom: 4,
-              }}
-            >
-              {suggestedQuestions.map((q) => (
-                <MiloStarterSuggestionPill
-                  key={q}
-                  label={q}
-                  mode={mode}
-                  fill={tokens.composerBg}
-                  stroke={tokens.composerBorder}
-                  textColor={tokens.textPrimary}
-                  screenHorizontalPaddingPx={16}
-                  onPress={() => {
-                    void handleSuggestedQuestion(q);
-                  }}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-
         {/* Input — Figma 1386:45325: white composer card, #E4E7E7 stroke, #F4F5F5 wells, sparkles + send */}
         <View
           style={{
@@ -721,7 +638,7 @@ export const MiloChatModal: React.FC = () => {
                 <TextInput
                   value={inputText}
                   onChangeText={setInputText}
-                  placeholder="Ask milo anything..."
+                  placeholder="Ask Milo anything…"
                   placeholderTextColor={tokens.placeholder}
                   style={{
                     flex: 1,
@@ -769,34 +686,11 @@ export const MiloChatModal: React.FC = () => {
                     }
                   />
                 </TouchableOpacity>
-                <TouchableOpacity
+                <MiloComposerSendButton
+                  enabled={!composerBusy && !!inputText.trim()}
+                  tokens={tokens}
                   onPress={handleSend}
-                  disabled={composerBusy || !inputText.trim()}
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: inputText.trim()
-                      ? "#FFFFFF"
-                      : mode === "dark"
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(13,15,15,0.15)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons
-                    name="send"
-                    size={18}
-                    color={
-                      inputText.trim()
-                        ? "#0D0F0F"
-                        : mode === "dark"
-                          ? "rgba(255,255,255,0.35)"
-                          : theme.secondary
-                    }
-                  />
-                </TouchableOpacity>
+                />
               </View>
             )}
           </View>
