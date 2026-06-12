@@ -34,6 +34,13 @@ export default function HealthRecordLayout() {
               }}
             >
                 <Stack.Screen name="index" />
+                <Stack.Screen
+                  name="body-tracker"
+                  options={{
+                    headerShown: false,
+                    animation: "slide_from_right",
+                  }}
+                />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen
                   name="vaccination-upload-modal"

@@ -1,10 +1,8 @@
 import BookVetVisitSection from "@/components/home/BookVetVisitSection";
-import BodyTrackerTeaser, { type BodyTrackerSegment } from "@/components/home/BodyTrackerTeaser";
 import TodayHabitPanel from "@/components/home/TodayHabitPanel";
-import HealthNotesFlowConnector from "@/components/home/HealthNotesFlowConnector";
+import HomeMiloDepthCard from "@/components/home/HomeMiloDepthCard";
 import HomePetHeroCard from "@/components/home/HomePetHeroCard";
 import HomeSectionHeader from "@/components/home/HomeSectionHeader";
-import PawthonHomeCard from "@/components/home/PawthonHomeCard";
 import WeeklyChallengeCard from "@/components/home/WeeklyChallengeCard";
 import BottomNavBar from "@/components/home/BottomNavBar";
 import {
@@ -33,6 +31,7 @@ import {
 import { fetchMessageThreads } from "@/services/messages";
 import { fetchMedicines } from "@/services/medicines";
 import { fetchHealthBriefingBundle } from "@/services/healthBriefing";
+import { getDailyIntake } from "@/services/dailyIntake";
 import { PAWTHON_DEFAULT_GOAL_METERS } from "@/constants/pawthonGoals";
 import {
   fetchMyWeeklyWalkerRankForCountry,
@@ -45,6 +44,8 @@ import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
 import { buildHomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
+import { healthRecordBodyTrackerHref } from "@/utils/healthRecordNavigation";
+import { computeTodayDashboardProgress } from "@/utils/todayDashboardProgress";
 import { openMiloJournalCheckIn } from "@/utils/openMiloJournalCheckIn";
 import { computeBriefingCategorySignals } from "@/utils/healthBriefingUi";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
@@ -100,8 +101,6 @@ export default function Home() {
   const queryClient = useQueryClient();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [bodyTrackerExpanded, setBodyTrackerExpanded] = useState(false);
-  const [bodyTrackerSegment, setBodyTrackerSegment] = useState<BodyTrackerSegment>("intake");
   const [showCareTeamModal, setShowCareTeamModal] = useState(false);
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
@@ -202,11 +201,35 @@ export default function Home() {
     enabled: !!selectedPetId,
   });
 
+  const { data: dailyIntake } = useQuery({
+    queryKey: ["daily_intake", selectedPetId],
+    queryFn: () => getDailyIntake(selectedPetId!),
+    enabled: !!selectedPetId,
+  });
+
   const { data: pawthonStats } = useQuery({
     queryKey: ["pawthon", selectedPetId],
     queryFn: async () => fetchPawthonDailyStats(selectedPetId!, goalMeters),
     enabled: weeklyChallengeEnabled && !!selectedPetId,
   });
+
+  const streakDays = pawthonHome?.streak ?? pawthonStats?.streak ?? 0;
+  const todayMeters = pawthonHome?.todayMeters ?? 0;
+
+  const todayProgress = useMemo(
+    () =>
+      computeTodayDashboardProgress({
+        foodIntake: dailyIntake?.food_intake ?? 0,
+        foodTarget: dailyIntake?.food_target ?? 3,
+        waterIntake: dailyIntake?.water_intake ?? 0,
+        waterTarget: dailyIntake?.water_target ?? 4,
+        poopCount: dailyIntake?.poop_count ?? 0,
+        peeCount: dailyIntake?.pee_count ?? 0,
+        todayMeters,
+        goalMeters,
+      }),
+    [dailyIntake, todayMeters, goalMeters]
+  );
 
   const petCountry = selectedPet?.country?.trim() ?? "";
 
@@ -302,6 +325,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["care_team_members", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["messageThreads"] }),
       queryClient.invalidateQueries({ queryKey: ["pawthon", selectedPetId] }),
+      queryClient.invalidateQueries({ queryKey: ["daily_intake", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["pawthon", "home", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] }),
       queryClient.invalidateQueries({ queryKey: ["pawthon", "history", selectedPetId] }),
@@ -584,36 +608,43 @@ export default function Home() {
 
           {selectedPet ? (
             <>
+              <HomePetHeroCard
+                pet={selectedPet}
+                streakDays={streakDays}
+              />
+
+              <TodayHabitPanel
+                petId={selectedPet.id}
+                petName={selectedPet.name}
+                todayProgress={todayProgress}
+                streakDays={streakDays}
+                walkGoalMeters={goalMeters}
+                walkTodayMeters={todayMeters}
+                onStartWalk={() => router.push("/pawthon-walk")}
+                onViewWalkLog={() => router.push("/(home)/pawthon/history" as any)}
+                onOpenBodyTracker={(segment) =>
+                  router.push(
+                    healthRecordBodyTrackerHref(selectedPet.id, segment ?? "output") as any
+                  )
+                }
+              />
+
               {todaySnapshot ? (
-                <HomePetHeroCard
-                  pet={selectedPet}
+                <HomeMiloDepthCard
+                  petId={selectedPet.id}
+                  petName={selectedPet.name}
                   snapshot={todaySnapshot}
-                  streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
                   onCheckInWithMilo={openMiloCheckIn}
                   aiJournalEntriesRemaining={aiJournalEntriesRemaining}
                   aiJournalEntriesUsed={subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0}
                 />
               ) : null}
 
-              <HomeSectionHeader
-                title="Health"
-                subtitle="Notes in → vet briefing out"
-              />
-
-              <TodayHabitPanel
-                petId={selectedPet.id}
-                streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
-                onOpenBodyTracker={(segment) => {
-                  setBodyTrackerSegment(segment ?? "intake");
-                  setBodyTrackerExpanded(true);
-                }}
-              />
+              <HomeSectionHeader title="For your vet" subtitle="Notes in → briefing out" />
 
               <View style={{ marginBottom: 0, paddingHorizontal: 20 }}>
                 <PetJournalHomeCard pet={selectedPet} variant="recent" />
               </View>
-
-              <HealthNotesFlowConnector />
 
               <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
                 <HealthBriefingSummaryCard
@@ -630,40 +661,14 @@ export default function Home() {
                 />
               </View>
 
-              <HomeSectionHeader title="Activity" subtitle="Walks and daily wellness habits" />
-
-              <PawthonHomeCard
-                variant="compact"
-                tone="subtle"
-                petName={selectedPet.name}
-                goalMeters={goalMeters}
-                todayMeters={pawthonHome?.todayMeters ?? 0}
-                lastWalk={pawthonHome?.lastWalk ?? null}
-                onStartWalk={() => router.push("/pawthon-walk")}
-                onViewLog={() => router.push("/(home)/pawthon/history" as any)}
-                onViewLastWalk={() => {
-                  const id = pawthonHome?.lastWalk?.id;
-                  if (id) router.push(`/(home)/pawthon/walk/${id}` as any);
-                }}
-              />
-
-              <BodyTrackerTeaser
-                petId={selectedPet.id}
-                expanded={bodyTrackerExpanded}
-                onExpandedChange={setBodyTrackerExpanded}
-                initialSegment={bodyTrackerSegment}
-              />
-
-              <StreakUpgradeBanner
-                streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
-              />
+              <StreakUpgradeBanner streakDays={streakDays} />
 
               {weeklyChallengeEnabled ? (
                 <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
                   <WeeklyChallengeCard
                     petName={selectedPet.name}
                     weekKm={pawthonHome?.weekKm ?? pawthonStats?.weekKm ?? 0}
-                    streakDays={pawthonHome?.streak ?? pawthonStats?.streak ?? 0}
+                    streakDays={streakDays}
                     walkerRank={weeklyWalkerRank?.rank ?? null}
                     walkerTotal={weeklyWalkerRank?.total ?? 0}
                     onPress={() => router.push("/(home)/pawthon/weekly" as any)}
