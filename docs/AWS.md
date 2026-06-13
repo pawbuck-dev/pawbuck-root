@@ -263,9 +263,50 @@ Verify **`GET /api/health`** on your public API host after deploy (e.g. `curl`);
 
 ### Run a deploy
 
+You can trigger the same pipeline from the **GitHub UI** or from your **terminal** (no need to memorize raw `gh` flags — use the root `pnpm` scripts in [README.md](../README.md#deploy-to-aws-production)).
+
+**Prerequisites (terminal):**
+
+- [GitHub CLI](https://cli.github.com/) installed and authenticated: `gh auth login` (needs `workflow` scope).
+- Run commands from the **repository root**.
+- Deploy still uses **GitHub Actions secrets** (`AWS_ROLE_ARN`, `SUPABASE_JWT_SECRET`, etc.) and the OIDC IAM role — **not** your local `~/.aws/credentials` IAM user (local AWS CLI is only needed for console/debug work unless you expand IAM permissions for direct ECR/ECS deploy).
+
+#### Option A — root scripts (recommended)
+
+```bash
+pnpm run deploy:api      # API only (ECR + ECS)
+pnpm run deploy:admin    # admin-dashboard (S3 + optional CloudFront)
+pnpm run deploy:both      # both jobs
+pnpm run deploy:status    # recent runs
+pnpm run deploy:watch     # follow latest run until it finishes
+```
+
+Example after merging to `main`:
+
+```bash
+pnpm run deploy:api && pnpm run deploy:watch
+```
+
+#### Option B — GitHub UI
+
 1. **Actions** → **Deploy AWS** → **Run workflow**.
 2. Choose **deploy_target**: `api`, `admin`, or `both`.
-3. Ensure ECS task definition uses the same ECR image repository and tag strategy (`latest` is pushed by the workflow).
+
+#### Option C — `gh` directly
+
+```bash
+gh workflow run deploy-aws.yml -f deploy_target=api
+gh workflow run deploy-aws.yml -f deploy_target=admin
+gh workflow run deploy-aws.yml -f deploy_target=both
+gh run list --workflow deploy-aws.yml --limit 5
+gh run watch
+```
+
+**After any deploy:** ECS task definition should use the same ECR repository; the workflow pushes `:latest` and `:$GITHUB_SHA`. Verify with `GET /api/health` on your public API host.
+
+#### Local AWS CLI deploy (advanced, not default)
+
+The GitHub workflow builds on Linux runners and pushes to ECR. A **fully local** deploy (Docker on your machine + `aws ecs update-service`) requires IAM permissions for ECR and ECS on your user (or `aws sts assume-role` into the GitHub deploy role) plus exporting secrets for [scripts/deploy/ecs-merge-pawbuck-api-env.sh](../scripts/deploy/ecs-merge-pawbuck-api-env.sh). Most operators should use **Option A** instead.
 
 ### Testing the deployment pipeline
 

@@ -116,6 +116,44 @@ pnpm run backend:test
 
 More detail: [`docs/TESTING.md`](docs/TESTING.md).
 
+## Deploy to AWS (production)
+
+Production deploys run the [**Deploy AWS** GitHub Actions workflow](.github/workflows/deploy-aws.yml) (Docker → ECR → ECS for the API; S3 + CloudFront for the admin dashboard). You do **not** need to open github.com — run from the repo root in your terminal.
+
+**Prerequisites:** [GitHub CLI](https://cli.github.com/) installed and logged in (`gh auth login`). The workflow uses GitHub secrets and OIDC — your local AWS CLI login is optional for deploy (see [docs/AWS.md](docs/AWS.md)).
+
+### Easiest: root scripts
+
+From the **repository root**:
+
+```bash
+pnpm run deploy:api      # PawBuck.API only (most common)
+pnpm run deploy:admin    # admin-dashboard static site
+pnpm run deploy:both     # API + admin
+pnpm run deploy:status   # list recent Deploy AWS runs
+pnpm run deploy:watch    # follow the latest run in the terminal
+```
+
+Typical flow after merging to `main`:
+
+```bash
+pnpm run deploy:api && pnpm run deploy:watch
+```
+
+### Same commands via `gh` (if you prefer)
+
+```bash
+gh workflow run deploy-aws.yml -f deploy_target=api
+gh workflow run deploy-aws.yml -f deploy_target=admin
+gh workflow run deploy-aws.yml -f deploy_target=both
+gh run list --workflow deploy-aws.yml --limit 5
+gh run watch
+```
+
+After deploy, verify the API: `curl https://api.pawbuck.com/api/health` (or your public API URL).
+
+Full setup (OIDC role, GitHub Variables, ECS sizing, troubleshooting): [**docs/AWS.md**](docs/AWS.md).
+
 ## Workspace scripts (root `package.json`)
 
 | Script | Purpose |
@@ -133,6 +171,8 @@ More detail: [`docs/TESTING.md`](docs/TESTING.md).
 | `test:all` | All of the above test entrypoints in sequence |
 | `supabase:start` / `supabase:stop` | Local Supabase stack |
 | `supabase:types` | Regenerate `apps/consumer-app/database.types.ts` from local DB |
+| `deploy:api` / `deploy:admin` / `deploy:both` | Trigger **Deploy AWS** workflow (production) |
+| `deploy:status` / `deploy:watch` | List or watch recent deploy runs |
 
 ## Development
 
