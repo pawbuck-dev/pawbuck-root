@@ -71,4 +71,48 @@ public class JournalTreeSummaryBuilderTests
         fields["ENERGY"].Should().Be("Tired / sleeping more");
         fields["APPETITE"].Should().NotBe(fields["ENERGY"]);
     }
+
+    [Fact]
+    public void BuildFields_omits_unanswered_summary_keys()
+    {
+        var tree = new JournalTreeDefinitionDto
+        {
+            TreeId = "vomiting_v1.5",
+            SummaryFieldMap = new Dictionary<string, string>
+            {
+                ["SYMPTOM"] = "Vomiting / diarrhea",
+                ["ONSET"] = "{q_timing}",
+                ["NOTE"] = "{q_freeform}",
+            },
+        };
+        var answers = new Dictionary<string, JsonElement>
+        {
+            ["q_timing"] = JsonSerializer.SerializeToElement(new { text = "Just started today / 2–3 times", chips = new[] { "today", "2_3" } }),
+        };
+
+        var fields = JournalTreeSummaryBuilder.BuildFields(tree, answers, "Milo");
+        fields.Should().ContainKey("SYMPTOM");
+        fields.Should().ContainKey("ONSET");
+        fields.Should().NotContainKey("NOTE");
+    }
+
+    [Fact]
+    public void FormatPlainSummary_skips_unspecified_fields()
+    {
+        var text = JournalTreeSummaryBuilder.FormatPlainSummary(new Dictionary<string, string>
+        {
+            ["NOTE"] = "Not specified",
+            ["ONSET"] = "Acute, today. Frequency: 2-3 episodes",
+        });
+        text.Should().Be("ONSET: Acute, today. Frequency: 2-3 episodes");
+    }
+
+    [Fact]
+    public void StripUnspecifiedFieldLines_removes_not_specified_lines()
+    {
+        var input = "NOTE: Not specified\nONSET: Acute, today. Frequency: 2-3 episodes";
+        JournalTreeSummaryBuilder.StripUnspecifiedFieldLines(input)
+            .Should()
+            .Be("ONSET: Acute, today. Frequency: 2-3 episodes");
+    }
 }

@@ -12,6 +12,13 @@ type Props = {
   attachmentCount?: number;
 };
 
+function isUnspecifiedSummaryValue(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (/^not specified$/i.test(trimmed)) return true;
+  return /^not specified(\s*\/\s*not specified)*$/i.test(trimmed);
+}
+
 export function StructuredSummaryCard({
   petName,
   summary,
@@ -44,14 +51,16 @@ export function StructuredSummaryCard({
           Please review carefully — confidence is below our usual threshold.
         </Text>
       ) : null}
-      {Object.entries(summary.fields).map(([key, value]) => (
-        <View key={key} style={{ marginBottom: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: theme.secondary, letterSpacing: 0.5 }}>
-            {key}
-          </Text>
-          <Text style={{ fontSize: 14, color: theme.foreground, marginTop: 2 }}>{value}</Text>
-        </View>
-      ))}
+      {Object.entries(summary.fields)
+        .filter(([, value]) => !isUnspecifiedSummaryValue(value))
+        .map(([key, value]) => (
+          <View key={key} style={{ marginBottom: 8 }}>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: theme.secondary, letterSpacing: 0.5 }}>
+              {key}
+            </Text>
+            <Text style={{ fontSize: 14, color: theme.foreground, marginTop: 2 }}>{value}</Text>
+          </View>
+        ))}
       {summary.redFlags && summary.redFlags.length > 0 ? (
         <Text style={{ fontSize: 13, color: "#b91c1c", marginTop: 4 }}>
           Red flags: {summary.redFlags.join("; ")}

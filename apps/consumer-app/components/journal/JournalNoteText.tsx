@@ -1,5 +1,5 @@
 import { useTheme } from "@/context/themeContext";
-import { humanizeRoutineJournalNote } from "@/utils/journalContinuity";
+import { humanizeRoutineJournalNote, stripUnspecifiedJournalFieldLines } from "@/utils/journalContinuity";
 import React, { useMemo } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
@@ -72,7 +72,9 @@ export function JournalNoteText({ text, petName, style }: Props) {
     [style, theme.foreground]
   );
 
-  const displayText = humanizeRoutineJournalNote(text, petName) ?? text;
+  const displayText = stripUnspecifiedJournalFieldLines(
+    humanizeRoutineJournalNote(text, petName) ?? text
+  );
   if (!displayText.trim()) return null;
 
   const { badge, body } = parseClinicalPrefix(displayText);

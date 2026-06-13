@@ -69,6 +69,23 @@ export function humanizeRoutineJournalNote(
   return trimmed;
 }
 
+/** Omits KEY: Not specified lines from structured Milo journal notes (legacy rows). */
+export function stripUnspecifiedJournalFieldLines(text: string): string {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const kept = lines
+    .map((line) => line.trim())
+    .filter((trimmed) => {
+      if (!trimmed) return false;
+      const colon = trimmed.indexOf(":");
+      if (colon <= 0) return true;
+      const value = trimmed.slice(colon + 1).trim();
+      if (!value) return false;
+      if (/^not specified$/i.test(value)) return false;
+      return !/^not specified(\s*\/\s*not specified)*$/i.test(value);
+    });
+  return kept.join("\n");
+}
+
 function truncateAtWord(text: string, maxLen: number): string {
   if (text.length <= maxLen) return text;
   const slice = text.slice(0, maxLen);

@@ -31,7 +31,63 @@ public static class JournalTreeSummaryBuilder
         }
 
         MergeConflictingSummaryFields(fields);
+        OmitUnspecifiedFields(fields);
         return fields;
+    }
+
+    /// <summary>True when a summary field has no owner-provided value (skip in saved notes).</summary>
+    public static bool IsUnspecifiedSummaryValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+        var trimmed = value.Trim();
+        if (string.Equals(trimmed, "Not specified", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (trimmed.Contains("Not specified", StringComparison.OrdinalIgnoreCase) &&
+            trimmed.Replace("Not specified", "", StringComparison.OrdinalIgnoreCase).Trim().Length == 0)
+            return true;
+        return false;
+    }
+
+    public static void OmitUnspecifiedFields(Dictionary<string, string> fields)
+    {
+        foreach (var key in fields.Keys.ToList())
+        {
+            if (IsUnspecifiedSummaryValue(fields[key]))
+                fields.Remove(key);
+        }
+    }
+
+    public static string FormatPlainSummary(IReadOnlyDictionary<string, string> fields) =>
+        string.Join(
+            "\n",
+            fields
+                .Where(kv => !IsUnspecifiedSummaryValue(kv.Value))
+                .Select(kv => $"{kv.Key}: {kv.Value}"));
+
+    /// <summary>Strips KEY: Not specified lines from a polished multi-line note.</summary>
+    public static string StripUnspecifiedFieldLines(string plainSummary)
+    {
+        if (string.IsNullOrWhiteSpace(plainSummary))
+            return plainSummary;
+
+        var kept = new List<string>();
+        foreach (var line in plainSummary.Replace("\r\n", "\n").Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0)
+                continue;
+            var colon = trimmed.IndexOf(':');
+            if (colon > 0)
+            {
+                var value = trimmed[(colon + 1)..].Trim();
+                if (IsUnspecifiedSummaryValue(value))
+                    continue;
+            }
+            kept.Add(trimmed);
+        }
+
+        return string.Join("\n", kept);
     }
 
     public static string ResolveTemplate(

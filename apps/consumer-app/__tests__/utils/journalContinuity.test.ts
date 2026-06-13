@@ -8,6 +8,7 @@ import {
   formatLatestEntrySubtitle,
   formatLatestEntryTitle,
   humanizeRoutineJournalNote,
+  stripUnspecifiedJournalFieldLines,
 } from "@/utils/journalContinuity";
 
 describe("formatEntryDateRelative", () => {
@@ -62,6 +63,16 @@ describe("humanizeRoutineJournalNote", () => {
   it("leaves symptom notes unchanged", () => {
     const note = "Vomiting twice since last night";
     expect(humanizeRoutineJournalNote(note)).toBe(note);
+  });
+});
+
+describe("stripUnspecifiedJournalFieldLines", () => {
+  it("removes KEY: Not specified lines from structured notes", () => {
+    expect(
+      stripUnspecifiedJournalFieldLines(
+        "NOTE: Not specified\nONSET: Acute, today. Frequency: 2-3 episodes"
+      )
+    ).toBe("ONSET: Acute, today. Frequency: 2-3 episodes");
   });
 });
 

@@ -37,4 +37,23 @@ describe("StructuredSummaryCard", () => {
     fireEvent.press(getByText("Attach a photo (optional)"));
     expect(onAttachPhoto).toHaveBeenCalled();
   });
+
+  it("hides fields with Not specified values", () => {
+    const { getByText, queryByText } = wrap(
+      <StructuredSummaryCard
+        petName="Milo"
+        summary={{
+          fields: {
+            NOTE: "Not specified",
+            ONSET: "Acute, today. Frequency: 2-3 episodes",
+          },
+        }}
+        onConfirm={jest.fn()}
+      />
+    );
+    expect(getByText("ONSET")).toBeTruthy();
+    expect(getByText("Acute, today. Frequency: 2-3 episodes")).toBeTruthy();
+    expect(queryByText("NOTE")).toBeNull();
+    expect(queryByText("Not specified")).toBeNull();
+  });
 });

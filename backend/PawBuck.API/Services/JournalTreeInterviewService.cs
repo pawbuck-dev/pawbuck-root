@@ -261,7 +261,9 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
                 var plainSummary = FormatPlainSummary(summary ?? new JournalStructuredSummaryDto());
                 var polished = await _geminiHelper.PolishSummaryAsync(plainSummary, petName, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(polished))
-                    plainSummary = polished.Trim();
+                    plainSummary = JournalTreeSummaryBuilder.StripUnspecifiedFieldLines(polished.Trim());
+                else
+                    plainSummary = JournalTreeSummaryBuilder.StripUnspecifiedFieldLines(plainSummary);
                 await CompleteSessionAsync(cs, session.Id, cancellationToken);
 
                 return new MiloChatResponse
@@ -735,12 +737,8 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         }
     }
 
-    private static string FormatPlainSummary(JournalStructuredSummaryDto summary)
-    {
-        return string.Join(
-            "\n",
-            summary.Fields.Select(kv => $"{kv.Key}: {kv.Value}"));
-    }
+    private static string FormatPlainSummary(JournalStructuredSummaryDto summary) =>
+        JournalTreeSummaryBuilder.FormatPlainSummary(summary.Fields);
 
     private async Task<Guid> CreateSessionAsync(
         string cs,
