@@ -6,7 +6,9 @@ import { StructuredSummaryCard } from "@/components/journalInterview/StructuredS
 import { EmergencyBanner } from "@/components/journalInterview/EmergencyBanner";
 import { SummaryEditModal } from "@/components/journalInterview/SummaryEditModal";
 import { VetEmailComposer } from "@/components/journalInterview/VetEmailComposer";
-import { MiloStarterSuggestionPill } from "@/components/chat/MiloStarterSuggestionPill";
+import { MiloComposerSendButton } from "@/components/chat/MiloComposerSendButton";
+import { MiloEmptyThreadStarters } from "@/components/chat/MiloEmptyThreadStarters";
+import { MiloStarterSuggestionCard } from "@/components/chat/MiloStarterSuggestionCard";
 import { getMiloChatTokens } from "@/components/chat/miloUiTokens";
 import type { JournalDomain } from "@/constants/petJournal";
 import { useAuth } from "@/context/authContext";
@@ -84,7 +86,6 @@ import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -104,8 +105,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const MILO_AVATAR = require("@/assets/images/milo_gif.gif");
 
 function shortTimeZoneAbbrev(): string {
   try {
@@ -690,7 +689,9 @@ export default function MiloJournalChatScreen() {
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         setJournalFallbackReason(formatJournalFallbackReason(reason));
-        const offline = getOfflineJournalTurn(userTurns, pet.name);
+        const offline = getOfflineJournalTurn(userTurns, pet.name, {
+          recentJournalEntries: starterData?.journalEntries ?? [],
+        });
         const offlineSummary =
           offline.structuredFields?.NOTE ??
           (offline.journalSessionComplete ? userTurns.join("\n") : null);
@@ -725,8 +726,66 @@ export default function MiloJournalChatScreen() {
       canStartAiJournal,
       openPaywall,
       refetchEntitlement,
+      starterData?.journalEntries,
     ]
   );
+
+  const renderJournalReplyCards = useCallback(() => {
+    if (!showJournalChips || !lastMessage?.suggestedReplies?.length) {
+      return null;
+    }
+
+    return (
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "800",
+            letterSpacing: 0.7,
+            textTransform: "uppercase",
+            color: tokens.starterSectionLabel,
+            marginBottom: 11,
+            marginLeft: 2,
+          }}
+        >
+          Pick a topic
+        </Text>
+        {lastMessage.suggestedReplies.map((label, chipIndex) => (
+          <MiloStarterSuggestionCard
+            key={`${chipIndex}-${label}`}
+            label={label}
+            index={chipIndex}
+            tokens={tokens}
+            variant="journal"
+            onPress={() => {
+              if (
+                lastMessage.interviewPhase === "summary_draft" &&
+                lastMessage.structuredSummary &&
+                isEditSummaryIntent(label)
+              ) {
+                openSummaryEditModal(lastMessage.structuredSummary.fields);
+                setInput("");
+                return;
+              }
+              const ctx = lastMessage.contextSurface;
+              let actionId = resolveContextSurfaceJournalAction(label, ctx);
+              const lower = label.trim().toLowerCase();
+              if (
+                !actionId &&
+                lastMessage.interviewPhase === "summary_draft" &&
+                lower.includes("looks right") &&
+                lower.includes("save")
+              ) {
+                actionId = "confirm_summary";
+              }
+              void handleSend(label, undefined, actionId);
+              setInput("");
+            }}
+          />
+        ))}
+      </View>
+    );
+  }, [showJournalChips, lastMessage, tokens, handleSend, openSummaryEditModal]);
 
   const beginJournalCheckIn = useCallback(async () => {
     if (!pet || !user || triageDisclaimerStatus !== "accepted") return;
@@ -782,7 +841,9 @@ export default function MiloJournalChatScreen() {
       console.warn("Milo journal check-in start failed; using offline flow:", e);
       setOfflineJournalActive(true);
       setJournalFallbackReason(formatJournalFallbackReason(reason));
-      const offline = getOfflineJournalTurn(["start_checkin"], pet.name);
+      const offline = getOfflineJournalTurn(["start_checkin"], pet.name, {
+        recentJournalEntries: starterData?.journalEntries ?? [],
+      });
       pushAssistant(offline.answer, "low", {
         suggestedReplies: offline.suggestedReplies,
         journalSessionComplete: offline.journalSessionComplete,
@@ -799,6 +860,7 @@ export default function MiloJournalChatScreen() {
     openPaywall,
     refetchEntitlement,
     pushAssistant,
+    starterData?.journalEntries,
   ]);
 
   useEffect(() => {
@@ -1525,141 +1587,30 @@ export default function MiloJournalChatScreen() {
               <View style={{ paddingTop: 40, alignItems: "center" }}>
                 <ActivityIndicator color={theme.primary} />
               </View>
-            ) : (
-              <View
-                style={{
-                  width: "100%",
-                  alignSelf: "stretch",
-                  paddingHorizontal: 16,
-                  paddingTop: 16,
-                  paddingBottom: 24,
-                  flexGrow: 1,
-                  flexShrink: 0,
-                }}
-              >
-                <View
-                  style={{
-                    flex: 1,
-                    minHeight: 160,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 141,
-                      height: 141,
-                      borderRadius: 70.5,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Image
-                      source={MILO_AVATAR}
-                      style={{ width: 141, height: 141 }}
-                      contentFit="cover"
-                    />
-                  </View>
-                </View>
-                <Text style={{ fontSize: 20, fontWeight: "700", color: theme.foreground }}>
-                  Hi{miloGreetingSuffix}!
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 22,
-                    fontWeight: "800",
-                    color: theme.foreground,
-                    marginTop: 6,
-                    marginBottom: 14,
-                  }}
-                >
-                  Where should we start?
-                </Text>
-                {suggestedStarters.map((q) => (
-                  <MiloStarterSuggestionPill
-                    key={q}
-                    label={q}
-                    mode={isDark ? "dark" : "light"}
-                    fill={tokens.composerBg}
-                    stroke={tokens.composerBorder}
-                    textColor={tokens.textPrimary}
-                    screenHorizontalPaddingPx={16}
-                    onPress={() => {
-                      void handleSend(q);
-                      setInput("");
-                    }}
-                  />
-                ))}
-              </View>
-            )
-          }
-          ListFooterComponent={
-            messages.length > 0 && busy ? (
-              <ActivityIndicator style={{ marginTop: 8 }} color={theme.primary} />
-            ) : null
-          }
-        />
-
-      {showJournalChips && lastMessage?.suggestedReplies ? (
-        <View
-          style={{
-            width: "100%",
-            alignSelf: "stretch",
-            paddingHorizontal: 16,
-            paddingTop: 4,
-            paddingBottom: 8,
-            flexShrink: 0,
-          }}
-        >
-          <ScrollView
-            style={{ alignSelf: "stretch" }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            contentContainerStyle={{
-              alignItems: "flex-start",
-              paddingRight: 4,
-              paddingBottom: 4,
-            }}
-          >
-            {lastMessage.suggestedReplies.map((label, chipIndex) => (
-              <MiloStarterSuggestionPill
-                key={`${chipIndex}-${label}`}
-                label={label}
+            ) : pet ? (
+              <MiloEmptyThreadStarters
+                greetingSuffix={miloGreetingSuffix}
+                petName={pet.name}
+                prompts={suggestedStarters}
+                tokens={tokens}
                 mode={isDark ? "dark" : "light"}
-                fill={tokens.composerBg}
-                stroke={tokens.composerBorder}
-                textColor={tokens.textPrimary}
-                screenHorizontalPaddingPx={16}
-                onPress={() => {
-                  if (
-                    lastMessage.interviewPhase === "summary_draft" &&
-                    lastMessage.structuredSummary &&
-                    isEditSummaryIntent(label)
-                  ) {
-                    openSummaryEditModal(lastMessage.structuredSummary.fields);
-                    setInput("");
-                    return;
-                  }
-                  const ctx = lastMessage?.contextSurface;
-                  let actionId = resolveContextSurfaceJournalAction(label, ctx);
-                  const lower = label.trim().toLowerCase();
-                  if (
-                    !actionId &&
-                    lastMessage.interviewPhase === "summary_draft" &&
-                    lower.includes("looks right") &&
-                    lower.includes("save")
-                  ) {
-                    actionId = "confirm_summary";
-                  }
-                  void handleSend(label, undefined, actionId);
+                onSelectPrompt={(q) => {
+                  void handleSend(q);
                   setInput("");
                 }}
+                idleFloatEnabled
               />
-            ))}
-          </ScrollView>
-        </View>
-      ) : null}
+            ) : null
+          }
+          ListFooterComponent={
+            <>
+              {renderJournalReplyCards()}
+              {messages.length > 0 && busy ? (
+                <ActivityIndicator style={{ marginTop: 8 }} color={theme.primary} />
+              ) : null}
+            </>
+          }
+        />
 
         {/* Composer — match MiloChatModal: lifted card, inset field + circular send (no separate “input pill”). */}
         <View
@@ -1708,40 +1659,18 @@ export default function MiloJournalChatScreen() {
                 keyboardAppearance={isDark ? "dark" : "light"}
                 {...(Platform.OS === "android" ? { textAlignVertical: "top" as const } : {})}
               />
-              <Pressable
-                onPress={() => {
-                  void handleSend(input);
-                  setInput("");
-                }}
-                disabled={busy || !input.trim() || triageDisclaimerStatus !== "accepted"}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  marginLeft: 4,
-                  backgroundColor:
-                    input.trim() && !busy && triageDisclaimerStatus === "accepted"
-                      ? "#FFFFFF"
-                      : isDark
-                        ? "rgba(255,255,255,0.12)"
-                        : "rgba(13,15,15,0.15)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: 1,
-                }}
-              >
-                <Ionicons
-                  name="send"
-                  size={18}
-                  color={
-                    input.trim() && !busy && triageDisclaimerStatus === "accepted"
-                      ? "#0D0F0F"
-                      : isDark
-                        ? "rgba(255,255,255,0.35)"
-                        : theme.secondary
+              <View style={{ marginLeft: 4 }}>
+                <MiloComposerSendButton
+                  enabled={
+                    !!input.trim() && !busy && triageDisclaimerStatus === "accepted"
                   }
+                  tokens={tokens}
+                  onPress={() => {
+                    void handleSend(input);
+                    setInput("");
+                  }}
                 />
-              </Pressable>
+              </View>
             </View>
           </View>
         </View>

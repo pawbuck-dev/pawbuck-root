@@ -1,6 +1,7 @@
 import { PawthonHubWalkLogSection } from "@/components/pawthon/PawthonHubWalkLogSection";
 import { PawthonStreakBanner } from "@/components/pawthon/PawthonStreakBanner";
 import { PawthonTrophyIllustration } from "@/components/pawthon/PawthonTrophyIllustration";
+import { StartWalkWalkerIcon } from "@/components/pawthon/StartWalkWalkerIcon";
 import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import { formatWeeklyWalkerRankLine } from "@/services/walkSessions";
 import type { WalkSessionRow } from "@/services/walkSessions";
@@ -334,21 +335,10 @@ export function PawthonHubContent({
             borderRadius: 28,
           }}
         >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              borderWidth: 2,
-              borderColor: "rgba(255,255,255,0.9)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
-            }}
-          >
-            <Ionicons name="play" size={16} color="#FFFFFF" style={{ marginLeft: 2 }} />
-          </View>
-          <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF" }}>Start a Walk</Text>
+          <StartWalkWalkerIcon size={40} accessibilityLabel="Start a walk" />
+          <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF", marginLeft: 10 }}>
+            Start a Walk
+          </Text>
         </LinearGradient>
       </Pressable>
       </ScrollView>

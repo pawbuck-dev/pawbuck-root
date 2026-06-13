@@ -1,0 +1,24 @@
+# Recipient joins a household using a pre-generated MTCH code.
+# Prerequisites: owner account created MTCH code → MAESTRO_HOUSEHOLD_CODE
+appId: com.pawbuck.app
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn: "Sign In"
+      - tapOn:
+          id: "email-input"
+      - inputText: ${MAESTRO_RECIPIENT_EMAIL}
+      - tapOn:
+          id: "password-input"
+      - inputText: ${MAESTRO_RECIPIENT_PASSWORD}
+      - tapOn: "Sign In"
+- tapOn: "Join with Invite Code"
+- tapOn: "Invite Code"
+- inputText: ${MAESTRO_HOUSEHOLD_CODE}
+- tapOn: "Verify Code"
+- tapOn: "Join Household"
+- assertVisible: "You're in"

@@ -9,7 +9,7 @@ When the user asks to **commit**, **check in**, **push**, or otherwise land work
 
 1. Follow the git safety protocol in user rules (status, diff, log, HEREDOC commit message).
 2. **After a successful commit**, unless the user explicitly says not to:
-   - Push the branch: `git push -u origin HEAD` (or the remote the branch tracks, e.g. `fork`).
+   - Push the branch: `git push -u origin HEAD`.
    - Check for an open PR: `gh pr list --head $(git branch --show-current)`.
    - If none exists, create one with `gh pr create` against `main` (or the repo’s default base branch):
      - Title: concise summary of the branch intent.

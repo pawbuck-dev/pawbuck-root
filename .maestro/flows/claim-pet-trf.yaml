@@ -1,0 +1,24 @@
+# Recipient claims a pet using a pre-generated TRF code.
+# Prerequisites: owner started transfer → MAESTRO_TRANSFER_CODE
+appId: com.pawbuck.app
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn: "Sign In"
+      - tapOn:
+          id: "email-input"
+      - inputText: ${MAESTRO_RECIPIENT_EMAIL}
+      - tapOn:
+          id: "password-input"
+      - inputText: ${MAESTRO_RECIPIENT_PASSWORD}
+      - tapOn: "Sign In"
+- tapOn: "Claim a Pet"
+- tapOn: "Transfer Code"
+- inputText: ${MAESTRO_TRANSFER_CODE}
+- tapOn: "Verify Code"
+- tapOn: "Accept Transfer"
+- assertVisible: "Transfer complete"

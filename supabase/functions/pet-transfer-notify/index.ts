@@ -15,15 +15,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "supabase";
 import { errorResponse, handleCorsRequest, jsonResponse } from "../_shared/cors.ts";
+import { looksLikeEmail } from "../_shared/familyInviteValidation.ts";
+import {
+  buildTransferAcceptedOwnerEmail,
+  buildTransferCreatedOwnerEmail,
+  buildTransferCreatedRecipientEmail,
+  buildTransferDeclinedOwnerEmail,
+  buildTransferPushData,
+} from "../_shared/petTransferNotifyCopy.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 import { sendNotificationToUser } from "../_shared/notification.ts";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://app.pawbuck.app";
-
-function looksLikeEmail(s: string): boolean {
-  const t = s.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
-}
 
 async function sendTransactionalEmail(
   to: string,
@@ -112,30 +115,24 @@ async function handleCreated(
 
   const ownerEmail = await getUserEmail(svc, userId);
   if (ownerEmail) {
-    await sendTransactionalEmail(
-      ownerEmail,
-      `Pet transfer started for ${petName}`,
-      `Your transfer code for ${petName} is: ${code}\n\nShare this code with the new owner. It expires in 14 days.\n\nOpen PawBuck: ${APP_URL}`
-    );
+    const { subject, text } = buildTransferCreatedOwnerEmail(petName, code, APP_URL);
+    await sendTransactionalEmail(ownerEmail, subject, text);
   }
   await sendNotificationToUser(userId, {
     title: "Transfer code ready",
     body: `Share code ${code} for ${petName} with the new owner.`,
-    data: { type: "pet_transfer", action: "share", transferCode: code },
+    data: buildTransferPushData("share", code),
   });
 
   if (hint && looksLikeEmail(hint)) {
-    await sendTransactionalEmail(
-      hint,
-      `Pet transfer: ${petName}`,
-      `You have been sent a PawBuck pet transfer for ${petName}.\n\nTransfer code: ${code}\n\nOpen the app to review and accept: ${APP_URL}`
-    );
+    const recipientMail = buildTransferCreatedRecipientEmail(petName, code, APP_URL);
+    await sendTransactionalEmail(hint, recipientMail.subject, recipientMail.text);
     const rid = await resolveRecipientUserId(svc, hint);
     if (rid && rid !== userId) {
       await sendNotificationToUser(rid, {
         title: "Pet transfer request",
         body: `${petName}: open PawBuck to review and accept (code ${code}).`,
-        data: { type: "pet_transfer", action: "review", transferCode: code },
+        data: buildTransferPushData("review", code),
       });
     }
   }
@@ -164,16 +161,13 @@ async function handleAccepted(
 
   const ownerEmail = await getUserEmail(svc, ownerId);
   if (ownerEmail) {
-    await sendTransactionalEmail(
-      ownerEmail,
-      `${petName}'s transfer was accepted`,
-      `The new owner has accepted the transfer for ${petName} in PawBuck.`
-    );
+    const mail = buildTransferAcceptedOwnerEmail(petName);
+    await sendTransactionalEmail(ownerEmail, mail.subject, mail.text);
   }
   await sendNotificationToUser(ownerId, {
     title: "Transfer accepted",
     body: `${petName}'s new owner accepted the transfer.`,
-    data: { type: "pet_transfer", action: "accepted", transferCode: c },
+    data: buildTransferPushData("accepted", c),
   });
 
   const revokedAccessUserIds = Array.isArray(row.revoked_access_user_ids)
@@ -184,7 +178,7 @@ async function handleAccepted(
     await sendNotificationToUser(revokedUserId, {
       title: "Pet access removed",
       body: `Your access to ${petName} has been removed due to an ownership transfer.`,
-      data: { type: "pet_transfer", action: "access_revoked", petName },
+      data: buildTransferPushData("access_revoked", undefined, petName),
     });
     const revokedEmail = await getUserEmail(svc, revokedUserId);
     if (revokedEmail) {
@@ -220,16 +214,13 @@ async function handleDeclined(
 
   const ownerEmail = await getUserEmail(svc, ownerId);
   if (ownerEmail) {
-    await sendTransactionalEmail(
-      ownerEmail,
-      `${petName}'s transfer was declined`,
-      `The recipient declined the pet transfer for ${petName}. You can create a new transfer code if needed.`
-    );
+    const mail = buildTransferDeclinedOwnerEmail(petName);
+    await sendTransactionalEmail(ownerEmail, mail.subject, mail.text);
   }
   await sendNotificationToUser(ownerId, {
     title: "Transfer declined",
     body: `The recipient declined the transfer for ${petName}.`,
-    data: { type: "pet_transfer", action: "declined", transferCode: c },
+    data: buildTransferPushData("declined", c),
   });
 
   return jsonResponse({ ok: true });
@@ -278,7 +269,7 @@ async function handleExpireDue(svc: ReturnType<typeof createSupabaseClient>): Pr
     await sendNotificationToUser(ownerId, {
       title: "Transfer expired",
       body: `The code for ${petName} expired with no response.`,
-      data: { type: "pet_transfer", action: "expired", transferCode: code },
+      data: buildTransferPushData("expired", code),
     });
     n++;
   }

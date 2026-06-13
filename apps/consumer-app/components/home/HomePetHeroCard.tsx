@@ -2,6 +2,7 @@ import PrivateImage from "@/components/common/PrivateImage";
 import { useTheme } from "@/context/themeContext";
 import type { Pet } from "@/context/petsContext";
 import { usePetPhotoUpload } from "@/hooks/usePetPhotoUpload";
+import { formatPetInboundEmail } from "@/utils/petEmail";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -27,6 +28,7 @@ export default function HomePetHeroCard({ pet, streakDays = 0 }: Props) {
   const { uploading, promptPhotoUpload } = usePetPhotoUpload(pet);
 
   const showStreakBadge = streakDays >= 3;
+  const petEmail = formatPetInboundEmail(pet.email_id, pet.name);
 
   const borderStyle =
     Platform.OS === "android"
@@ -185,6 +187,30 @@ export default function HomePetHeroCard({ pet, streakDays = 0 }: Props) {
           >
             {`How's ${pet.name} today?`}
           </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+            <Ionicons
+              name="mail-outline"
+              size={14}
+              color="rgba(255,255,255,0.88)"
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 13,
+                fontWeight: "600",
+                color: "rgba(255,255,255,0.88)",
+                textShadowColor: "rgba(0,0,0,0.65)",
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 8,
+              }}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+              accessibilityLabel={`${pet.name}'s PawBuck email ${petEmail}`}
+            >
+              {petEmail}
+            </Text>
+          </View>
         </View>
       </View>
     </View>

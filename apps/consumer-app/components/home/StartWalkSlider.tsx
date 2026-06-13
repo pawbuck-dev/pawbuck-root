@@ -1,5 +1,5 @@
+import { StartWalkWalkerIcon } from "@/components/pawthon/StartWalkWalkerIcon";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useCallback } from "react";
 import { LayoutChangeEvent, Text, View } from "react-native";
@@ -176,7 +176,7 @@ export default function StartWalkSlider({
             thumbStyle,
           ]}
         >
-          <Ionicons name="chevron-forward" size={22} color={theme.primaryForeground} />
+          <StartWalkWalkerIcon size={30} />
         </Animated.View>
       </GestureDetector>
     </View>

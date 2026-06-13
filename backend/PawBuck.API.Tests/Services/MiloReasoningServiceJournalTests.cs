@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -218,8 +219,74 @@ public class MiloReasoningServiceJournalTests
         response.JournalSessionComplete.Should().BeFalse();
         response.Answer.Should().Contain("Rex");
         response.Answer.Should().Contain("note about Rex");
-        response.SuggestedReplies.Should().Contain("All good today");
+        response.SuggestedReplies.Should().NotContain("All good today");
         response.SuggestedReplies.Should().Contain("Vomiting or diarrhea");
+    }
+
+    [Fact]
+    public async Task ChatAsync_JournalMode_StartCheckIn_WithRecentIssue_IncludesAllGoodToday()
+    {
+        var handler = new GeminiTestHandler { InnerTextPart = "should not be called" };
+        var yesterday = DateTime.UtcNow.Date.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var context = ContextMock();
+        context
+            .Setup(s => s.GetPetConversationalContextAsync(UserId, PetId, It.IsAny<MiloJournalConfigSnapshot>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PetConversationalContextDto
+            {
+                PetProfile = new PetProfileSnapshot { Name = "Rex", IsSenior = false },
+                RecentJournalNotes =
+                [
+                    new RecentJournalNote
+                    {
+                        Domain = "health",
+                        Subtype = "symptom",
+                        Note = "Vomiting yesterday",
+                        EntryDate = yesterday,
+                        CreatedAt = $"{yesterday}T18:00:00Z",
+                    },
+                ],
+            });
+        var sut = CreateService(handler, ConfigMock(), context, TurnMock());
+
+        var request = JournalRequest("start");
+        request.JournalAction = "start_checkin";
+
+        var response = await sut.ChatAsync(UserId, request, CancellationToken.None);
+
+        response.SuggestedReplies.Should().Contain("All good today");
+        response.Answer.Should().Contain("recently");
+    }
+
+    [Fact]
+    public async Task ChatAsync_JournalMode_AllGoodToday_WithRecentIssue_CompletesWithTrackedDuration()
+    {
+        var handler = new GeminiTestHandler { InnerTextPart = "should not be called" };
+        var twoDaysAgo = DateTime.UtcNow.Date.AddDays(-2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var context = ContextMock();
+        context
+            .Setup(s => s.GetPetConversationalContextAsync(UserId, PetId, It.IsAny<MiloJournalConfigSnapshot>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PetConversationalContextDto
+            {
+                PetProfile = new PetProfileSnapshot { Name = "Rex", IsSenior = false },
+                RecentJournalNotes =
+                [
+                    new RecentJournalNote
+                    {
+                        Domain = "health",
+                        Subtype = "symptom",
+                        Note = "Limping after walk",
+                        EntryDate = twoDaysAgo,
+                        CreatedAt = $"{twoDaysAgo}T18:00:00Z",
+                    },
+                ],
+            });
+        var sut = CreateService(handler, ConfigMock(), context, TurnMock());
+
+        var response = await sut.ChatAsync(UserId, JournalRequest("All good today"), CancellationToken.None);
+
+        response.JournalSessionComplete.Should().BeTrue();
+        response.JournalSummary.Should().Contain("back to normal");
+        response.StructuredSummary!.Fields["STATUS"].Should().Be("Resolved");
     }
 
     [Fact]

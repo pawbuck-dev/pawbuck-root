@@ -1,4 +1,5 @@
 import { CTA } from "@/components/ui/CTA";
+import { StartWalkWalkerIcon } from "@/components/pawthon/StartWalkWalkerIcon";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -112,21 +113,7 @@ export default function DailyGoalWalkCard({
                   onPress={onStartWalk}
                   size="SM"
                   containerStyle={{ alignSelf: "flex-start" }}
-                  leftIcon={
-                    <View
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.9)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons name="play" size={7} color="#FFFFFF" />
-                    </View>
-                  }
+                  leftIcon={<StartWalkWalkerIcon size={22} />}
                 />
               </View>
             </View>
@@ -257,21 +244,7 @@ export default function DailyGoalWalkCard({
               onPress={onStartWalk}
               size="SM"
               containerStyle={{ alignSelf: "flex-start" }}
-              leftIcon={
-                <View
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: "rgba(255,255,255,0.9)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="play" size={8} color="#FFFFFF" style={{ marginLeft: 0.5 }} />
-                </View>
-              }
+              leftIcon={<StartWalkWalkerIcon size={24} />}
             />
           </View>
 

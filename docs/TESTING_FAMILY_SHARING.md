@@ -14,8 +14,15 @@ Journey spec: [family-sharing-recipient-journeys.md](plans/family-sharing-recipi
 | Email invite | `petFamilyInvites.service.test.ts` | Edge invoke + token accept errors |
 | Entry points | `familyTransferEntryPoints.test.ts` | Welcome, profile hrefs, auth resume params |
 | Launch | `index.test.tsx` | Join/Claim CTAs on welcome |
+| Wizards (RTL) | `join-household-wizard.test.tsx` | Step 1 verify → step 2 join |
+| Owner services | `householdInvites.service.test.ts` | create/verify/deactivate/list + all RPC error codes |
 
-**Not automated today:** QR scan (stub), full two-account E2E, Mailgun delivery.
+**Not automated today:** QR scan (stub), Mailgun delivery, Maestro (optional staging).
+
+## Supabase RPC integration
+
+Local: `supabase start` then `pnpm run family-access:integration`  
+CI: `.github/workflows/family-access-integration.yml`
 
 ## Manual E2E checklist (two accounts recommended)
 

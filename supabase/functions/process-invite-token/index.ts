@@ -6,6 +6,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { errorResponse, handleCorsRequest, jsonResponse } from "../_shared/cors.ts";
+import { resolvePetFamilyInviteError } from "../_shared/inviteTokenErrorStatus.ts";
 import { createUserSupabaseClient } from "../_shared/supabase-utils.ts";
 
 Deno.serve(async (req: Request) => {
@@ -53,17 +54,7 @@ Deno.serve(async (req: Request) => {
 
   const result = data as Record<string, unknown> | null;
   if (!result || result.ok !== true) {
-    const err = typeof result?.error === "string" ? result.error : "rejected";
-    const status =
-      err === "unauthenticated"
-        ? 401
-        : err === "email_mismatch" || err === "already_owner"
-          ? 403
-          : err === "expired" || err === "invalid_token" || err === "not_pending"
-            ? 400
-            : err === "member_limit"
-              ? 409
-              : 400;
+    const { error: err, status } = resolvePetFamilyInviteError(result);
     return jsonResponse(result ?? { ok: false, error: err }, status);
   }
 

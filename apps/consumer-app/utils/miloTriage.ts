@@ -78,6 +78,8 @@ const MEDIUM = [
 ];
 
 const LOW = [
+  "all good",
+  "back to normal",
   "played well",
   "ate normally",
   "eating well",

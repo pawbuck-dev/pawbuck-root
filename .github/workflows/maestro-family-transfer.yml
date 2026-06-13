@@ -1,0 +1,30 @@
+# Maestro E2E — family MTCH join + TRF claim (manual, staging secrets)
+name: Maestro family transfer E2E
+
+on:
+  workflow_dispatch:
+
+jobs:
+  maestro:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    if: >-
+      ${{ secrets.MAESTRO_RECIPIENT_EMAIL != '' && secrets.MAESTRO_HOUSEHOLD_CODE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Run join-household flow
+        env:
+          MAESTRO_OWNER_EMAIL: ${{ secrets.MAESTRO_OWNER_EMAIL }}
+          MAESTRO_OWNER_PASSWORD: ${{ secrets.MAESTRO_OWNER_PASSWORD }}
+          MAESTRO_RECIPIENT_EMAIL: ${{ secrets.MAESTRO_RECIPIENT_EMAIL }}
+          MAESTRO_RECIPIENT_PASSWORD: ${{ secrets.MAESTRO_RECIPIENT_PASSWORD }}
+          MAESTRO_HOUSEHOLD_CODE: ${{ secrets.MAESTRO_HOUSEHOLD_CODE }}
+          MAESTRO_TRANSFER_CODE: ${{ secrets.MAESTRO_TRANSFER_CODE }}
+        run: |
+          export PATH="$PATH:$HOME/.maestro/bin"
+          maestro test .maestro/flows/join-household-mtch.yaml
+          maestro test .maestro/flows/claim-pet-trf.yaml

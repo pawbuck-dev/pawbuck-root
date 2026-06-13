@@ -10,6 +10,14 @@ import {
   isLogIntentText,
   isRoutineJournalLogText,
 } from "@/utils/miloJournalIntent";
+import type { PetJournalEntry } from "@/services/petJournal";
+import {
+  buildAllGoodTodayOfflineSummary,
+  buildJournalCheckInPrompt,
+  buildJournalCheckInTopicReplies,
+  getRecentIssueJournalEntries,
+  isAllGoodTodaySelection,
+} from "@/utils/journalCheckInTopics";
 
 export type OfflineJournalTurnResult = {
   answer: string;
@@ -63,11 +71,27 @@ function primaryLogLine(userTurns: string[]): string {
 /**
  * @param userTurns chronological owner messages in this offline session (includes latest)
  */
-export function getOfflineJournalTurn(userTurns: string[], petName: string): OfflineJournalTurnResult {
+export function getOfflineJournalTurn(
+  userTurns: string[],
+  petName: string,
+  options?: { recentJournalEntries?: PetJournalEntry[] }
+): OfflineJournalTurnResult {
   const combined = userTurns.join("\n");
   const tree = detectTree(combined);
   const step = Math.min(Math.max(userTurns.length - 1, 0), 3);
   const logLine = primaryLogLine(userTurns);
+  const recentEntries = options?.recentJournalEntries ?? [];
+
+  if (isAllGoodTodaySelection(logLine)) {
+    const issues = getRecentIssueJournalEntries(recentEntries);
+    const recovery = buildAllGoodTodayOfflineSummary(petName, issues);
+    return {
+      answer: recovery.answer,
+      suggestedReplies: [],
+      journalSessionComplete: true,
+      structuredFields: recovery.structuredFields,
+    };
+  }
   const detail = summarizeLogLine(logLine);
   const lastLower = (userTurns[userTurns.length - 1] ?? "").trim().toLowerCase();
 
@@ -222,15 +246,8 @@ export function getOfflineJournalTurn(userTurns: string[], petName: string): Off
     case 0:
       return checkInStart
         ? {
-            answer: `What would you like to note about ${petName} today?`,
-            suggestedReplies: [
-              "All good today",
-              "Vomiting or diarrhea",
-              "Lethargic today",
-              "Changed appetite",
-              "Scratching a lot",
-              "Not sure",
-            ],
+            answer: buildJournalCheckInPrompt(petName, recentEntries),
+            suggestedReplies: buildJournalCheckInTopicReplies(recentEntries),
             journalSessionComplete: false,
           }
         : {
