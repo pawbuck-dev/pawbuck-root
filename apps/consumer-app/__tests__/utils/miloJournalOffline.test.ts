@@ -1,3 +1,4 @@
+import type { PetJournalEntry } from "@/services/petJournal";
 import { extractPetLogEntry, severityFromConversationText } from "@/utils/miloTriage";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
 
@@ -47,7 +48,35 @@ describe("getOfflineJournalTurn", () => {
     expect(r.journalSessionComplete).toBe(false);
     expect(r.answer).toContain("note about Milo");
     expect(r.answer).not.toContain("How long has this been going on");
-    expect(r.suggestedReplies).toContain("All good today");
+    expect(r.suggestedReplies).not.toContain("All good today");
+    expect(r.suggestedReplies).toContain("Vomiting or diarrhea");
+  });
+
+  it("check-in start offers all good after prior issue entry", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const entryDate = yesterday.toISOString().slice(0, 10);
+    const r = getOfflineJournalTurn(["start_checkin"], "Milo", {
+      recentJournalEntries: [
+        {
+          id: "j1",
+          pet_id: "p1",
+          user_id: "u1",
+          domain: "health",
+          subtype: "symptom",
+          note: "Scratching a lot",
+          entry_date: entryDate,
+          vet_flagged: false,
+          created_at: `${entryDate}T12:00:00Z`,
+          updated_at: `${entryDate}T12:00:00Z`,
+          triage_status: "none",
+          milo_idempotency_key: null,
+          interview_metadata: null,
+          linked_clinical_exam_id: null,
+        } as PetJournalEntry,
+      ],
+    });
+    expect(r.suggestedReplies[0]).toBe("All good today");
   });
 
   it("eye or ear chip starts eye/ear offline flow, not generic duration", () => {

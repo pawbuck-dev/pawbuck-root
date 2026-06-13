@@ -1,10 +1,21 @@
 import { getMiloJournalChipMeta } from "@/utils/miloJournalChipMeta";
 
 describe("getMiloJournalChipMeta", () => {
-  it("maps wellness topics to distinct icons", () => {
+  it("maps check-in starter topics with distinct, relevant icons", () => {
     expect(getMiloJournalChipMeta("All good today", 0).icon).toBe("checkmark-circle-outline");
     expect(getMiloJournalChipMeta("Vomiting or diarrhea", 0).icon).toBe("medkit-outline");
+    expect(getMiloJournalChipMeta("Lethargic today", 0).icon).toBe("moon-outline");
+    expect(getMiloJournalChipMeta("Changed appetite", 0).icon).toBe("restaurant-outline");
+    expect(getMiloJournalChipMeta("Scratching a lot", 0).icon).toBe("hand-left-outline");
     expect(getMiloJournalChipMeta("Limping", 0).icon).toBe("walk-outline");
+    expect(getMiloJournalChipMeta("Coughing", 0).icon).toBe("cloud-outline");
+    expect(getMiloJournalChipMeta("Eye or ear issue", 0).icon).toBe("medical-outline");
+  });
+
+  it("maps lethargy severity levels to distinct icons", () => {
+    expect(getMiloJournalChipMeta("A little off", 0).icon).toBe("battery-half-outline");
+    expect(getMiloJournalChipMeta("Much less active", 0).icon).toBe("moon-outline");
+    expect(getMiloJournalChipMeta("Barely moving", 0).icon).toBe("bed-outline");
   });
 
   it("maps duration and timing answers", () => {
@@ -22,16 +33,14 @@ describe("getMiloJournalChipMeta", () => {
     expect(getMiloJournalChipMeta("Nothing else", 0).icon).toBe("checkmark-circle-outline");
   });
 
-  it("maps symptom detail answers", () => {
-    expect(getMiloJournalChipMeta("Food", 0).icon).toBe("fast-food-outline");
-    expect(getMiloJournalChipMeta("Yellow bile", 0).icon).toBe("color-fill-outline");
-    expect(getMiloJournalChipMeta("Normal", 0).icon).toBe("checkmark-circle-outline");
-    expect(getMiloJournalChipMeta("Eating less", 0).icon).toBe("restaurant-outline");
-    expect(getMiloJournalChipMeta("Both", 0).icon).toBe("layers-outline");
+  it("matches inflected symptom words via stem rules", () => {
+    expect(getMiloJournalChipMeta("Scratching the ear", 0).icon).toBe("hand-left-outline");
+    expect(getMiloJournalChipMeta("Coughing more at night", 0).icon).toBe("cloud-outline");
+    expect(getMiloJournalChipMeta("Lethargic since yesterday", 0).icon).toBe("moon-outline");
   });
 
-  it("uses journal-neutral fallbacks instead of starter icons", () => {
+  it("uses journal-neutral fallbacks for unknown labels", () => {
     expect(getMiloJournalChipMeta("Some unknown label", 0).icon).toBe("clipboard-outline");
-    expect(getMiloJournalChipMeta("Some unknown label", 1).icon).toBe("list-outline");
+    expect(getMiloJournalChipMeta("Some unknown label", 1).icon).toBe("chatbox-ellipses-outline");
   });
 });

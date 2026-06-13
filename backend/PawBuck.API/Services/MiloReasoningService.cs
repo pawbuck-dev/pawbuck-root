@@ -110,9 +110,36 @@ public class MiloReasoningService : IMiloReasoningService
         {
             var petDisplayName = request.Pet?.Name?.Trim() ?? "your pet";
             var journalConfig = await _journalConfig.GetAsync(cancellationToken);
+            PetConversationalContextDto? conversationalContext = null;
+
+            async Task<PetConversationalContextDto?> LoadConversationalContextAsync()
+            {
+                conversationalContext ??= await _petConversationalContext.GetPetConversationalContextAsync(
+                    userId,
+                    petId.Value,
+                    journalConfig,
+                    cancellationToken);
+                return conversationalContext;
+            }
 
             if (string.Equals(request.JournalAction, "start_checkin", StringComparison.OrdinalIgnoreCase))
-                return BuildJournalTopicPickerResponse(petDisplayName, journalConfig.PromptVersion);
+            {
+                await LoadConversationalContextAsync();
+                return JournalWellnessCheckInHelper.BuildTopicPickerResponse(
+                    petDisplayName,
+                    journalConfig.PromptVersion,
+                    conversationalContext,
+                    DateTime.UtcNow);
+            }
+
+            await LoadConversationalContextAsync();
+            var wellnessResponse = JournalWellnessCheckInHelper.TryBuildAllGoodTodayResponse(
+                message,
+                conversationalContext!,
+                petDisplayName,
+                DateTime.UtcNow);
+            if (wellnessResponse != null)
+                return wellnessResponse;
 
             var routineResponse = JournalRoutineLogHelper.TryBuildOneShotResponse(message, petDisplayName);
             if (routineResponse != null)
@@ -140,7 +167,11 @@ public class MiloReasoningService : IMiloReasoningService
                 && !Guid.TryParse(request.JournalSessionId, out _)
                 && !IsExplicitJournalTopicSelection(request))
             {
-                return BuildJournalTopicPickerResponse(petDisplayName, journalConfig.PromptVersion);
+                return JournalWellnessCheckInHelper.BuildTopicPickerResponse(
+                    petDisplayName,
+                    journalConfig.PromptVersion,
+                    conversationalContext,
+                    DateTime.UtcNow);
             }
 
             var journalResponse = await RunJournalInterviewAsync(
@@ -1139,7 +1170,10 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         if (string.IsNullOrEmpty(msg))
             return false;
 
-        foreach (var chip in JournalTopicPickerChips)
+        if (string.Equals(msg, JournalWellnessCheckInHelper.AllGoodTodayChip, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        foreach (var chip in JournalWellnessCheckInHelper.SymptomTopicChipsForSelection)
         {
             if (string.Equals(msg, chip, StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -1162,30 +1196,5 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             return true;
 
         return false;
-    }
-
-    private static readonly string[] JournalTopicPickerChips =
-    [
-        "All good today",
-        "Vomiting or diarrhea",
-        "Lethargic today",
-        "Changed appetite",
-        "Scratching a lot",
-        "Limping",
-        "Coughing",
-        "Eye or ear issue",
-    ];
-
-    private static MiloChatResponse BuildJournalTopicPickerResponse(string petDisplayName, string? promptVersion)
-    {
-        var name = string.IsNullOrWhiteSpace(petDisplayName) ? "your pet" : petDisplayName.Trim();
-        return new MiloChatResponse
-        {
-            Answer =
-                $"What would you like to note about {name} today? Pick a topic or describe it in your own words.",
-            SuggestedReplies = JournalTopicPickerChips,
-            JournalStatus = "CONTINUE",
-            PromptVersion = promptVersion,
-        };
     }
 }

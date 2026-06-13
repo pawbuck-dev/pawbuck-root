@@ -689,7 +689,9 @@ export default function MiloJournalChatScreen() {
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         setJournalFallbackReason(formatJournalFallbackReason(reason));
-        const offline = getOfflineJournalTurn(userTurns, pet.name);
+        const offline = getOfflineJournalTurn(userTurns, pet.name, {
+          recentJournalEntries: starterData?.journalEntries ?? [],
+        });
         const offlineSummary =
           offline.structuredFields?.NOTE ??
           (offline.journalSessionComplete ? userTurns.join("\n") : null);
@@ -724,6 +726,7 @@ export default function MiloJournalChatScreen() {
       canStartAiJournal,
       openPaywall,
       refetchEntitlement,
+      starterData?.journalEntries,
     ]
   );
 
@@ -838,7 +841,9 @@ export default function MiloJournalChatScreen() {
       console.warn("Milo journal check-in start failed; using offline flow:", e);
       setOfflineJournalActive(true);
       setJournalFallbackReason(formatJournalFallbackReason(reason));
-      const offline = getOfflineJournalTurn(["start_checkin"], pet.name);
+      const offline = getOfflineJournalTurn(["start_checkin"], pet.name, {
+        recentJournalEntries: starterData?.journalEntries ?? [],
+      });
       pushAssistant(offline.answer, "low", {
         suggestedReplies: offline.suggestedReplies,
         journalSessionComplete: offline.journalSessionComplete,
@@ -855,6 +860,7 @@ export default function MiloJournalChatScreen() {
     openPaywall,
     refetchEntitlement,
     pushAssistant,
+    starterData?.journalEntries,
   ]);
 
   useEffect(() => {

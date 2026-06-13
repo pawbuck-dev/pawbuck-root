@@ -1,169 +1,219 @@
 import type { MiloStarterCardMeta, MiloStarterIoniconName } from "./miloStarterCardMeta";
 
+const C = {
+  green: { iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
+  teal: { iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
+  blue: { iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+  purple: { iconBg: "rgba(167,139,250,0.14)", iconColor: "#C4B5FD" },
+  amber: { iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+  orange: { iconBg: "rgba(249,115,22,0.14)", iconColor: "#FB923C" },
+  pink: { iconBg: "rgba(244,114,182,0.14)", iconColor: "#F472B6" },
+  red: { iconBg: "rgba(239,68,68,0.14)", iconColor: "#F87171" },
+  slate: { iconBg: "rgba(148,163,184,0.18)", iconColor: "#CBD5E1" },
+  gray: { iconBg: "rgba(148,163,184,0.14)", iconColor: "#94A3B8" },
+} as const;
+
+function chip(icon: MiloStarterIoniconName, palette: (typeof C)[keyof typeof C]): MiloStarterCardMeta {
+  return { icon, iconBg: palette.iconBg, iconColor: palette.iconColor };
+}
+
+/** Known journal reply labels — checked before fuzzy rules. */
+const JOURNAL_EXACT_LABELS: Record<string, MiloStarterCardMeta> = {
+  "+ add details": chip("create-outline", C.teal),
+  "all good today": chip("checkmark-circle-outline", C.green),
+  "vomiting or diarrhea": chip("medkit-outline", C.orange),
+  "lethargic today": chip("moon-outline", C.purple),
+  "changed appetite": chip("restaurant-outline", C.amber),
+  "scratching a lot": chip("hand-left-outline", C.pink),
+  limping: chip("walk-outline", C.blue),
+  coughing: chip("cloud-outline", C.slate),
+  "eye or ear issue": chip("medical-outline", C.teal),
+  "not sure": chip("help-circle-outline", C.gray),
+  "looks right — save": chip("document-text-outline", C.teal),
+  "nothing else": chip("checkmark-circle-outline", C.green),
+  "nothing different": chip("checkmark-circle-outline", C.green),
+  "none of these": chip("checkmark-circle-outline", C.green),
+  none: chip("checkmark-circle-outline", C.green),
+  both: chip("layers-outline", C.blue),
+  vomiting: chip("medkit-outline", C.orange),
+  diarrhea: chip("water-outline", C.blue),
+  "more tired": chip("moon-outline", C.purple),
+  "a little off": chip("battery-half-outline", C.amber),
+  "much less active": chip("moon-outline", C.purple),
+  "barely moving": chip("bed-outline", C.red),
+  "a little quiet": chip("battery-half-outline", C.amber),
+  "noticeably tired": chip("moon-outline", C.purple),
+  "won't get up much": chip("bed-outline", C.red),
+  "barely responsive": chip("alert-circle-outline", C.red),
+  "yes, just tired": chip("moon-outline", C.purple),
+  "less interested than usual": chip("remove-circle-outline", C.amber),
+  withdrawn: chip("eye-off-outline", C.purple),
+  "doesn't recognize routine cues": chip("help-circle-outline", C.red),
+  eye: chip("eye-outline", C.teal),
+  ear: chip("ear-outline", C.purple),
+  normal: chip("checkmark-circle-outline", C.green),
+  "eating less": chip("restaurant-outline", C.orange),
+  "not eating": chip("close-circle-outline", C.orange),
+  "drinking more": chip("water-outline", C.blue),
+  food: chip("fast-food-outline", C.amber),
+  "yellow bile": chip("color-fill-outline", C.amber),
+  foam: chip("water-outline", C.blue),
+  "just started today": chip("today-outline", C.green),
+  "started yesterday": chip("moon-outline", C.purple),
+  "a couple of days": chip("time-outline", C.blue),
+  "about a week": chip("calendar-outline", C.amber),
+  "on and off": chip("calendar-outline", C.amber),
+  "just today": chip("today-outline", C.green),
+  "1–2 days": chip("time-outline", C.blue),
+  once: chip("ellipse-outline", C.gray),
+};
+
 const JOURNAL_TOPIC_RULES: { re: RegExp; meta: MiloStarterCardMeta }[] = [
   {
-    re: /^\+\s*add details$/i,
-    meta: { icon: "create-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
-  },
-  {
     re: /\b(looks right|save|confirm summary|edit summary)\b/i,
-    meta: { icon: "document-text-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
-  },
-  {
-    re: /\b(none of these|nothing else|nothing different)\b/i,
-    meta: { icon: "checkmark-circle-outline", iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
-  },
-  {
-    re: /^none$/i,
-    meta: { icon: "checkmark-circle-outline", iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
+    meta: chip("document-text-outline", C.teal),
   },
   {
     re: /\b(emergency|red flag|very weak|pale|white gum|bloated|can.t keep water)\b/i,
-    meta: { icon: "alert-circle-outline", iconBg: "rgba(239,68,68,0.14)", iconColor: "#F87171" },
+    meta: chip("alert-circle-outline", C.red),
   },
   {
     re: /\b(blood|coffee-ground|black\/tarry|red blood)\b/i,
-    meta: { icon: "water-outline", iconBg: "rgba(239,68,68,0.14)", iconColor: "#F87171" },
+    meta: chip("water-outline", C.red),
   },
   {
     re: /\bjust (started )?today\b/i,
-    meta: { icon: "today-outline", iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
+    meta: chip("today-outline", C.green),
   },
   {
     re: /\b(started )?yesterday\b/i,
-    meta: { icon: "moon-outline", iconBg: "rgba(167,139,250,0.14)", iconColor: "#C4B5FD" },
+    meta: chip("moon-outline", C.purple),
   },
   {
     re: /\b(a couple of days|1[-–]2 days|2[-–]3 days)\b/i,
-    meta: { icon: "time-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    meta: chip("time-outline", C.blue),
   },
   {
     re: /\b(about a week|on and off|week\+?)\b/i,
-    meta: { icon: "calendar-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    meta: chip("calendar-outline", C.amber),
   },
   {
     re: /\b(longer than|gradual|month)\b/i,
-    meta: { icon: "hourglass-outline", iconBg: "rgba(148,163,184,0.18)", iconColor: "#CBD5E1" },
-  },
-  {
-    re: /^once$/i,
-    meta: { icon: "ellipse-outline", iconBg: "rgba(148,163,184,0.14)", iconColor: "#94A3B8" },
+    meta: chip("hourglass-outline", C.slate),
   },
   {
     re: /\b(2[-–]3 times?|2[-–]3)\b/i,
-    meta: { icon: "repeat-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    meta: chip("repeat-outline", C.blue),
   },
   {
     re: /\b(4[-–]6|many times)\b/i,
-    meta: { icon: "pulse-outline", iconBg: "rgba(249,115,22,0.14)", iconColor: "#FB923C" },
+    meta: chip("pulse-outline", C.orange),
   },
   {
     re: /\ball good\b/i,
-    meta: { icon: "checkmark-circle-outline", iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
+    meta: chip("checkmark-circle-outline", C.green),
   },
   {
-    re: /\b(vomit|diarrhea|digestive)\b/i,
-    meta: { icon: "medkit-outline", iconBg: "rgba(249,115,22,0.14)", iconColor: "#FB923C" },
+    re: /vomit|diarr/i,
+    meta: chip("medkit-outline", C.orange),
   },
   {
-    re: /^both$/i,
-    meta: { icon: "layers-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    re: /letharg|low.?energy|sleeping more|tired faster/i,
+    meta: chip("moon-outline", C.purple),
   },
   {
-    re: /\b(letharg|tired|energy|barely moving|much less active|a little off|hiding|sleeping more)\b/i,
-    meta: { icon: "moon-outline", iconBg: "rgba(167,139,250,0.14)", iconColor: "#C4B5FD" },
+    re: /scratch|itch|chewing paw|scooting|hot spot|dandruff|flea dirt|hair loss/i,
+    meta: chip("hand-left-outline", C.pink),
   },
   {
-    re: /\b(off food|won.t eat|not eating|eating less|picky|eats slowly|treats only)\b/i,
-    meta: { icon: "restaurant-outline", iconBg: "rgba(249,115,22,0.14)", iconColor: "#FB923C" },
+    re: /cough|sneez|wheez|breathing diff/i,
+    meta: chip("cloud-outline", C.slate),
   },
   {
-    re: /\b(eating more|asking for food|hungry|stealing food|pica)\b/i,
-    meta: { icon: "nutrition-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    re: /limp|stiff|three.?leg|dragging leg/i,
+    meta: chip("walk-outline", C.blue),
   },
   {
-    re: /\b(appetite|changed appetite)\b/i,
-    meta: { icon: "restaurant-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    re: /eye or ear|eye\/ear|\beye\b|\bear\b/i,
+    meta: chip("medical-outline", C.teal),
   },
   {
-    re: /^food$/i,
-    meta: { icon: "fast-food-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    re: /off food|won.t eat|not eating|eating less|picky|appetite|changed appetite/i,
+    meta: chip("restaurant-outline", C.orange),
   },
   {
-    re: /\b(new food|new treat|table scrap|feeding change|new feeder)\b/i,
-    meta: { icon: "fast-food-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    re: /eating more|asking for food|hungry|stealing food|pica/i,
+    meta: chip("nutrition-outline", C.amber),
   },
   {
-    re: /\b(yellow bile|bile)\b/i,
-    meta: { icon: "color-fill-outline", iconBg: "rgba(232,162,61,0.14)", iconColor: "#E8A23D" },
+    re: /\bfood\b/i,
+    meta: chip("fast-food-outline", C.amber),
   },
   {
-    re: /\b(foam|watery|soft|pudding|mucus)\b/i,
-    meta: { icon: "water-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    re: /yellow bile|\bbile\b/i,
+    meta: chip("color-fill-outline", C.amber),
   },
   {
-    re: /\bdrinking (more|less|normally)\b/i,
-    meta: { icon: "water-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    re: /foam|watery|soft|pudding|mucus/i,
+    meta: chip("water-outline", C.blue),
   },
   {
-    re: /\b(eating normally|drinking normally|normal energy|^normal$)\b/i,
-    meta: { icon: "checkmark-circle-outline", iconBg: "rgba(91,201,140,0.14)", iconColor: "#7FD9A6" },
+    re: /drinking (more|less|normally)|drinking less|drinking more/i,
+    meta: chip("water-outline", C.blue),
   },
   {
-    re: /\b(scratch|itch)\b/i,
-    meta: { icon: "hand-left-outline", iconBg: "rgba(244,114,182,0.14)", iconColor: "#F472B6" },
+    re: /eating normally|drinking normally|normal energy|^normal$/i,
+    meta: chip("checkmark-circle-outline", C.green),
   },
   {
-    re: /\blimp/i,
-    meta: { icon: "walk-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
+    re: /belly|swelling|wound|bleeding/i,
+    meta: chip("body-outline", C.orange),
   },
   {
-    re: /\bcough/i,
-    meta: { icon: "fitness-outline", iconBg: "rgba(148,163,184,0.18)", iconColor: "#CBD5E1" },
+    re: /stress|travel|boarding|fireworks|thunder/i,
+    meta: chip("airplane-outline", C.gray),
   },
   {
-    re: /\bbelly\b/i,
-    meta: { icon: "body-outline", iconBg: "rgba(249,115,22,0.14)", iconColor: "#FB923C" },
+    re: /new food|new treat|table scrap|feeding change/i,
+    meta: chip("fast-food-outline", C.amber),
   },
   {
-    re: /^eye$/i,
-    meta: { icon: "eye-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
+    re: /not sure/i,
+    meta: chip("help-circle-outline", C.gray),
   },
   {
-    re: /^ear$/i,
-    meta: { icon: "ear-outline", iconBg: "rgba(167,139,250,0.14)", iconColor: "#C4B5FD" },
+    re: /nothing else|nothing different|none of these|^none$/i,
+    meta: chip("checkmark-circle-outline", C.green),
   },
   {
-    re: /\b(eye or ear|eye\/ear)\b/i,
-    meta: { icon: "eye-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
-  },
-  {
-    re: /\b(stress|travel|move|boarding)\b/i,
-    meta: { icon: "airplane-outline", iconBg: "rgba(148,163,184,0.14)", iconColor: "#94A3B8" },
-  },
-  {
-    re: /\b(got into|weight loss|weight gain|dental|bad breath)\b/i,
-    meta: { icon: "medkit-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
-  },
-  {
-    re: /\bnot sure\b/i,
-    meta: { icon: "help-circle-outline", iconBg: "rgba(148,163,184,0.14)", iconColor: "#94A3B8" },
+    re: /\+?\s*add details/i,
+    meta: chip("create-outline", C.teal),
   },
 ];
 
 const JOURNAL_FALLBACK: MiloStarterCardMeta[] = [
-  { icon: "clipboard-outline", iconBg: "rgba(84,186,183,0.14)", iconColor: "#54BAB7" },
-  { icon: "list-outline", iconBg: "rgba(96,165,250,0.14)", iconColor: "#93C5FD" },
-  { icon: "chatbox-ellipses-outline", iconBg: "rgba(148,163,184,0.14)", iconColor: "#94A3B8" },
+  chip("clipboard-outline", C.teal),
+  chip("chatbox-ellipses-outline", C.gray),
+  chip("list-outline", C.blue),
 ];
+
+function normalizeJournalLabel(label: string): string {
+  return label.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 export function getMiloJournalChipMeta(label: string, index: number): MiloStarterCardMeta {
   const text = label.trim();
+  const exact = JOURNAL_EXACT_LABELS[normalizeJournalLabel(text)];
+  if (exact) {
+    return exact;
+  }
+
   for (const rule of JOURNAL_TOPIC_RULES) {
     if (rule.re.test(text)) {
       return rule.meta;
     }
   }
+
   return JOURNAL_FALLBACK[index % JOURNAL_FALLBACK.length]!;
 }
 
