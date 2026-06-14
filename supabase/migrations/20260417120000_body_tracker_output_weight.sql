@@ -50,7 +50,16 @@ ALTER TABLE public.daily_intake
   ADD COLUMN IF NOT EXISTS poop_target integer NOT NULL DEFAULT 6,
   ADD COLUMN IF NOT EXISTS pee_target integer NOT NULL DEFAULT 6,
   ADD COLUMN IF NOT EXISTS poop_tags text[] NOT NULL DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS pee_tags text[] NOT NULL DEFAULT '{}';
+  ADD COLUMN IF NOT EXISTS pee_tags text[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS poop_observation_note text,
+  ADD COLUMN IF NOT EXISTS poop_observation_photo_path text,
+  ADD COLUMN IF NOT EXISTS pee_observation_note text,
+  ADD COLUMN IF NOT EXISTS pee_observation_photo_path text;
+
+COMMENT ON COLUMN public.daily_intake.poop_observation_note IS 'Free text when Mucus, Blood, or Unusual color is selected for stool.';
+COMMENT ON COLUMN public.daily_intake.poop_observation_photo_path IS 'Supabase storage path in bucket pets for stool observation photo.';
+COMMENT ON COLUMN public.daily_intake.pee_observation_note IS 'Free text when Unusual color is selected for urine.';
+COMMENT ON COLUMN public.daily_intake.pee_observation_photo_path IS 'Supabase storage path in bucket pets for urine observation photo.';
 
 ALTER TABLE public.pets
   ADD COLUMN IF NOT EXISTS target_weight_value double precision,
