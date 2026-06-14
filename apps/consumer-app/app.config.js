@@ -50,6 +50,14 @@ module.exports = ({ config }) => ({
   plugins: [
     ...(config.plugins ?? []),
     [
+      "expo-build-properties",
+      {
+        ios: {
+          useFrameworks: "static",
+        },
+      },
+    ],
+    [
       "expo-maps",
       {
         requestLocationPermission: false,
