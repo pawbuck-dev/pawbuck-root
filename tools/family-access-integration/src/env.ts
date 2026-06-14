@@ -8,15 +8,27 @@ export const LOCAL_SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImVHAiOjE5ODM4MTI5OTZ9.ECo8SO8lzgB7XhKoJZ-SSMO8ZvR8wV6o";
 
 export function getSupabaseUrl(): string {
-  return process.env.SUPABASE_URL?.trim() || LOCAL_SUPABASE_URL;
+  return (
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.API_URL?.trim() ||
+    LOCAL_SUPABASE_URL
+  );
 }
 
 export function getAnonKey(): string {
-  return process.env.SUPABASE_ANON_KEY?.trim() || LOCAL_ANON_KEY;
+  return (
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.ANON_KEY?.trim() ||
+    LOCAL_ANON_KEY
+  );
 }
 
 export function getServiceRoleKey(): string {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || LOCAL_SERVICE_ROLE_KEY;
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.SERVICE_ROLE_KEY?.trim() ||
+    LOCAL_SERVICE_ROLE_KEY
+  );
 }
 
 export async function isLocalSupabaseReachable(): Promise<boolean> {

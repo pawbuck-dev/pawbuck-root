@@ -37,5 +37,9 @@ jobs:
         working-directory: supabase
         run: supabase start -x studio,imgproxy,logflare,vector,supavisor
 
+      - name: Load Supabase connection env
+        working-directory: supabase
+        run: supabase status -o env >> "$GITHUB_ENV"
+
       - name: Run subscription limits integration tests
         run: pnpm --filter @pawbuck/subscription-limits-integration test
