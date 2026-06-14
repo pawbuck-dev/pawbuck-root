@@ -2,6 +2,8 @@
 
 **Not legal advice.** Use with counsel for each market (US state laws, GDPR / UK GDPR, App Store, Google Play).
 
+**Canonical compliance docs:** [`docs/compliance/`](compliance/)
+
 ## Data map (high level)
 
 | Category | Examples in PawBuck | Typical processors |
@@ -14,26 +16,39 @@
 | Scheduling | Booking metadata, `vet_bookings` | PawBuck.API, Vetstoria/EazyVet (when enabled) |
 | Marketplace (future) | Provider profiles, service bookings | Supabase |
 
+Full table-level inventory: [DATA-INVENTORY.md](compliance/DATA-INVENTORY.md) (CI drift guard in `DataInventoryDriftTests`).
+
 ## User rights (product + engineering)
 
-- **Account deletion** — Consumer invokes Edge Function `delete-account` via [`invokeDeleteAccount`](../apps/consumer-app/services/accountDeletion.ts). Verify end-to-end in staging; document any retention exceptions (backups, logs).
-- **Data export** — Define JSON export scope (pets, messages, bookings) and automate or document manual process per jurisdiction.
-- **Consent & transparency** — Privacy policy URL in app; in-app disclosure for AI, location, and email ingestion; update **App Privacy** / **Data safety** forms when data practices change.
+- **Account deletion** — 7-day grace via Edge `delete-account` → `schedule_account_deletion`; hard purge via `AccountPurgeWorker` + `erase_user_data` RPC. Consumer: Profile → Delete account; cancel during grace. Web: [WEB-ACCOUNT-DELETION.md](compliance/WEB-ACCOUNT-DELETION.md).
+- **Data export** — `POST /api/privacy/export` + `DataExportWorker`; Profile → Download my data; emailed signed link (7d).
+- **Consent & transparency** — Privacy policy URL in app; store forms: [STORE-DATA-DISCLOSURES.md](compliance/STORE-DATA-DISCLOSURES.md).
 
-## Retention (defaults to decide)
+## Retention (implemented defaults — confirm with counsel)
 
-- Raw OCR payloads / email bodies — align TTL with product need and DPA.
-- `walk_sessions.points` — minimize or aggregate if not required long term.
-- Analytics events — see `analytics_events` migration; set retention job.
+| Dataset | Default | Worker |
+|---------|---------|--------|
+| `walk_sessions.points` | 90 days → null | `RetentionWorker` |
+| `processed_emails` | 180 days | `RetentionWorker` |
+| `milo_journal_chat_turns` | 12 months | `RetentionWorker` |
+| `analytics_events` | 14 months | `RetentionWorker` |
+| Export files | 7 days | `RetentionWorker` + `data_export_requests.expires_at` |
+| `account_deletion_log` | 24 months | `RetentionWorker` |
+
+Admin observability: Command center → Retention jobs panel (`/api/support/retention/runs`).
 
 ## Store-specific reminders
 
-- **Apple** — Account deletion in app; accurate privacy nutrition labels; justify background location if introduced.
-- **Google Play** — Data safety form; account deletion parity.
-- **Country rollout** — Terms, payment rules, and marketplace regulations (VAT, consumer rights, worker classification) before Rover-style transactions.
+- **Apple** — Account deletion in app; [STORE-DATA-DISCLOSURES.md](compliance/STORE-DATA-DISCLOSURES.md).
+- **Google Play** — Data safety form; web deletion path documented.
+- **Country rollout** — Terms, payment rules, and marketplace regulations before Rover-style transactions.
 
 ## Verification checklist
 
-- [ ] Staging test: sign up → delete account → confirm auth + app data removed per policy.
-- [ ] List all third-party subprocessors in privacy policy.
-- [ ] DPIA / ROPA template for EU/UK if processing health-related data at scale.
+- [x] Engineering: `erase_user_data` RPC + purge worker + inventory CI guard
+- [x] Engineering: async export API + worker + consumer UX
+- [x] Engineering: retention jobs + admin panel
+- [x] Docs: DPIA draft, RoPA template, subprocessors, store mapping
+- [ ] Staging UAT: sign up → populate data → schedule delete → after grace confirm zero residual rows/objects + audit log
+- [ ] Counsel sign-off: retention windows, Gemini DPA no-training clause, DPIA/ROPA
+- [ ] List all third-party subprocessors in **published** privacy policy

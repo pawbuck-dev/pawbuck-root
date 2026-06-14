@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ApiAvailabilityPanel } from "@/components/ApiAvailabilityPanel";
+import { RetentionJobsPanel } from "@/components/RetentionJobsPanel";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { SubscriptionOverviewPanel } from "@/components/SubscriptionOverviewPanel";
 import { AdminGlobalSearch } from "@/components/AdminGlobalSearch";
@@ -69,6 +70,10 @@ export function CommandCenterPage() {
       <AdminGlobalSearch />
 
       <ApiAvailabilityPanel />
+
+      <div className="my-6">
+        <RetentionJobsPanel />
+      </div>
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Work queues">
         {QUEUE_LINKS.map((q) => {

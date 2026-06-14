@@ -22,7 +22,8 @@ import { useSubscription } from "@/context/subscriptionContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { invokeDeleteAccount } from "@/services/accountDeletion";
+import { cancelAccountDeletion, getAccountDeletionStatus, invokeDeleteAccount } from "@/services/accountDeletion";
+import { fetchPrivacyExportStatus, requestPrivacyExport } from "@/services/privacyExport";
 import { resolveAuthDisplayName, isPlausibleDisplayNameForGreeting } from "@/services/authDisplayName";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
 import { getPrivateImageUrl } from "@/utils/image";
@@ -78,6 +79,9 @@ export default function Profile() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deletionScheduled, setDeletionScheduled] = useState(false);
+  const [deletionPurgeAfter, setDeletionPurgeAfter] = useState<string | null>(null);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user_profile"],
     queryFn: getUserProfile,
@@ -199,8 +203,10 @@ export default function Profile() {
   const performAccountDeletion = async () => {
     setIsDeletingAccount(true);
     try {
-      const { error } = await invokeDeleteAccount(supabase);
+      const { error, purgeAfter } = await invokeDeleteAccount(supabase);
       if (error) throw error;
+      setDeletionScheduled(true);
+      setDeletionPurgeAfter(purgeAfter ?? null);
       await signOut();
       router.replace("/");
     } catch (error: unknown) {
@@ -215,7 +221,7 @@ export default function Profile() {
   const showFinalAccountDeletionConfirmation = () => {
     Alert.alert(
       "Final Confirmation",
-      "This action cannot be undone. All your data will be permanently deleted and your pet email addresses will stop working immediately.\n\nAre you absolutely sure?",
+      "Your account will be scheduled for deletion in 7 days. You can cancel anytime before then from Profile after signing back in.\n\nAfter the grace period, all data is permanently removed.\n\nAre you absolutely sure?",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Delete My Account", style: "destructive", onPress: performAccountDeletion },
@@ -226,7 +232,7 @@ export default function Profile() {
   const showFirstAccountDeletionConfirmation = () => {
     Alert.alert(
       "Delete Account",
-      "Are you sure you want to delete your account?\n\nThis will permanently delete:\n• All your pets and their health records\n• Pet email addresses (they will no longer receive emails)\n• All messages and conversations\n• Your profile and preferences",
+      "Are you sure you want to delete your account?\n\nAfter a 7-day grace period we permanently delete:\n• All your pets and their health records\n• Pet email addresses\n• All messages and conversations\n• Your profile and preferences",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Continue", style: "destructive", onPress: showFinalAccountDeletionConfirmation },
@@ -299,8 +305,38 @@ export default function Profile() {
     );
   };
 
+  const handleDownloadMyData = async () => {
+    try {
+      const current = await fetchPrivacyExportStatus();
+      if (current.status === "queued" || current.status === "running") {
+        Alert.alert(
+          "Export in progress",
+          "We're preparing your data. You'll receive an email with a download link when it's ready."
+        );
+        return;
+      }
+      if (current.status === "ready") {
+        Alert.alert(
+          "Export ready",
+          "Check your email for the download link. Links expire 7 days after they're sent."
+        );
+        return;
+      }
+
+      await requestPrivacyExport();
+      Alert.alert(
+        "Export requested",
+        "We're building your data export. You'll receive an email with a secure download link when it's ready (usually within an hour)."
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not request export.";
+      Alert.alert("Error", message);
+    }
+  };
+
   const settingsRowHandlers: Record<ProfileSettingsRowId, () => void> = {
     notifications: openNotificationsSettings,
+    "download-data": () => void handleDownloadMyData(),
     privacy: openPrivacyInfo,
     appearance: () => toggleTheme(),
   };
@@ -320,6 +356,34 @@ export default function Profile() {
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [rawAvatar, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void (async () => {
+      const { data } = await getAccountDeletionStatus(supabase);
+      setDeletionScheduled(Boolean(data?.scheduled));
+      setDeletionPurgeAfter(data?.purge_after ?? null);
+    })();
+  }, [user?.id]);
+
+  const handleCancelAccountDeletion = async () => {
+    setIsCancellingDeletion(true);
+    try {
+      const { error, cancelled } = await cancelAccountDeletion(supabase);
+      if (error) throw error;
+      if (cancelled) {
+        setDeletionScheduled(false);
+        setDeletionPurgeAfter(null);
+        Alert.alert("Deletion cancelled", "Your account will remain active.");
+      }
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to cancel deletion. Please try again.";
+      Alert.alert("Error", message);
+    } finally {
+      setIsCancellingDeletion(false);
+    }
+  };
 
   const showOAuthAvatar = !!rawAvatar && !avatarLoadFailed && !profile?.profile_photo_path;
   const photoPreviewUri =
@@ -504,31 +568,61 @@ export default function Profile() {
           <Text className="text-sm font-medium mb-3 uppercase tracking-wide" style={{ color: "#EF4444" }}>
             Danger zone
           </Text>
-          <Pressable
-            onPress={handleDeleteAccount}
-            disabled={isDeletingAccount}
-            className="rounded-2xl py-4 px-6 items-center justify-center active:opacity-80"
-            style={{
-              backgroundColor: isDeletingAccount ? "#FCA5A520" : "#EF444420",
-              borderWidth: 1,
-              borderColor: "#EF4444",
-              opacity: isDeletingAccount ? 0.7 : 1,
-            }}
-          >
-            {isDeletingAccount ? (
-              <ActivityIndicator size="small" color="#EF4444" />
-            ) : (
-              <View className="flex-row items-center">
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                <Text className="text-base font-semibold ml-2" style={{ color: "#EF4444" }}>
-                  Delete account
-                </Text>
-              </View>
-            )}
-          </Pressable>
-          <Text className="text-xs mt-2 text-center" style={{ color: theme.foreground, opacity: 0.55 }}>
-            Permanently deletes your account and all associated data.
-          </Text>
+          {deletionScheduled ? (
+            <>
+              <Pressable
+                onPress={handleCancelAccountDeletion}
+                disabled={isCancellingDeletion}
+                className="rounded-2xl py-4 px-6 items-center justify-center active:opacity-80"
+                style={{
+                  backgroundColor: "#F59E0B20",
+                  borderWidth: 1,
+                  borderColor: "#F59E0B",
+                  opacity: isCancellingDeletion ? 0.7 : 1,
+                }}
+              >
+                {isCancellingDeletion ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <Text className="text-base font-semibold" style={{ color: "#F59E0B" }}>
+                    Cancel scheduled deletion
+                  </Text>
+                )}
+              </Pressable>
+              <Text className="text-xs mt-2 text-center" style={{ color: theme.foreground, opacity: 0.55 }}>
+                Deletion scheduled
+                {deletionPurgeAfter ? ` for ${new Date(deletionPurgeAfter).toLocaleDateString()}` : " in 7 days"}.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Pressable
+                onPress={handleDeleteAccount}
+                disabled={isDeletingAccount}
+                className="rounded-2xl py-4 px-6 items-center justify-center active:opacity-80"
+                style={{
+                  backgroundColor: isDeletingAccount ? "#FCA5A520" : "#EF444420",
+                  borderWidth: 1,
+                  borderColor: "#EF4444",
+                  opacity: isDeletingAccount ? 0.7 : 1,
+                }}
+              >
+                {isDeletingAccount ? (
+                  <ActivityIndicator size="small" color="#EF4444" />
+                ) : (
+                  <View className="flex-row items-center">
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                    <Text className="text-base font-semibold ml-2" style={{ color: "#EF4444" }}>
+                      Delete account
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+              <Text className="text-xs mt-2 text-center" style={{ color: theme.foreground, opacity: 0.55 }}>
+                Schedules deletion in 7 days; cancel anytime before then.
+              </Text>
+            </>
+          )}
         </View>
       </ScrollView>
 
