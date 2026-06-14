@@ -60,6 +60,12 @@ export const PROFILE_SETTINGS_ROWS = [
     subtitle: "Manage alerts",
   },
   {
+    id: "download-data",
+    icon: "download-outline",
+    title: "Download my data",
+    subtitle: "Request a copy of your account data",
+  },
+  {
     id: "privacy",
     icon: "shield-check-outline",
     title: "Privacy & Security",

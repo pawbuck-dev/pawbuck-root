@@ -247,6 +247,33 @@ builder.Services.AddHttpClient("ExpoPush");
 builder.Services.AddSingleton<IExpoPushService, ExpoPushService>();
 builder.Services.AddHostedService<DocumentSyncWorker>();
 builder.Services.AddHostedService<ProactivePetHealthWorker>();
+builder.Services.Configure<RetentionOptions>(builder.Configuration.GetSection(RetentionOptions.SectionName));
+builder.Services.AddScoped<IRetentionService, RetentionService>();
+builder.Services.AddHostedService<RetentionWorker>();
+
+builder.Services.Configure<PrivacyExportOptions>(builder.Configuration.GetSection(PrivacyExportOptions.SectionName));
+builder.Services.PostConfigure<PrivacyExportOptions>(options =>
+{
+    if (string.IsNullOrWhiteSpace(options.MailgunApiKey))
+    {
+        var env = Environment.GetEnvironmentVariable("MAILGUN_API_KEY");
+        if (!string.IsNullOrEmpty(env))
+            options.MailgunApiKey = env.Trim();
+    }
+    if (string.IsNullOrWhiteSpace(options.MailgunDomain))
+    {
+        var env = Environment.GetEnvironmentVariable("MAILGUN_DOMAIN");
+        if (!string.IsNullOrEmpty(env))
+            options.MailgunDomain = env.Trim();
+    }
+});
+builder.Services.AddScoped<IPrivacyExportService, PrivacyExportService>();
+builder.Services.AddScoped<IPrivacyEmailNotifier, PrivacyEmailNotifier>();
+builder.Services.AddHostedService<DataExportWorker>();
+
+builder.Services.Configure<AccountPurgeOptions>(builder.Configuration.GetSection(AccountPurgeOptions.SectionName));
+builder.Services.AddScoped<IAccountErasureService, AccountErasureService>();
+builder.Services.AddHostedService<AccountPurgeWorker>();
 builder.Services.AddHostedService<OpsAvailabilityProbeWorker>();
 
 builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
