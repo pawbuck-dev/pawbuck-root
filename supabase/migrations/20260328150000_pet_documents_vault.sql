@@ -1,6 +1,27 @@
 -- Unified Milo document vault: OCR/classification metadata + extracted JSON per pet.
 -- RLS: owner CRUD; household can SELECT (user_can_access_pet); marketplace providers can SELECT for active bookings.
 
+-- Baseline access helper (owner-only until 20260408120000_pet_journal_household_access.sql replaces it).
+CREATE OR REPLACE FUNCTION public.user_can_access_pet(p_pet_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.pets p
+    WHERE p.id = p_pet_id
+      AND p.deleted_at IS NULL
+      AND p.user_id = (SELECT auth.uid())
+  );
+$$;
+
+ALTER FUNCTION public.user_can_access_pet(uuid) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.user_can_access_pet(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_can_access_pet(uuid) TO service_role;
+
 CREATE TYPE public.pet_document_type AS ENUM (
   'medications',
   'lab_results',

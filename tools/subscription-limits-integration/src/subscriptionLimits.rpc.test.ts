@@ -10,9 +10,9 @@ async function seedDocumentsAtCap(userId: string, petId: string, admin: ReturnTy
     const { error } = await admin.from("pet_documents").insert({
       pet_id: petId,
       user_id: userId,
-      document_type: "other",
-      file_path: `limits-test/${userId}/${i}.pdf`,
-      file_name: `doc-${i}.pdf`,
+      document_type: "irrelevant",
+      storage_path: `limits-test/${userId}/${i}.pdf`,
+      mime_type: "application/pdf",
     });
     if (error) throw error;
   }

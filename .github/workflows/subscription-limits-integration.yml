@@ -34,6 +34,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Start Supabase
+        working-directory: supabase
         run: supabase start -x studio,imgproxy,logflare,vector,supavisor
 
       - name: Run subscription limits integration tests
