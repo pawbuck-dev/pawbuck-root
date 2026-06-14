@@ -144,6 +144,18 @@ Deno.serve(async (req) => {
       }
     }
   } else if (expireTypes.includes(type)) {
+    const { data: existing } = await supabase
+      .from("user_entitlements")
+      .select("product_id")
+      .eq("user_id", appUserId)
+      .maybeSingle();
+
+    if (existing?.product_id === "admin_grant") {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "preserve_admin_grant" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     plan = "free";
     isFounding = false;
   } else {

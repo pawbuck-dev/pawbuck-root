@@ -19,6 +19,7 @@ import type {
   FoundingMemberStatsResponse,
   SubscriptionPlanBreakdownResponse,
   SubscriptionStatusResponse,
+  SetAdminEntitlementBody,
   SupportDocumentProcessingMetricsResponse,
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
@@ -195,6 +196,12 @@ export function createSupportClient(
 
     getUserSubscriptionStatus: (userId: string) =>
       request<SubscriptionStatusResponse>(`/api/support/subscription/users/${encodeURIComponent(userId)}/status`),
+
+    setUserEntitlement: (userId: string, body: SetAdminEntitlementBody) =>
+      request<SubscriptionStatusResponse>(`/api/support/subscription/users/${encodeURIComponent(userId)}/entitlement`, {
+        method: "PUT",
+        json: body,
+      }),
 
     listEmailDocumentVerificationRules: () =>
       request<CountryEmailDocumentVerificationListResponse>(

@@ -54,13 +54,22 @@ export interface SubscriptionLimits {
 
 export interface SubscriptionStatusResponse {
   plan: SubscriptionPlanTier | string;
+  activePlan: SubscriptionPlanTier | string;
   isFoundingMember: boolean;
+  isAdminGrant?: boolean;
   productId?: string | null;
+  subscriptionStatus?: string | null;
   expiresAt?: string | null;
   usage: SubscriptionUsage;
   limits: SubscriptionLimits;
   foundingSpotsRemaining?: number | null;
   documentCount: number;
+}
+
+export interface SetAdminEntitlementBody {
+  plan: SubscriptionPlanTier | "free";
+  expiresAt?: string | null;
+  note?: string | null;
 }
 
 export type EmailDocumentType =

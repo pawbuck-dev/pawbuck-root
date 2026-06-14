@@ -31,4 +31,16 @@ public interface IUserEntitlementService
     Task<FoundingMemberStatsResponse?> GetFoundingMemberStatsAsync(CancellationToken cancellationToken = default);
 
     Task<SubscriptionPlanBreakdownResponse?> GetPlanBreakdownAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Grant or revoke complimentary subscription access from the admin support portal.
+    /// Writes <see cref="AdminEntitlementGrant.ProductId"/>; RevenueCat webhooks preserve these rows on expiration.
+    /// </summary>
+    Task<AdminEntitlementMutationResult?> SetAdminEntitlementAsync(
+        Guid userId,
+        string plan,
+        DateTimeOffset? expiresAt,
+        string? note,
+        Guid? grantedByAdminUserId,
+        CancellationToken cancellationToken = default);
 }

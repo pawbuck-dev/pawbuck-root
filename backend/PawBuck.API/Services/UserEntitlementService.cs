@@ -125,6 +125,7 @@ public sealed class UserEntitlementService : IUserEntitlementService
               COALESCE(u.plan, 'free') AS plan,
               COALESCE(u.is_founding_member, FALSE) AS is_founding_member,
               u.product_id,
+              u.subscription_status,
               u.expires_at,
               COALESCE(s.milo_conversations_used, 0) AS milo_used,
               COALESCE(s.ai_journal_entries_used, 0) AS journal_used,
@@ -153,27 +154,35 @@ public sealed class UserEntitlementService : IUserEntitlementService
         var plan = reader.GetString(0);
         if (plan == SubscriptionPlans.LegacyPremium) plan = SubscriptionPlans.Individual;
 
+        var productId = reader.IsDBNull(2) ? null : reader.GetString(2);
+        var subscriptionStatus = reader.IsDBNull(3) ? null : reader.GetString(3);
+        var expiresAt = reader.IsDBNull(4) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(4);
+        var activePlan = await GetActivePlanAsync(userId, cancellationToken);
+
         return new SubscriptionStatusResponse
         {
             Plan = plan,
+            ActivePlan = activePlan,
             IsFoundingMember = reader.GetBoolean(1),
-            ProductId = reader.IsDBNull(2) ? null : reader.GetString(2),
-            ExpiresAt = reader.IsDBNull(3) ? null : reader.GetFieldValue<DateTimeOffset>(3),
+            IsAdminGrant = string.Equals(productId, AdminEntitlementGrant.ProductId, StringComparison.Ordinal),
+            ProductId = productId,
+            SubscriptionStatus = subscriptionStatus,
+            ExpiresAt = expiresAt,
             Usage = new SubscriptionUsageDto
             {
-                MiloConversationsUsed = reader.GetInt32(4),
-                AiJournalEntriesUsed = reader.GetInt32(5),
+                MiloConversationsUsed = reader.GetInt32(5),
+                AiJournalEntriesUsed = reader.GetInt32(6),
             },
             Limits = new SubscriptionLimitsDto
             {
-                MaxPets = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                MaxDocuments = reader.IsDBNull(7) ? null : reader.GetInt32(7),
-                MaxFamilyMembers = reader.IsDBNull(8) ? 0 : reader.GetInt32(8),
-                MaxMiloConversations = reader.IsDBNull(9) ? null : reader.GetInt32(9),
-                MaxAiJournalEntries = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                MaxPets = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+                MaxDocuments = reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                MaxFamilyMembers = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                MaxMiloConversations = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                MaxAiJournalEntries = reader.IsDBNull(11) ? null : reader.GetInt32(11),
             },
-            FoundingSpotsRemaining = reader.IsDBNull(11) ? null : Math.Max(0, reader.GetInt32(11)),
-            DocumentCount = reader.GetInt32(12),
+            FoundingSpotsRemaining = reader.IsDBNull(12) ? null : Math.Max(0, reader.GetInt32(12)),
+            DocumentCount = reader.GetInt32(13),
         };
     }
 
@@ -427,6 +436,107 @@ public sealed class UserEntitlementService : IUserEntitlementService
             Tiers = tiers,
             AsOf = DateTimeOffset.UtcNow,
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<AdminEntitlementMutationResult?> SetAdminEntitlementAsync(
+        Guid userId,
+        string plan,
+        DateTimeOffset? expiresAt,
+        string? note,
+        Guid? grantedByAdminUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+            return null;
+
+        var normalizedPlan = plan.Trim().ToLowerInvariant();
+        if (normalizedPlan is not (SubscriptionPlans.Free or SubscriptionPlans.Individual or SubscriptionPlans.Family))
+        {
+            return new AdminEntitlementMutationResult { Error = "invalid_plan" };
+        }
+
+        if (normalizedPlan != SubscriptionPlans.Free
+            && expiresAt is not null
+            && expiresAt.Value <= DateTimeOffset.UtcNow)
+        {
+            return new AdminEntitlementMutationResult { Error = "invalid_expiry" };
+        }
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        await using (var existsCmd = new NpgsqlCommand("SELECT 1 FROM auth.users WHERE id = @userId LIMIT 1", conn))
+        {
+            existsCmd.Parameters.AddWithValue("userId", userId);
+            var exists = await existsCmd.ExecuteScalarAsync(cancellationToken);
+            if (exists is null)
+                return new AdminEntitlementMutationResult { Error = "user_not_found" };
+        }
+
+        string? productId;
+        string subscriptionStatus;
+        DateTimeOffset? storedExpiresAt;
+
+        if (normalizedPlan == SubscriptionPlans.Free)
+        {
+            productId = null;
+            subscriptionStatus = AdminEntitlementGrant.RevokedSubscriptionStatus;
+            storedExpiresAt = null;
+        }
+        else
+        {
+            productId = AdminEntitlementGrant.ProductId;
+            subscriptionStatus = AdminEntitlementGrant.SubscriptionStatus;
+            storedExpiresAt = expiresAt;
+        }
+
+        const string upsertSql = """
+            INSERT INTO public.user_entitlements (
+              user_id,
+              plan,
+              subscription_status,
+              expires_at,
+              product_id,
+              is_founding_member,
+              updated_at
+            )
+            VALUES (
+              @userId,
+              @plan,
+              @subscriptionStatus,
+              @expiresAt,
+              @productId,
+              FALSE,
+              now()
+            )
+            ON CONFLICT (user_id) DO UPDATE SET
+              plan = EXCLUDED.plan,
+              subscription_status = EXCLUDED.subscription_status,
+              expires_at = EXCLUDED.expires_at,
+              product_id = EXCLUDED.product_id,
+              is_founding_member = FALSE,
+              updated_at = now()
+            """;
+
+        await using var upsertCmd = new NpgsqlCommand(upsertSql, conn);
+        upsertCmd.Parameters.AddWithValue("userId", userId);
+        upsertCmd.Parameters.AddWithValue("plan", normalizedPlan);
+        upsertCmd.Parameters.AddWithValue("subscriptionStatus", subscriptionStatus);
+        upsertCmd.Parameters.AddWithValue("expiresAt", (object?)storedExpiresAt ?? DBNull.Value);
+        upsertCmd.Parameters.AddWithValue("productId", (object?)productId ?? DBNull.Value);
+        await upsertCmd.ExecuteNonQueryAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Admin entitlement updated for {UserId}: plan={Plan}, expiresAt={ExpiresAt}, adminUserId={AdminUserId}, note={Note}",
+            userId,
+            normalizedPlan,
+            storedExpiresAt,
+            grantedByAdminUserId,
+            note);
+
+        var status = await GetStatusAsync(userId, cancellationToken);
+        return new AdminEntitlementMutationResult { Status = status };
     }
 }
 

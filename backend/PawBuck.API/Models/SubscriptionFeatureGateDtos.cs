@@ -39,13 +39,35 @@ public sealed class SubscriptionLimitsDto
 public sealed class SubscriptionStatusResponse
 {
     public required string Plan { get; init; }
+    /// <summary>Plan after expiry / founding rules (enforcement source of truth).</summary>
+    public required string ActivePlan { get; init; }
     public bool IsFoundingMember { get; init; }
+    public bool IsAdminGrant { get; init; }
     public string? ProductId { get; init; }
+    public string? SubscriptionStatus { get; init; }
     public DateTimeOffset? ExpiresAt { get; init; }
     public required SubscriptionUsageDto Usage { get; init; }
     public required SubscriptionLimitsDto Limits { get; init; }
     public int? FoundingSpotsRemaining { get; init; }
     public int DocumentCount { get; init; }
+}
+
+public sealed class SetAdminEntitlementRequest
+{
+    /// <summary>free (revoke), individual, or family.</summary>
+    public required string Plan { get; init; }
+
+    /// <summary>When null for paid plans, access does not expire until revoked.</summary>
+    public DateTimeOffset? ExpiresAt { get; init; }
+
+    /// <summary>Optional support note (logged server-side only).</summary>
+    public string? Note { get; init; }
+}
+
+public sealed class AdminEntitlementMutationResult
+{
+    public string? Error { get; init; }
+    public SubscriptionStatusResponse? Status { get; init; }
 }
 
 public sealed class FoundingMemberStatsResponse

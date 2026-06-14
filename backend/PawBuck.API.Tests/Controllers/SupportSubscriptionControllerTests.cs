@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using PawBuck.API;
 using PawBuck.API.Controllers;
 using PawBuck.API.Models;
 using PawBuck.API.Services;
@@ -66,6 +67,7 @@ public class SupportSubscriptionControllerTests
         var status = new SubscriptionStatusResponse
         {
             Plan = "individual",
+            ActivePlan = "individual",
             IsFoundingMember = false,
             Usage = new SubscriptionUsageDto { MiloConversationsUsed = 1, AiJournalEntriesUsed = 0 },
             Limits = new SubscriptionLimitsDto { MaxFamilyMembers = 0 },
@@ -82,5 +84,64 @@ public class SupportSubscriptionControllerTests
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeOfType<SubscriptionStatusResponse>().Which.Plan.Should().Be("individual");
+    }
+
+    [Fact]
+    public async Task PutUserEntitlement_ReturnsOk_WhenGranted()
+    {
+        var status = new SubscriptionStatusResponse
+        {
+            Plan = "family",
+            ActivePlan = "family",
+            IsAdminGrant = true,
+            ProductId = AdminEntitlementGrant.ProductId,
+            SubscriptionStatus = AdminEntitlementGrant.SubscriptionStatus,
+            Usage = new SubscriptionUsageDto(),
+            Limits = new SubscriptionLimitsDto { MaxFamilyMembers = 5 },
+            DocumentCount = 0,
+        };
+
+        var entitlements = new Mock<IUserEntitlementService>();
+        entitlements
+            .Setup(e => e.SetAdminEntitlementAsync(
+                UserId,
+                "family",
+                null,
+                "beta tester",
+                It.IsAny<Guid?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AdminEntitlementMutationResult { Status = status });
+
+        var controller = new SupportSubscriptionController(entitlements.Object);
+        var result = await controller.PutUserEntitlement(
+            UserId,
+            new SetAdminEntitlementRequest { Plan = "family", Note = "beta tester" },
+            CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeOfType<SubscriptionStatusResponse>().Which.IsAdminGrant.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PutUserEntitlement_Returns404_WhenUserMissing()
+    {
+        var entitlements = new Mock<IUserEntitlementService>();
+        entitlements
+            .Setup(e => e.SetAdminEntitlementAsync(
+                UserId,
+                "individual",
+                null,
+                null,
+                It.IsAny<Guid?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AdminEntitlementMutationResult { Error = "user_not_found" });
+
+        var controller = new SupportSubscriptionController(entitlements.Object);
+        var result = await controller.PutUserEntitlement(
+            UserId,
+            new SetAdminEntitlementRequest { Plan = "individual" },
+            CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
 }

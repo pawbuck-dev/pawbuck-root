@@ -55,6 +55,7 @@ public class SubscriptionController : ControllerBase
             return Ok(new SubscriptionStatusResponse
             {
                 Plan = SubscriptionPlans.Free,
+                ActivePlan = SubscriptionPlans.Free,
                 Usage = new SubscriptionUsageDto(),
                 Limits = new SubscriptionLimitsDto { MaxFamilyMembers = 0 },
             });

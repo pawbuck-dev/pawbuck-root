@@ -33,6 +33,16 @@ Canonical pricing: [`PRICING.md`](PRICING.md).
 - `public.subscription_feature_gates` — `minimum_plan` per feature key
 - Webhook: `supabase/functions/revenuecat-webhook`
 
+## Admin complimentary access
+
+Support admins can grant **Individual** or **Family** without App Store billing:
+
+- **API:** `PUT /api/support/subscription/users/{userId}/entitlement` (AdminSupport JWT)
+- **UI:** Admin → Customers → Users → Account workspace → **Grant complimentary access**
+- **Storage:** `user_entitlements.product_id = admin_grant`, `subscription_status = ADMIN_GRANT`
+- **Revoke:** same endpoint with `plan: free`
+- **RevenueCat:** expiration webhooks skip rows with `admin_grant`; store purchases still overwrite on renewal events
+
 ## API
 
 - `GET /api/subscription/feature-gates` — gate list with `minimumPlan`

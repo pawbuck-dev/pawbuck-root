@@ -37,6 +37,10 @@ export function AccountWorkspacePage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionStatusResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [grantPlan, setGrantPlan] = useState<"individual" | "family" | "free">("individual");
+  const [grantExpiresAt, setGrantExpiresAt] = useState("");
+  const [grantNote, setGrantNote] = useState("");
+  const [grantSaving, setGrantSaving] = useState(false);
 
   const [vacName, setVacName] = useState("");
   const [vacDate, setVacDate] = useState("");
@@ -138,6 +142,53 @@ export function AccountWorkspacePage() {
     };
   }, [client, userId]);
 
+  const reloadSubscription = useCallback(async () => {
+    if (!userId) return;
+    setSubscriptionLoading(true);
+    try {
+      setSubscription(await client.getUserSubscriptionStatus(userId));
+    } catch {
+      setSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [client, userId]);
+
+  const applyEntitlementGrant = async () => {
+    if (!userId) return;
+    const label =
+      grantPlan === "free"
+        ? "revoke complimentary access and set Free"
+        : `grant ${grantPlan === "family" ? "Family" : "Individual"} access`;
+    if (!window.confirm(`Apply for this user: ${label}?`)) return;
+
+    setGrantSaving(true);
+    setBanner(null);
+    try {
+      const expiresAt =
+        grantPlan !== "free" && grantExpiresAt.trim()
+          ? new Date(`${grantExpiresAt.trim()}T23:59:59Z`).toISOString()
+          : null;
+      const status = await client.setUserEntitlement(userId, {
+        plan: grantPlan,
+        expiresAt,
+        note: grantNote.trim() || null,
+      });
+      setSubscription(status);
+      setGrantNote("");
+      void queryClient.invalidateQueries({ queryKey: supportQueryKeys.subscriptionPlanBreakdown() });
+      setBanner(
+        grantPlan === "free"
+          ? "Subscription access revoked (Free)."
+          : `Complimentary ${grantPlan} access applied.`,
+      );
+    } catch (e) {
+      setBanner(e instanceof SupportApiError ? e.message : "Could not update entitlement");
+    } finally {
+      setGrantSaving(false);
+    }
+  };
+
   const submitNewVaccination = async () => {
     if (!selectedPet || !userId) return;
     const name = vacName.trim();
@@ -205,74 +256,167 @@ export function AccountWorkspacePage() {
               {subscriptionLoading ? (
                 <p className="muted">Loading subscription…</p>
               ) : subscription ? (
-                <table>
-                  <tbody>
-                    <tr>
-                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                        Plan
-                      </th>
-                      <td>{formatSubscriptionPlanLabel(subscription.plan, subscription.isFoundingMember)}</td>
-                    </tr>
-                    {subscription.expiresAt ? (
+                <>
+                  <table>
+                    <tbody>
                       <tr>
                         <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                          Expires
+                          Stored plan
                         </th>
-                        <td>{subscription.expiresAt.slice(0, 10)}</td>
+                        <td>{formatSubscriptionPlanLabel(subscription.plan, subscription.isFoundingMember)}</td>
                       </tr>
-                    ) : subscription.isFoundingMember ? (
                       <tr>
                         <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                          Expires
+                          Active plan
                         </th>
-                        <td>Lifetime (founding)</td>
-                      </tr>
-                    ) : null}
-                    {subscription.productId ? (
-                      <tr>
-                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                          Product
-                        </th>
-                        <td className="muted" style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem" }}>
-                          {subscription.productId}
+                        <td>
+                          {formatSubscriptionPlanLabel(subscription.activePlan, subscription.isFoundingMember)}
+                          {subscription.isAdminGrant ? (
+                            <span className="muted" style={{ marginLeft: "0.5rem" }}>
+                              (admin grant)
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
-                    ) : null}
-                    <tr>
-                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                        Documents
-                      </th>
-                      <td>
-                        {subscription.documentCount}
-                        {subscription.limits.maxDocuments != null
-                          ? ` / ${subscription.limits.maxDocuments} cap`
-                          : " (unlimited cap)"}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                        Milo chats (month)
-                      </th>
-                      <td>
-                        {subscription.usage.miloConversationsUsed}
-                        {subscription.limits.maxMiloConversations != null
-                          ? ` / ${subscription.limits.maxMiloConversations}`
-                          : " (unlimited)"}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
-                        AI journal entries
-                      </th>
-                      <td>
-                        {subscription.usage.aiJournalEntriesUsed}
-                        {subscription.limits.maxAiJournalEntries != null
-                          ? ` / ${subscription.limits.maxAiJournalEntries}`
-                          : " (unlimited)"}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      {subscription.expiresAt ? (
+                        <tr>
+                          <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                            Expires
+                          </th>
+                          <td>{subscription.expiresAt.slice(0, 10)}</td>
+                        </tr>
+                      ) : subscription.isFoundingMember ? (
+                        <tr>
+                          <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                            Expires
+                          </th>
+                          <td>Lifetime (founding)</td>
+                        </tr>
+                      ) : subscription.isAdminGrant && subscription.activePlan !== "free" ? (
+                        <tr>
+                          <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                            Expires
+                          </th>
+                          <td>No expiry (until revoked)</td>
+                        </tr>
+                      ) : null}
+                      {subscription.productId ? (
+                        <tr>
+                          <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                            Product
+                          </th>
+                          <td className="muted" style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem" }}>
+                            {subscription.productId}
+                          </td>
+                        </tr>
+                      ) : null}
+                      {subscription.subscriptionStatus ? (
+                        <tr>
+                          <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                            Status
+                          </th>
+                          <td className="muted" style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem" }}>
+                            {subscription.subscriptionStatus}
+                          </td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          Documents
+                        </th>
+                        <td>
+                          {subscription.documentCount}
+                          {subscription.limits.maxDocuments != null
+                            ? ` / ${subscription.limits.maxDocuments} cap`
+                            : " (unlimited cap)"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          Milo chats (month)
+                        </th>
+                        <td>
+                          {subscription.usage.miloConversationsUsed}
+                          {subscription.limits.maxMiloConversations != null
+                            ? ` / ${subscription.limits.maxMiloConversations}`
+                            : " (unlimited)"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row" style={{ textAlign: "left", paddingRight: "1rem" }}>
+                          AI journal entries
+                        </th>
+                        <td>
+                          {subscription.usage.aiJournalEntriesUsed}
+                          {subscription.limits.maxAiJournalEntries != null
+                            ? ` / ${subscription.limits.maxAiJournalEntries}`
+                            : " (unlimited)"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <div className="panel-sub" style={{ marginTop: "1.25rem" }}>
+                    <h4 style={{ margin: "0 0 0.5rem" }}>Grant complimentary access</h4>
+                    <p className="muted text-sm" style={{ marginTop: 0 }}>
+                      Sets <code>user_entitlements</code> with <code>admin_grant</code> (not App Store billing). User
+                      may need to restart the app or pull to refresh Profile. Store purchases override admin grants on
+                      renewal webhooks.
+                    </p>
+                    <div className="form-grid" style={{ marginTop: "0.75rem" }}>
+                      <div className="field">
+                        <label htmlFor="grant-plan">Plan</label>
+                        <select
+                          id="grant-plan"
+                          value={grantPlan}
+                          onChange={(e) => setGrantPlan(e.target.value as "individual" | "family" | "free")}
+                        >
+                          <option value="individual">Individual</option>
+                          <option value="family">Family</option>
+                          <option value="free">Free (revoke)</option>
+                        </select>
+                      </div>
+                      {grantPlan !== "free" ? (
+                        <div className="field">
+                          <label htmlFor="grant-expires">Expires (optional)</label>
+                          <input
+                            id="grant-expires"
+                            type="date"
+                            value={grantExpiresAt}
+                            onChange={(e) => setGrantExpiresAt(e.target.value)}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="field">
+                        <label htmlFor="grant-note">Internal note (optional)</label>
+                        <input
+                          id="grant-note"
+                          value={grantNote}
+                          onChange={(e) => setGrantNote(e.target.value)}
+                          placeholder="e.g. beta partner, support goodwill"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn btn--sm"
+                          disabled={grantSaving}
+                          onClick={() => void applyEntitlementGrant()}
+                        >
+                          {grantSaving ? "Applying…" : "Apply"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn--sm"
+                          disabled={subscriptionLoading}
+                          onClick={() => void reloadSubscription()}
+                        >
+                          Refresh
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <p className="muted">Could not load subscription status.</p>
               )}
