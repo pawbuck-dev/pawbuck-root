@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ApiAvailabilityPanel } from "@/components/ApiAvailabilityPanel";
 import { DashboardOverview } from "@/components/DashboardOverview";
 import { SubscriptionOverviewPanel } from "@/components/SubscriptionOverviewPanel";
 import { AdminGlobalSearch } from "@/components/AdminGlobalSearch";
@@ -66,6 +67,8 @@ export function CommandCenterPage() {
         description="Queues and metrics refresh every minute (or use Refresh in the header)."
       />
       <AdminGlobalSearch />
+
+      <ApiAvailabilityPanel />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Work queues">
         {QUEUE_LINKS.map((q) => {

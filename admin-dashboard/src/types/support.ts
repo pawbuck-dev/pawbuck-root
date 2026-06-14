@@ -415,6 +415,43 @@ export interface SupportOpsHealthCheck {
 export interface SupportOpsHealthResponse {
   allReady: boolean;
   checks: SupportOpsHealthCheck[];
+  checkedAt?: string;
+  postgresLatencyMs?: number | null;
+  latestProbes?: SupportOpsProbeSnapshot[];
+}
+
+export interface SupportOpsProbeSnapshot {
+  probeName: string;
+  ok: boolean;
+  latencyMs?: number | null;
+  errorSummary?: string | null;
+  source: string;
+  checkedAt: string;
+}
+
+export interface SupportOpsAvailabilityResponse {
+  asOf: string;
+  overallAvailability24h: number;
+  overallAvailability7d: number;
+  probes: SupportProbeAvailability[];
+  dailyOverall: SupportDailyAvailability[];
+}
+
+export interface SupportProbeAvailability {
+  probeName: string;
+  label: string;
+  availability24h: number;
+  availability7d: number;
+  samples24h: number;
+  samples7d: number;
+  lastOk?: boolean | null;
+  lastErrorSummary?: string | null;
+}
+
+export interface SupportDailyAvailability {
+  date: string;
+  availabilityPct: number;
+  samples: number;
 }
 
 export interface SupportReleaseStuckLockResponse {

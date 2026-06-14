@@ -102,7 +102,10 @@ export default function PawthonHubScreen() {
             onBack={() => router.back()}
             onStartWalk={() => {
               queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
-              router.push("/pawthon-walk");
+              router.push({
+                pathname: "/pawthon-walk",
+                params: { autoStart: "1", petId: selectedPetId ?? undefined },
+              });
             }}
             onSeeWalkLog={() => router.push("/(home)/pawthon/history" as any)}
             onWalkPress={(id) => router.push(`/(home)/pawthon/walk/${id}` as any)}

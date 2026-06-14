@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using PawBuck.API.Models;
@@ -10,11 +11,16 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
 {
     private readonly IOptions<SupabaseOptions> _options;
     private readonly IMiloPetFactsService _petFacts;
+    private readonly ILogger<PetConversationalContextService> _logger;
 
-    public PetConversationalContextService(IOptions<SupabaseOptions> options, IMiloPetFactsService petFacts)
+    public PetConversationalContextService(
+        IOptions<SupabaseOptions> options,
+        IMiloPetFactsService petFacts,
+        ILogger<PetConversationalContextService> logger)
     {
         _options = options;
         _petFacts = petFacts;
+        _logger = logger;
     }
 
     private NpgsqlConnection CreateConnection()
@@ -38,10 +44,50 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         await using var conn = CreateConnection();
         await conn.OpenAsync(cancellationToken);
 
-        var profile = await LoadProfileAsync(conn, petId, config, cancellationToken);
+        PetProfileSnapshot? profile;
+        try
+        {
+            profile = await LoadProfileAsync(conn, petId, config, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load pet profile for journal context {PetId}", petId);
+            return null;
+        }
+
         if (profile == null)
             return null;
 
+        try
+        {
+            return await BuildContextAsync(conn, petId, config, profile, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Journal conversational context degraded for pet {PetId}; returning profile-only context",
+                petId);
+            return new PetConversationalContextDto
+            {
+                PetProfile = profile,
+                RecentMedicalHistory = new List<RecentMedicalEvent>(),
+                RecentJournalNotes = new List<RecentJournalNote>(),
+                UpcomingMilestones = new List<UpcomingMilestone>(),
+                BehaviorBaseline = null,
+                MedicationsOnFileCount = 0,
+                VaccinationsOnFileCount = 0,
+            };
+        }
+    }
+
+    private static async Task<PetConversationalContextDto> BuildContextAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        MiloJournalConfigSnapshot config,
+        PetProfileSnapshot profile,
+        CancellationToken cancellationToken)
+    {
         var utcNow = DateTime.UtcNow;
         var medicalFrom = utcNow.Date.AddDays(-config.RecentMedicalWindowDays);
         var milestoneTo = utcNow.Date.AddDays(config.UpcomingMilestoneWindowDays);
@@ -155,23 +201,29 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         if (!await reader.ReadAsync(cancellationToken))
             return null;
 
-        var dob = reader.GetDateTime(3);
-        var ageYears = CalculateAgeYears(dob, DateTime.UtcNow.Date);
-        var ageDisplay = FormatAgeDisplay(dob, DateTime.UtcNow.Date);
-        var isSenior = ageYears >= config.SeniorAgeYears;
+        var dob = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3);
+        double? ageYears = null;
+        var ageDisplay = "age unknown";
+        var isSenior = false;
+        if (dob.HasValue)
+        {
+            ageYears = CalculateAgeYears(dob.Value, DateTime.UtcNow.Date);
+            ageDisplay = FormatAgeDisplay(dob.Value, DateTime.UtcNow.Date);
+            isSenior = ageYears >= config.SeniorAgeYears;
+        }
 
         return new PetProfileSnapshot
         {
             Name = reader.GetString(0),
             Species = reader.GetString(1),
             Breed = reader.GetString(2),
-            DateOfBirth = dob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            DateOfBirth = dob?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             AgeYears = ageYears,
             AgeDisplay = ageDisplay,
             IsSenior = isSenior,
-            Sex = reader.GetString(4),
-            WeightValue = reader.GetDecimal(5),
-            WeightUnit = reader.GetString(6),
+            Sex = reader.IsDBNull(4) ? "" : reader.GetString(4),
+            WeightValue = reader.IsDBNull(5) ? null : reader.GetDecimal(5),
+            WeightUnit = reader.IsDBNull(6) ? null : reader.GetString(6),
         };
     }
 

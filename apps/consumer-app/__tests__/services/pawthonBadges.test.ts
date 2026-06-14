@@ -13,6 +13,7 @@ describe("pawthonBadges", () => {
       duration_seconds: 600,
       points: null,
       created_at: new Date().toISOString(),
+      walk_group_id: null,
     };
     const newly = evaluateNewBadges({
       userId: "u1",

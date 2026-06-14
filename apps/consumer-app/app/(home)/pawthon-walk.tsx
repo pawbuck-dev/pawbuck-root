@@ -53,10 +53,16 @@ import { processBadgesAfterWalk } from "@/services/pawthonBadges";
 import {
   fetchMyWeeklyWalkerRankForCountry,
   fetchPawthonDashboardStats,
-  insertWalkSession,
+  insertWalkSessionsForPets,
   type WalkPoint,
 } from "@/services/walkSessions";
 import { buildWalkSharePayloadFromComplete } from "@/utils/buildWalkSharePayload";
+import {
+  isAutoStartRequested,
+  parseAutoStartPetId,
+  shouldAutoStartWalk,
+} from "@/utils/pawthonWalkAutoStart";
+import { formatWalkPetNames, toggleWalkPetId } from "@/utils/pawthonWalkPets";
 import { supabase } from "@/utils/supabase";
 import type { WalkSharePayload } from "@/utils/walkShareCard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -71,7 +77,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -91,7 +97,7 @@ type LatLng = { latitude: number; longitude: number };
 type Phase = "select" | "warmup" | "countdown" | "active" | "complete";
 
 type CompletePayload = {
-  pet: Pet;
+  pets: Pet[];
   distanceMeters: number;
   durationSec: number;
   path: PawthonMapCoord[];
@@ -109,6 +115,7 @@ async function loadExpoLocation(): Promise<typeof import("expo-location")> {
 
 export default function PawthonWalkScreen() {
   const router = useRouter();
+  const searchParams = useLocalSearchParams<{ autoStart?: string; petId?: string }>();
   const insets = useSafeAreaInsets();
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
@@ -120,7 +127,8 @@ export default function PawthonWalkScreen() {
   const trackingModeRef = useRef<PawthonWalkTrackingMode>("foreground");
 
   const [phase, setPhase] = useState<Phase>("select");
-  const [walkPetId, setWalkPetId] = useState<string | null>(null);
+  const [walkPetIds, setWalkPetIds] = useState<string[]>([]);
+  const autoStartHandledRef = useRef(false);
   const [previewCoord, setPreviewCoord] = useState<PawthonMapCoord | null>(null);
 
   const [isWalking, setIsWalking] = useState(false);
@@ -156,16 +164,22 @@ export default function PawthonWalkScreen() {
   /** __DEV__ simulated GPS playback */
   const simPlaybackRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const walkPet = pets.find((p) => p.id === walkPetId) ?? null;
+  const walkPets = pets.filter((p) => walkPetIds.includes(p.id));
+  const walkPetLabel = formatWalkPetNames(walkPets);
 
   useEffect(() => {
-    if (walkPetId) return;
-    if (selectedPetId && pets.some((p) => p.id === selectedPetId)) {
-      setWalkPetId(selectedPetId);
-    } else if (pets[0]) {
-      setWalkPetId(pets[0].id);
+    if (walkPetIds.length > 0) return;
+    const paramPetId = parseAutoStartPetId(searchParams);
+    if (paramPetId && pets.some((p) => p.id === paramPetId)) {
+      setWalkPetIds([paramPetId]);
+      return;
     }
-  }, [selectedPetId, pets, walkPetId]);
+    if (selectedPetId && pets.some((p) => p.id === selectedPetId)) {
+      setWalkPetIds([selectedPetId]);
+    } else if (pets[0]) {
+      setWalkPetIds([pets[0].id]);
+    }
+  }, [selectedPetId, pets, walkPetIds.length, searchParams]);
 
   useEffect(() => {
     isWalkingRef.current = isWalking;
@@ -466,12 +480,12 @@ export default function PawthonWalkScreen() {
   }, [phase, countdownGo, beginActiveFromCountdown]);
 
   const beginWalkFromSelect = useCallback(async () => {
-    if (!walkPetId) {
-      Alert.alert("Select a pet", "Choose which pet you’re walking.");
+    if (walkPetIds.length === 0) {
+      Alert.alert("Select a pet", "Choose at least one pet for this walk.");
       return;
     }
     setIsSimulatedWalk(false);
-    setSelectedPetId(walkPetId);
+    setSelectedPetId(walkPetIds[0]!);
     setVerificationUri(null);
     setPathCoords([]);
     pathCoordsRef.current = [];
@@ -528,7 +542,23 @@ export default function PawthonWalkScreen() {
     }
 
     await startWarmup(Location);
-  }, [walkPetId, setSelectedPetId, startWarmup]);
+  }, [walkPetIds, setSelectedPetId, startWarmup]);
+
+  useEffect(() => {
+    if (
+      !shouldAutoStartWalk({
+        autoStart: searchParams,
+        phase,
+        walkPetIds,
+        alreadyHandled: autoStartHandledRef.current,
+      })
+    ) {
+      return;
+    }
+    autoStartHandledRef.current = true;
+    router.setParams({ autoStart: undefined, petId: undefined });
+    void beginWalkFromSelect();
+  }, [searchParams, phase, walkPetIds, beginWalkFromSelect, router]);
 
   const onAlwaysExplainerRequestBackground = useCallback(async () => {
     setAlwaysExplainerOpen(false);
@@ -564,7 +594,7 @@ export default function PawthonWalkScreen() {
   const endWalk = useCallback(async () => {
     if (!isWalkingRef.current) return;
 
-    const petId = walkPetId;
+    const petIds = [...walkPetIds];
     const startedAt = startedAtRef.current;
     const endedAt = new Date();
 
@@ -582,7 +612,7 @@ export default function PawthonWalkScreen() {
     lastPosRef.current = null;
     pointsRef.current = [];
 
-    if (!petId || !startedAt || !walkPet) {
+    if (petIds.length === 0 || !startedAt || walkPets.length === 0) {
       setPhase("select");
       return;
     }
@@ -611,9 +641,9 @@ export default function PawthonWalkScreen() {
         return;
       }
 
-      const result = await insertWalkSession({
+      const result = await insertWalkSessionsForPets({
         userId: userData.user.id,
-        petId,
+        petIds,
         startedAt,
         endedAt,
         distanceMeters: meters,
@@ -628,38 +658,47 @@ export default function PawthonWalkScreen() {
         return;
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["pawthon", petId] });
-      await queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", petId] });
-      await queryClient.invalidateQueries({ queryKey: ["pawthon", "home", petId] });
-      await queryClient.invalidateQueries({ queryKey: ["pawthon", "history", petId] });
+      const primaryPetId = petIds[0]!;
+      for (const petId of petIds) {
+        await queryClient.invalidateQueries({ queryKey: ["pawthon", petId] });
+        await queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", petId] });
+        await queryClient.invalidateQueries({ queryKey: ["pawthon", "home", petId] });
+        await queryClient.invalidateQueries({ queryKey: ["pawthon", "history", petId] });
+      }
       await queryClient.invalidateQueries({ queryKey: ["pawthon", "weeklyWalkerRank"] });
       const stats = await queryClient.fetchQuery({
-        queryKey: ["pawthon", petId],
-        queryFn: () => fetchPawthonDashboardStats(petId),
+        queryKey: ["pawthon", primaryPetId],
+        queryFn: () => fetchPawthonDashboardStats(primaryPetId),
       });
 
       const goalMeters = await getDailyGoalMeters();
-      const rank = await fetchMyWeeklyWalkerRankForCountry(walkPet.country?.trim() ?? "");
-      const newBadges = await processBadgesAfterWalk({
-        userId: userData.user.id,
-        petId,
-        hasVerificationPhoto: !!verificationUri,
-        weeklyRank: rank.rank,
-        goalMeters,
-        pets: pets.map((p) => ({ id: p.id })),
-      });
+      const primaryPet = walkPets[0]!;
+      const rank = await fetchMyWeeklyWalkerRankForCountry(primaryPet.country?.trim() ?? "");
+      const badgeSets = await Promise.all(
+        petIds.map((petId) =>
+          processBadgesAfterWalk({
+            userId: userData.user.id,
+            petId,
+            hasVerificationPhoto: !!verificationUri,
+            weeklyRank: rank.rank,
+            goalMeters,
+            pets: pets.map((p) => ({ id: p.id })),
+          })
+        )
+      );
+      const newBadges = [...new Set(badgeSets.flat())];
       await queryClient.invalidateQueries({ queryKey: ["pawthon", "badges", userData.user.id] });
 
       const dur = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
       setComplete({
-        pet: walkPet,
+        pets: walkPets,
         distanceMeters: meters,
         durationSec: dur,
         path: pathSnapshot.length >= 2 ? pathSnapshot : pathSnapshot.length === 1 ? [...pathSnapshot, ...pathSnapshot] : [],
         verificationUri,
         streak: stats.streak,
         newBadges,
-        sessionId: result.id,
+        sessionId: result.ids[0] ?? null,
         endedAt: endedAt.toISOString(),
         weeklyRankLine: formatWeeklyWalkerRankLine(rank.rank, rank.total),
       });
@@ -672,7 +711,7 @@ export default function PawthonWalkScreen() {
     } finally {
       setSaving(false);
     }
-  }, [stopTracking, walkPetId, walkPet, verificationUri, queryClient, pets]);
+  }, [stopTracking, walkPetIds, walkPets, verificationUri, queryClient, pets]);
 
   /**
    * Simulator / dev: play ~1 km of fake GPS without moving, then auto-save (same as Stop).
@@ -681,13 +720,13 @@ export default function PawthonWalkScreen() {
   const beginSimulatedWalkDev = useCallback(() => {
     if (!__DEV__) return;
     if (simPlaybackRef.current) return;
-    if (!walkPetId) {
-      Alert.alert("Select a pet", "Choose which pet you’re walking.");
+    if (walkPetIds.length === 0) {
+      Alert.alert("Select a pet", "Choose at least one pet for this walk.");
       return;
     }
 
     setIsSimulatedWalk(true);
-    setSelectedPetId(walkPetId);
+    setSelectedPetId(walkPetIds[0]!);
     setVerificationUri(null);
     void stopTracking();
     setPathCoords([]);
@@ -733,7 +772,7 @@ export default function PawthonWalkScreen() {
       onLocation(path[i]!);
       i += 1;
     }, 90);
-  }, [walkPetId, setSelectedPetId, stopTracking, previewCoord, onLocation, endWalk]);
+  }, [walkPetIds, setSelectedPetId, stopTracking, previewCoord, onLocation, endWalk]);
 
   const openVerificationCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -1008,7 +1047,7 @@ export default function PawthonWalkScreen() {
               marginBottom: 8,
             }}
           >
-            {complete.pet.name}
+            {formatWalkPetNames(complete.pets)}
           </Text>
           <Text
             style={{
@@ -1174,7 +1213,7 @@ export default function PawthonWalkScreen() {
         />
         {phase === "countdown" ? (
           <PawthonCountdownOverlay
-            petName={walkPet?.name ?? "your pet"}
+            petName={walkPetLabel || "your pet"}
             display={countdownDisplay}
             phase={countdownGo ? "go" : "number"}
             onSkip={() => void skipCountdownAndStart()}
@@ -1560,8 +1599,9 @@ export default function PawthonWalkScreen() {
       <View style={{ flex: 1, paddingHorizontal: 20 }}>
         <PawthonPetSelect
           pets={pets}
-          selectedPetId={walkPetId}
-          onSelectPetId={setWalkPetId}
+          selectedPetIds={walkPetIds}
+          onTogglePetId={(id) => setWalkPetIds((prev) => toggleWalkPetId(prev, id))}
+          onSelectAll={() => setWalkPetIds(pets.map((p) => p.id))}
           onStartWalk={beginWalkFromSelect}
           mapPreview={mapPreview ?? undefined}
         />

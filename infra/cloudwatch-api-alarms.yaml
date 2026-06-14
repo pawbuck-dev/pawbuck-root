@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: PawBuck API — CloudWatch alarms for ALB 5xx and unhealthy targets (P0 ops).
+
+Parameters:
+  LoadBalancerFullName:
+    Type: String
+    Description: ALB dimension value (EC2 → Load Balancers → your ALB → Description, e.g. app/pawbuck-api/abc123)
+  TargetGroupFullName:
+    Type: String
+    Description: Target group dimension (e.g. targetgroup/pawbuck-api-tg/abc123)
+  SnsTopicArn:
+    Type: String
+    Default: ""
+    Description: Optional SNS topic ARN for alarm actions (leave empty for alarm-only)
+
+Conditions:
+  HasSns: !Not [!Equals [!Ref SnsTopicArn, ""]]
+
+Resources:
+  ApiTarget5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pawbuck-api-alb-target-5xx
+      AlarmDescription: PawBuck API ALB target 5xx count elevated (check ECS logs and /api/health).
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasSns, [!Ref SnsTopicArn], !Ref AWS::NoValue]
+      OKActions: !If [HasSns, [!Ref SnsTopicArn], !Ref AWS::NoValue]
+
+  ApiElb5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pawbuck-api-alb-elb-5xx
+      AlarmDescription: PawBuck API ALB-generated 5xx (often gateway/timeouts).
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasSns, [!Ref SnsTopicArn], !Ref AWS::NoValue]
+
+  ApiUnhealthyTargetsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pawbuck-api-unhealthy-targets
+      AlarmDescription: PawBuck API has unhealthy ECS targets (check task health and GET /api/health).
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !Ref TargetGroupFullName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasSns, [!Ref SnsTopicArn], !Ref AWS::NoValue]
+
+  ApiHealthyTargetsLowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: pawbuck-api-no-healthy-targets
+      AlarmDescription: PawBuck API has zero healthy targets.
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !Ref TargetGroupFullName
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: !If [HasSns, [!Ref SnsTopicArn], !Ref AWS::NoValue]
+
+Outputs:
+  Target5xxAlarmName:
+    Value: !Ref ApiTarget5xxAlarm
+  UnhealthyTargetsAlarmName:
+    Value: !Ref ApiUnhealthyTargetsAlarm

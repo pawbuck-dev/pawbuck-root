@@ -1,3 +1,8 @@
+import {
+  insertWalkSession,
+  insertWalkSessionsForPets,
+} from "@/services/walkSessions";
+
 let mockFrom: jest.Mock;
 let mockRpc: jest.Mock;
 
@@ -19,12 +24,17 @@ import {
   fetchRecentWalkSessions,
   fetchSessionsForStreak,
   fetchWeekDistanceKmForPet,
-  insertWalkSession,
 } from "@/services/walkSessions";
 
 function chainInsertSingle(result: { data: { id: string } | null; error: Error | null }) {
   const single = jest.fn().mockResolvedValue(result);
   const select = jest.fn().mockReturnValue({ single });
+  const insert = jest.fn().mockReturnValue({ select });
+  return insert;
+}
+
+function chainInsertMany(result: { data: { id: string }[] | null; error: Error | null }) {
+  const select = jest.fn().mockResolvedValue(result);
   const insert = jest.fn().mockReturnValue({ select });
   return insert;
 }
@@ -72,6 +82,7 @@ describe("walkSessions service", () => {
           distance_meters: 123.5,
           duration_seconds: 90,
           points: null,
+          walk_group_id: null,
         })
       );
     });
@@ -109,6 +120,65 @@ describe("walkSessions service", () => {
         points: [],
       });
       expect(res).toBeNull();
+    });
+  });
+
+  describe("insertWalkSessionsForPets", () => {
+    it("inserts one row without walk_group_id for a single pet", async () => {
+      const insert = chainInsertMany({ data: [{ id: "w1" }], error: null });
+      mockFrom.mockReturnValue({ insert });
+
+      const res = await insertWalkSessionsForPets({
+        userId: "u1",
+        petIds: ["p1"],
+        startedAt: new Date("2026-01-01T10:00:00Z"),
+        endedAt: new Date("2026-01-01T10:30:00Z"),
+        distanceMeters: 500,
+        durationSeconds: 600,
+        points: [],
+      });
+
+      expect(res).toEqual({ ids: ["w1"], walkGroupId: null });
+      expect(insert).toHaveBeenCalledWith([
+        expect.objectContaining({ pet_id: "p1", walk_group_id: null }),
+      ]);
+    });
+
+    it("inserts multiple rows with shared walk_group_id", async () => {
+      const insert = chainInsertMany({ data: [{ id: "w1" }, { id: "w2" }], error: null });
+      mockFrom.mockReturnValue({ insert });
+
+      const res = await insertWalkSessionsForPets({
+        userId: "u1",
+        petIds: ["p1", "p2"],
+        startedAt: new Date("2026-01-01T10:00:00Z"),
+        endedAt: new Date("2026-01-01T10:30:00Z"),
+        distanceMeters: 500,
+        durationSeconds: 600,
+        points: [],
+      });
+
+      expect(res?.ids).toEqual(["w1", "w2"]);
+      expect(res?.walkGroupId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+      const rows = insert.mock.calls[0]![0] as { pet_id: string; walk_group_id: string }[];
+      expect(rows).toHaveLength(2);
+      expect(rows[0]!.walk_group_id).toBe(rows[1]!.walk_group_id);
+    });
+
+    it("returns null when petIds is empty", async () => {
+      await expect(
+        insertWalkSessionsForPets({
+          userId: "u1",
+          petIds: [],
+          startedAt: new Date(),
+          endedAt: new Date(),
+          distanceMeters: 1,
+          durationSeconds: 1,
+          points: [],
+        })
+      ).resolves.toBeNull();
     });
   });
 

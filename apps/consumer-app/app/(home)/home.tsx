@@ -620,7 +620,12 @@ export default function Home() {
                 streakDays={streakDays}
                 walkGoalMeters={goalMeters}
                 walkTodayMeters={todayMeters}
-                onStartWalk={() => router.push("/pawthon-walk")}
+                onStartWalk={() =>
+                  router.push({
+                    pathname: "/pawthon-walk",
+                    params: { autoStart: "1", petId: selectedPet.id },
+                  })
+                }
                 onViewWalkLog={() => router.push("/(home)/pawthon/history" as any)}
                 onOpenBodyTracker={(segment) =>
                   router.push(

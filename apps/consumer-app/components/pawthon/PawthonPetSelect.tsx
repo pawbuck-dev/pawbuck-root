@@ -6,16 +6,18 @@ import {
   PAWTHON_TEAL,
 } from "@/constants/pawthonUi";
 import { useTheme } from "@/context/themeContext";
+import { formatStartWalkCta, toggleWalkPetId } from "@/utils/pawthonWalkPets";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 type Props = {
   pets: Pet[];
-  selectedPetId: string | null;
-  onSelectPetId: (id: string) => void;
+  selectedPetIds: string[];
+  onTogglePetId: (id: string) => void;
+  onSelectAll?: () => void;
   onStartWalk: () => void;
   /** Optional map preview (single point path). */
   mapPreview?: React.ReactNode;
@@ -23,13 +25,21 @@ type Props = {
 
 export function PawthonPetSelect({
   pets,
-  selectedPetId,
-  onSelectPetId,
+  selectedPetIds,
+  onTogglePetId,
+  onSelectAll,
   onStartWalk,
   mapPreview,
 }: Props) {
   const { theme } = useTheme();
   const subtitle = (p: Pet) => p.breed || p.animal_type;
+
+  const selectedPets = useMemo(
+    () => pets.filter((p) => selectedPetIds.includes(p.id)),
+    [pets, selectedPetIds]
+  );
+  const startLabel = formatStartWalkCta(selectedPets);
+  const showSelectAll = pets.length > 1 && pets.length <= 4 && onSelectAll;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -38,24 +48,50 @@ export function PawthonPetSelect({
         contentContainerStyle={{ paddingBottom: 28 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text
+        <View
           style={{
-            fontFamily: "Poppins_700Bold",
-            fontSize: 22,
-            color: theme.foreground,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
             marginBottom: 16,
             marginTop: 4,
           }}
         >
-          Select Your Pet
-        </Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_700Bold",
+              fontSize: 22,
+              color: theme.foreground,
+              flex: 1,
+            }}
+          >
+            Who&apos;s coming?
+          </Text>
+          {showSelectAll ? (
+            <Pressable
+              onPress={onSelectAll}
+              hitSlop={8}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: PAWTHON_TEAL,
+              }}
+            >
+              <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 13, color: PAWTHON_TEAL }}>
+                Select all
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {pets.map((pet) => {
-          const selected = pet.id === selectedPetId;
+          const selected = selectedPetIds.includes(pet.id);
           return (
             <Pressable
               key={pet.id}
-              onPress={() => onSelectPetId(pet.id)}
+              onPress={() => onTogglePetId(pet.id)}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -107,20 +143,20 @@ export function PawthonPetSelect({
                   {subtitle(pet)}
                 </Text>
               </View>
-              {selected && (
-                <View
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 14,
-                    backgroundColor: PAWTHON_TEAL,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                </View>
-              )}
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  backgroundColor: selected ? PAWTHON_TEAL : "transparent",
+                  borderWidth: selected ? 0 : 2,
+                  borderColor: theme.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {selected ? <Ionicons name="checkmark" size={18} color="#FFFFFF" /> : null}
+              </View>
             </Pressable>
           );
         })}
@@ -198,12 +234,24 @@ export function PawthonPetSelect({
             borderRadius: 28,
           }}
         >
-          <StartWalkWalkerIcon size={40} accessibilityLabel="Start a walk" />
-          <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: "#FFFFFF", marginLeft: 10 }}>
-            Start a Walk
+          <StartWalkWalkerIcon size={40} accessibilityLabel={startLabel} />
+          <Text
+            style={{
+              fontFamily: "Poppins_700Bold",
+              fontSize: 18,
+              color: "#FFFFFF",
+              marginLeft: 10,
+              flexShrink: 1,
+            }}
+            numberOfLines={2}
+          >
+            {startLabel}
           </Text>
         </LinearGradient>
       </Pressable>
     </View>
   );
 }
+
+/** Helper for parent screens toggling pet selection. */
+export { toggleWalkPetId };

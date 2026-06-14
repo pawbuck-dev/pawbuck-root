@@ -240,11 +240,14 @@ builder.Services.AddScoped<IMailInboxResolveService, MailInboxResolveService>();
 
 builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection(DocumentSyncOptions.SectionName));
 builder.Services.Configure<ProactivePetHealthOptions>(builder.Configuration.GetSection(ProactivePetHealthOptions.SectionName));
+builder.Services.Configure<OpsProbeOptions>(builder.Configuration.GetSection(OpsProbeOptions.SectionName));
+builder.Services.AddScoped<IOpsProbeService, OpsProbeService>();
 builder.Services.AddScoped<IPetDocumentClinicalSyncService, PetDocumentClinicalSyncService>();
 builder.Services.AddHttpClient("ExpoPush");
 builder.Services.AddSingleton<IExpoPushService, ExpoPushService>();
 builder.Services.AddHostedService<DocumentSyncWorker>();
 builder.Services.AddHostedService<ProactivePetHealthWorker>();
+builder.Services.AddHostedService<OpsAvailabilityProbeWorker>();
 
 builder.Services.Configure<SubscriptionOptions>(builder.Configuration.GetSection(SubscriptionOptions.SectionName));
 builder.Services.AddMemoryCache();

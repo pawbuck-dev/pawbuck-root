@@ -93,10 +93,10 @@ public sealed class PetProfileSnapshot
     public string Sex { get; set; } = "";
 
     [JsonPropertyName("weightValue")]
-    public decimal WeightValue { get; set; }
+    public decimal? WeightValue { get; set; }
 
     [JsonPropertyName("weightUnit")]
-    public string WeightUnit { get; set; } = "";
+    public string? WeightUnit { get; set; }
 }
 
 public sealed class RecentMedicalEvent

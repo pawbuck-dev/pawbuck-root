@@ -190,6 +190,48 @@ If you leave `Cors:AllowedOrigins` empty, the **localhost / Expo dev** defaults 
 - **Gemini per-attempt timeout:** PawBuck.API sets `AttemptTimeout` to **120s** on the `"Gemini"` HttpClient (Polly default is **10s**, which fails Milo extraction). `CircuitBreaker.SamplingDuration` must be **≥ 240s** when attempt timeout is 120s — otherwise the API throws `OptionsValidationException` at startup and tasks exit immediately (CloudWatch shows this before `/api/health` listens).
 - **Post-deploy verify:** In the consumer app, open Milo chat → **+** → upload a multi-page PDF. Confirm analysis completes without a 504; retry the same file and confirm Health Records does not show duplicate vault rows.
 
+## Ops monitoring (P0–P3)
+
+### P0 — CloudWatch alarms (infra uptime)
+
+Deploy ALB alarms with CloudFormation (one-time per AWS account/region):
+
+```bash
+export AWS_REGION=us-east-1
+export PAWBUCK_ALB_FULL_NAME='app/your-alb/…'      # EC2 → Load balancers → Description
+export PAWBUCK_TG_FULL_NAME='targetgroup/your-tg/…'
+export PAWBUCK_ALARM_SNS_ARN='arn:aws:sns:…'       # optional — email/Slack via SNS
+./scripts/aws/setup-cloudwatch-alarms.sh
+```
+
+Template: [`infra/cloudwatch-api-alarms.yaml`](../infra/cloudwatch-api-alarms.yaml) — target 5xx, ELB 5xx, unhealthy targets, zero healthy targets.
+
+### P1–P3 — Admin command center + API probes
+
+After deploying PawBuck.API and applying migration `20260614180000_ops_probe_results.sql`:
+
+- **Command center → API availability** — browser ping of `GET /api/health`, server Postgres ping, config checklist, probe table, 7-day chart.
+- **ECS worker** — `OpsAvailabilityProbeWorker` every 5 minutes: Postgres, mail pipeline (`processed_emails`), journal check-in (full smoke when configured).
+- **GitHub Actions** — [`.github/workflows/ops-synthetics.yml`](../.github/workflows/ops-synthetics.yml) every 5 minutes (external `api_health_external` probe).
+
+**Repository secrets (synthetics workflow):**
+
+| Secret | Purpose |
+|--------|---------|
+| `OPS_PROBE_API_URL` | Public API origin, e.g. `https://api.pawbuck.com` |
+| `OPS_PROBE_INGEST_KEY` or `MILO_INTERNAL_SERVICE_KEY` | `X-Ops-Probe-Key` for `POST /api/internal/ops-probes/ingest` |
+
+**Optional ECS env (full journal smoke, P3):**
+
+| Env | Purpose |
+|-----|---------|
+| `OpsProbe__JournalCheckInUserId` | UUID of a staging/test user |
+| `OpsProbe__JournalCheckInPetId` | UUID of that user’s pet (journal smoke uses `start_checkin`) |
+| `OpsProbe__ExternalIngestKey` | Dedicated ingest key (defaults to `Milo__InternalServiceKey`) |
+| `OpsProbe__Enabled` | `true` (default) / `false` to disable the worker |
+
+Without journal user/pet IDs, the worker still verifies journal **schema** (`journal_interview_sessions`, `pet_journal_entries` exist).
+
 ## CI/CD (GitHub Actions)
 
 Workflows live under [`.github/workflows/`](../.github/workflows/).

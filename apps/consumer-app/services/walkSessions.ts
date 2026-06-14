@@ -22,7 +22,30 @@ export type WalkSessionRow = {
   duration_seconds: number;
   points: Json | null;
   created_at: string;
+  walk_group_id: string | null;
 };
+
+function buildWalkSessionInsertRow(params: {
+  userId: string;
+  petId: string;
+  startedAt: Date;
+  endedAt: Date;
+  distanceMeters: number;
+  durationSeconds: number;
+  points: WalkPoint[];
+  walkGroupId: string | null;
+}) {
+  return {
+    user_id: params.userId,
+    pet_id: params.petId,
+    started_at: params.startedAt.toISOString(),
+    ended_at: params.endedAt.toISOString(),
+    distance_meters: Math.round(params.distanceMeters * 10) / 10,
+    duration_seconds: Math.max(0, Math.floor(params.durationSeconds)),
+    points: params.points.length > 0 ? (params.points as unknown as Json) : null,
+    walk_group_id: params.walkGroupId,
+  };
+}
 
 function startOfWeekUtcIso(): string {
   return moment().startOf("isoWeek").toISOString();
@@ -37,15 +60,7 @@ export async function insertWalkSession(params: {
   durationSeconds: number;
   points: WalkPoint[];
 }): Promise<{ id: string } | null> {
-  const row = {
-    user_id: params.userId,
-    pet_id: params.petId,
-    started_at: params.startedAt.toISOString(),
-    ended_at: params.endedAt.toISOString(),
-    distance_meters: Math.round(params.distanceMeters * 10) / 10,
-    duration_seconds: Math.max(0, Math.floor(params.durationSeconds)),
-    points: params.points.length > 0 ? (params.points as unknown as Json) : null,
-  };
+  const row = buildWalkSessionInsertRow({ ...params, walkGroupId: null });
 
   const { data, error } = await supabase.from("walk_sessions").insert(row).select("id").single();
 
@@ -54,6 +69,35 @@ export async function insertWalkSession(params: {
     return null;
   }
   return data ? { id: data.id as string } : null;
+}
+
+export async function insertWalkSessionsForPets(params: {
+  userId: string;
+  petIds: string[];
+  startedAt: Date;
+  endedAt: Date;
+  distanceMeters: number;
+  durationSeconds: number;
+  points: WalkPoint[];
+}): Promise<{ ids: string[]; walkGroupId: string | null } | null> {
+  const uniquePetIds = [...new Set(params.petIds.filter(Boolean))];
+  if (uniquePetIds.length === 0) return null;
+
+  const walkGroupId = uniquePetIds.length > 1 ? crypto.randomUUID() : null;
+  const rows = uniquePetIds.map((petId) =>
+    buildWalkSessionInsertRow({ ...params, petId, walkGroupId })
+  );
+
+  const { data, error } = await supabase.from("walk_sessions").insert(rows).select("id");
+
+  if (error) {
+    console.warn("[walkSessions] multi insert failed", error.message);
+    return null;
+  }
+
+  const ids = (data ?? []).map((row) => row.id as string);
+  if (ids.length !== uniquePetIds.length) return null;
+  return { ids, walkGroupId };
 }
 
 /** Walk sessions since a date for activity trending in health exports. */
@@ -98,6 +142,55 @@ export async function fetchWalkSessionById(sessionId: string): Promise<WalkSessi
     return null;
   }
   return (data ?? null) as WalkSessionRow | null;
+}
+
+/** All session rows for a multi-pet walk group (includes the queried session). */
+export async function fetchWalkSessionsByGroupId(walkGroupId: string): Promise<WalkSessionRow[]> {
+  const { data, error } = await supabase
+    .from("walk_sessions")
+    .select("*")
+    .eq("walk_group_id", walkGroupId)
+    .order("pet_id", { ascending: true });
+
+  if (error) {
+    console.warn("[walkSessions] fetch by group failed", error.message);
+    return [];
+  }
+  return (data ?? []) as WalkSessionRow[];
+}
+
+/** Bulk fetch for walk log labels (multi-pet co-walker names). */
+export async function fetchWalkSessionsByGroupIds(groupIds: string[]): Promise<WalkSessionRow[]> {
+  const unique = [...new Set(groupIds.filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("walk_sessions")
+    .select("*")
+    .in("walk_group_id", unique)
+    .order("pet_id", { ascending: true });
+
+  if (error) {
+    console.warn("[walkSessions] fetch by groups failed", error.message);
+    return [];
+  }
+  return (data ?? []) as WalkSessionRow[];
+}
+
+/** Dedupe history rows that share a walk_group_id (one entry per grouped walk). */
+export function dedupeWalkSessionsByGroup(sessions: WalkSessionRow[]): WalkSessionRow[] {
+  const seenGroups = new Set<string>();
+  const out: WalkSessionRow[] = [];
+  for (const session of sessions) {
+    if (!session.walk_group_id) {
+      out.push(session);
+      continue;
+    }
+    if (seenGroups.has(session.walk_group_id)) continue;
+    seenGroups.add(session.walk_group_id);
+    out.push(session);
+  }
+  return out;
 }
 
 /** Sum distance for sessions ending on the local calendar day. */

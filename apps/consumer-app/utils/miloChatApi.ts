@@ -7,6 +7,7 @@ import type {
 } from "@/types/journalInterview";
 import type { VetMedicalContext, VetNotificationPayload } from "@/types/vetNotification";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
+import { parseMiloChatHttpError } from "@/utils/parseMiloChatHttpError";
 import { supabase } from "@/utils/supabase";
 
 /** Set `EXPO_PUBLIC_MILO_DEBUG=true` in .env.local to log Milo requests in non-dev builds. */
@@ -129,6 +130,124 @@ function parseTurnIdFromChatJson(data: {
   return undefined;
 }
 
+type MiloChatJson = {
+  answer?: string;
+  suggestedReplies?: string[];
+  journalSessionComplete?: boolean;
+  journalStatus?: string;
+  journalSummary?: string;
+  journalEmergencyStop?: boolean;
+  vetNotification?: unknown;
+  vetMedicalContext?: unknown;
+  turnId?: string;
+  responseId?: string;
+  promptVersion?: string;
+  heuristicTags?: string[];
+  usedPetData?: boolean;
+  usedRag?: boolean;
+  fileAttachments?: unknown;
+  interviewPhase?: JournalInterviewPhase;
+  treeId?: string;
+  treeVersion?: string;
+  journalSessionId?: string;
+  questionsAskedCount?: number;
+  contextSurface?: JournalContextSurface;
+  structuredSummary?: JournalStructuredSummary;
+  emergencyDetected?: boolean;
+  confidenceScore?: number;
+  currentQuestion?: JournalCurrentQuestion;
+  journalHealthDeepLink?: string;
+};
+
+function mapMiloChatJsonToResult(data: MiloChatJson, journalMode?: boolean): MiloChatApiResult {
+  if (!data?.answer) {
+    miloDebug("error: JSON had no answer field", data);
+    throw new Error("No response received");
+  }
+
+  const rawAttachments = data.fileAttachments;
+  const fileAttachments: MiloChatFileAttachment[] | undefined = Array.isArray(rawAttachments)
+    ? rawAttachments
+        .map((row) => {
+          const r = row as Record<string, unknown>;
+          const id = typeof r.id === "string" ? r.id : "";
+          const kind = typeof r.kind === "string" ? r.kind : "";
+          const title = typeof r.title === "string" ? r.title : "Document";
+          const storagePath = typeof r.storagePath === "string" ? r.storagePath : "";
+          if (!id || !storagePath.trim()) return null;
+          return { id, kind, title, storagePath: storagePath.trim() };
+        })
+        .filter((x): x is MiloChatFileAttachment => x != null)
+    : undefined;
+
+  const looksLikeServerTrouble =
+    data.answer.includes("Sorry, I'm having trouble") ||
+    data.answer.includes("not quite configured") ||
+    data.answer.includes("Woof! Something went wrong");
+
+  const turnId = parseTurnIdFromChatJson(data);
+
+  if (looksLikeServerTrouble) {
+    miloDebug("warning: API returned answer that looks like a failure path — check PawBuck.API logs / Gemini / DB", {
+      answerPreview: data.answer.slice(0, 160),
+      journalMode: journalMode ?? false,
+      usedPetData: data.usedPetData,
+      turnId,
+      promptVersion: data.promptVersion,
+    });
+  } else {
+    miloDebug("ok", {
+      answerLength: data.answer.length,
+      usedPetData: data.usedPetData,
+      turnId,
+      promptVersion: data.promptVersion,
+      heuristicTags: data.heuristicTags,
+    });
+  }
+
+  return {
+    answer: data.answer,
+    suggestedReplies: data.suggestedReplies,
+    journalSessionComplete: data.journalSessionComplete,
+    journalStatus: data.journalStatus,
+    journalSummary: data.journalSummary,
+    journalEmergencyStop: Boolean(data.journalEmergencyStop),
+    vetNotification: parseVetNotificationPayload(data.vetNotification),
+    vetMedicalContext: parseVetMedicalContext(data.vetMedicalContext),
+    turnId,
+    responseId: turnId,
+    promptVersion: data.promptVersion,
+    heuristicTags: data.heuristicTags,
+    fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
+    usedPetData: data.usedPetData,
+    usedRag: data.usedRag,
+    interviewPhase: data.interviewPhase,
+    treeId: data.treeId,
+    treeVersion: data.treeVersion,
+    journalSessionId: data.journalSessionId,
+    questionsAskedCount: data.questionsAskedCount,
+    contextSurface: data.contextSurface,
+    structuredSummary: data.structuredSummary,
+    emergencyDetected: data.emergencyDetected,
+    confidenceScore: data.confidenceScore,
+    currentQuestion: data.currentQuestion,
+    journalHealthDeepLink:
+      data.journalHealthDeepLink === "vaccination" || data.journalHealthDeepLink === "medication"
+        ? data.journalHealthDeepLink
+        : undefined,
+  };
+}
+
+function parseMiloChatJsonBody(raw: string): MiloChatJson | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed) as MiloChatJson;
+  } catch {
+    return null;
+  }
+}
+
 /** Pet fields sent to POST /api/milo/chat (matches chatContext PetContext). */
 export function petToMiloApiContext(pet: Pet) {
   const rawWeight = pet.weight_value;
@@ -238,113 +357,16 @@ export async function fetchMiloChat(params: {
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     miloDebug("error body (non-OK)", t?.slice(0, 500) || "(empty)");
-    throw new Error(t || `Request failed (${res.status})`);
+    const parsed = parseMiloChatJsonBody(t);
+    if (parsed?.answer?.trim()) {
+      miloDebug("using answer from non-OK Milo response", { status: res.status });
+      return mapMiloChatJsonToResult(parsed, journalMode);
+    }
+    throw new Error(parseMiloChatHttpError(t, res.status));
   }
 
-  const data = (await res.json()) as {
-    answer?: string;
-    suggestedReplies?: string[];
-    journalSessionComplete?: boolean;
-    journalStatus?: string;
-    journalSummary?: string;
-    journalEmergencyStop?: boolean;
-    vetNotification?: unknown;
-    vetMedicalContext?: unknown;
-    turnId?: string;
-    responseId?: string;
-    promptVersion?: string;
-    heuristicTags?: string[];
-    usedPetData?: boolean;
-    usedRag?: boolean;
-    fileAttachments?: unknown;
-    interviewPhase?: JournalInterviewPhase;
-    treeId?: string;
-    treeVersion?: string;
-    journalSessionId?: string;
-    questionsAskedCount?: number;
-    contextSurface?: JournalContextSurface;
-    structuredSummary?: JournalStructuredSummary;
-    emergencyDetected?: boolean;
-    confidenceScore?: number;
-    currentQuestion?: JournalCurrentQuestion;
-    journalHealthDeepLink?: string;
-  };
-  if (!data?.answer) {
-    miloDebug("error: JSON had no answer field", data);
-    throw new Error("No response received");
-  }
-
-  const rawAttachments = data.fileAttachments;
-  const fileAttachments: MiloChatFileAttachment[] | undefined = Array.isArray(rawAttachments)
-    ? rawAttachments
-        .map((row) => {
-          const r = row as Record<string, unknown>;
-          const id = typeof r.id === "string" ? r.id : "";
-          const kind = typeof r.kind === "string" ? r.kind : "";
-          const title = typeof r.title === "string" ? r.title : "Document";
-          const storagePath = typeof r.storagePath === "string" ? r.storagePath : "";
-          if (!id || !storagePath.trim()) return null;
-          return { id, kind, title, storagePath: storagePath.trim() };
-        })
-        .filter((x): x is MiloChatFileAttachment => x != null)
-    : undefined;
-
-  const looksLikeServerTrouble =
-    data.answer.includes("Sorry, I'm having trouble") ||
-    data.answer.includes("not quite configured") ||
-    data.answer.includes("Woof! Something went wrong");
-
-  const turnId = parseTurnIdFromChatJson(data);
-
-  if (looksLikeServerTrouble) {
-    miloDebug("warning: API returned 200 but answer looks like a failure path — check PawBuck.API logs / Gemini / DB", {
-      answerPreview: data.answer.slice(0, 160),
-      journalMode: journalMode ?? false,
-      usedPetData: data.usedPetData,
-      turnId,
-      promptVersion: data.promptVersion,
-    });
-  } else {
-    miloDebug("ok", {
-      answerLength: data.answer.length,
-      usedPetData: data.usedPetData,
-      turnId,
-      promptVersion: data.promptVersion,
-      heuristicTags: data.heuristicTags,
-    });
-  }
-
-  return {
-    answer: data.answer,
-    suggestedReplies: data.suggestedReplies,
-    journalSessionComplete: data.journalSessionComplete,
-    journalStatus: data.journalStatus,
-    journalSummary: data.journalSummary,
-    journalEmergencyStop: Boolean(data.journalEmergencyStop),
-    vetNotification: parseVetNotificationPayload(data.vetNotification),
-    vetMedicalContext: parseVetMedicalContext(data.vetMedicalContext),
-    turnId,
-    responseId: turnId,
-    promptVersion: data.promptVersion,
-    heuristicTags: data.heuristicTags,
-    fileAttachments: fileAttachments && fileAttachments.length > 0 ? fileAttachments : undefined,
-    usedPetData: data.usedPetData,
-    usedRag: data.usedRag,
-    interviewPhase: data.interviewPhase,
-    treeId: data.treeId,
-    treeVersion: data.treeVersion,
-    journalSessionId: data.journalSessionId,
-    questionsAskedCount: data.questionsAskedCount,
-    contextSurface: data.contextSurface,
-    structuredSummary: data.structuredSummary,
-    emergencyDetected: data.emergencyDetected,
-    confidenceScore: data.confidenceScore,
-    currentQuestion: data.currentQuestion,
-    journalHealthDeepLink:
-      data.journalHealthDeepLink === "vaccination" || data.journalHealthDeepLink === "medication"
-        ? data.journalHealthDeepLink
-        : undefined,
-  };
+  const data = (await res.json()) as MiloChatJson;
+  return mapMiloChatJsonToResult(data, journalMode);
 }
 
 export async function fetchActiveJournalSession(petId: string): Promise<JournalActiveSession | null> {

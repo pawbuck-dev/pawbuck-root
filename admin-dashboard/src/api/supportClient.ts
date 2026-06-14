@@ -36,6 +36,7 @@ import type {
   SupportBulkReprocessReviewInboxRequest,
   SupportBulkReprocessReviewInboxResponse,
   SupportOpsHealthResponse,
+  SupportOpsAvailabilityResponse,
   SupportReleaseStuckLockResponse,
   SupportUserDirectoryResponse,
   SupportUserRow,
@@ -349,6 +350,11 @@ export function createSupportClient(
       ),
 
     getOpsHealth: () => request<SupportOpsHealthResponse>("/api/support/ops-health"),
+
+    getOpsAvailability: (days = 7) =>
+      request<SupportOpsAvailabilityResponse>(
+        `/api/support/ops-health/availability?days=${encodeURIComponent(String(days))}`,
+      ),
 
     releaseStuckLock: (processedEmailId: string) =>
       request<SupportReleaseStuckLockResponse>(

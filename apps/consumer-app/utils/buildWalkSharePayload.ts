@@ -2,6 +2,7 @@ import type { PawthonBadgeId } from "@/constants/pawthonBadges";
 import { formatWeeklyWalkerRankLine } from "@/services/walkMetrics";
 import type { WalkSessionRow } from "@/services/walkSessions";
 import type { Pet } from "@/context/petsContext";
+import { formatWalkPetNames } from "@/utils/pawthonWalkPets";
 import type { PawthonMapCoord } from "@/components/pawthon/PawthonWalkMap";
 import type { WalkSharePayload } from "@/utils/walkShareCard";
 import { parseWalkPoints } from "@/utils/pawthonWalkDisplay";
@@ -16,10 +17,12 @@ export function buildWalkSharePayloadFromSession(
     weeklyRank?: number | null;
     weeklyTotal?: number;
     mapSnapshotUri?: string | null;
+    /** When set, overrides single-pet name (multi-pet walk detail). */
+    petNamesLabel?: string;
   }
 ): WalkSharePayload {
   return {
-    petName: pet?.name ?? "my pet",
+    petName: extras?.petNamesLabel ?? pet?.name ?? "my pet",
     petPhotoUrl: pet?.photo_url ?? null,
     path: parseWalkPoints(session),
     distanceMeters: Number(session.distance_meters),
@@ -37,7 +40,7 @@ export function buildWalkSharePayloadFromSession(
 }
 
 export function buildWalkSharePayloadFromComplete(params: {
-  pet: Pet;
+  pets: Pet[];
   distanceMeters: number;
   durationSec: number;
   path: PawthonMapCoord[];
@@ -49,8 +52,8 @@ export function buildWalkSharePayloadFromComplete(params: {
   mapSnapshotUri?: string | null;
 }): WalkSharePayload {
   return {
-    petName: params.pet.name,
-    petPhotoUrl: params.pet.photo_url ?? null,
+    petName: formatWalkPetNames(params.pets),
+    petPhotoUrl: params.pets[0]?.photo_url ?? null,
     path: params.path,
     distanceMeters: params.distanceMeters,
     durationSec: params.durationSec,

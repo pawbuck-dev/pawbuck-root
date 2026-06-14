@@ -10,17 +10,18 @@ import {
 } from "@/constants/pawthonUi";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
-import { fetchWalkSessionById } from "@/services/walkSessions";
+import { fetchWalkSessionById, fetchWalkSessionsByGroupId } from "@/services/walkSessions";
 import { captureWalkMapSnapshot } from "@/services/walkShare";
 import { buildWalkSharePayloadFromSession } from "@/utils/buildWalkSharePayload";
 import { parseWalkPoints } from "@/utils/pawthonWalkDisplay";
+import { formatWalkPetNames } from "@/utils/pawthonWalkPets";
 import type { WalkSharePayload } from "@/utils/walkShareCard";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
@@ -39,7 +40,23 @@ export default function PawthonWalkDetailScreen() {
     enabled: !!id,
   });
 
+  const { data: groupSessions = [] } = useQuery({
+    queryKey: ["pawthon", "walk", "group", session?.walk_group_id],
+    queryFn: () => fetchWalkSessionsByGroupId(session!.walk_group_id!),
+    enabled: !!session?.walk_group_id,
+  });
+
   const pet = session ? pets.find((p) => p.id === session.pet_id) : null;
+  const walkPetLabel = useMemo(() => {
+    if (!session) return "your pet";
+    if (session.walk_group_id && groupSessions.length > 1) {
+      const groupPets = groupSessions
+        .map((row) => pets.find((p) => p.id === row.pet_id))
+        .filter((p): p is NonNullable<typeof p> => !!p);
+      if (groupPets.length > 0) return formatWalkPetNames(groupPets);
+    }
+    return pet?.name ?? "your pet";
+  }, [session, groupSessions, pets, pet]);
   const path = session ? parseWalkPoints(session) : [];
   const miles = session ? metersToMiles(Number(session.distance_meters)) : 0;
   const pace = session ? paceMinPerMile(session.duration_seconds, miles) : 0;
@@ -91,7 +108,7 @@ export default function PawthonWalkDetailScreen() {
                 <Ionicons name="paw" size={22} color={theme.primary} />
               </View>
               <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 17, color: theme.foreground }}>
-                Walk with {pet?.name ?? "your pet"}
+                Walk with {walkPetLabel}
               </Text>
             </View>
 
@@ -134,7 +151,10 @@ export default function PawthonWalkDetailScreen() {
                 void (async () => {
                   const mapSnapshotUri = await captureWalkMapSnapshot(mapCaptureRef);
                   setSharePreviewPayload(
-                    buildWalkSharePayloadFromSession(session, pet, { mapSnapshotUri })
+                    buildWalkSharePayloadFromSession(session, pet, {
+                      mapSnapshotUri,
+                      petNamesLabel: walkPetLabel,
+                    })
                   );
                   setSharePreviewOpen(true);
                 })();

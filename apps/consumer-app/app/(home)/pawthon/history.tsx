@@ -3,12 +3,18 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
-import { fetchRecentWalkSessions } from "@/services/walkSessions";
+import {
+  dedupeWalkSessionsByGroup,
+  fetchRecentWalkSessions,
+  fetchWalkSessionsByGroupIds,
+  type WalkSessionRow,
+} from "@/services/walkSessions";
 import {
   formatWalkDistanceDuration,
   formatWalkLogDate,
   formatWalkPace,
 } from "@/utils/pawthonWalkDisplay";
+import { formatWalkPetNames } from "@/utils/pawthonWalkPets";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -19,6 +25,35 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import moment from "moment";
 
 type Filter = "week" | "30d" | "all";
+
+function buildGroupPetNameMap(
+  walks: WalkSessionRow[],
+  groupSessions: WalkSessionRow[],
+  pets: { id: string; name: string }[]
+): Map<string, string> {
+  const petNameById = new Map(pets.map((p) => [p.id, p.name]));
+  const byGroup = new Map<string, WalkSessionRow[]>();
+  for (const row of groupSessions) {
+    if (!row.walk_group_id) continue;
+    const list = byGroup.get(row.walk_group_id) ?? [];
+    list.push(row);
+    byGroup.set(row.walk_group_id, list);
+  }
+
+  const out = new Map<string, string>();
+  for (const walk of walks) {
+    if (!walk.walk_group_id) continue;
+    const groupRows = byGroup.get(walk.walk_group_id) ?? [walk];
+    const names = groupRows
+      .map((r) => petNameById.get(r.pet_id))
+      .filter((n): n is string => !!n)
+      .map((name) => ({ name }));
+    if (names.length > 0) {
+      out.set(walk.id, formatWalkPetNames(names));
+    }
+  }
+  return out;
+}
 
 export default function PawthonWalkHistoryScreen() {
   const router = useRouter();
@@ -35,13 +70,30 @@ export default function PawthonWalkHistoryScreen() {
     enabled: !!selectedPetId,
   });
 
+  const groupIds = useMemo(
+    () => [...new Set(walks.map((w) => w.walk_group_id).filter((id): id is string => !!id))],
+    [walks]
+  );
+
+  const { data: groupSessions = [] } = useQuery({
+    queryKey: ["pawthon", "history", "groups", groupIds.join(",")],
+    queryFn: () => fetchWalkSessionsByGroupIds(groupIds),
+    enabled: groupIds.length > 0,
+  });
+
+  const groupPetNames = useMemo(
+    () => buildGroupPetNameMap(walks, groupSessions, pets),
+    [walks, groupSessions, pets]
+  );
+
   const filtered = useMemo(() => {
-    if (filter === "all") return walks;
+    const deduped = dedupeWalkSessionsByGroup(walks);
+    if (filter === "all") return deduped;
     const cutoff =
       filter === "week"
         ? moment().startOf("isoWeek")
         : moment().subtract(30, "days").startOf("day");
-    return walks.filter((w) => moment(w.ended_at).isSameOrAfter(cutoff));
+    return deduped.filter((w) => moment(w.ended_at).isSameOrAfter(cutoff));
   }, [walks, filter]);
 
   const petName = selectedPet?.name ?? "Pet";
@@ -132,7 +184,7 @@ export default function PawthonWalkHistoryScreen() {
                     {i > 0 ? <View style={{ height: 1, backgroundColor: theme.border }} /> : null}
                     <PawthonWalkLogRow
                       dateLabel={formatWalkLogDate(w.started_at)}
-                      petName={petName}
+                      petName={groupPetNames.get(w.id) ?? petName}
                       distanceMi={formatMiles(metersToMiles(Number(w.distance_meters)))}
                       durationLabel={formatWalkDistanceDuration(w).split(" · ")[1] ?? ""}
                       paceLabel={formatWalkPace(w)}

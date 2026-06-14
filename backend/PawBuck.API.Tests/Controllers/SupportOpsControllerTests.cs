@@ -11,23 +11,30 @@ namespace PawBuck.API.Tests.Controllers;
 public class SupportOpsControllerTests
 {
     [Fact]
-    public void GetOpsHealth_ReturnsOkWithChecks()
+    public async Task GetOpsHealth_ReturnsOkWithChecks()
     {
-        var controller = new SupportOpsController(
-            Microsoft.Extensions.Options.Options.Create(new MiloOptions { InternalServiceKey = "k" }),
-            Microsoft.Extensions.Options.Options.Create(new SupabaseOptions
+        var probes = new Mock<IOpsProbeService>();
+        probes
+            .Setup(p => p.GetLiveHealthAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SupportOpsHealthResponse
             {
-                Url = "https://x",
-                ServiceRoleKey = "s",
-                ConnectionString = "cs",
-            }),
-            Microsoft.Extensions.Options.Options.Create(new GeminiOptions { ApiKey = "g" }));
+                AllReady = true,
+                Checks =
+                [
+                    new SupportOpsHealthCheckDto { Id = "gemini", Label = "Gemini", Ok = true, Hint = "ok" },
+                ],
+                CheckedAt = DateTimeOffset.UtcNow,
+                PostgresLatencyMs = 12,
+            });
 
-        var result = controller.GetOpsHealth();
+        var controller = new SupportOpsController(probes.Object);
+
+        var result = await controller.GetOpsHealth(CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var body = ok.Value.Should().BeOfType<SupportOpsHealthResponse>().Subject;
         body.AllReady.Should().BeTrue();
         body.Checks.Should().NotBeEmpty();
+        body.PostgresLatencyMs.Should().Be(12);
     }
 }

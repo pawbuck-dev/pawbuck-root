@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using PawBuck.API.Configuration;
 using PawBuck.API.Models;
 using PawBuck.API.Security;
 using PawBuck.API.Services;
@@ -13,29 +11,30 @@ namespace PawBuck.API.Controllers;
 [Authorize(Policy = AuthorizationPolicies.AdminSupport)]
 public class SupportOpsController : ControllerBase
 {
-    private readonly MiloOptions _miloOptions;
-    private readonly SupabaseOptions _supabaseOptions;
-    private readonly GeminiOptions _geminiOptions;
+    private readonly IOpsProbeService _probes;
 
-    public SupportOpsController(
-        IOptions<MiloOptions> miloOptions,
-        IOptions<SupabaseOptions> supabaseOptions,
-        IOptions<GeminiOptions> geminiOptions)
+    public SupportOpsController(IOpsProbeService probes)
     {
-        _miloOptions = miloOptions.Value;
-        _supabaseOptions = supabaseOptions.Value;
-        _geminiOptions = geminiOptions.Value;
+        _probes = probes;
     }
 
-    /// <summary>Email/OCR pipeline readiness checklist for admin (no secrets).</summary>
+    /// <summary>Live config checklist + Postgres ping + latest probe snapshots.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(SupportOpsHealthResponse), StatusCodes.Status200OK)]
-    public IActionResult GetOpsHealth()
+    public async Task<IActionResult> GetOpsHealth(CancellationToken cancellationToken)
     {
-        var result = ApiHealthStatusBuilder.BuildAdminOpsHealth(
-            _miloOptions,
-            _supabaseOptions,
-            _geminiOptions);
+        var result = await _probes.GetLiveHealthAsync(cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>Availability percentages and daily overall trend (default 7 days).</summary>
+    [HttpGet("availability")]
+    [ProducesResponseType(typeof(SupportOpsAvailabilityResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAvailability(
+        [FromQuery] int days = 7,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _probes.GetAvailabilityAsync(days, cancellationToken);
         return Ok(result);
     }
 }

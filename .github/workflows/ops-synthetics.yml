@@ -1,0 +1,83 @@
+# External API synthetics — records probe results for admin availability (P2/P3).
+# Secrets: OPS_PROBE_API_URL, OPS_PROBE_INGEST_KEY (or MILO_INTERNAL_SERVICE_KEY).
+
+name: Ops synthetics
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe-api-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /api/health and ingest
+        env:
+          API_URL: ${{ secrets.OPS_PROBE_API_URL }}
+          PROBE_KEY: ${{ secrets.OPS_PROBE_INGEST_KEY || secrets.MILO_INTERNAL_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL}" ]; then
+            echo "::error::Set repository secret OPS_PROBE_API_URL (e.g. https://api.pawbuck.com)"
+            exit 1
+          fi
+          if [ -z "${PROBE_KEY}" ]; then
+            echo "::error::Set OPS_PROBE_INGEST_KEY or MILO_INTERNAL_SERVICE_KEY for probe ingest"
+            exit 1
+          fi
+
+          BASE="${API_URL%/}"
+          START_MS=$(($(date +%s%N)/1000000))
+          HTTP_CODE=$(curl -sS -o /tmp/health.json -w "%{http_code}" "${BASE}/api/health" || true)
+          END_MS=$(($(date +%s%N)/1000000))
+          LATENCY=$((END_MS - START_MS))
+
+          OK=false
+          ERROR=""
+          if [ "$HTTP_CODE" = "200" ]; then
+            if grep -q '"status"[[:space:]]*:[[:space:]]*"healthy"' /tmp/health.json; then
+              OK=true
+            else
+              ERROR="200 but status not healthy"
+            fi
+          else
+            ERROR="HTTP ${HTTP_CODE}"
+          fi
+
+          export OK ERROR LATENCY
+          PAYLOAD=$(python3 - <<'PY'
+          import json, os
+          ok = os.environ.get("OK") == "true"
+          err = os.environ.get("ERROR") or ""
+          print(json.dumps({
+              "probeName": "api_health_external",
+              "ok": ok,
+              "latencyMs": int(os.environ.get("LATENCY", "0")),
+              "errorSummary": err if err else None,
+              "source": "external_github",
+          }))
+          PY
+          )
+
+          INGEST_CODE=$(curl -sS -o /tmp/ingest.out -w "%{http_code}" \
+            -X POST "${BASE}/api/internal/ops-probes/ingest" \
+            -H "Content-Type: application/json" \
+            -H "X-Ops-Probe-Key: ${PROBE_KEY}" \
+            -d "${PAYLOAD}")
+
+          if [ "$INGEST_CODE" != "204" ]; then
+            echo "::warning::Probe ingest returned HTTP ${INGEST_CODE}: $(cat /tmp/ingest.out)"
+          fi
+
+          if [ "$OK" != "true" ]; then
+            echo "::error::External health probe failed: ${ERROR}"
+            cat /tmp/health.json || true
+            exit 1
+          fi
+
+          echo "External health probe OK (${LATENCY} ms)"
