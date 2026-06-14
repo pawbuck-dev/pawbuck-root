@@ -1,9 +1,8 @@
-import { useOnboarding } from "@/context/onboardingContext";
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
+import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { resolveHomeCareHeadline } from "@/utils/userDisplayIdentity";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -28,7 +27,7 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
   const isDark = mode === "dark";
   const { user } = useAuth();
   const { pets } = usePets();
-  const { resetOnboarding } = useOnboarding();
+  const { navigateToAddPet } = useAddPetNavigation();
   const { selectedPet } = useSelectedPet();
   const router = useRouter();
   const greeting = useMemo(() => getGreeting(), []);
@@ -90,13 +89,7 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
         {/* Right: Action buttons */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TouchableOpacity
-            onPress={() => {
-              navigateToAddPetFlow({
-                router,
-                hasExistingPets: pets.length > 0,
-                resetOnboarding,
-              });
-            }}
+            onPress={() => navigateToAddPet(pets.length > 0)}
             activeOpacity={0.7}
             style={btnStyle}
           >

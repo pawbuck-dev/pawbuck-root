@@ -31,6 +31,12 @@ jest.mock("@/context/authContext", () => ({
   useAuth: jest.fn(),
 }));
 
+jest.mock("@/context/subscriptionContext", () => ({
+  useSubscription: () => ({
+    openPaywall: jest.fn(),
+  }),
+}));
+
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));

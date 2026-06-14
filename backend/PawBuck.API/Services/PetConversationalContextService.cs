@@ -215,8 +215,8 @@ public sealed class PetConversationalContextService : IPetConversationalContextS
         return new PetProfileSnapshot
         {
             Name = reader.GetString(0),
-            Species = reader.GetString(1),
-            Breed = reader.GetString(2),
+            Species = reader.IsDBNull(1) ? "" : reader.GetString(1),
+            Breed = reader.IsDBNull(2) ? "" : reader.GetString(2),
             DateOfBirth = dob?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             AgeYears = ageYears,
             AgeDisplay = ageDisplay,

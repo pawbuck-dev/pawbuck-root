@@ -17,7 +17,6 @@ import PetJournalHomeCard from "@/components/petJournal/PetJournalHomeCard";
 import { StreakUpgradeBanner } from "@/components/subscription/StreakUpgradeBanner";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useAuth } from "@/context/authContext";
-import { useOnboarding } from "@/context/onboardingContext";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -39,7 +38,7 @@ import {
   fetchRecentWalkSessions,
 } from "@/services/walkSessions";
 import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
-import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
+import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
@@ -89,7 +88,7 @@ export default function Home() {
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
   const { user } = useAuth();
-  const { resetOnboarding } = useOnboarding();
+  const { navigateToAddPet } = useAddPetNavigation();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(selectedPet?.country);
   const {
     aiJournalEntriesRemaining,
@@ -448,13 +447,7 @@ export default function Home() {
             Add a pet, join a household with an invite code, or claim a transferred pet
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              navigateToAddPetFlow({
-                router,
-                hasExistingPets: false,
-                resetOnboarding,
-              });
-            }}
+            onPress={() => navigateToAddPet(false)}
             style={{
               width: "100%",
               maxWidth: 320,

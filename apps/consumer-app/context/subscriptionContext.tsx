@@ -128,7 +128,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const minimumPlanForFeature = useCallback(
     (gateKey: string): SubscriptionPlan => {
-      if (!apiConfigured || featureGatesError || !featureGates) return "individual";
+      if (featureGatesError) return "free";
+      if (!apiConfigured || !featureGates) return "individual";
       return featureGates.minimumPlan[gateKey] ?? "individual";
     },
     [apiConfigured, featureGates, featureGatesError]
@@ -252,13 +253,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [queryClient, user, apiConfigured]);
 
   React.useEffect(() => {
-    if (!__DEV__ || !featureGatesError) return;
+    if (!featureGatesError) return;
     const msg =
       featureGatesQueryError instanceof Error
         ? featureGatesQueryError.message
         : String(featureGatesQueryError);
-    console.warn("[subscription] Feature gates failed to load", msg);
-  }, [featureGatesError, featureGatesQueryError]);
+    if (__DEV__) {
+      console.warn("[subscription] Feature gates failed to load", msg);
+    }
+    void trackSubscriptionEvent("subscription_gates_degraded", {
+      reason: msg.slice(0, 200),
+      current_plan: plan,
+    });
+  }, [featureGatesError, featureGatesQueryError, plan]);
 
   React.useEffect(() => {
     if (Platform.OS === "web") return;

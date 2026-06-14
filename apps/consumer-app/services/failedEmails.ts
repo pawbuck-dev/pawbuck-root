@@ -152,10 +152,24 @@ export const getThreadProcessingFailures = async (
 
 /** User-facing summary from processed_emails.failure_reason. */
 export function summarizeAttachmentFailureReason(failureReason: string): string {
+  if (isEmailParsingUpgradeReason(failureReason)) {
+    const count = emailParsingUpgradeAttachmentCount(failureReason);
+    const fileWord = count === 1 ? "attachment was" : "attachments were";
+    return `${count} health ${fileWord} received but not auto-filed. Upgrade to Individual for email parsing.`;
+  }
   const docMatch = failureReason.match(/Document '[^']+':\s*(.+)$/i);
   if (docMatch?.[1]) return docMatch[1].trim();
   const failedPrefix = /^Failed to process \d+ document\(s\):\s*/i;
   return failureReason.replace(failedPrefix, "").trim() || failureReason;
+}
+
+export function isEmailParsingUpgradeReason(failureReason: string | null | undefined): boolean {
+  return Boolean(failureReason?.startsWith("email_parsing_upgrade_required:"));
+}
+
+export function emailParsingUpgradeAttachmentCount(failureReason: string | null | undefined): number {
+  const match = failureReason?.match(/^email_parsing_upgrade_required:(\d+)$/);
+  return match ? Number(match[1]) : 0;
 }
 
 /** @deprecated use {@link getReviewInbox} */

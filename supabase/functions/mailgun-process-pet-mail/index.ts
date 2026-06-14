@@ -579,7 +579,10 @@ Deno.serve(async (req) => {
         `[MONITORING] Skipping health attachment processing — owner on Free plan (${otherAttachments.length} files)`
       );
       await sendEmailParsingUpgradeNotification(pet, otherAttachments.length);
-      await finalizeEmail(allAttachments.length, { reviewStatus: "resolved" });
+      await finalizeEmail(allAttachments.length, {
+        reviewStatus: "pending",
+        failureReason: `email_parsing_upgrade_required:${otherAttachments.length}`,
+      });
       if (isReprocessing && storedEmailPath) {
         await deleteStoredEmail(storedEmailPath);
       }

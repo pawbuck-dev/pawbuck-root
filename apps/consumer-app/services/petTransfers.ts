@@ -303,9 +303,29 @@ export async function declinePetTransfer(code: string): Promise<void> {
   }
 }
 
-/**
- * Use a transfer code to transfer pet ownership (server-side RPC; RLS blocks direct recipient UPDATE).
- */
+export type PetTransferErrorCode = "pet_limit" | "premium_required" | "unknown";
+
+export class PetTransferError extends Error {
+  readonly code: PetTransferErrorCode;
+
+  constructor(message: string, code: PetTransferErrorCode) {
+    super(message);
+    this.name = "PetTransferError";
+    this.code = code;
+  }
+}
+
+function mapAcceptTransferRpcError(error: { message?: string; code?: string }): Error {
+  const msg = error.message ?? "Failed to complete transfer";
+  if (error.code === "P0001" || /pet profile limit|upgrade to family/i.test(msg)) {
+    return new PetTransferError(msg, "pet_limit");
+  }
+  if (error.code === "42501" || /premium|individual|family plan/i.test(msg)) {
+    return new PetTransferError(msg, "premium_required");
+  }
+  return new Error(msg);
+}
+
 export async function useTransferCode(
   code: string,
   petParentDisplayName?: string | null
@@ -324,7 +344,7 @@ export async function useTransferCode(
   });
 
   if (error) {
-    throw new Error(error.message || "Failed to complete transfer");
+    throw mapAcceptTransferRpcError(error);
   }
 }
 

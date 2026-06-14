@@ -1,5 +1,6 @@
 import PrivateImage from "@/components/common/PrivateImage";
 import { useAuth } from "@/context/authContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { JOURNAL_DOMAIN_LABEL, subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import {
@@ -10,6 +11,7 @@ import type { PetTransferPreviewPet, PetTransferPreviewPayload } from "@/service
 import {
   declinePetTransfer,
   fetchPetTransferPreview,
+  PetTransferError,
   useTransferCode,
 } from "@/services/petTransfers";
 import { formatPetInboundEmail } from "@/utils/petEmail";
@@ -49,6 +51,7 @@ export default function TransferPetStep2() {
   const queryClient = useQueryClient();
   const { theme, mode } = useTheme();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { openPaywall } = useSubscription();
   const isDarkMode = mode === "dark";
   const { transferCode } = useLocalSearchParams<{ transferCode: string }>();
   const [transferring, setTransferring] = useState(false);
@@ -224,6 +227,18 @@ export default function TransferPetStep2() {
             params: { transferCode },
           });
         } catch (error: unknown) {
+          if (error instanceof PetTransferError) {
+            if (error.code === "pet_limit") {
+              openPaywall({ source: "pet_transfer_accept", requiredPlan: "family" });
+              setTransferring(false);
+              return;
+            }
+            if (error.code === "premium_required") {
+              openPaywall({ source: "pet_transfer_accept", requiredPlan: "individual" });
+              setTransferring(false);
+              return;
+            }
+          }
           Alert.alert("Error", error instanceof Error ? error.message : "Failed to transfer pet");
           setTransferring(false);
         }

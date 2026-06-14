@@ -53,6 +53,23 @@ export async function ownerMeetsMinimumPlan(
   return PLAN_RANK[active] >= PLAN_RANK[minimumPlan];
 }
 
+/** True when owner plan rank meets a subscription_feature_gates minimum_plan row. */
+export async function ownerMeetsFeatureGate(
+  supabase: SupabaseClient,
+  userId: string,
+  featureKey: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("subscription_feature_gates")
+    .select("minimum_plan")
+    .eq("feature_key", featureKey)
+    .maybeSingle();
+
+  const minPlan = normalizePlan(data?.minimum_plan ?? "free");
+  const active = await getOwnerActivePlan(supabase, userId);
+  return PLAN_RANK[active] >= PLAN_RANK[minPlan];
+}
+
 export async function getFoundingMemberStats(
   supabase: SupabaseClient,
 ): Promise<{ purchaseCount: number; spotsRemaining: number }> {

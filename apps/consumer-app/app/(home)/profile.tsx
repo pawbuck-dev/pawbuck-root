@@ -18,6 +18,7 @@ import { getProfileScreenTokens } from "@/components/profile/profileUiTokens";
 import { isHttpAvatarUrl } from "@/components/profile/profileUtils";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
+import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { useSubscription } from "@/context/subscriptionContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
@@ -56,7 +57,8 @@ export default function Profile() {
   const isDarkMode = mode === "dark";
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { resetOnboarding, setPostPetCreationRoute } = useOnboarding();
+  const { setPostPetCreationRoute } = useOnboarding();
+  const { navigateToAddPet } = useAddPetNavigation();
   const { pets } = usePets();
   const { selectedPet, selectedPetId, setSelectedPetId } = useSelectedPet();
   const { plan, isFoundingMember, openPaywall, refetchEntitlement } = useSubscription();
@@ -508,9 +510,8 @@ export default function Profile() {
               subtitle={row.subtitle}
               onPress={() => {
                 if (row.id === "add") {
-                  resetOnboarding();
                   setPostPetCreationRoute("/(home)/profile");
-                  router.push(row.href);
+                  navigateToAddPet(true);
                   return;
                 }
                 if (row.id === "details") {

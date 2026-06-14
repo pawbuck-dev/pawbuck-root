@@ -232,6 +232,18 @@ describe("petTransfers service", () => {
         p_pet_parent_display_name: "Jamie",
       });
     });
+
+    it("maps pet limit RPC errors to PetTransferError", async () => {
+      mockAuth(USER);
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: "P0001", message: "Pet profile limit reached (1). Upgrade to Family to accept this pet." },
+      });
+      await expect(useTransferCode("TRF-1")).rejects.toMatchObject({
+        name: "PetTransferError",
+        code: "pet_limit",
+      });
+    });
   });
 
   describe("getMyPetTransfers", () => {

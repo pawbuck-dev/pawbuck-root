@@ -166,6 +166,7 @@ export default function MiloJournalChatScreen() {
     aiJournalEntriesRemaining,
     openPaywall,
     refetchEntitlement,
+    canAccessFeature,
   } = useSubscription();
   const { ensureDocumentUploadAllowed } = useDocumentUploadQuota();
   const { pets } = usePets();
@@ -582,6 +583,12 @@ export default function MiloJournalChatScreen() {
 
       try {
         const treeId = pendingJournalTreeIdRef.current ?? resolveJournalTreeId(text);
+        if (treeId && !journalSessionIdRef.current && !canAccessFeature("milo_symptom_trees")) {
+          setMessages((prev) => prev.slice(0, -1));
+          openPaywall({ source: "milo_symptom_trees", requiredPlan: "individual" });
+          setBusy(false);
+          return;
+        }
         if (treeId && !journalSessionIdRef.current) {
           pendingJournalTreeIdRef.current = treeId;
         }
@@ -686,6 +693,17 @@ export default function MiloJournalChatScreen() {
           return;
         }
         const reason = e instanceof Error ? e.message : "Request failed";
+        if (isNewJournalSession && !canStartAiJournal) {
+          setMessages((prev) => prev.slice(0, -1));
+          openPaywall({
+            source: "ai_journal",
+            copyVariant: "ai_journal_entry_cap",
+            requiredPlan: "individual",
+          });
+          void refetchEntitlement();
+          setBusy(false);
+          return;
+        }
         console.warn("Milo journal chat API failed; using offline journal flow:", e);
         setOfflineJournalActive(true);
         setJournalFallbackReason(formatJournalFallbackReason(reason));
@@ -726,6 +744,7 @@ export default function MiloJournalChatScreen() {
       canStartAiJournal,
       openPaywall,
       refetchEntitlement,
+      canAccessFeature,
       starterData?.journalEntries,
     ]
   );
@@ -838,6 +857,15 @@ export default function MiloJournalChatScreen() {
         return;
       }
       const reason = e instanceof Error ? e.message : "Request failed";
+      if (!canStartAiJournal) {
+        openPaywall({
+          source: "ai_journal",
+          copyVariant: "ai_journal_entry_cap",
+          requiredPlan: "individual",
+        });
+        void refetchEntitlement();
+        return;
+      }
       console.warn("Milo journal check-in start failed; using offline flow:", e);
       setOfflineJournalActive(true);
       setJournalFallbackReason(formatJournalFallbackReason(reason));

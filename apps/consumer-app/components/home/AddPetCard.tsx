@@ -1,21 +1,14 @@
-import { useOnboarding } from "@/context/onboardingContext";
+import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { useTheme } from "@/context/themeContext";
-import { navigateToAddPetFlow } from "@/utils/navigateToAddPetFlow";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 
 export default function AddPetCard() {
-  const router = useRouter();
   const { theme } = useTheme();
-  const { resetOnboarding } = useOnboarding();
+  const { navigateToAddPet } = useAddPetNavigation();
 
   const handleAddPet = () => {
-    navigateToAddPetFlow({
-      router,
-      hasExistingPets: true,
-      resetOnboarding,
-    });
+    navigateToAddPet(true);
   };
 
   return (
@@ -63,7 +56,7 @@ export default function AddPetCard() {
               className="text-base text-center leading-6"
               style={{ color: theme.foreground, opacity: 0.6 }}
             >
-              Create a health profile for another family member
+              Family plan required for multiple pets
             </Text>
           </View>
         </View>

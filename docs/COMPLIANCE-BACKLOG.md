@@ -49,6 +49,6 @@ Admin observability: Command center → Retention jobs panel (`/api/support/rete
 - [x] Engineering: async export API + worker + consumer UX
 - [x] Engineering: retention jobs + admin panel
 - [x] Docs: DPIA draft, RoPA template, subprocessors, store mapping
-- [ ] Staging UAT: sign up → populate data → schedule delete → after grace confirm zero residual rows/objects + audit log
+- [ ] Staging UAT: run [COMPLIANCE-UAT.md](compliance/COMPLIANCE-UAT.md) (sections 4–6) + [`scripts/compliance/verify-rpcs.sql`](../scripts/compliance/verify-rpcs.sql)
 - [ ] Counsel sign-off: retention windows, Gemini DPA no-training clause, DPIA/ROPA
 - [ ] List all third-party subprocessors in **published** privacy policy

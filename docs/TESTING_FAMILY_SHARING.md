@@ -28,7 +28,7 @@ CI: `.github/workflows/family-access-integration.yml`
 
 ### Owner (sender)
 
-1. **Premium gate** — Free account: creating household MTCH or email invite should prompt Premium (`family_access_invite`).
+1. **Family plan gate** — Free account: creating household MTCH or email invite should prompt Family plan (`family_access_invite`). Individual account: also blocked. Family account: succeeds.
 2. **Email invite** — Profile → Manage Access → pick pet → email + role → send.
 3. **MTCH code** — Share household code instead → generate MTCH → copy/QR.
 4. **Member list** — Joined member appears; remove member → grantee loses pet access.
@@ -40,6 +40,16 @@ CI: `.github/workflows/family-access-integration.yml`
 3. **Email flow** — Open `/accept-invite?token=…` → sign in with matching email → pet on Home.
 4. **Wrong email** — Signed in as different user → `email_mismatch` message.
 5. **Self-join** — Own MTCH code → error.
+
+### Plan gates (client + RLS)
+
+| Plan | Invite / share | Accept transfer (2nd pet) |
+|------|----------------|---------------------------|
+| Free | Blocked at invite | Blocked if already owns 1 pet |
+| Individual | Blocked at invite | Blocked if already owns 1 pet |
+| Family | Succeeds | Succeeds |
+
+**Known limitation:** QR scan for household invite remains a stub — use manual code entry.
 
 ### SQL verification (after MTCH accept)
 

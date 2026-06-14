@@ -12,7 +12,7 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     id: "add",
     icon: "plus-circle-outline",
     title: "Add New Pet",
-    subtitle: "Guided questions to create a profile",
+    subtitle: "Family plan required for multiple pets",
     href: "/onboarding/step2",
   },
   {

@@ -13,7 +13,8 @@ import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
-import { FailedEmail, getReviewInbox } from "@/services/failedEmails";
+import { FailedEmail, getReviewInbox, isEmailParsingUpgradeReason } from "@/services/failedEmails";
+import { useSubscription } from "@/context/subscriptionContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import type { CareTeamMemberType } from "@/services/careTeamMembers";
 import {
@@ -65,6 +66,7 @@ export default function MessagesScreen() {
   const { pets } = usePets();
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const { pendingApprovals, setCurrentApproval, refreshPendingApprovals } = useEmailApproval();
+  const { openPaywall } = useSubscription();
   const params = useLocalSearchParams<{
     email?: string;
     composeMessage?: string;
@@ -212,6 +214,11 @@ export default function MessagesScreen() {
         email.failure_reason?.toLowerCase().includes(query)
     );
   }, [failedEmails, searchQuery]);
+
+  const hasEmailParsingUpgradeNotice = useMemo(
+    () => failedEmails.some((email) => isEmailParsingUpgradeReason(email.failure_reason)),
+    [failedEmails]
+  );
 
   // Get total unread count
   const totalUnread = useMemo(() => {
@@ -426,6 +433,32 @@ export default function MessagesScreen() {
           )}
         </View>
       </View>
+
+      {!(selectedThread || selectedPendingApproval || selectedFailedEmail) &&
+        hasEmailParsingUpgradeNotice && (
+          <Pressable
+            onPress={() =>
+              openPaywall({ source: "email_parsing", requiredPlan: "individual" })
+            }
+            style={{
+              marginHorizontal: 16,
+              marginBottom: 8,
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: isDark ? "rgba(245,158,11,0.15)" : "#FEF3C7",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(245,158,11,0.35)" : "#FCD34D",
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginBottom: 4 }}>
+              Email attachments need Individual
+            </Text>
+            <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 18 }}>
+              We received health documents by email but could not auto-file them on Free. Upgrade to
+              Individual to import attachments automatically.
+            </Text>
+          </Pressable>
+        )}
 
       {/* Failed Email Detail View */}
       {selectedFailedEmail ? (

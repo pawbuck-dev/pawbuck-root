@@ -45,8 +45,9 @@ public sealed class AccountPurgeWorker : BackgroundService
                     if (!result.Success)
                     {
                         _logger.LogWarning(
-                            "Account purge failed for {UserId}: {Error}",
+                            "Account purge failed for userId={UserId} requestId={RequestId} error={Error}",
                             req.UserId,
+                            req.Id,
                             result.ErrorMessage);
                     }
                 }

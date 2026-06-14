@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using PawBuck.API.Models;
@@ -7,10 +9,20 @@ namespace PawBuck.API.Services;
 public sealed class UserEntitlementService : IUserEntitlementService
 {
     private readonly IOptions<SupabaseOptions> _options;
+    private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
+    private readonly IHostEnvironment _hostEnvironment;
+    private readonly ILogger<UserEntitlementService> _logger;
 
-    public UserEntitlementService(IOptions<SupabaseOptions> options)
+    public UserEntitlementService(
+        IOptions<SupabaseOptions> options,
+        IOptions<SubscriptionOptions> subscriptionOptions,
+        IHostEnvironment hostEnvironment,
+        ILogger<UserEntitlementService> logger)
     {
         _options = options;
+        _subscriptionOptions = subscriptionOptions;
+        _hostEnvironment = hostEnvironment;
+        _logger = logger;
     }
 
     private NpgsqlConnection CreateConnection()
@@ -19,6 +31,23 @@ public sealed class UserEntitlementService : IUserEntitlementService
         if (string.IsNullOrWhiteSpace(cs))
             throw new InvalidOperationException("Database not configured (Supabase:ConnectionString).");
         return new NpgsqlConnection(cs);
+    }
+
+    private void EnsureConnectionForCapEnforcement(string operation)
+    {
+        if (!string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+            return;
+
+        if (_hostEnvironment.IsDevelopment())
+            return;
+
+        _logger.LogError(
+            "Supabase ConnectionString missing; cannot enforce subscription cap for {Operation} in {Environment}",
+            operation,
+            _hostEnvironment.EnvironmentName);
+
+        throw new InvalidOperationException(
+            $"Database not configured (Supabase:ConnectionString). Cannot enforce {operation}.");
     }
 
     /// <inheritdoc />
@@ -151,8 +180,14 @@ public sealed class UserEntitlementService : IUserEntitlementService
     /// <inheritdoc />
     public async Task AssertMiloConversationAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        if (!_subscriptionOptions.Value.EnforceMiloConversationCap)
             return;
+
+        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        {
+            EnsureConnectionForCapEnforcement("Milo conversation cap");
+            return;
+        }
 
         var plan = await GetActivePlanAsync(userId, cancellationToken);
         if (SubscriptionPlans.Rank(plan) >= SubscriptionPlans.Rank(SubscriptionPlans.Individual))
@@ -187,7 +222,10 @@ public sealed class UserEntitlementService : IUserEntitlementService
     public async Task<int> IncrementMiloConversationUsageAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        {
+            EnsureConnectionForCapEnforcement("Milo conversation usage increment");
             return 0;
+        }
 
         const string sql = "SELECT public.increment_milo_conversation_usage(@userId)";
 
@@ -202,8 +240,14 @@ public sealed class UserEntitlementService : IUserEntitlementService
     /// <inheritdoc />
     public async Task AssertAiJournalAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        if (!_subscriptionOptions.Value.EnforceAiJournalCap)
             return;
+
+        if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        {
+            EnsureConnectionForCapEnforcement("AI journal cap");
+            return;
+        }
 
         var plan = await GetActivePlanAsync(userId, cancellationToken);
         if (SubscriptionPlans.Rank(plan) >= SubscriptionPlans.Rank(SubscriptionPlans.Individual))
@@ -238,7 +282,10 @@ public sealed class UserEntitlementService : IUserEntitlementService
     public async Task<int> IncrementAiJournalUsageAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
+        {
+            EnsureConnectionForCapEnforcement("AI journal usage increment");
             return 0;
+        }
 
         const string sql = "SELECT public.increment_ai_journal_usage(@userId)";
 

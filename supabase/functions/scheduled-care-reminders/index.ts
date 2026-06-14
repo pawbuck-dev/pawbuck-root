@@ -7,6 +7,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { errorResponse, handleCorsRequest, jsonResponse } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 import { sendNotificationToUser } from "../_shared/notification.ts";
+import { ownerMeetsFeatureGate } from "../_shared/subscriptionEntitlement.ts";
 
 type PetDocRow = {
   id: string;
@@ -98,6 +99,9 @@ Deno.serve(async (req) => {
     };
     if (row.pets?.deleted_at) continue;
 
+    const healthAlertsEnabled = await ownerMeetsFeatureGate(supabase, row.user_id, "health_alerts");
+    if (!healthAlertsEnabled) continue;
+
     const expiryIso = parseDocumentExpiryIso(row);
     if (!expiryIso) continue;
 
@@ -179,6 +183,9 @@ Deno.serve(async (req) => {
   if (v1e) console.error(v1e);
 
   async function sendVetReminder(b: VetRow, window: "24h" | "1h") {
+    const healthAlertsEnabled = await ownerMeetsFeatureGate(supabase, b.user_id, "health_alerts");
+    if (!healthAlertsEnabled) return;
+
     const { data: up } = await supabase
       .from("user_preferences")
       .select("vet_appointment_reminder_push_enabled")

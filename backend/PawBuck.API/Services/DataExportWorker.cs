@@ -102,7 +102,7 @@ public sealed class DataExportWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Export failed for request {RequestId}", req.Id);
+            _logger.LogError(ex, "Export failed for requestId={RequestId} userId={UserId}", req.Id, req.UserId);
             await export.MarkFailedAsync(req.Id, ex.Message, cancellationToken);
         }
     }
