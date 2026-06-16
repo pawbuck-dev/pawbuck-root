@@ -137,7 +137,9 @@
         "screens": {
           "accept-invite": "accept-invite",
           "join-household": "join-household",
-          "transfer-pet": "transfer-pet"
+          "transfer-pet": "transfer-pet",
+          "reset-password": "reset-password",
+          "forgot-password": "forgot-password"
         }
       }
     }

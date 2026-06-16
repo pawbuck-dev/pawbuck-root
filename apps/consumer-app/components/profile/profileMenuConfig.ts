@@ -72,6 +72,12 @@ export const PROFILE_SETTINGS_ROWS = [
     subtitle: "Protect your pet data",
   },
   {
+    id: "change-password",
+    icon: "lock-outline",
+    title: "Change password",
+    subtitle: "Update your sign-in password",
+  },
+  {
     id: "appearance",
     icon: "brightness-6",
     title: "Appearance",

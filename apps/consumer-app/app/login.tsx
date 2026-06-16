@@ -218,6 +218,20 @@ function Login() {
                   editable={!isLoading}
                   onSubmitEditing={handleEmailLogin}
                 />
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: "/forgot-password",
+                      params: email.trim() ? { email: email.trim() } : {},
+                    })
+                  }
+                  disabled={isLoading}
+                  className="mt-2 self-end"
+                >
+                  <Text className="text-sm font-medium" style={{ color: theme.primary }}>
+                    Forgot password?
+                  </Text>
+                </Pressable>
               </View>
 
               <Pressable

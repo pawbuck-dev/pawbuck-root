@@ -7,13 +7,13 @@ import { View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, pendingPasswordRecovery } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    if (loading || !splashDone || !isAuthenticated) return;
+    if (loading || !splashDone || !isAuthenticated || pendingPasswordRecovery) return;
     router.replace("/(home)/home");
-  }, [isAuthenticated, loading, splashDone, router]);
+  }, [isAuthenticated, loading, pendingPasswordRecovery, splashDone, router]);
 
   if (loading || !splashDone) {
     return (

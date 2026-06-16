@@ -30,6 +30,16 @@ Historically some migrations and edge functions lived under the consumer app. Th
 
    (Writes [`apps/consumer-app/database.types.ts`](../apps/consumer-app/database.types.ts).)
 
+## Password recovery redirect URLs
+
+For consumer app **Forgot password** (`supabase.auth.resetPasswordForEmail`), add these to **Authentication → URL configuration → Redirect URLs** on each Supabase project:
+
+- `pawbuck:///reset-password` (Expo deep link from `Linking.createURL('reset-password')`)
+- `Pawbuck://reset-password` (scheme casing as registered in the app)
+- `https://pawbuck.app/reset-password` (optional, if universal links are enabled)
+
+Ensure **Authentication → Email** delivery is configured (SMTP or Supabase email). Local dev: read reset links from Inbucket at `http://127.0.0.1:54324` after `supabase start`.
+
 ## Scheduled Edge: care reminders (5.4)
 
 Edge function [`supabase/functions/scheduled-care-reminders`](../supabase/functions/scheduled-care-reminders/index.ts) sends **document expiry** (insurance + travel `pet_documents`) and **vet appointment** (`vet_bookings`) push reminders. It expects:

@@ -5,11 +5,13 @@ import { Alert } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     back: jest.fn(),
     replace: mockReplace,
+    push: mockPush,
     dismissAll: jest.fn(),
   }),
   useLocalSearchParams: () => ({}),
@@ -105,6 +107,17 @@ describe("Login screen", () => {
         email: "user@test.com",
         password: "secret12",
       });
+    });
+  });
+
+  it("navigates to forgot password with email prefilled", () => {
+    renderLogin();
+    fireEvent.changeText(screen.getByPlaceholderText("you@example.com"), "user@test.com");
+    fireEvent.press(screen.getByText("Forgot password?"));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/forgot-password",
+      params: { email: "user@test.com" },
     });
   });
 });

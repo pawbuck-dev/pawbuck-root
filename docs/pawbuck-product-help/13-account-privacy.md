@@ -8,6 +8,14 @@ Open **Profile** to see your plan (**Free**, **Individual**, or **Family**), **F
 
 From **Profile**, use **Log out** and confirm. You will need to sign in again to access pets.
 
+## Password reset and change
+
+**Forgot password:** On the **Sign in** screen, tap **Forgot password?**, enter your email, and tap **Send reset link**. If an account exists, you will receive an email — open the link **on the same device** with PawBuck installed to choose a new password.
+
+**Change password (email sign-in):** When signed in with email and password, open **Profile → Settings → Change password** to set a new password without email.
+
+**Google / Apple sign-in:** Use those buttons on the login screen; there is no separate PawBuck password to reset.
+
 ## Deleting your account
 
 From **Profile**, scroll to the **Danger zone** and use **Delete account**. Follow the confirmation flow; active pet transfers may be called out before you can proceed.

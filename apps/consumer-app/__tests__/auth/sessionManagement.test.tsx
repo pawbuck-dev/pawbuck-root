@@ -157,6 +157,27 @@ describe("sessionManagement", () => {
       expect(testNav().replace).toHaveBeenCalledWith("/");
     });
 
+    it("redirects to reset-password on PASSWORD_RECOVERY", async () => {
+      authBus().nextInitial = null;
+      render(
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          <AuthProvider>
+            <AuthProbe />
+          </AuthProvider>
+        </SafeAreaProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("signed-out")).toBeTruthy();
+      });
+
+      await act(async () => {
+        authBus().emit("PASSWORD_RECOVERY", { user: { id: "550e8400-e29b-41d4-a716-446655440099" } });
+      });
+
+      expect(testNav().replace).toHaveBeenCalledWith("/reset-password");
+    });
+
     it("redirects when TOKEN_REFRESHED delivers no session (refresh token failure)", async () => {
       authBus().nextInitial = { user: { id: "550e8400-e29b-41d4-a716-446655440099" } };
       render(

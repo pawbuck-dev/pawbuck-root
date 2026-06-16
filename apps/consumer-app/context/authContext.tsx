@@ -21,10 +21,14 @@ interface AuthContextType {
   error: string | null;
   /** Convenience flag for checking authentication status */
   isAuthenticated: boolean;
+  /** True while user must set a new password after email recovery link */
+  pendingPasswordRecovery: boolean;
   /** Sign out the current user */
   signOut: () => Promise<void>;
   /** Clear any authentication errors */
   clearError: () => void;
+  /** Clear recovery gate after password is updated */
+  clearPendingPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingPasswordRecovery, setPendingPasswordRecovery] = useState(false);
 
   // Sign out the current user
   const signOut = useCallback(async () => {
@@ -56,6 +61,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
   }, []);
 
+  const clearPendingPasswordRecovery = useCallback(() => {
+    setPendingPasswordRecovery(false);
+  }, []);
+
   const { deviceId, pushToken } = useNotificationHandlers();
 
   // Initialize authentication state
@@ -66,11 +75,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user || null);
 
+      if (event === "PASSWORD_RECOVERY") {
+        setPendingPasswordRecovery(true);
+        router.replace("/reset-password");
+      }
+
       // Clear loading state when auth state changes
       setLoading(false);
 
       // Any non-initial transition to "no session" (sign-out, refresh failure, revoked JWT).
       if (event !== "INITIAL_SESSION" && !session?.user) {
+        setPendingPasswordRecovery(false);
         router.replace("/");
       }
     });
@@ -114,8 +129,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         loading,
         error,
         isAuthenticated: !!user,
+        pendingPasswordRecovery,
         signOut,
         clearError,
+        clearPendingPasswordRecovery,
       }}
     >
       {children}

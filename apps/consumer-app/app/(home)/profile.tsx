@@ -24,6 +24,7 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { cancelAccountDeletion, getAccountDeletionStatus, invokeDeleteAccount } from "@/services/accountDeletion";
+import { userHasEmailPasswordIdentity } from "@/services/authPasswordReset";
 import { fetchPrivacyExportStatus, requestPrivacyExport } from "@/services/privacyExport";
 import { resolveAuthDisplayName, isPlausibleDisplayNameForGreeting } from "@/services/authDisplayName";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
@@ -340,8 +341,17 @@ export default function Profile() {
     notifications: openNotificationsSettings,
     "download-data": () => void handleDownloadMyData(),
     privacy: openPrivacyInfo,
+    "change-password": () => router.push({ pathname: "/reset-password", params: { mode: "change" } }),
     appearance: () => toggleTheme(),
   };
+
+  const visibleSettingsRows = useMemo(
+    () =>
+      PROFILE_SETTINGS_ROWS.filter(
+        (row) => row.id !== "change-password" || userHasEmailPasswordIdentity(user)
+      ),
+    [user]
+  );
 
   const helpRowHandlers: Record<ProfileHelpRowId, () => void> = {
     contact: () => router.push("/(home)/contact"),
@@ -532,7 +542,7 @@ export default function Profile() {
 
         <ProfileSectionHeading>Settings</ProfileSectionHeading>
         <ProfileListCard>
-          {PROFILE_SETTINGS_ROWS.map((row) => (
+          {visibleSettingsRows.map((row) => (
             <ProfileFigmaRow
               key={row.id}
               icon={row.icon}
