@@ -331,7 +331,10 @@ Deno.serve(async (req) => {
       .eq("email", to.toLowerCase())
       .single();
 
-    const recipientName = careTeamMember?.vet_name || null;
+    const recipientName =
+      to.toLowerCase() === "hello@pawbuck.com"
+        ? "PawBuck Support"
+        : careTeamMember?.vet_name || null;
     console.log(
       `[${requestId}] Care team lookup: ${careTeamMember ? `Found - ${recipientName} at ${careTeamMember.clinic_name}` : "Not found (external recipient)"}`
     );

@@ -22,7 +22,9 @@ import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { useSubscription } from "@/context/subscriptionContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
-import { useTheme } from "@/context/themeContext";
+import PlanComparisonModal from "@/components/subscription/PlanComparisonModal";
+import { themeModeLabel, useTheme } from "@/context/themeContext";
+import { resolveProfileEditPhotoPreview } from "@/utils/profilePhotoPreview";
 import { cancelAccountDeletion, getAccountDeletionStatus, invokeDeleteAccount } from "@/services/accountDeletion";
 import { userHasEmailPasswordIdentity } from "@/services/authPasswordReset";
 import { fetchPrivacyExportStatus, requestPrivacyExport } from "@/services/privacyExport";
@@ -53,7 +55,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile() {
-  const { theme, mode, toggleTheme } = useTheme();
+  const { theme, mode, themeMode } = useTheme();
   const { top } = useSafeAreaInsets();
   const isDarkMode = mode === "dark";
   const router = useRouter();
@@ -79,6 +81,7 @@ export default function Profile() {
   const [clearProfilePhoto, setClearProfilePhoto] = useState(false);
   const [showPetPicker, setShowPetPicker] = useState(false);
   const [showLogOutModal, setShowLogOutModal] = useState(false);
+  const [showPlanComparison, setShowPlanComparison] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -342,7 +345,7 @@ export default function Profile() {
     "download-data": () => void handleDownloadMyData(),
     privacy: openPrivacyInfo,
     "change-password": () => router.push({ pathname: "/reset-password", params: { mode: "change" } }),
-    appearance: () => toggleTheme(),
+    appearance: () => router.push("/(home)/appearance-settings" as never),
   };
 
   const visibleSettingsRows = useMemo(
@@ -398,8 +401,12 @@ export default function Profile() {
   };
 
   const showOAuthAvatar = !!rawAvatar && !avatarLoadFailed && !profile?.profile_photo_path;
-  const photoPreviewUri =
-    pendingPhotoUri ?? (clearProfilePhoto ? null : storedPhotoPreviewUri);
+  const photoPreviewUri = resolveProfileEditPhotoPreview({
+    pendingPhotoUri,
+    storedPhotoPreviewUri: clearProfilePhoto ? null : storedPhotoPreviewUri,
+    oauthAvatarUrl: rawAvatar,
+    showOAuthAvatar,
+  });
   const showRemovePhoto =
     Boolean(profile?.profile_photo_path || pendingPhotoUri) && !clearProfilePhoto;
   const currentPet = selectedPet ?? pets[0] ?? null;
@@ -455,12 +462,12 @@ export default function Profile() {
               isFoundingMember
                 ? "Lifetime access — thank you for building PawBuck with us"
                 : plan === "free"
-                  ? "Upgrade for unlimited Milo, documents, and more"
-                  : "Manage in App Store or Google Play"
+                  ? `Current plan: Free · Compare plans`
+                  : `Current plan: ${planLabel} · Manage in App Store or Google Play`
             }
             onPress={() => {
               if (plan === "free") {
-                openPaywall({ source: "profile_subscription", requiredPlan: "individual" });
+                setShowPlanComparison(true);
               } else {
                 void refetchEntitlement();
               }
@@ -471,7 +478,9 @@ export default function Profile() {
               icon="people-outline"
               title="Family plan"
               subtitle="Unlimited pets · up to 5 household members"
-              onPress={() => openPaywall({ source: "profile_family_plan", requiredPlan: "family" })}
+              onPress={() => {
+                setShowPlanComparison(true);
+              }}
             />
           ) : null}
         </ProfileListCard>
@@ -547,7 +556,7 @@ export default function Profile() {
               key={row.id}
               icon={row.icon}
               title={row.title}
-              subtitle={row.subtitle}
+              subtitle={row.id === "appearance" ? themeModeLabel(themeMode) : row.subtitle}
               onPress={settingsRowHandlers[row.id]}
             />
           ))}
@@ -666,6 +675,17 @@ export default function Profile() {
         showRemovePhoto={showRemovePhoto}
         onSave={handleSave}
         isSaving={updateMutation.isPending}
+      />
+
+      <PlanComparisonModal
+        visible={showPlanComparison}
+        onClose={() => setShowPlanComparison(false)}
+        currentPlan={plan}
+        readOnly={false}
+        onSubscribe={(targetPlan) => {
+          setShowPlanComparison(false);
+          openPaywall({ source: "profile_plan_compare", requiredPlan: targetPlan });
+        }}
       />
 
       <LogOutConfirmModal

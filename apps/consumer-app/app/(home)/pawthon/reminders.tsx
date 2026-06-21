@@ -9,6 +9,10 @@ import {
   schedulePawthonWalkReminders,
   type PawthonWalkReminderPrefs,
 } from "@/services/pawthonWalkReminders";
+import { getDailyGoalMeters, setDailyGoalMeters } from "@/services/pawthonGoalPrefs";
+import { PAWTHON_GOAL_PRESETS } from "@/constants/pawthonGoals";
+import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -34,6 +38,12 @@ export default function PawthonRemindersScreen() {
   const surfaces = getPawthonSurfaceTokens(isDark, theme);
   const { selectedPet } = useSelectedPet();
   const { pets } = usePets();
+  const queryClient = useQueryClient();
+
+  const { data: goalMeters = 805 } = useQuery({
+    queryKey: ["pawthon", "goalMeters"],
+    queryFn: () => getDailyGoalMeters(),
+  });
 
   const [prefs, setPrefs] = useState<PawthonWalkReminderPrefs>(DEFAULT_PAWTHON_REMINDER_PREFS);
   const [loading, setLoading] = useState(true);
@@ -136,6 +146,44 @@ export default function PawthonRemindersScreen() {
           <ActivityIndicator color={theme.primary} style={{ marginTop: 40 }} />
         ) : (
           <ScrollView>
+            {card(
+              <>
+                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 16, color: theme.foreground, marginBottom: 8 }}>
+                  Daily walk goal
+                </Text>
+                <Text style={{ fontSize: 13, color: theme.secondary, marginBottom: 12 }}>
+                  Current goal: {formatMiles(metersToMiles(goalMeters))} mi
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {PAWTHON_GOAL_PRESETS.map((preset) => {
+                    const selected = goalMeters === preset.meters;
+                    return (
+                      <Pressable
+                        key={preset.id}
+                        onPress={() => {
+                          void (async () => {
+                            await setDailyGoalMeters(preset.meters);
+                            await queryClient.invalidateQueries({ queryKey: ["pawthon", "goalMeters"] });
+                          })();
+                        }}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderRadius: 20,
+                          borderWidth: selected ? 2 : 1,
+                          borderColor: selected ? theme.primary : surfaces.borderColor,
+                          backgroundColor: selected ? `${theme.primary}22` : "transparent",
+                        }}
+                      >
+                        <Text style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground }}>
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
             {card(
               <ToggleRow
                 title="Daily walk reminder"

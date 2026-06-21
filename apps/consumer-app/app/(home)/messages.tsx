@@ -69,6 +69,7 @@ export default function MessagesScreen() {
   const { openPaywall } = useSubscription();
   const params = useLocalSearchParams<{
     email?: string;
+    composeMode?: string;
     composeMessage?: string;
     composeSubject?: string;
     composePetId?: string;
@@ -81,7 +82,7 @@ export default function MessagesScreen() {
   >();
   const [composeInitialBody, setComposeInitialBody] = useState<string | undefined>();
   const [composeInitialSubject, setComposeInitialSubject] = useState<string | undefined>();
-  const [composeInitialPetId, setComposeInitialPetId] = useState<string | undefined>();
+  const [composeMode, setComposeMode] = useState<"care_team" | "support">("care_team");
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(
     null
   );
@@ -92,7 +93,11 @@ export default function MessagesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [careTeamFilter, setCareTeamFilter] =
     useState<MessageCareTeamFilter>("all");
+  const [composeInitialPetId, setComposeInitialPetId] = useState<string | undefined>();
   const [resolutionEmail, setResolutionEmail] = useState<FailedEmail | null>(null);
+
+  const displayPetId = selectedPetId ?? pets[0]?.id ?? null;
+  const selectedPetForDisplay = pets.find((p) => p.id === displayPetId) ?? null;
   const [processingErrorsExpanded, setProcessingErrorsExpanded] = useState(false);
 
   // Fetch message threads
@@ -118,11 +123,11 @@ export default function MessagesScreen() {
   React.useEffect(() => {
     if (params.email) {
       setInitialRecipientEmail(params.email);
+      setComposeMode(params.composeMode === "support" ? "support" : "care_team");
       setShowNewMessageModal(true);
-      // Clear the param to avoid re-opening on navigation
-      router.setParams({ email: undefined });
+      router.setParams({ email: undefined, composeMode: undefined });
     }
-  }, [params.email]);
+  }, [params.email, params.composeMode]);
 
   React.useEffect(() => {
     if (params.composeMessage) {
@@ -578,8 +583,8 @@ export default function MessagesScreen() {
           </View>
           )}
 
-          {/* Pet Selector (when user has more than one pet and has messages) */}
-          {pets.length > 1 && hasMessages && (
+          {/* Pet Selector (multi-pet users always see switcher) */}
+          {pets.length > 1 && (
             <View className="mb-4 px-2">
               <PetSelector
                 pets={pets}
@@ -823,7 +828,9 @@ export default function MessagesScreen() {
                         paddingHorizontal: 20,
                       }}
                     >
-                      All messages from your pet's care{"\n"}providers will appear here.
+                      {selectedPetForDisplay
+                        ? `No messages for ${selectedPetForDisplay.name} yet.${pets.length > 1 ? " Switch pets above to check other inboxes." : ""}`
+                        : "All messages from your pet's care providers will appear here."}
                     </Text>
                   </View>
                 )}
@@ -845,7 +852,9 @@ export default function MessagesScreen() {
           setComposeInitialBody(undefined);
           setComposeInitialSubject(undefined);
           setComposeInitialPetId(undefined);
+          setComposeMode("care_team");
         }}
+        composeMode={composeMode}
         initialRecipientEmail={initialRecipientEmail}
         initialMessageBody={composeInitialBody}
         initialSubject={composeInitialSubject}

@@ -38,6 +38,8 @@ interface NewMessageModalProps {
   initialSubject?: string;
   /** Pre-select pet when opening from Milo journal */
   initialPetId?: string;
+  /** Support compose hides care-team picker and fixes recipient to PawBuck Support */
+  composeMode?: "care_team" | "support";
 }
 
 interface WhitelistedContact {
@@ -62,7 +64,9 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
   initialMessageBody,
   initialSubject,
   initialPetId,
+  composeMode = "care_team",
 }) => {
+  const isSupportMode = composeMode === "support";
   const { theme, mode } = useTheme();
   const router = useRouter();
   const { pets } = usePets();
@@ -171,6 +175,17 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       return;
     }
 
+    if (isSupportMode) {
+      setToContact({
+        id: "support_email",
+        name: "PawBuck Support",
+        email: CONTACT_EMAIL,
+        business: "Support Team",
+      });
+      lastProcessedEmailRef.current = CONTACT_EMAIL.toLowerCase();
+      return;
+    }
+
     if (initialRecipientEmail) {
       const normalizedEmail = initialRecipientEmail.toLowerCase();
       
@@ -208,7 +223,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
       setToContact(null);
       lastProcessedEmailRef.current = null;
     }
-  }, [visible, initialRecipientEmail, contacts]);
+  }, [visible, initialRecipientEmail, contacts, isSupportMode]);
 
   const handleSend = async () => {
     if (!toContact) {
@@ -680,7 +695,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
           {pets.length > 1 && (
             <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
-                Pet
+                {isSupportMode ? "Which pet is this about?" : "Pet"}
               </Text>
               <View>
                 <TouchableOpacity
@@ -739,7 +754,9 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                           onPress={() => {
                             setSelectedPetId(pet.id);
                             setShowPetDropdown(false);
-                            setToContact(null);
+                            if (!isSupportMode) {
+                              setToContact(null);
+                            }
                           }}
                           activeOpacity={0.7}
                           style={{
@@ -773,12 +790,32 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
               To
             </Text>
-            {renderContactDropdown(
-              contacts,
-              toContact,
-              setToContact,
-              showToDropdown,
-              () => setShowToDropdown(!showToDropdown)
+            {isSupportMode ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: inputBg,
+                  borderWidth: 1,
+                  borderColor: inputBorder,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                }}
+              >
+                <Ionicons name="headset-outline" size={18} color={theme.primary} style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 15, color: theme.foreground, fontWeight: "600" }}>
+                  PawBuck Support
+                </Text>
+              </View>
+            ) : (
+              renderContactDropdown(
+                contacts,
+                toContact,
+                setToContact,
+                showToDropdown,
+                () => setShowToDropdown(!showToDropdown)
+              )
             )}
           </View>
         </View>
@@ -841,7 +878,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
             />
           </View>
 
-          {/* Upload File */}
+          {!isSupportMode ? (
           <View style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground, marginBottom: 8 }}>
               Upload File
@@ -868,6 +905,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
+          ) : null}
         </ScrollView>
 
         {/* Footer Buttons */}

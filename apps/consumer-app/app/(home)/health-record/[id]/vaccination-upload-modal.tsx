@@ -1,3 +1,4 @@
+import VaccinationForm, { type VaccinationFormData } from "@/components/vaccinations/VaccinationForm";
 import { CameraButton } from "@/components/upload/CameraButton";
 import { FilesButton } from "@/components/upload/FilesButton";
 import { LibraryButton } from "@/components/upload/LibraryButton";
@@ -47,18 +48,20 @@ type ProcessingStatus =
   | "error";
 
 export default function VaccinationUploadModal() {
-  const params = useLocalSearchParams<{ upload?: string }>();
+  const params = useLocalSearchParams<{ upload?: string; mode?: string }>();
   const uploadParam = Array.isArray(params.upload)
     ? params.upload[0]
     : params.upload;
+  const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
   const uploadIntentHandled = useRef(false);
+  const openedManualRef = useRef(false);
 
   const { theme } = useTheme();
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const { user } = useAuth();
   const { pet } = useSelectedPet();
-  const { vaccinations: existingVaccinations } = useVaccinations();
+  const { vaccinations: existingVaccinations, addVaccinationMutation } = useVaccinations();
   const queryClient = useQueryClient();
   const { uploadAndAnalyze } = useMiloUpload();
   const { atCap, ensureDocumentUploadAllowed } = useDocumentUploadQuota();
@@ -69,6 +72,44 @@ export default function VaccinationUploadModal() {
   const [editingDateIndex, setEditingDateIndex] = useState<number | null>(null);
   const [editingDateType, setEditingDateType] = useState<"date" | "next_due_date" | null>(null);
   const [tempDate, setTempDate] = useState<string | null>(null);
+  const [isManualMode, setIsManualMode] = useState(false);
+
+  useEffect(() => {
+    if (modeParam === "manual" && !openedManualRef.current) {
+      openedManualRef.current = true;
+      setIsManualMode(true);
+    }
+  }, [modeParam]);
+
+  const handleManualSave = async (data: VaccinationFormData) => {
+    if (!pet || !user) return;
+    try {
+      await addVaccinationMutation.mutateAsync({
+        pet_id: pet.id,
+        name: data.name,
+        date: data.date,
+        next_due_date: data.next_due_date,
+        clinic_name: data.clinic_name,
+        notes: data.notes,
+        document_url: null,
+        created_at: new Date().toISOString(),
+      });
+      await invalidateClinicalQueries(queryClient, pet.id);
+      Alert.alert("Saved", "Vaccination record added.");
+      router.back();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to save vaccination";
+      Alert.alert("Error", message);
+    }
+  };
+
+  if (isManualMode) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <VaccinationForm onSave={(data) => void handleManualSave(data)} loading={addVaccinationMutation.isPending} />
+      </View>
+    );
+  }
 
   const handleUploadFile = async (
     file: ImagePickerAsset | DocumentPickerAsset

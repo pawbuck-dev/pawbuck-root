@@ -5,6 +5,7 @@ import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
 import { useTheme } from "@/context/themeContext";
 import { getDailyIntake, updateDailyIntake, type DailyIntake } from "@/services/dailyIntake";
 import { buildTodayHabitSummary, formatTodayDateLine } from "@/utils/todayHabitSummary";
+import { nextIntakeCount } from "@/utils/dailyIntakeMutations";
 import type { TodayDashboardProgress } from "@/utils/todayDashboardProgress";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,37 +80,40 @@ export default function TodayHabitPanel({
   const poopTarget = intake?.poop_target ?? 6;
   const peeTarget = intake?.pee_target ?? 6;
 
+  const adjustCount = useCallback(
+    (
+      field: "food_intake" | "water_intake" | "poop_count" | "pee_count",
+      current: number,
+      delta: number,
+      max?: number
+    ) => {
+      const next = nextIntakeCount(current, delta, max);
+      if (next === current) return;
+      mutation.mutate({ [field]: next });
+    },
+    [mutation]
+  );
+
   const bumpFood = useCallback(() => {
-    if (foodIntake >= foodTarget) {
-      onOpenBodyTracker?.("intake");
-      return;
-    }
-    mutation.mutate({ food_intake: foodIntake + 1 });
-  }, [foodIntake, foodTarget, mutation, onOpenBodyTracker]);
+    adjustCount("food_intake", foodIntake, 1, foodTarget);
+  }, [adjustCount, foodIntake, foodTarget]);
 
   const bumpWater = useCallback(() => {
-    if (waterIntake >= waterTarget) {
-      onOpenBodyTracker?.("intake");
-      return;
-    }
-    mutation.mutate({ water_intake: waterIntake + 1 });
-  }, [waterIntake, waterTarget, mutation, onOpenBodyTracker]);
+    adjustCount("water_intake", waterIntake, 1, waterTarget);
+  }, [adjustCount, waterIntake, waterTarget]);
 
   const bumpPoop = useCallback(() => {
-    if (poopCount >= poopTarget) {
-      onOpenBodyTracker?.("output");
-      return;
-    }
-    mutation.mutate({ poop_count: poopCount + 1 });
-  }, [poopCount, poopTarget, mutation, onOpenBodyTracker]);
+    adjustCount("poop_count", poopCount, 1, poopTarget);
+  }, [adjustCount, poopCount, poopTarget]);
 
   const bumpPee = useCallback(() => {
-    if (peeCount >= peeTarget) {
-      onOpenBodyTracker?.("output");
-      return;
-    }
-    mutation.mutate({ pee_count: peeCount + 1 });
-  }, [peeCount, peeTarget, mutation, onOpenBodyTracker]);
+    adjustCount("pee_count", peeCount, 1, peeTarget);
+  }, [adjustCount, peeCount, peeTarget]);
+
+  const decFood = useCallback(() => adjustCount("food_intake", foodIntake, -1), [adjustCount, foodIntake]);
+  const decWater = useCallback(() => adjustCount("water_intake", waterIntake, -1), [adjustCount, waterIntake]);
+  const decPoop = useCallback(() => adjustCount("poop_count", poopCount, -1), [adjustCount, poopCount]);
+  const decPee = useCallback(() => adjustCount("pee_count", peeCount, -1), [adjustCount, peeCount]);
 
   const walkProgress = walkGoalMeters > 0 ? Math.min(1, walkTodayMeters / walkGoalMeters) : 0;
   const todayMi = formatMiles(metersToMiles(walkTodayMeters));
@@ -184,7 +188,7 @@ export default function TodayHabitPanel({
               Intake & output
             </Text>
             {onOpenBodyTracker ? (
-              <Text style={{ fontSize: 11, color: theme.secondary }}>hold poop/pee → Health Records</Text>
+              <Text style={{ fontSize: 11, color: theme.secondary }}>long-press to undo</Text>
             ) : null}
           </View>
           <View
@@ -202,6 +206,7 @@ export default function TodayHabitPanel({
               percent={habitRingPercent(foodIntake, foodTarget)}
               variant="food"
               onPress={bumpFood}
+              onLongPress={decFood}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -211,6 +216,7 @@ export default function TodayHabitPanel({
               percent={habitRingPercent(waterIntake, waterTarget)}
               variant="water"
               onPress={bumpWater}
+              onLongPress={decWater}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -220,7 +226,7 @@ export default function TodayHabitPanel({
               percent={habitRingPercent(poopCount, poopTarget)}
               variant="poop"
               onPress={bumpPoop}
-              onLongPress={onOpenBodyTracker ? () => onOpenBodyTracker("output") : undefined}
+              onLongPress={decPoop}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -230,7 +236,7 @@ export default function TodayHabitPanel({
               percent={habitRingPercent(peeCount, peeTarget)}
               variant="pee"
               onPress={bumpPee}
-              onLongPress={onOpenBodyTracker ? () => onOpenBodyTracker("output") : undefined}
+              onLongPress={decPee}
               size={HABIT_RING_SIZE}
             />
           </View>

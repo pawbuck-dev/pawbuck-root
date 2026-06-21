@@ -38,6 +38,24 @@ describe("StructuredSummaryCard", () => {
     expect(onAttachPhoto).toHaveBeenCalled();
   });
 
+  it("humanizes RED_FLAGS field label", () => {
+    const { getByText, queryByText } = wrap(
+      <StructuredSummaryCard
+        petName="Milo"
+        summary={{
+          fields: {
+            RED_FLAGS: "Lethargy",
+            ONSET: "Acute, today. Frequency: 2-3 episodes",
+          },
+        }}
+        onConfirm={jest.fn()}
+      />
+    );
+    expect(getByText("Red flags")).toBeTruthy();
+    expect(getByText("Lethargy")).toBeTruthy();
+    expect(queryByText("RED_FLAGS")).toBeNull();
+  });
+
   it("hides fields with Not specified values", () => {
     const { getByText, queryByText } = wrap(
       <StructuredSummaryCard
@@ -51,7 +69,7 @@ describe("StructuredSummaryCard", () => {
         onConfirm={jest.fn()}
       />
     );
-    expect(getByText("ONSET")).toBeTruthy();
+    expect(getByText("Onset")).toBeTruthy();
     expect(getByText("Acute, today. Frequency: 2-3 episodes")).toBeTruthy();
     expect(queryByText("NOTE")).toBeNull();
     expect(queryByText("Not specified")).toBeNull();

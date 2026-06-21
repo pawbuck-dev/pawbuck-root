@@ -4,6 +4,7 @@ import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
 import { resolveHomeCareHeadline } from "@/utils/userDisplayIdentity";
+import { formatNotificationBadge } from "@/utils/notificationBadge";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -107,11 +108,11 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push("/(home)/messages" as any)}
+            onPress={() => router.push("/(home)/notifications" as never)}
             activeOpacity={0.7}
             style={btnStyle}
             accessibilityRole="button"
-            accessibilityLabel="Open messages and notifications"
+            accessibilityLabel="Open notifications"
           >
             <Ionicons name="notifications-outline" size={20} color={theme.foreground} />
             {notificationCount > 0 && (
@@ -132,7 +133,7 @@ export default function HomeHeader({ notificationCount = 0 }: HomeHeaderProps) {
                 }}
               >
                 <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
-                  {notificationCount > 99 ? "99" : notificationCount.toString().padStart(2, "0")}
+                  {formatNotificationBadge(notificationCount)}
                 </Text>
               </View>
             )}

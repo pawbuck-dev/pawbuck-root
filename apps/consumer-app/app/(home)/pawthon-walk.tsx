@@ -1,3 +1,4 @@
+import PrivateImage from "@/components/common/PrivateImage";
 import { PawthonBadgeUnlockCard } from "@/components/pawthon/PawthonBadgeUnlockCard";
 import { PawthonCountdownOverlay } from "@/components/pawthon/PawthonCountdownOverlay";
 import { PawthonWalkSharePreviewModal } from "@/components/pawthon/PawthonWalkSharePreviewModal";
@@ -1330,18 +1331,28 @@ export default function PawthonWalkScreen() {
             {formatMiles(milesNow)}{" "}
             <Text style={{ fontSize: 18, color: theme.secondary }}>mi</Text>
           </Text>
-          <Text
-            style={{
-              fontFamily: "Poppins_600SemiBold",
-              fontSize: 14,
-              color: PAWTHON_TEAL,
-              textAlign: "center",
-              marginTop: 4,
-              marginBottom: 16,
-            }}
-          >
-            Tracking your walk
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 4 }}>
+            {walkPets[0]?.photo_url ? (
+              <View style={{ width: 36, height: 36, borderRadius: 18, overflow: "hidden" }}>
+                <PrivateImage
+                  bucketName="pets"
+                  filePath={walkPets[0].photo_url}
+                  style={{ width: 36, height: 36 }}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : null}
+            <Text
+              style={{
+                fontFamily: "Poppins_600SemiBold",
+                fontSize: 14,
+                color: PAWTHON_TEAL,
+                textAlign: "center",
+              }}
+            >
+              Tracking {walkPetLabel || "your walk"}
+            </Text>
+          </View>
           {warmupWeakGps ? (
             <Text
               style={{

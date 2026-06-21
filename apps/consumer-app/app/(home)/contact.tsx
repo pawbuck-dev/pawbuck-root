@@ -1,6 +1,7 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
 import { CTA } from "@/components/ui/CTA";
 import { CONTACT_EMAIL } from "@/constants/contact";
+import { supportComposeParams } from "@/utils/messagesCompose";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
@@ -64,7 +65,7 @@ export default function ContactScreen() {
   const handleSendEmail = () => {
     router.push({
       pathname: "/(home)/messages",
-      params: { email: CONTACT_EMAIL },
+      params: supportComposeParams(CONTACT_EMAIL),
     });
   };
 

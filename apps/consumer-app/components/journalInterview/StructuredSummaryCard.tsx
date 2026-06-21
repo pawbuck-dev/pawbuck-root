@@ -1,5 +1,6 @@
 import type { JournalStructuredSummary } from "@/types/journalInterview";
 import { useTheme } from "@/context/themeContext";
+import { humanizeJournalFieldKey } from "@/utils/journalFieldLabels";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
@@ -56,7 +57,7 @@ export function StructuredSummaryCard({
         .map(([key, value]) => (
           <View key={key} style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 11, fontWeight: "700", color: theme.secondary, letterSpacing: 0.5 }}>
-              {key}
+              {humanizeJournalFieldKey(key)}
             </Text>
             <Text style={{ fontSize: 14, color: theme.foreground, marginTop: 2 }}>{value}</Text>
           </View>

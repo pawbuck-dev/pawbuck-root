@@ -176,7 +176,7 @@ export default function StartWalkSlider({
             thumbStyle,
           ]}
         >
-          <StartWalkWalkerIcon size={30} />
+          <StartWalkWalkerIcon size={38} />
         </Animated.View>
       </GestureDetector>
     </View>

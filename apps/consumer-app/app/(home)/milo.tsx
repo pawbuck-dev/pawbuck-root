@@ -55,6 +55,7 @@ import {
 } from "@/services/miloJournalOnboarding";
 import { miloHiGreetingSuffixFromUser } from "@/utils/userDisplayIdentity";
 import { getOfflineJournalTurn } from "@/utils/miloJournalOffline";
+import { shouldShowStructuredSummaryCard } from "@/utils/miloJournalUi";
 import { isRoutineJournalLogText } from "@/utils/miloJournalIntent";
 import { formatJournalFallbackReason } from "@/utils/formatJournalFallbackReason";
 import { SubscriptionRequiredError } from "@/utils/miloChatApi";
@@ -1593,7 +1594,7 @@ export default function MiloJournalChatScreen() {
                 />
               ) : null}
               {item.role === "assistant" &&
-              item.interviewPhase === "summary_draft" &&
+              shouldShowStructuredSummaryCard(item, index, messages) &&
               item.structuredSummary &&
               pet ? (
                 <StructuredSummaryCard

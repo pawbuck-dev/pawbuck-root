@@ -1,15 +1,18 @@
+import { PAWBUCK_PUBLIC_ORIGIN } from "@/constants/healthExportUrls";
 import { supabase } from "@/utils/supabase";
 import type { User } from "@supabase/supabase-js";
-import * as Linking from "expo-linking";
 
 export const PASSWORD_RESET_SUCCESS_MESSAGE =
   "If an account exists for that email, we sent a password reset link. Open it on this device to choose a new password.";
 
 export const MIN_PASSWORD_LENGTH = 6;
 
-/** Deep link Supabase redirects to after the user taps the recovery email. */
+/** Must match Supabase Authentication → URL configuration redirect allow-list. */
+export const PASSWORD_RESET_REDIRECT_PATH = "/reset-password";
+
+/** HTTPS redirect Supabase uses after the user taps the recovery email (opens app via universal link when configured). */
 export function getPasswordResetRedirectUrl(): string {
-  return Linking.createURL("reset-password");
+  return `${PAWBUCK_PUBLIC_ORIGIN}${PASSWORD_RESET_REDIRECT_PATH}`;
 }
 
 export function userHasEmailPasswordIdentity(user: User | null | undefined): boolean {

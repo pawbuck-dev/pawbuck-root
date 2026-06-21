@@ -8,7 +8,7 @@ import {
 import { useTheme } from "@/context/themeContext";
 import { formatStartWalkCta, toggleWalkPetId } from "@/utils/pawthonWalkPets";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
+import PrivateImage from "@/components/common/PrivateImage";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -115,7 +115,12 @@ export function PawthonPetSelect({
                 }}
               >
                 {pet.photo_url ? (
-                  <Image source={{ uri: pet.photo_url }} style={{ width: 52, height: 52 }} />
+                  <PrivateImage
+                    bucketName="pets"
+                    filePath={pet.photo_url}
+                    style={{ width: 52, height: 52 }}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
                     <Ionicons name="paw" size={28} color={theme.secondary} />

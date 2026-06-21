@@ -77,7 +77,7 @@ export function getRequiredVaccinesCompliantBody(country: string | null | undefi
     return "Your pet's vaccination record looks complete for what you've logged. We don't apply a country-specific checklist for \"Other\" — ask your vet about local requirements.";
   }
   if (country === "United States" || country === "USA") {
-    return "Your pet meets all vaccination requirements mandated by U.S. state and federal regulations. Keep up the great work protecting your furry friend!";
+    return "Your pet meets the common vaccination requirements for your area. Laws vary by state and locality — ask your vet to confirm what's right for your companion.";
   }
   if (country === "Canada") {
     return "Your pet meets all vaccination requirements under Canadian provincial and federal guidelines. Great job keeping your companion protected!";

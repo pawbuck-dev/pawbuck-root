@@ -4,13 +4,15 @@ import { getJournalSurfaceTokens } from "@/components/petJournal/journalSurfaceT
 import { subtypeLabel, type JournalDomain } from "@/constants/petJournal";
 import { useTheme } from "@/context/themeContext";
 import type { PetJournalEntry } from "@/services/petJournal";
+import { deleteJournalEntry, updateJournalEntry } from "@/services/petJournal";
 import type { PetLogEntry } from "@/types/petLog";
 import { parseInterviewMetadata } from "@/types/journalInterview";
 import { formatEntryDateRelative } from "@/utils/journalContinuity";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Text, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { Alert, Modal, Pressable, Text, TextInput, View } from "react-native";
 
 export type PetJournalTimelineRow =
   | { kind: "server"; entry: PetJournalEntry }
@@ -47,6 +49,9 @@ export function PetJournalEntryCard({
   const isDark = mode === "dark";
   const surfaces = getJournalSurfaceTokens(isDark, theme);
   const isFeatured = variant === "featured";
+  const queryClient = useQueryClient();
+  const [editOpen, setEditOpen] = useState(false);
+  const [editNote, setEditNote] = useState("");
 
   const noteSize = isFeatured ? 19 : 17;
   const noteLineHeight = isFeatured ? 28 : 25;
@@ -114,7 +119,32 @@ export function PetJournalEntryCard({
   const dateLabel = formatEntryDateRelative(journal.entry_date);
   const needsAttention = journalEntryNeedsTriageAttention(journal);
 
+  const handleDelete = () => {
+    Alert.alert("Delete entry?", "This journal entry will be permanently removed.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            await deleteJournalEntry(journal.id);
+            await queryClient.invalidateQueries({ queryKey: ["petJournal"] });
+          })();
+        },
+      },
+    ]);
+  };
+
+  const handleSaveEdit = () => {
+    void (async () => {
+      await updateJournalEntry(journal.id, { note: editNote.trim() || null });
+      await queryClient.invalidateQueries({ queryKey: ["petJournal"] });
+      setEditOpen(false);
+    })();
+  };
+
   return (
+    <>
     <View
       style={{
         backgroundColor: surfaces.cardBackground,
@@ -172,10 +202,59 @@ export function PetJournalEntryCard({
           </View>
         ) : null}
       </View>
+      <View style={{ flexDirection: "row", gap: 16, marginTop: 10 }}>
+        <Pressable
+          onPress={() => {
+            setEditNote(journal.note ?? "");
+            setEditOpen(true);
+          }}
+          hitSlop={8}
+          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+        >
+          <Ionicons name="create-outline" size={14} color={theme.primary} />
+          <Text style={{ fontSize: 12, fontWeight: "600", color: theme.primary }}>Edit</Text>
+        </Pressable>
+        <Pressable onPress={handleDelete} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="trash-outline" size={14} color="#B91C1C" />
+          <Text style={{ fontSize: 12, fontWeight: "600", color: "#B91C1C" }}>Delete</Text>
+        </Pressable>
+      </View>
       <JournalEntryInterviewDetail
         metadata={parseInterviewMetadata(journal.interview_metadata)}
         showPostVetFeedback={journal.vet_flagged === true}
       />
     </View>
+    <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: 24 }}>
+        <View style={{ backgroundColor: surfaces.cardBackground, borderRadius: 16, padding: 16 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground, marginBottom: 12 }}>
+            Edit note
+          </Text>
+          <TextInput
+            value={editNote}
+            onChangeText={setEditNote}
+            multiline
+            style={{
+              borderWidth: 1,
+              borderColor: surfaces.borderColor,
+              borderRadius: 12,
+              padding: 12,
+              minHeight: 100,
+              color: theme.foreground,
+              textAlignVertical: "top",
+            }}
+          />
+          <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
+            <Pressable onPress={() => setEditOpen(false)}>
+              <Text style={{ color: theme.secondary, fontWeight: "600" }}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleSaveEdit}>
+              <Text style={{ color: theme.primary, fontWeight: "700" }}>Save</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }

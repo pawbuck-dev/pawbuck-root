@@ -32,13 +32,17 @@ Historically some migrations and edge functions lived under the consumer app. Th
 
 ## Password recovery redirect URLs
 
-For consumer app **Forgot password** (`supabase.auth.resetPasswordForEmail`), add these to **Authentication → URL configuration → Redirect URLs** on each Supabase project:
+For consumer app **Forgot password** (`supabase.auth.resetPasswordForEmail`), add this to **Authentication → URL configuration → Redirect URLs** on each Supabase project:
 
-- `pawbuck:///reset-password` (Expo deep link from `Linking.createURL('reset-password')`)
-- `Pawbuck://reset-password` (scheme casing as registered in the app)
-- `https://pawbuck.app/reset-password` (optional, if universal links are enabled)
+- **`https://pawbuck.app/reset-password`** — canonical redirect (matches `getPasswordResetRedirectUrl()` in the consumer app)
+
+Optional fallbacks if you also test custom scheme links:
+
+- `Pawbuck://reset-password`
 
 Ensure **Authentication → Email** delivery is configured (SMTP or Supabase email). Local dev: read reset links from Inbucket at `http://127.0.0.1:54324` after `supabase start`.
+
+For production, configure **iOS Universal Links** / **Android App Links** on `pawbuck.app` so `https://pawbuck.app/reset-password` opens the installed app (Expo linking prefix is already `https://pawbuck.app` in `app.json`).
 
 ## Scheduled Edge: care reminders (5.4)
 

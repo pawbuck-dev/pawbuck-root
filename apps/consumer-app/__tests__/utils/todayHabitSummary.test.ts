@@ -34,15 +34,31 @@ describe("buildTodayHabitSummary", () => {
     expect(buildTodayHabitSummary(intake({}))).toContain("Nothing logged");
   });
 
-  it("celebrates when meals and water are complete", () => {
-    expect(buildTodayHabitSummary(intake({ food_intake: 3, water_intake: 4 }))).toContain(
-      "on track"
-    );
+  it("celebrates when meals, water, and output are complete", () => {
+    expect(
+      buildTodayHabitSummary(intake({ food_intake: 3, water_intake: 4, poop_count: 1 }))
+    ).toContain("on track");
   });
 
   it("nudges water when meals are done", () => {
     expect(buildTodayHabitSummary(intake({ food_intake: 3, water_intake: 2 }))).toContain(
       "water"
     );
+  });
+
+  it("mentions bathroom breaks when only output logged", () => {
+    expect(buildTodayHabitSummary(intake({ poop_count: 2 }))).toContain("bathroom break");
+  });
+
+  it("nudges output when food and water complete but no bathroom logged", () => {
+    expect(
+      buildTodayHabitSummary(intake({ food_intake: 3, water_intake: 4, poop_count: 0, pee_count: 0 }))
+    ).toContain("bathroom break");
+  });
+
+  it("includes undo hint for partial water", () => {
+    expect(
+      buildTodayHabitSummary(intake({ food_intake: 3, water_intake: 2, poop_count: 1 }))
+    ).toContain("Long-press");
   });
 });

@@ -1,5 +1,6 @@
 import type { JournalInterviewMetadata } from "@/types/journalInterview";
 import { useTheme } from "@/context/themeContext";
+import { humanizeJournalFieldKey } from "@/utils/journalFieldLabels";
 import { submitMiloJournalFeedback } from "@/utils/miloChatApi";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -48,7 +49,9 @@ export function JournalEntryInterviewDetail({ metadata, showPostVetFeedback }: P
       </Text>
       {Object.entries(metadata.structured_fields).map(([key, value]) => (
         <View key={key} style={{ marginBottom: 6 }}>
-          <Text style={{ fontSize: 10, fontWeight: "700", color: theme.secondary }}>{key}</Text>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: theme.secondary }}>
+            {humanizeJournalFieldKey(key)}
+          </Text>
           <Text style={{ fontSize: 13, color: theme.foreground }}>{value}</Text>
         </View>
       ))}

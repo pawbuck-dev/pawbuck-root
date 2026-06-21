@@ -135,6 +135,13 @@ export default function HealthRecordsLayout() {
             usePdfBadge: true,
             onPress: () =>
               go(`/(home)/health-record/${pid}/vaccination-upload-modal?upload=pdf`),
+          },
+          {
+            id: "man",
+            label: "Add Manually",
+            icon: "create-outline",
+            onPress: () =>
+              go(`/(home)/health-record/${pid}/vaccination-upload-modal?mode=manual`, true),
           }
         );
         break;

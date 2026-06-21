@@ -11,9 +11,16 @@ describe("getVaccineDueBadge", () => {
 });
 
 describe("getRequiredVaccinesCompliantBody", () => {
-  it("returns U.S. copy for United States", () => {
+  it("returns U.S. copy for United States without federal mandate language", () => {
     const s = getRequiredVaccinesCompliantBody("United States");
-    expect(s).toContain("U.S. state and federal");
+    expect(s.toLowerCase()).not.toContain("federal mandate");
+    expect(s.toLowerCase()).not.toContain("federal regulations");
+    expect(s).toMatch(/state|local|vet/i);
+  });
+
+  it("returns U.S. copy for USA alias", () => {
+    const s = getRequiredVaccinesCompliantBody("USA");
+    expect(s.toLowerCase()).not.toContain("federal regulations");
   });
 
   it("returns Canadian copy for Canada", () => {

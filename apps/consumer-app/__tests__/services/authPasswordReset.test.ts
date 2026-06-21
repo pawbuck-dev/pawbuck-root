@@ -19,22 +19,18 @@ jest.mock("@/utils/supabase", () => ({
   },
 }));
 
-jest.mock("expo-linking", () => ({
-  createURL: jest.fn((path: string) => `pawbuck:///${path}`),
-}));
-
 describe("authPasswordReset", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("builds redirect URL via expo-linking", () => {
-    expect(getPasswordResetRedirectUrl()).toBe("pawbuck:///reset-password");
+  it("builds HTTPS redirect URL on pawbuck.app", () => {
+    expect(getPasswordResetRedirectUrl()).toBe("https://pawbuck.app/reset-password");
   });
 
   it("parses tokens from hash fragment", () => {
     const parsed = parseAuthTokensFromUrl(
-      "pawbuck:///reset-password#access_token=abc&refresh_token=def&type=recovery"
+      "https://pawbuck.app/reset-password#access_token=abc&refresh_token=def&type=recovery"
     );
     expect(parsed.accessToken).toBe("abc");
     expect(parsed.refreshToken).toBe("def");
@@ -55,7 +51,7 @@ describe("authPasswordReset", () => {
     const result = await requestPasswordReset("  user@test.com  ");
 
     expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("user@test.com", {
-      redirectTo: "pawbuck:///reset-password",
+      redirectTo: "https://pawbuck.app/reset-password",
     });
     expect(result.message).toMatch(/If an account exists/);
   });

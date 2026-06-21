@@ -3,6 +3,7 @@ import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { fetchMessageThreads } from "@/services/messages";
+import { formatNotificationBadge } from "@/utils/notificationBadge";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -127,7 +128,7 @@ export default function BottomNavBar({
         {navItems.map((item) => {
           const isActive = item.id === activeTab || (item.route && pathname === item.route);
           const showBadge = item.id === "messages" && unreadCount > 0;
-          const badgeText = unreadCount > 99 ? "99+" : String(unreadCount).padStart(2, "0");
+          const badgeText = formatNotificationBadge(unreadCount);
 
           return (
             <TouchableOpacity

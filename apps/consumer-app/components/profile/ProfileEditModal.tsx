@@ -54,7 +54,8 @@ export function ProfileEditModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? topInset + 8 : 0}
         style={{
           backgroundColor: theme.background,
           paddingTop: Platform.OS === "android" ? topInset : 0,
@@ -89,7 +90,12 @@ export function ProfileEditModal({
           </View>
         </View>
 
-        <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          className="flex-1 px-6 pt-6"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
           <Text className="text-sm font-medium mb-2" style={{ color: theme.secondary }}>
             Profile photo
           </Text>
