@@ -1,0 +1,37 @@
+---
+description: Solo maintainer workflow — commit and push directly to main; no PRs unless requested
+alwaysApply: true
+---
+
+# Solo trunk workflow (PawBuck)
+
+**Current team model:** one maintainer. **Trunk branch:** `main` (same as production integration branch).
+
+## Default git flow
+
+1. Work on **`main`** locally (or merge/rebase onto `main` before landing).
+2. When the user asks to **commit**, **check in**, or **land** work: follow git safety protocol (status, diff, log, HEREDOC message), commit on `main`.
+3. **After a successful commit**, unless the user explicitly says not to:
+   - Push to remote trunk: `git push origin main` (or `git push origin HEAD` when already on `main`).
+4. **Do not open GitHub PRs** unless the user explicitly asks for a PR, review branch, or “open a PR”.
+
+## When to skip push
+
+Only skip push when the user says “commit only”, “don’t push”, or similar.
+
+## When PRs are still OK
+
+Use a feature branch + PR only when the user **explicitly** wants:
+- Review before merge
+- CI on a branch without touching `main`
+- Sharing WIP without pushing to trunk
+
+## Do not
+
+- Force-push `main` unless explicitly requested.
+- Assume a multi-person PR workflow; default is **direct trunk push**.
+- Amend/push without user request when the prior commit was already pushed.
+
+## Supersedes
+
+This rule overrides PR-first behavior in `.cursor/rules/auto-pr-on-commit.mdc` for day-to-day work. That file remains for reference if the team grows or the user asks for PRs again.
