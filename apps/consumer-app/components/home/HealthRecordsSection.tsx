@@ -4,6 +4,7 @@ import {
   FIGMA_HEALTH_MEDS_ICON_BG,
   FIGMA_HEALTH_TEAL,
   HEALTH_ELEVATION,
+  HEALTH_LAYOUT,
   dashboardCareTeamCardChrome,
   dashboardIconPlateMuted,
 } from "@/constants/figmaHealthLayout";
@@ -388,7 +389,14 @@ export default function HealthRecordsSection({
           <ActivityIndicator color={theme.primary} />
         </View>
       ) : isHub ? (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 10,
+            marginBottom: HEALTH_LAYOUT.cardGap,
+          }}
+        >
           {hubCards.map((card) => {
             const hubCardEmpty =
               (card.type === "vaccine" && vaccinations.length === 0) ||

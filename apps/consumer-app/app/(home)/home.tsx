@@ -39,6 +39,7 @@ import {
 } from "@/services/walkSessions";
 import { getDailyGoalMeters } from "@/services/pawthonGoalPrefs";
 import { useAddPetNavigation } from "@/hooks/useAddPetNavigation";
+import HealthNotesFlowConnector from "@/components/home/HealthNotesFlowConnector";
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
@@ -643,6 +644,8 @@ export default function Home() {
               <View style={{ marginBottom: 0, paddingHorizontal: 20 }}>
                 <PetJournalHomeCard pet={selectedPet} variant="recent" />
               </View>
+
+              <HealthNotesFlowConnector />
 
               <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
                 <HealthBriefingSummaryCard

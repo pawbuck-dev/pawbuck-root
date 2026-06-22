@@ -69,14 +69,21 @@ describe("InitialWelcomeScreen entry points", () => {
 });
 
 describe("profileMenuConfig recipient routes", () => {
-  it("routes Claim a Pet to recipient wizard and includes Join household", () => {
+  it("routes Accept pet transfer to recipient wizard and includes Join household", () => {
     const claim = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "claim");
     const join = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "join-household");
     const transfer = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "transfer");
 
+    expect(claim?.title).toBe("Accept pet transfer");
     expect(claim?.href).toBe("/transfer-pet");
     expect(join?.href).toBe("/join-household");
     expect(transfer?.href).toBe("/(home)/transfer-pet");
+  });
+
+  it("does not duplicate Care Team under Manage Access", () => {
+    const ids = PROFILE_MY_PETS_LINK_ROWS.map((r) => r.id);
+    expect(ids).not.toContain("care");
+    expect(ids.filter((id) => id === "access")).toHaveLength(1);
   });
 });
 

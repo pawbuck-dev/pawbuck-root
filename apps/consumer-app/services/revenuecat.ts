@@ -81,3 +81,15 @@ export async function getRevenueCatPlan(): Promise<SubscriptionPlan | null> {
     return null;
   }
 }
+
+/** Restore App Store / Play purchases via RevenueCat. Returns active plan if any. */
+export async function restoreRevenueCatPurchases(): Promise<SubscriptionPlan | null> {
+  if (Platform.OS === "web") return null;
+  configureRevenueCat();
+  if (!configured) {
+    throw new Error("Subscriptions are not configured in this build.");
+  }
+
+  const customerInfo = await Purchases.restorePurchases();
+  return customerInfoActivePlan(customerInfo);
+}

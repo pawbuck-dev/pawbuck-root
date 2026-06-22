@@ -18,46 +18,45 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
   {
     id: "claim",
     icon: "qrcode-scan",
-    title: "Claim a Pet",
-    subtitle: "Enter a transfer code from the owner",
+    title: "Accept pet transfer",
+    subtitle: "Have a transfer code? Become the new owner",
     href: "/transfer-pet",
   },
   {
     id: "join-household",
     icon: "home-account",
     title: "Join Household",
-    subtitle: "Enter an invite code you received",
+    subtitle: "Have a household code from a family member?",
     href: "/join-household",
   },
   {
     id: "access",
     icon: "account-cog-outline",
     title: "Manage Access",
-    subtitle: "Manage family access to this pet",
+    subtitle: "Invite family, care team & safe senders",
     href: "/(home)/family-access",
   },
   {
     id: "transfer",
     icon: "account-switch-outline",
-    title: "Transfer Ownership",
-    subtitle: "Generate secure transfer code",
+    title: "Transfer pet to someone else",
+    subtitle: "Giving up ownership? Create a transfer code",
     href: "/(home)/transfer-pet",
-  },
-  {
-    id: "care",
-    icon: "account-group-outline",
-    title: "Care Team",
-    subtitle: "Manage your pet's care providers",
-    href: "/(home)/family-access",
   },
 ] as const;
 
 export const PROFILE_SETTINGS_ROWS = [
   {
+    id: "notification-center",
+    icon: "notifications-outline",
+    title: "Notification center",
+    subtitle: "Recent alerts and email approvals",
+  },
+  {
     id: "notifications",
-    icon: "bell-outline",
-    title: "Notifications",
-    subtitle: "Manage alerts",
+    icon: "phone-portrait-outline",
+    title: "Push permissions",
+    subtitle: "Device settings to allow or block alerts",
   },
   {
     id: "download-data",
@@ -69,7 +68,7 @@ export const PROFILE_SETTINGS_ROWS = [
     id: "privacy",
     icon: "shield-check-outline",
     title: "Privacy & Security",
-    subtitle: "Protect your pet data",
+    subtitle: "Policy, data use, and your rights",
   },
   {
     id: "change-password",

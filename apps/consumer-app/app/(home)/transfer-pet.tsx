@@ -1,4 +1,6 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import { SettingsSubscreenHeader } from "@/components/layout/SettingsSubscreenHeader";
+import { getSettingsSubscreenTokens } from "@/components/layout/settingsSubscreenTokens";
 import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
 import { usePets } from "@/context/petsContext";
@@ -348,36 +350,20 @@ export default function TransferPet() {
 
   const muted = isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)";
   const cardBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+  const subscreen = getSettingsSubscreenTokens(theme, isDark);
   const radioOuter = isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.25)";
   /** Clear `BottomNavBar` (~64px bar + Milo + safe area) */
   const footerLift = 88 + insets.bottom;
 
-  const headerTitle = "Transfer Ownership";
+  const headerTitle = "Transfer Pet";
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.background }]}>
+    <View style={[styles.root, { backgroundColor: subscreen.pageBg }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {flow === "list" && (
         <>
-          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={12}
-              style={[
-                styles.backFab,
-                {
-                  backgroundColor: isDark ? theme.card : theme.background,
-                  borderWidth: isDark ? 0 : 1,
-                  borderColor: isDark ? "transparent" : theme.border,
-                },
-              ]}
-            >
-              <Ionicons name="chevron-back" size={22} color={theme.foreground} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
-            <View style={{ width: 44 }} />
-          </View>
+          <SettingsSubscreenHeader title={headerTitle} onBack={() => router.back()} />
 
           <ScrollView
             style={styles.flex}
@@ -398,7 +384,13 @@ export default function TransferPet() {
                   <Pressable
                     key={pet.id}
                     onPress={() => openReasonFlow(pet.id)}
-                    style={[styles.petCard, { backgroundColor: theme.card }]}
+                    style={[
+                      styles.petCard,
+                      {
+                        backgroundColor: subscreen.tileBg,
+                        ...subscreen.tileBorder,
+                      },
+                    ]}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.petName, { color: theme.foreground }]}>{pet.name}</Text>
@@ -418,22 +410,7 @@ export default function TransferPet() {
 
       {flow === "reason" && selectedPet && (
         <>
-          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-            <Pressable
-              onPress={goBackFromReason}
-              hitSlop={12}
-              style={[
-                styles.backFab,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
-            <View style={{ width: 44 }} />
-          </View>
+          <SettingsSubscreenHeader title={headerTitle} onBack={goBackFromReason} />
 
           <ScrollView
             style={styles.flex}
@@ -496,22 +473,7 @@ export default function TransferPet() {
 
       {flow === "verify" && selectedPet && (
         <>
-          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-            <Pressable
-              onPress={goBackFromVerify}
-              hitSlop={12}
-              style={[
-                styles.backFab,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
-            <View style={{ width: 44 }} />
-          </View>
+          <SettingsSubscreenHeader title={headerTitle} onBack={goBackFromVerify} />
 
           <ScrollView
             style={styles.flex}
@@ -602,22 +564,7 @@ export default function TransferPet() {
 
       {flow === "journal" && selectedPet && (
         <>
-          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-            <Pressable
-              onPress={goBackFromJournal}
-              hitSlop={12}
-              style={[
-                styles.backFab,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
-            <View style={{ width: 44 }} />
-          </View>
+          <SettingsSubscreenHeader title={headerTitle} onBack={goBackFromJournal} />
 
           <ScrollView
             style={styles.flex}
@@ -724,22 +671,7 @@ export default function TransferPet() {
 
       {flow === "share" && activeTransfer && (
         <>
-          <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
-            <Pressable
-              onPress={goBackFromShare}
-              hitSlop={12}
-              style={[
-                styles.backFab,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                },
-              ]}
-            >
-              <Ionicons name="arrow-back" size={20} color={theme.foreground} />
-            </Pressable>
-            <Text style={[styles.headerTitle, { color: theme.foreground }]}>{headerTitle}</Text>
-            <View style={{ width: 44 }} />
-          </View>
+          <SettingsSubscreenHeader title={headerTitle} onBack={goBackFromShare} />
 
           <ScrollView
             style={styles.flex}

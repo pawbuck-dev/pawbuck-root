@@ -1,6 +1,6 @@
 # Subscription tiers and enforcement
 
-Canonical pricing: [`PRICING.md`](PRICING.md).
+Canonical pricing: [`PRICING.md`](PRICING.md). **RevenueCat + store setup:** [`REVENUECAT.md`](REVENUECAT.md).
 
 ## Plans
 

@@ -1,6 +1,8 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import { SettingsSubscreenHeader } from "@/components/layout/SettingsSubscreenHeader";
 import { CareTeamEmptyStateCard } from "@/components/home/CareTeamEmptyStateCard";
 import { CareTeamMemberContactCard } from "@/components/home/CareTeamMemberContactCard";
+import { CTA } from "@/components/ui/CTA";
 import {
   CareTeamMemberModal,
   CareTeamMemberSaveData,
@@ -28,6 +30,7 @@ import {
   VetInformation,
 } from "@/services/vetInformation";
 import { supabase } from "@/utils/supabase";
+import { resolveProfileHeroDisplayName } from "@/utils/userDisplayIdentity";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
@@ -503,56 +506,67 @@ export default function FamilyAccess() {
     ...careTeamTileBorder,
   };
 
+  const familyAccessCardStyle = safeSendersCardStyle;
+
+  const familyIconWellStyle = {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "#EDEDEE",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  };
+
+  const familyNestedRowStyle = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+  };
+
+  const familyInputShellStyle = {
+    borderWidth: 1,
+    borderColor: isDarkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+  };
+
+  const selectChipStyle = (selected: boolean) => ({
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: selected
+      ? theme.primary
+      : isDarkMode
+        ? "rgba(255,255,255,0.15)"
+        : "rgba(0,0,0,0.12)",
+    backgroundColor: selected ? theme.primary : "transparent",
+  });
+
+  const familySectionHeadingStyle = {
+    fontSize: 18,
+    fontWeight: "500" as const,
+    lineHeight: 21.6,
+    textTransform: "capitalize" as const,
+    marginBottom: 14,
+    marginTop: 4,
+    color: isDarkMode ? "#FFFFFF" : "#0D0F0F",
+  };
+
+  const ownerHero = resolveProfileHeroDisplayName(null, user);
+  const ownerInitials = getInitials(
+    ownerHero.displayName !== "Add your name" ? ownerHero.displayName : user?.email || "You"
+  );
+
   return (
     <View className="flex-1" style={{ backgroundColor: ui.pageBg }}>
-      {/* Header — centered title, circular back (light ref) */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingBottom: 16,
-          paddingHorizontal: 20,
-          position: "relative",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[
-            {
-              position: "absolute",
-              left: 20,
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: ui.backFab,
-              borderWidth: isDarkMode ? 0 : 1,
-              borderColor: isDarkMode ? "transparent" : "#E8E8E8",
-            },
-            !isDarkMode && {
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.08,
-              shadowRadius: 4,
-              elevation: 2,
-            },
-          ]}
-        >
-          <Ionicons name="chevron-back" size={22} color={ui.title} />
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: "Poppins_600SemiBold",
-            fontSize: 18,
-            color: ui.title,
-          }}
-        >
-          Care Team
-        </Text>
-      </View>
+      <SettingsSubscreenHeader title="Manage Access" />
 
       <ScrollView
         className="flex-1 px-5"
@@ -883,28 +897,62 @@ export default function FamilyAccess() {
           </>
         )}
 
-          <View className="mb-8">
-            <View className="flex-row items-center mb-4">
-              <MaterialCommunityIcons name="account-group-outline" size={24} color={theme.foreground} style={{ marginRight: 12 }} />
-              <Text className="text-xl font-bold flex-1" style={{ color: theme.foreground }}>
-                Family Access
-              </Text>
-            </View>
+          <View style={{ marginBottom: 32 }}>
+            <Text style={familySectionHeadingStyle}>Family Access</Text>
 
-            <View
-              className="rounded-2xl p-4 mb-4"
-              style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
-            >
-              <Text className="text-base font-semibold mb-2" style={{ color: theme.foreground }}>
+            <View style={familyAccessCardStyle}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                <View style={familyIconWellStyle}>
+                  <MaterialCommunityIcons
+                    name="account-group-outline"
+                    size={22}
+                    color={isDarkMode ? "#FFFFFF" : "#1D2433"}
+                  />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Invite family</Text>
+                  <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
+                    Share access to your pets with people you trust
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 15,
+                  color: ui.title,
+                  marginBottom: 6,
+                }}
+              >
                 Invite by email
               </Text>
-              <Text className="text-sm mb-4" style={{ color: theme.secondary }}>
+              <Text
+                style={{
+                  fontFamily: "Poppins_400Regular",
+                  fontSize: 13,
+                  lineHeight: 19,
+                  color: ui.muted,
+                  marginBottom: 14,
+                }}
+              >
                 Send a link to one pet. They sign in with the invited email to accept.
               </Text>
 
               {pets.length > 1 && (
-                <View className="mb-3">
-                  <Text className="text-sm mb-2" style={{ color: theme.secondary }}>Pet</Text>
+                <View style={{ marginBottom: 12 }}>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      letterSpacing: 0.5,
+                      color: theme.secondary,
+                      marginBottom: 8,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Pet
+                  </Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {pets.map((pet) => {
                       const selected = (effectiveInvitePetId ?? "") === pet.id;
@@ -912,14 +960,15 @@ export default function FamilyAccess() {
                         <Pressable
                           key={pet.id}
                           onPress={() => setInvitePetId(pet.id)}
-                          className="px-3 py-2 rounded-lg mr-2"
-                          style={{
-                            backgroundColor: selected ? theme.primary : theme.background,
-                            borderWidth: 1,
-                            borderColor: theme.border,
-                          }}
+                          style={selectChipStyle(selected)}
                         >
-                          <Text style={{ color: selected ? theme.primaryForeground : theme.foreground }}>
+                          <Text
+                            style={{
+                              fontFamily: "Poppins_600SemiBold",
+                              fontSize: 14,
+                              color: selected ? theme.primaryForeground : theme.foreground,
+                            }}
+                          >
                             {pet.name}
                           </Text>
                         </Pressable>
@@ -929,6 +978,18 @@ export default function FamilyAccess() {
                 </View>
               )}
 
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  letterSpacing: 0.5,
+                  color: theme.secondary,
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                }}
+              >
+                Email
+              </Text>
               <TextInput
                 value={inviteEmail}
                 onChangeText={setInviteEmail}
@@ -936,149 +997,221 @@ export default function FamilyAccess() {
                 placeholderTextColor={theme.secondary}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                className="rounded-xl px-4 py-3 mb-3"
+                autoCorrect={false}
                 style={{
-                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                  ...familyInputShellStyle,
+                  fontSize: 16,
                   color: theme.foreground,
+                  marginBottom: 14,
                 }}
               />
 
-              <Text className="text-sm mb-2" style={{ color: theme.secondary }}>Access level</Text>
-              <View className="flex-row flex-wrap gap-2 mb-4">
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  letterSpacing: 0.5,
+                  color: theme.secondary,
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                }}
+              >
+                Access level
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 16 }}>
                 {(
                   [
                     ["view_only", "View only"],
                     ["contributor", "Contributor"],
                     ["admin", "Admin"],
                   ] as const
-                ).map(([value, label]) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setInviteRole(value)}
-                    className="px-3 py-2 rounded-lg"
-                    style={{
-                      backgroundColor: inviteRole === value ? theme.primary : theme.background,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                    }}
-                  >
-                    <Text style={{ color: inviteRole === value ? theme.primaryForeground : theme.foreground }}>
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
+                ).map(([value, label]) => {
+                  const selected = inviteRole === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      onPress={() => setInviteRole(value)}
+                      style={selectChipStyle(selected)}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 14,
+                          color: selected ? theme.primaryForeground : theme.foreground,
+                        }}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
-              <Pressable
+              <CTA
+                label={sendingEmailInvite ? "Sending…" : "Send email invite"}
                 onPress={handleSendEmailInvite}
+                size="MD"
+                style="Solid"
                 disabled={sendingEmailInvite}
-                className="rounded-xl py-3 items-center active:opacity-80"
-                style={{ backgroundColor: theme.primary, opacity: sendingEmailInvite ? 0.7 : 1 }}
-              >
-                {sendingEmailInvite ? (
-                  <ActivityIndicator color={theme.primaryForeground} />
-                ) : (
-                  <Text className="font-semibold" style={{ color: theme.primaryForeground }}>
-                    Send email invite
-                  </Text>
-                )}
-              </Pressable>
-            </View>
+                leftIcon={
+                  sendingEmailInvite ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="mail-outline" size={18} color="#FFFFFF" />
+                  )
+                }
+              />
 
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-sm flex-1 mr-3" style={{ color: theme.secondary }}>
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                  marginVertical: 18,
+                }}
+              />
+
+              <Text
+                style={{
+                  fontFamily: "Poppins_400Regular",
+                  fontSize: 13,
+                  lineHeight: 19,
+                  color: ui.muted,
+                  marginBottom: 12,
+                }}
+              >
                 Or share a household code (access to all your pets)
               </Text>
-              <Pressable
+              <CTA
+                label={generating ? "Generating…" : "Share code"}
                 onPress={handleGenerateInvite}
+                size="MD"
+                style="Outline"
                 disabled={generating}
-                className="px-4 py-2 rounded-lg active:opacity-70"
-                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
-              >
-                {generating ? (
-                  <ActivityIndicator size="small" color={theme.foreground} />
-                ) : (
-                  <Text className="text-base font-semibold" style={{ color: theme.foreground }}>
-                    Share code
-                  </Text>
-                )}
-              </Pressable>
+                leftIcon={
+                  generating ? (
+                    <ActivityIndicator size="small" color={theme.foreground} />
+                  ) : (
+                    <MaterialCommunityIcons name="share-variant-outline" size={18} color={theme.foreground} />
+                  )
+                }
+                containerStyle={{ alignSelf: "flex-start" }}
+              />
             </View>
 
             {loadingMembers ? (
-              <ActivityIndicator size="small" color={theme.primary} />
+              <ActivityIndicator size="small" color={theme.primary} style={{ marginTop: 8 }} />
             ) : (
               <>
-                {user && (
-                  <View
-                    className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
-                    style={{ backgroundColor: theme.card }}
+                {(user || members.length > 0) && (
+                  <Text
+                    style={[
+                      familySectionHeadingStyle,
+                      { marginTop: 0, marginBottom: 12 },
+                    ]}
                   >
-                    <View className="flex-row items-center flex-1">
-                      <View
-                        className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                        style={{ backgroundColor: theme.primary }}
+                    Household members
+                  </Text>
+                )}
+
+                {user && (
+                  <View style={[familyNestedRowStyle, { marginBottom: 10 }]}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: theme.primary,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: 12,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 14,
+                          color: theme.primaryForeground,
+                        }}
                       >
-                        <Text className="text-base font-semibold" style={{ color: theme.primaryForeground }}>
-                          {getInitials(user.email || "User")}
-                        </Text>
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
-                          {user.email?.split("@")[0] || "You"}
-                        </Text>
-                        <Text className="text-sm" style={{ color: theme.secondary }}>
-                          {user.email || ""}
-                        </Text>
-                      </View>
-                      <View
-                        className="px-3 py-1 rounded-full flex-row items-center"
-                        style={{ backgroundColor: "#A855F7" }}
+                        {ownerInitials}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 16,
+                          color: theme.foreground,
+                          marginBottom: 2,
+                        }}
                       >
-                        <MaterialCommunityIcons name="crown" size={12} color={theme.primaryForeground} style={{ marginRight: 4 }} />
-                        <Text className="text-xs font-semibold" style={{ color: theme.primaryForeground }}>
-                          Owner
-                        </Text>
-                      </View>
+                        {ownerHero.displayName !== "Add your name" ? ownerHero.displayName : "You"}
+                      </Text>
+                      {user.email ? (
+                        <Text style={{ fontSize: 13, color: theme.secondary }}>{user.email}</Text>
+                      ) : null}
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 100,
+                        backgroundColor: isDarkMode ? "rgba(18,186,183,0.2)" : "rgba(18,186,183,0.12)",
+                        gap: 4,
+                      }}
+                    >
+                      <MaterialCommunityIcons name="crown" size={12} color={theme.primary} />
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 12,
+                          color: theme.primary,
+                        }}
+                      >
+                        Owner
+                      </Text>
                     </View>
                   </View>
                 )}
 
                 {members.map((member) => (
-                  <View
-                    key={member.id}
-                    className="rounded-2xl p-4 mb-3 flex-row items-center justify-between"
-                    style={{ backgroundColor: theme.card }}
-                  >
-                    <View className="flex-row items-center flex-1">
-                      <View
-                        className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                        style={{ backgroundColor: theme.primary }}
-                      >
-                        <Text className="text-base font-semibold" style={{ color: theme.primaryForeground }}>
-                          {getInitials(member.user_id)}
-                        </Text>
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-base font-semibold mb-1" style={{ color: theme.foreground }}>
-                          {member.user_id.split("@")[0] || member.user_id}
-                        </Text>
-                        <Text className="text-sm" style={{ color: theme.secondary }}>
-                          {member.user_id}
-                        </Text>
-                      </View>
-                      <Pressable
-                        onPress={() => handleRemoveMember(member.id)}
-                        className="active:opacity-70"
-                      >
-                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                      </Pressable>
+                  <View key={member.id} style={[familyNestedRowStyle, { marginBottom: 10 }]}>
+                    <View style={[familyIconWellStyle, { width: 40, height: 40, borderRadius: 20, marginRight: 12 }]}>
+                      <MaterialCommunityIcons
+                        name="account-outline"
+                        size={20}
+                        color={isDarkMode ? "#FFFFFF" : "#1D2433"}
+                      />
                     </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 16,
+                          color: theme.foreground,
+                          marginBottom: 2,
+                        }}
+                      >
+                        Family member
+                      </Text>
+                      <Text style={{ fontSize: 13, color: theme.secondary }}>Household access</Text>
+                    </View>
+                    <Pressable onPress={() => handleRemoveMember(member.id)} hitSlop={8}>
+                      <Ionicons name="close-circle" size={22} color="#FF3B30" />
+                    </Pressable>
                   </View>
                 ))}
 
                 {members.length === 0 && !user && (
-                  <Text className="text-base" style={{ color: "#9CA3AF" }}>
+                  <Text
+                    style={{
+                      fontFamily: "Poppins_400Regular",
+                      fontSize: 14,
+                      color: ui.muted,
+                    }}
+                  >
                     No household members yet.
                   </Text>
                 )}
@@ -1094,58 +1227,101 @@ export default function FamilyAccess() {
           onRequestClose={() => setShowQRCode(null)}
         >
           <View
-            className="flex-1 items-center justify-center"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.9)" }}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.9)",
+            }}
           >
             <View
-              className="rounded-2xl p-6 mx-4"
-              style={{ backgroundColor: theme.card, maxWidth: 400, width: "90%" }}
+              style={{
+                backgroundColor: isDarkMode ? theme.card : "#FFFFFF",
+                borderRadius: 24,
+                padding: 24,
+                marginHorizontal: 16,
+                maxWidth: 400,
+                width: "90%",
+                ...careTeamTileBorder,
+              }}
             >
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center flex-1">
-                  <Ionicons name="person-add" size={24} color={theme.foreground} style={{ marginRight: 8 }} />
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                  <View style={[familyIconWellStyle, { marginRight: 12 }]}>
+                    <MaterialCommunityIcons
+                      name="account-plus-outline"
+                      size={22}
+                      color={isDarkMode ? "#FFFFFF" : "#1D2433"}
+                    />
+                  </View>
                   <Text
-                    className="text-xl font-bold flex-1"
-                    style={{ color: theme.foreground }}
+                    style={{
+                      fontFamily: "Poppins_600SemiBold",
+                      fontSize: 18,
+                      color: theme.foreground,
+                      flex: 1,
+                    }}
                   >
-                    Invite Family Member
+                    Invite family member
                   </Text>
                 </View>
-                <Pressable
-                  onPress={() => setShowQRCode(null)}
-                  className="active:opacity-70"
-                >
+                <Pressable onPress={() => setShowQRCode(null)} hitSlop={8}>
                   <Ionicons name="close" size={24} color={theme.secondary} />
                 </Pressable>
               </View>
 
               <Text
-                className="text-sm mb-6"
-                style={{ color: theme.secondary }}
+                style={{
+                  fontFamily: "Poppins_400Regular",
+                  fontSize: 13,
+                  lineHeight: 19,
+                  color: theme.secondary,
+                  marginBottom: 20,
+                }}
               >
                 Share this household code so family members can join all of your pets in PawBuck
               </Text>
 
               {showQRCode && (
-                <View className="items-center mb-6">
+                <View style={{ alignItems: "center", marginBottom: 20 }}>
                   <View
-                    className="rounded-xl p-4 mb-4"
-                    style={{ backgroundColor: "#FFFFFF" }}
+                    style={{
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 16,
+                      backgroundColor: "#FFFFFF",
+                    }}
                   >
                     <QRCode value={showQRCode} size={200} color="#000000" backgroundColor="#FFFFFF" />
                   </View>
 
                   <Text
-                    className="text-sm mb-3"
-                    style={{ color: theme.secondary }}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      letterSpacing: 0.5,
+                      color: theme.secondary,
+                      marginBottom: 8,
+                      textTransform: "uppercase",
+                    }}
                   >
-                    Or share this code:
+                    Or share this code
                   </Text>
 
-                  <View className="flex-row items-center gap-3">
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                     <Text
-                      className="text-xl font-bold"
-                      style={{ color: theme.primary }}
+                      style={{
+                        fontFamily: "Poppins_600SemiBold",
+                        fontSize: 20,
+                        color: theme.primary,
+                      }}
                     >
                       {showQRCode}
                     </Text>
@@ -1156,11 +1332,17 @@ export default function FamilyAccess() {
                           Alert.alert("Copied", "Invite code copied to clipboard");
                         }
                       }}
-                      className="active:opacity-70"
+                      hitSlop={8}
                     >
                       <View
-                        className="w-8 h-8 rounded items-center justify-center"
-                        style={{ backgroundColor: `${theme.primary}33` }}
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 18,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: isDarkMode ? "rgba(18,186,183,0.2)" : "rgba(18,186,183,0.12)",
+                        }}
                       >
                         <Ionicons name="copy-outline" size={18} color={theme.primary} />
                       </View>
@@ -1169,13 +1351,15 @@ export default function FamilyAccess() {
                 </View>
               )}
 
-              <View
-                className="rounded-xl p-4 mb-4"
-                style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
-              >
+              <View style={[familyNestedRowStyle, { marginBottom: 0 }]}>
                 <Text
-                  className="text-sm"
-                  style={{ color: theme.secondary }}
+                  style={{
+                    fontFamily: "Poppins_400Regular",
+                    fontSize: 13,
+                    lineHeight: 19,
+                    color: theme.secondary,
+                    flex: 1,
+                  }}
                 >
                   Family members can enter this code when they select &apos;Track My Household Pet&apos; during sign up
                 </Text>

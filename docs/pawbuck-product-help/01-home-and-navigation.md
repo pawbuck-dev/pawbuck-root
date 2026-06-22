@@ -31,10 +31,10 @@ Some cards (for example a **weekly challenge** or **book a vet visit** promo) ma
 
 Next to the greeting you may see **Add pet** (plus), **Calendar** (opens **Calendar** — appointments from booking and confirmed email invites), and **Notifications** (alerts when available).
 
-**Profile** is the main place for account editing, pet rows (**View & edit pet profile**, **Add New Pet**, **Claim a Pet**, **Manage Access**, **Transfer Ownership**, **Care Team**), **Reminders** (journal nudge time, insurance/travel expiry pushes, vet appointment pushes), **Settings** rows (**Notifications** opens system settings, **Privacy & Security** info, **Appearance** toggles light/dark), **Help & Support** (**Contact Us**), **Log out**, and **Delete account**.
+**Profile** is the main place for account editing, **Subscription** (compare plans, restore purchases, manage billing on paid plans), pet rows (**View & edit pet profile**, **Add New Pet**, **Accept pet transfer**, **Join Household**, **Manage Access**, **Transfer pet to someone else**), **Reminders** (journal nudge time, insurance/travel expiry pushes, vet appointment pushes), **Settings** rows (**Notification center** for in-app alerts, **Push permissions** opens system settings, **Download my data**, **Privacy & Security** screen, **Appearance**), **Help & Support** (**Contact Us**), **Log out**, and **Delete account**.
 
 The old **`/settings` route** immediately sends you back to **Profile** so bookmarks do not hit a dead screen.
 
 ## Selecting the active pet
 
-Use the pet picker on **Home** or **Profile** so health data, Milo context, and bottom-bar **Records** navigation use the correct pet.
+Use the pet picker on **Home** or **Profile** (**Switch active pet**) so health data, Milo context, and bottom-bar **Records** navigation use the correct pet.

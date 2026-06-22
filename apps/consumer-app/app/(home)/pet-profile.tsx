@@ -1,5 +1,8 @@
 import CountryPicker from "@/components/common/CountryPicker";
-import BottomNavBar from "@/components/home/BottomNavBar";
+import { SettingsSubscreenLayout } from "@/components/layout/SettingsSubscreenLayout";
+import { SettingsSubscreenTile } from "@/components/layout/SettingsSubscreenTile";
+import { getSettingsSubscreenTokens } from "@/components/layout/settingsSubscreenTokens";
+import { PetProfileLockedBadge } from "@/components/pet/PetProfileFieldRow";
 import PrivateImage from "@/components/common/PrivateImage";
 import { PetActivityFeed } from "@/components/pet/PetActivityFeed";
 import { PetNotificationPrefsSection } from "@/components/pet/PetNotificationPrefsSection";
@@ -19,7 +22,6 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -29,6 +31,7 @@ export default function PetProfile() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const isDarkMode = mode === "dark";
+  const subscreen = getSettingsSubscreenTokens(theme, isDarkMode);
   const { pets, deletePet, deletingPet, loadingPets, updatePet, updatingPet } = usePets();
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
   const { ensurePlan } = useSubscription();
@@ -216,51 +219,94 @@ export default function PetProfile() {
     }
   };
 
-  // Show loading state
+  const fieldIconWell = {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: subscreen.iconWellBg,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginRight: 12,
+  };
+  const inputBg = subscreen.nestedBg;
+  const unitToggleOffBg = subscreen.nestedBg;
+
   if (loadingPets) {
     return (
-        <View className="flex-1" style={{ backgroundColor: theme.background }}>
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-base" style={{ color: theme.secondary }}>
-              Loading...
-            </Text>
-          </View>
-          <BottomNavBar activeTab="profile" />
+      <SettingsSubscreenLayout title="Pet Profile" scroll={false}>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-base" style={{ color: subscreen.muted, fontFamily: "Poppins_400Regular" }}>
+            Loading...
+          </Text>
         </View>
+      </SettingsSubscreenLayout>
     );
   }
 
-  // Show no pets state
   if (!currentPet || pets.length === 0) {
     return (
-        <View className="flex-1" style={{ backgroundColor: theme.background }}>
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-base" style={{ color: theme.secondary }}>
-              No pets found
-            </Text>
-          </View>
-          <BottomNavBar activeTab="profile" />
+      <SettingsSubscreenLayout title="Pet Profile" scroll={false}>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-base" style={{ color: subscreen.muted, fontFamily: "Poppins_400Regular" }}>
+            No pets found
+          </Text>
         </View>
+      </SettingsSubscreenLayout>
     );
   }
 
-  return (
-      <View className="flex-1" style={{ backgroundColor: theme.background }}>
-        {/* Header */}
-        <View className="px-6 pt-14 pb-4">
-          <View className="flex-row items-center mb-4">
-            <Pressable
-              onPress={() => router.back()}
-              className="mr-4 active:opacity-70"
-            >
-              <Ionicons name="chevron-back" size={24} color={theme.foreground} />
-            </Pressable>
-            <Text className="text-2xl font-bold flex-1" style={{ color: theme.foreground }}>
-              Pet Profile
-            </Text>
-          </View>
+  const deleteFooter = (
+    <View
+      className="px-5 pb-4 pt-4 border-t"
+      style={{ borderTopColor: subscreen.borderSubtle, backgroundColor: subscreen.pageBg }}
+    >
+      <Pressable
+        onPress={() => {
+          Alert.alert(
+            "Delete Pet",
+            `Are you sure you want to delete ${currentPet.name}? This action cannot be undone.`,
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await deletePet(currentPet.id);
+                    Alert.alert("Success", "Pet deleted successfully");
+                    if (pets.length > 1) {
+                      const remainingPets = pets.filter((p) => p.id !== currentPet.id);
+                      if (remainingPets.length > 0) {
+                        setSelectedPetId(remainingPets[0].id);
+                      }
+                    } else {
+                      router.back();
+                    }
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : "Failed to delete pet";
+                    Alert.alert("Error", message);
+                  }
+                },
+              },
+            ]
+          );
+        }}
+        disabled={deletingPet}
+        className="rounded-xl py-4 px-6 items-center justify-center active:opacity-70"
+        style={{
+          backgroundColor: deletingPet ? subscreen.lockedBadgeBg : theme.error,
+          opacity: deletingPet ? 0.5 : 1,
+        }}
+      >
+        <Text className="text-base font-semibold" style={{ color: "#FFFFFF", fontFamily: "Poppins_600SemiBold" }}>
+          {deletingPet ? "Deleting..." : "Delete Pet"}
+        </Text>
+      </Pressable>
+    </View>
+  );
 
-          {/* Pet Selection Tabs */}
+  return (
+    <SettingsSubscreenLayout title="Pet Profile" footer={deleteFooter}>
           {pets.length > 1 && (
             <View className="flex-row gap-0 mb-4">
               {pets.map((pet) => {
@@ -283,7 +329,7 @@ export default function PetProfile() {
                       >
                         <View
                           className="w-16 h-16 rounded-full overflow-hidden items-center justify-center"
-                          style={{ backgroundColor: theme.card }}
+                          style={{ backgroundColor: subscreen.nestedBg }}
                         >
                           {pet.photo_url ? (
                             <PrivateImage
@@ -315,17 +361,11 @@ export default function PetProfile() {
               })}
             </View>
           )}
-        </View>
 
-        <ScrollView
-          className="flex-1 px-6"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
           {/* Main Pet Profile Section */}
           <View className="items-center mb-6">
             <View className="relative mb-4">
-              <View className="w-40 h-40 rounded-full overflow-hidden items-center justify-center" style={{ backgroundColor: theme.card }}>
+              <View className="w-40 h-40 rounded-full overflow-hidden items-center justify-center" style={{ backgroundColor: subscreen.nestedBg }}>
                 {currentPet.photo_url ? (
                   <PrivateImage
                     bucketName="pets"
@@ -365,7 +405,7 @@ export default function PetProfile() {
           </View>
 
           {/* Download Pet Passport Button */}
-          <View className="px-0 mb-6">
+          <SettingsSubscreenTile style={{ marginTop: 0 }}>
             <Pressable
               onPress={() => {
                 if (downloading || !currentPet) return;
@@ -383,12 +423,8 @@ export default function PetProfile() {
                   }
                 }, "pet_passport_export");
               }}
-              disabled={downloading}
-              className="rounded-2xl py-4 px-4 flex-row items-center active:opacity-80"
-              style={{
-                backgroundColor: theme.card,
-                opacity: downloading ? 0.6 : 1,
-              }}
+              className="flex-row items-center active:opacity-80"
+              style={{ opacity: downloading ? 0.6 : 1 }}
             >
               {downloading ? (
                 <View className="flex-row items-center">
@@ -410,13 +446,10 @@ export default function PetProfile() {
                 </>
               )}
             </Pressable>
-          </View>
+          </SettingsSubscreenTile>
 
           {transferLog.length > 0 ? (
-            <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-              <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
-                Transfer history
-              </Text>
+            <SettingsSubscreenTile heading="Transfer history">
               {transferLog.map((row, idx) => {
                 const label =
                   row.prior_owner_display_snapshot?.trim() || "Previous owner";
@@ -447,15 +480,18 @@ export default function PetProfile() {
                   </View>
                 );
               })}
-            </View>
+            </SettingsSubscreenTile>
           ) : null}
 
           {/* Pet Information Section */}
-          <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-4">
+          <View className="mb-2">
+            <View className="flex-row items-center justify-between mb-2">
               <Text
-                className="text-xl font-bold"
-                style={{ color: theme.foreground }}
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 16,
+                  color: subscreen.title,
+                }}
               >
                 Pet Information
               </Text>
@@ -486,20 +522,16 @@ export default function PetProfile() {
               )}
             </View>
 
-            <View
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: theme.card }}
-            >
+            <SettingsSubscreenTile style={{ marginTop: 0 }}>
               {/* Animal Type */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
                     name="paw"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -513,23 +545,18 @@ export default function PetProfile() {
                     {capitalizeWords((currentPet as any).animal_type) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
-                </View>
+                <PetProfileLockedBadge />
               </View>
 
               {/* Breed */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
                     name="paw"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -543,20 +570,15 @@ export default function PetProfile() {
                     {capitalizeWords(currentPet.breed) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
-                </View>
+                <PetProfileLockedBadge />
               </View>
 
               {/* Date of Birth */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
-                  <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                  <Ionicons name="calendar-outline" size={20} color={subscreen.iconFg} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
@@ -569,20 +591,15 @@ export default function PetProfile() {
                     {formatDate(currentPet.date_of_birth)}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
-                </View>
+                <PetProfileLockedBadge />
               </View>
 
               {/* Gender */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
-                  <Ionicons name="person-outline" size={20} color={theme.primary} />
+                  <Ionicons name="person-outline" size={20} color={subscreen.iconFg} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
@@ -595,23 +612,18 @@ export default function PetProfile() {
                     {capitalizeWords(currentPet.sex) || "Not set"}
                   </Text>
                 </View>
-                <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
-                  <Text className="text-xs" style={{ color: theme.secondary }}>
-                    Locked
-                  </Text>
-                </View>
+                <PetProfileLockedBadge />
               </View>
 
               {/* Weight */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
                     name="scale-bathroom"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -623,7 +635,7 @@ export default function PetProfile() {
                       <TextInput
                         className="flex-1 py-2 px-3 rounded-lg font-medium"
                         style={{
-                          backgroundColor: isDarkMode ? "#374151" : theme.border,
+                          backgroundColor: isDarkMode ? inputBg : theme.border,
                           color: theme.foreground,
                         }}
                         value={editedWeightValue}
@@ -637,7 +649,7 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("kg")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
+                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? inputBg : theme.border),
                           }}
                         >
                           <Text
@@ -651,7 +663,7 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("lbs")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
+                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? inputBg : theme.border),
                           }}
                         >
                           <Text
@@ -676,7 +688,7 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("kg")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
+                            backgroundColor: weightUnit === "kg" ? theme.primary : (isDarkMode ? inputBg : theme.border),
                           }}
                         >
                           <Text
@@ -690,7 +702,7 @@ export default function PetProfile() {
                           onPress={() => setWeightUnit("lbs")}
                           className="px-3 py-1.5 rounded-lg"
                           style={{
-                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? "#374151" : theme.border),
+                            backgroundColor: weightUnit === "lbs" ? theme.primary : (isDarkMode ? inputBg : theme.border),
                           }}
                         >
                           <Text
@@ -709,13 +721,12 @@ export default function PetProfile() {
               {/* Color */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
-                    name="brain"
+                    name="palette"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -726,7 +737,7 @@ export default function PetProfile() {
                     <TextInput
                       className="py-2 px-3 rounded-lg font-medium"
                       style={{
-                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        backgroundColor: isDarkMode ? inputBg : theme.border,
                         color: theme.foreground,
                       }}
                       value={editedColor}
@@ -748,13 +759,12 @@ export default function PetProfile() {
               {/* Microchip Number */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
                     name="chip"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -765,7 +775,7 @@ export default function PetProfile() {
                     <TextInput
                       className="py-2 px-3 rounded-lg font-medium"
                       style={{
-                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        backgroundColor: isDarkMode ? inputBg : theme.border,
                         color: theme.foreground,
                         maxWidth: "90%", // Limit width to prevent overflow
                       }}
@@ -793,7 +803,7 @@ export default function PetProfile() {
                 </View>
                 <View className="ml-2" style={{ minWidth: 60, alignItems: "flex-end" }}>
                   {currentPet.microchip_number ? (
-                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? inputBg : theme.border }}>
                       <Text className="text-xs" style={{ color: theme.secondary }}>
                         Locked
                       </Text>
@@ -802,7 +812,7 @@ export default function PetProfile() {
                     <Pressable
                       onPress={handleCancel}
                       className="px-2 py-1 rounded"
-                      style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                      style={{ backgroundColor: isDarkMode ? inputBg : theme.border }}
                     >
                       <Text className="text-xs" style={{ color: theme.secondary }}>
                         Cancel
@@ -812,7 +822,7 @@ export default function PetProfile() {
                     <Pressable
                       onPress={handleEdit}
                       className="px-2 py-1 rounded"
-                      style={{ backgroundColor: `${theme.primary}20` }}
+                      style={{ backgroundColor: `${theme.primary}22` }}
                     >
                       <Ionicons name="pencil-outline" size={16} color={theme.primary} />
                     </Pressable>
@@ -823,13 +833,12 @@ export default function PetProfile() {
               {/* Pet Passport Number */}
               <View className="flex-row items-center py-3 border-b" style={{ borderBottomColor: theme.border }}>
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
                     name="chip"
                     size={20}
-                    color={theme.primary}
+                    color={subscreen.iconFg}
                   />
                 </View>
                 <View className="flex-1">
@@ -840,7 +849,7 @@ export default function PetProfile() {
                     <TextInput
                       className="py-2 px-3 rounded-lg font-medium"
                       style={{
-                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        backgroundColor: isDarkMode ? inputBg : theme.border,
                         color: theme.foreground,
                         maxWidth: "90%", // Limit width to prevent overflow
                       }}
@@ -866,7 +875,7 @@ export default function PetProfile() {
                 </View>
                 <View className="ml-2" style={{ minWidth: 60, alignItems: "flex-end" }}>
                   {(currentPet as any).pet_passport_number ? (
-                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}>
+                    <View className="px-2 py-1 rounded" style={{ backgroundColor: isDarkMode ? inputBg : theme.border }}>
                       <Text className="text-xs" style={{ color: theme.secondary }}>
                         Locked
                       </Text>
@@ -875,7 +884,7 @@ export default function PetProfile() {
                     <Pressable
                       onPress={handleCancel}
                       className="px-2 py-1 rounded"
-                      style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                      style={{ backgroundColor: isDarkMode ? inputBg : theme.border }}
                     >
                       <Text className="text-xs" style={{ color: theme.secondary }}>
                         Cancel
@@ -885,7 +894,7 @@ export default function PetProfile() {
                     <Pressable
                       onPress={handleEdit}
                       className="px-2 py-1 rounded"
-                      style={{ backgroundColor: `${theme.primary}20` }}
+                      style={{ backgroundColor: `${theme.primary}22` }}
                     >
                       <Ionicons name="pencil-outline" size={16} color={theme.primary} />
                     </Pressable>
@@ -896,10 +905,9 @@ export default function PetProfile() {
               {/* Country */}
               <View className="flex-row items-center py-3">
                 <View
-                  className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                  style={{ backgroundColor: `${theme.primary}20` }}
+                  style={fieldIconWell}
                 >
-                  <Ionicons name="globe-outline" size={20} color={theme.primary} />
+                  <Ionicons name="globe-outline" size={20} color={subscreen.iconFg} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm mb-1" style={{ color: theme.secondary }}>
@@ -910,7 +918,7 @@ export default function PetProfile() {
                       onPress={() => setShowCountryPicker(true)}
                       className="py-2 px-3 rounded-lg flex-row items-center justify-between"
                       style={{
-                        backgroundColor: isDarkMode ? "#374151" : theme.border,
+                        backgroundColor: isDarkMode ? inputBg : theme.border,
                       }}
                     >
                       <Text
@@ -931,25 +939,17 @@ export default function PetProfile() {
                   )}
                 </View>
               </View>
-            </View>
+            </SettingsSubscreenTile>
           </View>
 
-          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
-              Notification preferences
-            </Text>
+          <SettingsSubscreenTile heading="Notification preferences">
             <PetNotificationPrefsSection petId={currentPet.id} />
-          </View>
+          </SettingsSubscreenTile>
 
-          <View className="mb-6 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-            <Text className="text-xl font-bold mb-3" style={{ color: theme.foreground }}>
-              Family activity
-            </Text>
+          <SettingsSubscreenTile heading="Family activity">
             <PetActivityFeed petId={currentPet.id} />
-          </View>
-        </ScrollView>
+          </SettingsSubscreenTile>
 
-        {/* Country Picker Modal */}
         <CountryPicker
           visible={showCountryPicker}
           selectedCountry={editedCountry}
@@ -959,59 +959,7 @@ export default function PetProfile() {
           }}
           onClose={() => setShowCountryPicker(false)}
         />
-
-        {/* Delete Pet Button */}
-        {currentPet && (
-          <View className="px-6 pb-4 pt-4 border-t" style={{ borderTopColor: theme.border }}>
-            <Pressable
-              onPress={() => {
-                Alert.alert(
-                  "Delete Pet",
-                  `Are you sure you want to delete ${currentPet.name}? This action cannot be undone.`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          await deletePet(currentPet.id);
-                          Alert.alert("Success", "Pet deleted successfully");
-                          if (pets.length > 1) {
-                            // Select another pet if available
-                            const remainingPets = pets.filter((p) => p.id !== currentPet.id);
-                            if (remainingPets.length > 0) {
-                              setSelectedPetId(remainingPets[0].id);
-                            }
-                          } else {
-                            // No pets left, navigate back
-                            router.back();
-                          }
-                        } catch (error: any) {
-                          Alert.alert("Error", error.message || "Failed to delete pet");
-                        }
-                      },
-                    },
-                  ]
-                );
-              }}
-              disabled={deletingPet || !currentPet}
-              className="rounded-xl py-4 px-6 items-center justify-center active:opacity-70"
-              style={{ 
-                backgroundColor: deletingPet ? (isDarkMode ? "#374151" : theme.border) : theme.error,
-                opacity: deletingPet || !currentPet ? 0.5 : 1,
-              }}
-            >
-              <Text className="text-base font-semibold" style={{ color: "#FFFFFF" }}>
-                {deletingPet ? "Deleting..." : "Delete Pet"}
-              </Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* Bottom Navigation */}
-        <BottomNavBar activeTab="profile" />
-      </View>
+    </SettingsSubscreenLayout>
   );
 }
 

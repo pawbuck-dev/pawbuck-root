@@ -2,11 +2,15 @@
 
 ## Where everything lives
 
-There is **no standalone Settings screen** in current builds: the **`/settings` route** redirects to **Profile**. Use **Profile** for account hero (edit phone/address), **My Pets**, **Reminders**, **Settings** rows, **Help & Support**, **Log out**, and **Delete account**.
+There is **no standalone Settings screen** in current builds: the **`/settings` route** redirects to **Profile**. Use **Profile** for account hero (edit phone/address), **Subscription**, **My Pets**, **Reminders**, **Settings** rows, **Help & Support**, **Log out**, and **Delete account**.
 
-## Notifications (system)
+## Notification center (in-app)
 
-Under **Profile** → **Settings** list, tap **Notifications** → **Manage alerts** to open the **iOS / Android system Settings** page for PawBuck so you can allow or deny push and banners. If the OS cannot open settings, the app shows a short message telling you to open Settings manually.
+Under **Profile** → **Settings**, tap **Notification center** to open the in-app hub of recent alerts and email approvals (same destination as the bell on **Home**).
+
+## Push permissions (system)
+
+Under **Profile** → **Settings**, tap **Push permissions** to open the **iOS / Android system Settings** page for PawBuck so you can allow or deny push and banners. If the OS cannot open settings, the app shows a short message telling you to open Settings manually.
 
 Push may be limited or absent on simulators.
 
@@ -22,8 +26,14 @@ Toggling these updates your saved preferences and refreshes scheduled notificati
 
 ## Appearance
 
-Under **Profile** → **Settings**, **Appearance** toggles **light** and **dark** each time you tap (the row subtitle may mention system default in some builds; behavior is a light/dark flip in the current theme provider).
+Under **Profile** → **Settings**, **Appearance** opens a screen to choose **Light**, **Dark**, or **System default**.
 
-## Privacy row
+## Privacy & Security
 
-**Privacy & Security** opens a short in-app summary; for deeper questions, use **Contact Us** under Help & Support.
+Under **Profile** → **Settings**, **Privacy & Security** opens a dedicated screen with links to the privacy policy and terms, **Download my data**, and **Contact Us** for privacy questions.
+
+**Download my data** (also listed under Settings on Profile) requests an email with a secure export link.
+
+## Subscription
+
+Under **Profile** → **Subscription**, free accounts can **Compare Individual or Family plans**. Paid plans open **App Store** or **Google Play** subscription management. **Restore purchases** recovers a subscription bought on the same store account.

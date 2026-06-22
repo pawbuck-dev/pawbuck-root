@@ -26,12 +26,14 @@ import PlanComparisonModal from "@/components/subscription/PlanComparisonModal";
 import { themeModeLabel, useTheme } from "@/context/themeContext";
 import { resolveProfileEditPhotoPreview } from "@/utils/profilePhotoPreview";
 import { cancelAccountDeletion, getAccountDeletionStatus, invokeDeleteAccount } from "@/services/accountDeletion";
-import { userHasEmailPasswordIdentity } from "@/services/authPasswordReset";
-import { fetchPrivacyExportStatus, requestPrivacyExport } from "@/services/privacyExport";
 import { resolveAuthDisplayName, isPlausibleDisplayNameForGreeting } from "@/services/authDisplayName";
+import { userHasEmailPasswordIdentity } from "@/services/authPasswordReset";
+import { restoreRevenueCatPurchases } from "@/services/revenuecat";
 import { getUserProfile, updateUserProfile } from "@/services/userProfile";
 import { getPrivateImageUrl } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
+import { requestPrivacyExportWithAlerts } from "@/utils/privacyExportUi";
+import { openStoreSubscriptionSettings } from "@/utils/storeSubscriptions";
 import { supabase } from "@/utils/supabase";
 import {
   profileEmailDisplayForHero,
@@ -88,6 +90,7 @@ export default function Profile() {
   const [deletionScheduled, setDeletionScheduled] = useState(false);
   const [deletionPurgeAfter, setDeletionPurgeAfter] = useState<string | null>(null);
   const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const { data: profile, isLoading } = useQuery({
     queryKey: ["user_profile"],
     queryFn: getUserProfile,
@@ -295,55 +298,43 @@ export default function Profile() {
     }
   };
 
-  const openNotificationsSettings = () => {
+  const openPushPermissionsSettings = () => {
     Linking.openSettings().catch(() => {
       Alert.alert(
-        "Notifications",
+        "Push permissions",
         "Open your device Settings app to manage notification permissions for PawBuck."
       );
     });
   };
 
-  const openPrivacyInfo = () => {
-    Alert.alert(
-      "Privacy & security",
-      "Your pet health data is protected by industry-standard security. For questions about data use, contact support from Help & Support."
-    );
-  };
-
-  const handleDownloadMyData = async () => {
+  const handleRestorePurchases = async () => {
+    setIsRestoringPurchases(true);
     try {
-      const current = await fetchPrivacyExportStatus();
-      if (current.status === "queued" || current.status === "running") {
+      const restoredPlan = await restoreRevenueCatPurchases();
+      await refetchEntitlement();
+      if (restoredPlan) {
+        const label = restoredPlan === "family" ? "Family" : "Individual";
+        Alert.alert("Purchases restored", `Your ${label} plan is active.`);
+      } else {
         Alert.alert(
-          "Export in progress",
-          "We're preparing your data. You'll receive an email with a download link when it's ready."
+          "No purchases found",
+          "We couldn't find an active subscription linked to this store account."
         );
-        return;
       }
-      if (current.status === "ready") {
-        Alert.alert(
-          "Export ready",
-          "Check your email for the download link. Links expire 7 days after they're sent."
-        );
-        return;
-      }
-
-      await requestPrivacyExport();
-      Alert.alert(
-        "Export requested",
-        "We're building your data export. You'll receive an email with a secure download link when it's ready (usually within an hour)."
-      );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Could not request export.";
-      Alert.alert("Error", message);
+      const message =
+        error instanceof Error ? error.message : "Could not restore purchases. Please try again.";
+      Alert.alert("Restore failed", message);
+    } finally {
+      setIsRestoringPurchases(false);
     }
   };
 
   const settingsRowHandlers: Record<ProfileSettingsRowId, () => void> = {
-    notifications: openNotificationsSettings,
-    "download-data": () => void handleDownloadMyData(),
-    privacy: openPrivacyInfo,
+    "notification-center": () => router.push("/(home)/notifications" as never),
+    notifications: openPushPermissionsSettings,
+    "download-data": () => void requestPrivacyExportWithAlerts(),
+    privacy: () => router.push("/(home)/privacy-settings" as never),
     "change-password": () => router.push({ pathname: "/reset-password", params: { mode: "change" } }),
     appearance: () => router.push("/(home)/appearance-settings" as never),
   };
@@ -462,27 +453,30 @@ export default function Profile() {
               isFoundingMember
                 ? "Lifetime access — thank you for building PawBuck with us"
                 : plan === "free"
-                  ? `Current plan: Free · Compare plans`
+                  ? "Current plan: Free · Compare Individual or Family plans"
                   : `Current plan: ${planLabel} · Manage in App Store or Google Play`
             }
             onPress={() => {
               if (plan === "free") {
                 setShowPlanComparison(true);
               } else {
+                openStoreSubscriptionSettings();
                 void refetchEntitlement();
               }
             }}
           />
-          {plan === "free" ? (
-            <ProfileFigmaRow
-              icon="people-outline"
-              title="Family plan"
-              subtitle="Unlimited pets · up to 5 household members"
-              onPress={() => {
-                setShowPlanComparison(true);
-              }}
-            />
-          ) : null}
+          <ProfileFigmaRow
+            icon="refresh-outline"
+            title="Restore purchases"
+            subtitle={
+              isRestoringPurchases
+                ? "Checking App Store or Google Play…"
+                : "Recover a subscription bought on this device"
+            }
+            onPress={() => {
+              if (!isRestoringPurchases) void handleRestorePurchases();
+            }}
+          />
         </ProfileListCard>
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
@@ -516,7 +510,7 @@ export default function Profile() {
               </View>
             }
             title={currentPet?.name ?? "No pet yet"}
-            subtitle="Current pet profile"
+            subtitle="Switch active pet"
             onPress={() => pets.length > 0 && setShowPetPicker(true)}
           />
         </ProfileListCard>

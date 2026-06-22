@@ -44,21 +44,25 @@ export function getProfileScreenTokens(theme: Theme, isDark: boolean) {
 
 export type ProfileScreenTokens = ReturnType<typeof getProfileScreenTokens>;
 
-/** Figma 1386:39634 — profile hero (outer card, avatar overlap, glass details) */
+/** Figma 1386:39634 — profile hero (stacked avatar + details, no overlap) */
 export const PROFILE_HERO_OUTER_PADDING = 6;
 export const PROFILE_HERO_AVATAR_SIZE = 180;
 export const PROFILE_HERO_AVATAR_RING = 4;
-export const PROFILE_HERO_DETAILS_OVERLAP = 32;
-export const PROFILE_HERO_DETAILS_RADIUS = 20;
+/** Vertical gap between avatar and details block */
+export const PROFILE_HERO_AVATAR_DETAILS_GAP = 16;
 export const PROFILE_HERO_DETAILS_PADDING = 16;
 export const PROFILE_HERO_SECTION_GAP = 20;
-/** Space between “Name” label and display name (Figma inner frame itemSpacing 12) */
-export const PROFILE_HERO_NAME_LABEL_GAP = 12;
+/** Label → value spacing (Apple-style tight header) */
+export const PROFILE_HERO_NAME_LABEL_GAP = 6;
+
+/** @deprecated Overlap removed — use PROFILE_HERO_AVATAR_DETAILS_GAP */
+export const PROFILE_HERO_DETAILS_OVERLAP = 0;
+/** @deprecated Details share outer tile radius */
+export const PROFILE_HERO_DETAILS_RADIUS = 20;
 
 export function getProfileHeroTokens(theme: Theme, isDark: boolean) {
   if (isDark) {
     return {
-      detailsGlassFill: "rgba(255,255,255,0.08)",
       avatarRingColor: "rgba(255,255,255,0.32)",
       editFabBg: "rgba(0,0,0,0.45)",
       editFabBorder: theme.border,
@@ -69,9 +73,8 @@ export function getProfileHeroTokens(theme: Theme, isDark: boolean) {
     };
   }
   return {
-    detailsGlassFill: "rgba(13,15,15,0.06)",
     avatarRingColor: "#FFFFFF",
-    editFabBg: "rgba(255,255,255,0.72)",
+    editFabBg: "rgba(255,255,255,0.92)",
     editFabBorder: PROFILE_CARD_BORDER_LIGHT,
     editFabIcon: theme.primary,
     lockedBadgeBg: "#FFFFFF",
