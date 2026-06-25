@@ -33,6 +33,7 @@
     "test:all": "pnpm run milo:test && pnpm run api-client:test && pnpm run consumer:test && pnpm run provider:test && pnpm run admin:test && pnpm run backend:test",
     "family-access:integration": "pnpm --filter @pawbuck/family-access-integration test",
     "subscription-limits:integration": "pnpm --filter @pawbuck/subscription-limits-integration test",
+    "maestro:seed": "pnpm --filter @pawbuck/maestro-seed seed",
     "supabase:start": "cd supabase && supabase start",
     "supabase:stop": "cd supabase && supabase stop",
     "supabase:types": "cd supabase && supabase gen types typescript --local > ../apps/consumer-app/database.types.ts",

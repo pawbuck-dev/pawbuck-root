@@ -72,6 +72,7 @@ export default function OnboardingStep6() {
           <View style={styles.cardsRow}>
             {/* Male */}
             <Pressable
+              testID="onboarding-gender-male"
               onPress={() => setSelectedGender("male")}
               style={[
                 styles.genderCard,
@@ -93,6 +94,7 @@ export default function OnboardingStep6() {
 
             {/* Female */}
             <Pressable
+              testID="onboarding-gender-female"
               onPress={() => setSelectedGender("female")}
               style={[
                 styles.genderCard,
@@ -123,6 +125,7 @@ export default function OnboardingStep6() {
               onPress={handleContinue}
               disabled={!selectedGender}
               containerStyle={styles.continueBtn}
+              testID="onboarding-continue"
             />
           </View>
         </View>

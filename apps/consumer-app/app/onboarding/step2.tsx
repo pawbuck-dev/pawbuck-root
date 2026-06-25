@@ -92,6 +92,7 @@ export default function OnboardingStep2() {
           <Text style={[styles.label, { color: theme.foreground }]}>Country</Text>
 
           <Pressable
+            testID="onboarding-country-picker"
             onPress={() => setModalOpen(true)}
             style={[
               styles.dropdownTrigger,
@@ -128,6 +129,7 @@ export default function OnboardingStep2() {
               onPress={handleContinue}
               disabled={!country}
               containerStyle={styles.continueBtn}
+              testID="onboarding-continue"
             />
           </View>
         </View>

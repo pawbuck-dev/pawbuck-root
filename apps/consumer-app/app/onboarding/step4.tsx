@@ -158,6 +158,7 @@ export default function OnboardingStep4() {
 
             {/* Dropdown trigger */}
             <Pressable
+              testID="onboarding-breed-picker"
               onPress={() => {
                 setBreedSearchQuery("");
                 setDropdownOpen((prev) => !prev);
@@ -204,6 +205,7 @@ export default function OnboardingStep4() {
                 >
                   <Ionicons name="search" size={18} color={mutedText} style={{ marginRight: 8 }} />
                   <TextInput
+                    testID="onboarding-breed-search"
                     style={[styles.breedSearchInput, { color: theme.foreground }]}
                     placeholder="Search breeds..."
                     placeholderTextColor={mutedText}
@@ -233,6 +235,7 @@ export default function OnboardingStep4() {
                       return (
                         <Pressable
                           key={item}
+                          testID={`onboarding-breed-${item.replace(/\s+/g, "-")}`}
                           onPress={() => handleBreedSelect(item)}
                           style={[
                             styles.breedRow,
@@ -307,6 +310,7 @@ export default function OnboardingStep4() {
                 onPress={handleContinue}
                 disabled={!breed.trim()}
                 containerStyle={styles.continueBtn}
+                testID="onboarding-continue"
               />
             </View>
           </View>
@@ -357,6 +361,7 @@ export default function OnboardingStep4() {
                 onPress={handleContinue}
                 disabled={!breed.trim()}
                 containerStyle={styles.continueBtn}
+                testID="onboarding-continue"
               />
             </View>
           </View>

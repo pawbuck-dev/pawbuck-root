@@ -6,7 +6,7 @@ env:
 ---
 - launchApp:
     clearState: true
-- openLink: "pawbuck://transfer-pet"
+- openLink: "Pawbuck://transfer-pet"
 - tapOn:
     id: "transfer-code-input"
 - inputText: ${MAESTRO_TRANSFER_CODE}

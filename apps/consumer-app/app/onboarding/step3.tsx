@@ -84,6 +84,7 @@ export default function OnboardingStep3() {
         <View style={styles.cardsRow}>
           {/* Dog Card */}
           <Pressable
+            testID="onboarding-pet-type-dog"
             onPress={() => setSelectedPet("dog")}
             style={[
               styles.petCard,
@@ -106,6 +107,7 @@ export default function OnboardingStep3() {
 
           {/* Cat Card */}
           <Pressable
+            testID="onboarding-pet-type-cat"
             onPress={() => setSelectedPet("cat")}
             style={[
               styles.petCard,
@@ -148,6 +150,7 @@ export default function OnboardingStep3() {
               onPress={handleContinue}
               disabled={!selectedPet}
               containerStyle={styles.continueBtn}
+              testID="onboarding-continue"
             />
           </View>
         </View>

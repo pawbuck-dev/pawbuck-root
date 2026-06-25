@@ -110,6 +110,7 @@ export default function OnboardingStep5() {
 
           {/* Pet Name input */}
           <TextInput
+            testID="onboarding-pet-name-input"
             style={[styles.input, { backgroundColor: inputBg, color: theme.foreground, borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }]}
             placeholder="e.g., Max, Luna"
             placeholderTextColor={mutedText}
@@ -131,6 +132,7 @@ export default function OnboardingStep5() {
               onPress={handleContinue}
               disabled={!petName.trim()}
               containerStyle={styles.continueBtn}
+              testID="onboarding-continue"
             />
           </View>
         </View>

@@ -204,6 +204,7 @@ export default function OnboardingStep9() {
                   state="Default"
                   onPress={handleSkip}
                   containerStyle={styles.ctaBtn}
+                  testID="onboarding-skip-identification"
                 />
               </View>
             </View>

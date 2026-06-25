@@ -182,6 +182,7 @@ export default function OnboardingStep5b() {
           {/* Email input row */}
           <View style={[styles.emailRow, { backgroundColor: inputBg, borderColor: getBorderColor() }]}>
             <TextInput
+              testID="onboarding-pet-email-input"
               style={[styles.emailInput, { color: theme.foreground }]}
               placeholder="e.g., buddy, max123"
               placeholderTextColor={mutedText}
@@ -222,6 +223,7 @@ export default function OnboardingStep5b() {
               state="Default"
               onPress={handleContinue}
               disabled={false}
+              testID="onboarding-continue"
               containerStyle={[styles.continueBtn, { opacity: canProceed ? 1 : 0.45 }]}
             />
           </View>

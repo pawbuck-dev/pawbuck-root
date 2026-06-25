@@ -1,0 +1,23 @@
+# Full first-pet onboarding: login (no pets) → steps 1–9 → review → home with pet
+appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_EMPTY_USER_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_EMPTY_USER_PASSWORD}
+  MAESTRO_PET_NAME: ${MAESTRO_PET_NAME}
+  MAESTRO_PET_EMAIL_LOCAL: ${MAESTRO_PET_EMAIL_LOCAL}
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/login-email.yaml
+- tapOn:
+    id: "home-add-first-pet"
+- assertVisible: "Welcome to PawBuck"
+- tapOn:
+    id: "onboarding-continue"
+- runFlow: ../subflows/onboarding-complete-pet.yaml
+- extendedWaitUntil:
+    visible:
+      id: "bottom-nav-home"
+    timeout: 30000
+- assertNotVisible:
+    id: "home-add-first-pet"

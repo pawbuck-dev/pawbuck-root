@@ -17,6 +17,7 @@ dist/
 *.pem
 .env
 .env.local
+.maestro/.env.local
 .env.development.local
 .env.test.local
 .env.production.local

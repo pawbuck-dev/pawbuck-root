@@ -718,6 +718,7 @@ export default function OnboardingReview() {
       {/* Confirm Button */}
       <View className="px-6 pb-8">
         <Pressable
+          testID="onboarding-save-pet"
           onPress={handleConfirm}
           className="w-full rounded-2xl py-4 px-8 items-center active:opacity-80"
           style={{ backgroundColor: theme.primary }}

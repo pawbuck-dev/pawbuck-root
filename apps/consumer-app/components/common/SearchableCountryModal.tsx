@@ -103,6 +103,7 @@ export default function SearchableCountryModal({
                   color={mode === "dark" ? "#9CA3AF" : "#6B7280"}
                 />
                 <TextInput
+                  testID="country-search-input"
                   className="flex-1 ml-2 text-start"
                   style={{ color: theme.foreground }}
                   placeholder="Search countries..."
@@ -138,6 +139,7 @@ export default function SearchableCountryModal({
                   return (
                     <Pressable
                       key={country.name}
+                      testID={`country-option-${country.name.replace(/\s+/g, "-")}`}
                       onPress={() => handleSelect(country.name)}
                       className="rounded-xl py-4 px-4 mb-2 active:opacity-70"
                       style={{

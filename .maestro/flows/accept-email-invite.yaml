@@ -1,0 +1,15 @@
+# Email family invite deep link (token from seed script).
+appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_RECIPIENT_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_RECIPIENT_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- openLink: "Pawbuck://accept-invite?token=${MAESTRO_INVITE_TOKEN}"
+- runFlow: ../subflows/auth-resume-sign-in.yaml
+- extendedWaitUntil:
+    visible: "You're on the care team"
+    timeout: 30000
+- tapOn:
+    id: "accept-invite-continue-home"

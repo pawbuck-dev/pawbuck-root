@@ -1,0 +1,62 @@
+# Steps 2–9 + review: complete pet onboarding after step 1 (country → save pet).
+# Requires MAESTRO_PET_NAME and MAESTRO_PET_EMAIL_LOCAL in env.
+---
+- assertVisible: "Where are you located?"
+- tapOn:
+    id: "onboarding-country-picker"
+- tapOn:
+    id: "country-search-input"
+- inputText: "United States"
+- tapOn:
+    id: "country-option-United-States"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "What kind of pet?"
+- tapOn:
+    id: "onboarding-pet-type-dog"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "What breed is your Dog?"
+- tapOn:
+    id: "onboarding-breed-picker"
+- tapOn:
+    id: "onboarding-breed-search"
+- inputText: "Labrador"
+- tapOn:
+    id: "onboarding-breed-Labrador-Retriever"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "What's your pet's name?"
+- tapOn:
+    id: "onboarding-pet-name-input"
+- inputText: ${MAESTRO_PET_NAME}
+- hideKeyboard
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "Choose pet email"
+- tapOn:
+    id: "onboarding-pet-email-input"
+- inputText: ${MAESTRO_PET_EMAIL_LOCAL}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: "This pet email is available!"
+    timeout: 15000
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "What's your pet's sex?"
+- tapOn:
+    id: "onboarding-gender-male"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "When was"
+- tapOn:
+    id: "onboarding-skip-dob"
+- assertVisible: "current weight?"
+- tapOn:
+    id: "onboarding-skip-weight"
+- assertVisible: "Pet identification"
+- tapOn:
+    id: "onboarding-skip-identification"
+- assertVisible: "Review and confirm the details"
+- tapOn:
+    id: "onboarding-save-pet"

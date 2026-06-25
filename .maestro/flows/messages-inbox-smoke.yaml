@@ -1,0 +1,16 @@
+# Messages tab smoke: login → open inbox → compose modal → cancel
+appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_OWNER_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_OWNER_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/login-email.yaml
+- tapOn:
+    id: "bottom-nav-messages"
+- assertVisible: "Messages"
+- tapOn:
+    id: "messages-new-compose"
+- assertVisible: "New Message"
+- tapOn: "Cancel"

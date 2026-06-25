@@ -1,0 +1,40 @@
+# Maestro E2E — foundational flows (login, messages, family, transfer, pet add)
+name: Maestro foundational E2E
+
+on:
+  workflow_dispatch:
+
+jobs:
+  maestro:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    if: >-
+      ${{ secrets.MAESTRO_RECIPIENT_EMAIL != '' && secrets.MAESTRO_HOUSEHOLD_CODE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Run foundational Maestro flows
+        env:
+          MAESTRO_OWNER_EMAIL: ${{ secrets.MAESTRO_OWNER_EMAIL }}
+          MAESTRO_OWNER_PASSWORD: ${{ secrets.MAESTRO_OWNER_PASSWORD }}
+          MAESTRO_RECIPIENT_EMAIL: ${{ secrets.MAESTRO_RECIPIENT_EMAIL }}
+          MAESTRO_RECIPIENT_PASSWORD: ${{ secrets.MAESTRO_RECIPIENT_PASSWORD }}
+          MAESTRO_EMPTY_USER_EMAIL: ${{ secrets.MAESTRO_EMPTY_USER_EMAIL }}
+          MAESTRO_EMPTY_USER_PASSWORD: ${{ secrets.MAESTRO_EMPTY_USER_PASSWORD }}
+          MAESTRO_HOUSEHOLD_CODE: ${{ secrets.MAESTRO_HOUSEHOLD_CODE }}
+          MAESTRO_TRANSFER_CODE: ${{ secrets.MAESTRO_TRANSFER_CODE }}
+          MAESTRO_INVITE_TOKEN: ${{ secrets.MAESTRO_INVITE_TOKEN }}
+          MAESTRO_PET_NAME: ${{ secrets.MAESTRO_PET_NAME }}
+          MAESTRO_PET_EMAIL_LOCAL: ${{ secrets.MAESTRO_PET_EMAIL_LOCAL }}
+        run: |
+          export PATH="$PATH:$HOME/.maestro/bin"
+          maestro test .maestro/flows/login-email.yaml
+          maestro test .maestro/flows/messages-inbox-smoke.yaml
+          maestro test .maestro/flows/add-first-pet-start.yaml
+          maestro test .maestro/flows/add-first-pet-complete.yaml
+          maestro test .maestro/flows/join-household-mtch.yaml
+          maestro test .maestro/flows/claim-pet-trf.yaml
+          maestro test .maestro/flows/accept-email-invite.yaml

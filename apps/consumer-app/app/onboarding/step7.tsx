@@ -168,8 +168,13 @@ export default function OnboardingStep7() {
               onPress={handleContinue}
               disabled={!birthDate}
               containerStyle={styles.continueBtn}
+              testID="onboarding-continue"
             />
-            <Pressable onPress={handleSkipUnknown} style={{ marginTop: 12, paddingVertical: 12 }}>
+            <Pressable
+              testID="onboarding-skip-dob"
+              onPress={handleSkipUnknown}
+              style={{ marginTop: 12, paddingVertical: 12 }}
+            >
               <Text style={{ fontSize: 16, fontWeight: "600", color: mutedText, textAlign: "center" }}>
                 Skip for now
               </Text>

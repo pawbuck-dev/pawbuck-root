@@ -1,0 +1,15 @@
+# Pet addition smoke: login (no pets) → start onboarding → reach step 2
+appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_EMPTY_USER_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_EMPTY_USER_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/login-email.yaml
+- tapOn:
+    id: "home-add-first-pet"
+- assertVisible: "Welcome to PawBuck"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible: "Where are you located?"

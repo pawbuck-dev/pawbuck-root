@@ -230,8 +230,13 @@ export default function OnboardingStep8() {
                     onPress={handleContinue}
                     disabled={!isValid}
                     containerStyle={styles.continueBtn}
+                    testID="onboarding-continue"
                   />
-                  <Pressable onPress={handleSkipWeight} style={{ marginTop: 12, paddingVertical: 12 }}>
+                  <Pressable
+                    testID="onboarding-skip-weight"
+                    onPress={handleSkipWeight}
+                    style={{ marginTop: 12, paddingVertical: 12 }}
+                  >
                     <Text style={{ fontSize: 16, fontWeight: "600", color: mutedText, textAlign: "center" }}>
                       Skip for now
                     </Text>

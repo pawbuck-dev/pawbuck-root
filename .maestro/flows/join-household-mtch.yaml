@@ -6,7 +6,7 @@ env:
 ---
 - launchApp:
     clearState: true
-- openLink: "pawbuck://join-household"
+- openLink: "Pawbuck://join-household"
 - tapOn:
     id: "invite-code-input"
 - inputText: ${MAESTRO_HOUSEHOLD_CODE}
