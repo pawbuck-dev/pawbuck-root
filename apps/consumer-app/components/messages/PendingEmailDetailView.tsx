@@ -1,3 +1,4 @@
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
@@ -537,7 +538,7 @@ export default function PendingEmailDetailView({
                 <>
                   <Ionicons name="add-circle" size={20} color="white" />
                   <Text className="text-white font-semibold ml-2 text-base">
-                    Yes, Mark as Safe Sender
+                    {APPROVED_PET_EMAIL_UI.markApprovedAction}
                   </Text>
                 </>
               )}

@@ -1,3 +1,4 @@
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -385,7 +386,7 @@ export const EmailApprovalModal: React.FC = () => {
                     <>
                       <Ionicons name="add-circle" size={20} color="white" />
                       <Text className="text-white font-semibold ml-2 text-base">
-                        Yes, Mark as Safe Sender
+                        {APPROVED_PET_EMAIL_UI.markApprovedAction}
                       </Text>
                     </>
                   )}

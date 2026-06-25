@@ -86,12 +86,9 @@ export default function PlanComparisonModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        style={{ flex: 1, backgroundColor: ui.scrim, justifyContent: "flex-end" }}
-        onPress={onClose}
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
+      <View style={{ flex: 1, backgroundColor: ui.scrim, justifyContent: "flex-end" }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close compare plans" />
+        <View
           style={{
             backgroundColor: ui.pageBg,
             borderTopLeftRadius: 24,
@@ -128,10 +125,17 @@ export default function PlanComparisonModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 8 }}
-          >
+          <View style={{ flexShrink: 1, minHeight: 0 }}>
+            <ScrollView
+              style={{ flexGrow: 0, flexShrink: 1 }}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              contentContainerStyle={{
+                padding: 20,
+                gap: 14,
+                paddingBottom: Math.max(insets.bottom, 12),
+              }}
+            >
             {PLANS.map((plan) => {
               const isCurrent = plan.id === currentPlan;
               const priceLabel =
@@ -231,9 +235,10 @@ export default function PlanComparisonModal({
                 </View>
               );
             })}
-          </ScrollView>
-        </Pressable>
-      </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }

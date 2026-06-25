@@ -69,21 +69,22 @@ describe("InitialWelcomeScreen entry points", () => {
 });
 
 describe("profileMenuConfig recipient routes", () => {
-  it("routes Accept pet transfer to recipient wizard and includes Join household", () => {
+  it("routes sharing through Family Sharing hub and transfer flows separately", () => {
     const claim = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "claim");
-    const join = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "join-household");
+    const hub = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "family-sharing");
     const transfer = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "transfer");
 
     expect(claim?.title).toBe("Accept pet transfer");
     expect(claim?.href).toBe("/transfer-pet");
-    expect(join?.href).toBe("/join-household");
+    expect(hub?.href).toBe("/(home)/family-sharing");
     expect(transfer?.href).toBe("/(home)/transfer-pet");
   });
 
-  it("does not duplicate Care Team under Manage Access", () => {
+  it("does not duplicate legacy join or manage rows on Profile", () => {
     const ids = PROFILE_MY_PETS_LINK_ROWS.map((r) => r.id);
     expect(ids).not.toContain("care");
-    expect(ids.filter((id) => id === "access")).toHaveLength(1);
+    expect(ids).not.toContain("join-household");
+    expect(ids).not.toContain("access");
   });
 });
 

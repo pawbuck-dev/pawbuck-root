@@ -19,6 +19,18 @@ export function meetsMinimumPlan(active: SubscriptionPlan, minimum: Subscription
   return PLAN_RANK[active] >= PLAN_RANK[minimum];
 }
 
+/** Pick the highest tier among API, Supabase row, RevenueCat, etc. */
+export function resolveEffectiveSubscriptionPlan(
+  sources: Array<SubscriptionPlan | string | null | undefined>
+): SubscriptionPlan {
+  let best: SubscriptionPlan = "free";
+  for (const source of sources) {
+    const plan = normalizePlan(source ?? undefined);
+    if (PLAN_RANK[plan] > PLAN_RANK[best]) best = plan;
+  }
+  return best;
+}
+
 export type PaywallCopyVariant =
   | "default"
   | "milo_conversation_cap"

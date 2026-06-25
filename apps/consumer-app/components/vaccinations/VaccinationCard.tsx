@@ -1,4 +1,5 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import {
   OverflowAction,
   RecordOverflowSheet,
@@ -77,10 +78,7 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   });
 
   const chrome = healthListCardChrome(theme, isDark);
-  const { cardBg, overflowBtnBg, divider, iconPlate, iconInk } = chrome;
-  /** Figma 2082:213157 — grey disc + syringe-style glyph; dark keeps elevated plate */
-  const listIconBg = isDark ? iconPlate : "#F3F4F6";
-  const listIconColor = isDark ? iconInk : "#6B7280";
+  const { cardBg, overflowBtnBg, divider } = chrome;
 
   const openDetail = () => {
     if (!pet) return;
@@ -179,8 +177,8 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
       >
         {/* Top row: icon, title + inline badge, overflow (Figma 2082:213157) */}
         <View style={styles.topRow}>
-          <View style={[styles.iconCircle, { backgroundColor: listIconBg }]}>
-            <MaterialCommunityIcons name="needle" size={20} color={listIconColor} />
+          <View style={{ marginRight: HEALTH_LAYOUT.iconToTitleGap }}>
+            <DomainCategoryIconWell category="vaccines" size="lg" materialIcon="needle" />
           </View>
           <View style={styles.titleBlock}>
             <View style={styles.titleBadgeRow}>

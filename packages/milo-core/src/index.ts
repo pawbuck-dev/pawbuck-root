@@ -26,4 +26,8 @@ export {
 export { hasVaccinationAdministrationProof } from "./vaccination-extraction";
 export { MEDICAL_RECORD_EXTRACTION_SYSTEM_PROMPT } from "./prompts/extraction-prompt";
 export { PET_DOCUMENT_CLASSIFICATION_SYSTEM_PROMPT } from "./prompts/classification-prompt";
-export { FLEXIBLE_DOCUMENT_EXTRACTION_SYSTEM_PROMPT } from "./prompts/flexible-extraction-prompt";
+export {
+  FLEXIBLE_DOCUMENT_EXTRACTION_SYSTEM_PROMPT,
+  BILLING_INVOICE_FLEXIBLE_EXTRACTION_SUFFIX,
+  getFlexibleExtractionPrompt,
+} from "./prompts/flexible-extraction-prompt";

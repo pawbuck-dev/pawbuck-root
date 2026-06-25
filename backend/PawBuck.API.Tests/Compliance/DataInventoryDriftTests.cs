@@ -41,6 +41,7 @@ public class DataInventoryDriftTests
             "medication_products",
             "milo_curated_snippets",
             "milo_journal_config",
+            "one_time_ops_log",
             "ops_probe_results",
             "pet_family_notification_prefs",
             "pet_journal_transfer_highlights",

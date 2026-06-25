@@ -1,5 +1,6 @@
 import DocumentCard from "@/components/health/DocumentCard";
 import FinancialInvoicesSection from "@/components/health/FinancialInvoicesSection";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { dashboardCareTeamCardChrome } from "@/constants/figmaHealthLayout";
 import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
@@ -196,18 +197,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDark ? "rgba(167,139,250,0.2)" : "rgba(124,58,237,0.12)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons name="chip" size={22} color={isDark ? "#C4B5FD" : "#6D28D9"} />
-            </View>
+            <DomainCategoryIconWell category="microchip" size="md" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>{"Microchip & ID"}</Text>
             </View>
@@ -293,18 +283,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
           style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDark ? "rgba(34,197,94,0.18)" : "rgba(34,197,94,0.12)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="shield-checkmark" size={22} color={isDark ? "#4ADE80" : "#15803D"} />
-            </View>
+            <DomainCategoryIconWell category="insurance" size="md" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Insurance</Text>
               <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
@@ -379,18 +358,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDark ? "rgba(234,179,8,0.2)" : "rgba(234,179,8,0.15)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons name="crown" size={22} color={isDark ? "#FBBF24" : "#B45309"} />
-            </View>
+            <DomainCategoryIconWell category="pedigree" size="md" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Pedigree</Text>
               <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>
@@ -467,18 +435,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDark ? "rgba(236,72,153,0.15)" : "rgba(236,72,153,0.1)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons name="certificate-outline" size={22} color={isDark ? "#F472B6" : "#DB2777"} />
-            </View>
+            <DomainCategoryIconWell category="certificates" size="md" />
             <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Certificates</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -530,18 +487,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: isDark ? "rgba(45,212,191,0.15)" : "rgba(13,148,136,0.08)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="airplane-outline" size={22} color={isDark ? "#2DD4BF" : "#0D9488"} />
-            </View>
+            <DomainCategoryIconWell category="travel" size="md" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Travel Docs</Text>
               <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 4 }} numberOfLines={2}>

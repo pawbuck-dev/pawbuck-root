@@ -1,11 +1,9 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { ClinicalExamCard } from "@/components/clinical-exams/ClinicalExamCard";
 import { ExamSectionHeader } from "@/components/clinical-exams/ExamSectionHeader";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
-import {
-  FIGMA_HEALTH_EXAMS_ICON_BG,
-  healthRecordTabCanvas,
-} from "@/constants/figmaHealthLayout";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Tables } from "@/database.types";
 import {
@@ -117,11 +115,8 @@ export default function ExamsScreen() {
         className="flex-1 items-center justify-center px-6"
         style={{ backgroundColor: listCanvas, paddingBottom: 120 }}
       >
-        <View
-          className="w-28 h-28 rounded-full items-center justify-center mb-6"
-          style={{ backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG }}
-        >
-          <MaterialCommunityIcons name="stethoscope" size={40} color="#FFFFFF" />
+        <View className="mb-6">
+          <DomainCategoryIconWell category="clinical_visits" size="hero" />
         </View>
         <Text
           className="text-xl font-bold mb-2 text-center"
@@ -162,11 +157,8 @@ export default function ExamsScreen() {
         )}
         {sections.length === 0 ? (
           <View className="items-center justify-center py-12">
-            <View
-              className="w-16 h-16 rounded-full items-center justify-center mb-4"
-              style={{ backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG }}
-            >
-              <MaterialCommunityIcons name="stethoscope" size={28} color="#FFFFFF" />
+            <View className="mb-4">
+              <DomainCategoryIconWell category="clinical_visits" size="xl" />
             </View>
             <Text
               className="text-base font-medium text-center"

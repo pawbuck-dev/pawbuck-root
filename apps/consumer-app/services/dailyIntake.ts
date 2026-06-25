@@ -23,6 +23,7 @@ async function fetchPetForIntake(petId: string): Promise<PetWithIntakePrefs | nu
   return data as PetWithIntakePrefs | null;
 }
 
+/** Shared household row: one per pet per calendar day. */
 export async function getDailyIntake(petId: string): Promise<DailyIntake> {
   const {
     data: { user },
@@ -37,7 +38,6 @@ export async function getDailyIntake(petId: string): Promise<DailyIntake> {
     .from("daily_intake")
     .select("*")
     .eq("pet_id", petId)
-    .eq("user_id", user.id)
     .eq("date", today)
     .maybeSingle();
 
@@ -115,7 +115,7 @@ export async function updateDailyIntake(
         ...updates,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "pet_id,user_id,date" }
+      { onConflict: "pet_id,date" }
     )
     .select("*")
     .single();

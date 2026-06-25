@@ -5,6 +5,16 @@ import { formatMiloUploadError } from "@/utils/miloUploadErrors";
 import { useMiloUpload } from "@/hooks/useMiloUpload";
 import { usePetDocuments } from "@/hooks/usePetDocuments";
 import type { Tables } from "@/database.types";
+import {
+  aggregateInvoiceBilling,
+  effectiveInvoiceDate,
+  formatInvoiceShortDate,
+  formatInvoiceDate,
+  formatInvoiceUsd,
+  invoiceProviderLine,
+  parseInvoiceExtracted,
+  parseInvoiceRowTotal,
+} from "@/utils/invoiceBillingParse";
 import { pickPdfFile } from "@/utils/filePicker";
 import { pickImageFromLibrary } from "@/utils/imagePicker";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -29,117 +39,6 @@ type Props = {
   pet: Pet | undefined;
 };
 
-type ExtractedFacts = {
-  title?: string;
-  summary?: string;
-  primaryDate?: string | null;
-  keyFacts?: { label: string; value: string }[];
-};
-
-function parseExtracted(json: Tables<"pet_documents">["extracted_json"]): ExtractedFacts {
-  if (json === null || typeof json !== "object") return {};
-  const o = json as Record<string, unknown>;
-  const keyFactsRaw = o.keyFacts;
-  const keyFacts = Array.isArray(keyFactsRaw)
-    ? keyFactsRaw
-        .map((x) => {
-          if (!x || typeof x !== "object") return null;
-          const r = x as Record<string, unknown>;
-          const label = typeof r.label === "string" ? r.label : "";
-          const value = typeof r.value === "string" ? r.value : "";
-          return { label, value };
-        })
-        .filter(Boolean) as { label: string; value: string }[]
-    : [];
-
-  return {
-    title: typeof o.title === "string" ? o.title : undefined,
-    summary: typeof o.summary === "string" ? o.summary : undefined,
-    primaryDate: typeof o.primaryDate === "string" ? o.primaryDate : null,
-    keyFacts,
-  };
-}
-
-function firstCurrencyInText(text: string | undefined): number | null {
-  if (!text) return null;
-  const m = text.match(/\$[\d,]+(?:\.\d{1,2})?/);
-  if (!m) return null;
-  const n = Number.parseFloat(m[0].replace(/[$,]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseRowTotal(ex: ExtractedFacts): number | null {
-  const labels = /^(total|amount|balance|charges|subtotal|invoice total)$/i;
-  for (const kf of ex.keyFacts ?? []) {
-    if (labels.test(kf.label.trim())) {
-      const v = firstCurrencyInText(kf.value);
-      if (v != null) return v;
-    }
-  }
-  const blob = `${ex.title ?? ""} ${ex.summary ?? ""}`;
-  return firstCurrencyInText(blob);
-}
-
-function parseRowCovered(ex: ExtractedFacts): number | null {
-  const labels = /insurance|covered|plan|paid by|reimbursed|adjustment/i;
-  let sum = 0;
-  let any = false;
-  for (const kf of ex.keyFacts ?? []) {
-    if (labels.test(kf.label)) {
-      const v = firstCurrencyInText(kf.value);
-      if (v != null) {
-        sum += v;
-        any = true;
-      }
-    }
-  }
-  return any ? sum : null;
-}
-
-function providerLine(ex: ExtractedFacts): string {
-  const prov =
-    ex.keyFacts?.find((k) =>
-      /provider|clinic|vendor|location|practice|hospital|pharmacy/i.test(k.label)
-    )?.value?.trim() ?? "";
-  return prov;
-}
-
-function formatUsd(n: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function formatShortDate(raw: string | null | undefined): string {
-  if (!raw?.trim()) return "—";
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw.trim();
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-/** Prefer service/invoice date from extraction; fall back to upload time. */
-function effectiveInvoiceDate(
-  row: Tables<"pet_documents">,
-  ex: ExtractedFacts
-): Date | null {
-  if (ex.primaryDate) {
-    const d = new Date(ex.primaryDate);
-    if (!Number.isNaN(d.getTime())) return d;
-  }
-  const dateLabels = /^(invoice date|service date|date of service|statement date)$/i;
-  for (const kf of ex.keyFacts ?? []) {
-    if (dateLabels.test(kf.label.trim())) {
-      const d = new Date(kf.value.trim());
-      if (!Number.isNaN(d.getTime())) return d;
-    }
-  }
-  const u = new Date(row.created_at);
-  return Number.isNaN(u.getTime()) ? null : u;
-}
-
 /** True when `d` is in the same calendar year as `now` and not after today (local). */
 function isInCalendarYearToDate(d: Date, now: Date): boolean {
   const y = now.getFullYear();
@@ -148,30 +47,11 @@ function isInCalendarYearToDate(d: Date, now: Date): boolean {
   return d >= start && d <= end;
 }
 
-function aggregateBilling(rows: Tables<"pet_documents">[]) {
-  let total = 0;
-  let covered = 0;
-  let coveredKnown = false;
-  for (const row of rows) {
-    const ex = parseExtracted(row.extracted_json);
-    const t = parseRowTotal(ex);
-    if (t != null) total += t;
-    const c = parseRowCovered(ex);
-    if (c != null) {
-      covered += c;
-      coveredKnown = true;
-    }
-  }
-  const pct =
-    total > 0 && coveredKnown ? Math.min(100, Math.round((covered / total) * 100)) : 0;
-  return { total, covered, coveredKnown, pct };
-}
-
 type BillingYearGroup = {
   /** Calendar year from invoice/service date, or `null` when no usable date. */
   year: number | null;
   rows: Tables<"pet_documents">[];
-  totals: ReturnType<typeof aggregateBilling>;
+  totals: ReturnType<typeof aggregateInvoiceBilling>;
 };
 
 /** Group billing rows by calendar year of the effective invoice date (newest years first). */
@@ -179,7 +59,7 @@ function buildBillingYearGroups(rows: Tables<"pet_documents">[]): BillingYearGro
   const buckets = new Map<number | "undated", Tables<"pet_documents">[]>();
 
   for (const row of rows) {
-    const ex = parseExtracted(row.extracted_json);
+    const ex = parseInvoiceExtracted(row.extracted_json);
     const d = effectiveInvoiceDate(row, ex);
     const key: number | "undated" = d ? d.getFullYear() : "undated";
     if (!buckets.has(key)) buckets.set(key, []);
@@ -188,8 +68,8 @@ function buildBillingYearGroups(rows: Tables<"pet_documents">[]): BillingYearGro
 
   const sortWithin = (list: Tables<"pet_documents">[]) => {
     list.sort((a, b) => {
-      const exA = parseExtracted(a.extracted_json);
-      const exB = parseExtracted(b.extracted_json);
+      const exA = parseInvoiceExtracted(a.extracted_json);
+      const exB = parseInvoiceExtracted(b.extracted_json);
       const da = effectiveInvoiceDate(a, exA)?.getTime() ?? 0;
       const db = effectiveInvoiceDate(b, exB)?.getTime() ?? 0;
       return db - da;
@@ -207,11 +87,11 @@ function buildBillingYearGroups(rows: Tables<"pet_documents">[]): BillingYearGro
   numericYears.sort((a, b) => b - a);
   for (const y of numericYears) {
     const list = buckets.get(y)!;
-    out.push({ year: y, rows: list, totals: aggregateBilling(list) });
+    out.push({ year: y, rows: list, totals: aggregateInvoiceBilling(list) });
   }
   if (buckets.has("undated")) {
     const list = buckets.get("undated")!;
-    out.push({ year: null, rows: list, totals: aggregateBilling(list) });
+    out.push({ year: null, rows: list, totals: aggregateInvoiceBilling(list) });
   }
   return out;
 }
@@ -244,15 +124,15 @@ export default function FinancialInvoicesSection({ pet }: Props) {
   const ytdRows = useMemo(() => {
     const evaluationTime = new Date();
     return billingDocs.filter((row) => {
-      const ex = parseExtracted(row.extracted_json);
+      const ex = parseInvoiceExtracted(row.extracted_json);
       const d = effectiveInvoiceDate(row, ex);
       if (!d) return false;
       return isInCalendarYearToDate(d, evaluationTime);
     });
   }, [billingDocs]);
 
-  const ytdTotals = useMemo(() => aggregateBilling(ytdRows), [ytdRows]);
-  const allTotals = useMemo(() => aggregateBilling(billingDocs), [billingDocs]);
+  const ytdTotals = useMemo(() => aggregateInvoiceBilling(ytdRows), [ytdRows]);
+  const allTotals = useMemo(() => aggregateInvoiceBilling(billingDocs), [billingDocs]);
 
   const billingYearGroups = useMemo(() => buildBillingYearGroups(billingDocs), [billingDocs]);
 
@@ -442,7 +322,7 @@ export default function FinancialInvoicesSection({ pet }: Props) {
                 }}
               >
                 <Text style={{ fontSize: 28, fontWeight: "800", color: theme.foreground }}>
-                  {ytdTotals.total > 0 ? formatUsd(ytdTotals.total) : "—"}
+                  {ytdTotals.total > 0 ? formatInvoiceUsd(ytdTotals.total) : "—"}
                 </Text>
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={{ fontSize: 13, fontWeight: "600", color: muted }}>
@@ -450,7 +330,7 @@ export default function FinancialInvoicesSection({ pet }: Props) {
                   </Text>
                   {ytdTotals.coveredKnown && ytdTotals.total > 0 ? (
                     <Text style={{ fontSize: 13, fontWeight: "600", color: successColor, marginTop: 4 }}>
-                      {formatUsd(ytdTotals.covered)} covered
+                      {formatInvoiceUsd(ytdTotals.covered)} covered
                     </Text>
                   ) : (
                     <Text style={{ fontSize: 12, color: muted, marginTop: 4, maxWidth: 150 }} numberOfLines={3}>
@@ -466,7 +346,7 @@ export default function FinancialInvoicesSection({ pet }: Props) {
 
               {hasOutOfYearInvoices && allTotals.total > 0 && billingYearGroups.length <= 1 ? (
                 <Text style={{ fontSize: 12, color: muted, marginTop: 10, lineHeight: 18 }}>
-                  All saved billing: {formatUsd(allTotals.total)} · {billingDocs.length} invoice
+                  All saved billing: {formatInvoiceUsd(allTotals.total)} · {billingDocs.length} invoice
                   {billingDocs.length === 1 ? "" : "s"}
                   {ytdRows.length === 0 ? " (from other years or undated in extraction)" : ""}
                 </Text>
@@ -551,14 +431,14 @@ export default function FinancialInvoicesSection({ pet }: Props) {
                       </View>
                       <View style={{ alignItems: "flex-end" }}>
                         <Text style={{ fontSize: 16, fontWeight: "800", color: theme.foreground }}>
-                          {group.totals.total > 0 ? formatUsd(group.totals.total) : "—"}
+                          {group.totals.total > 0 ? formatInvoiceUsd(group.totals.total) : "—"}
                         </Text>
                         <Text style={{ fontSize: 12, fontWeight: "600", color: muted, marginTop: 2 }}>
                           {group.rows.length} invoice{group.rows.length === 1 ? "" : "s"}
                         </Text>
                         {group.totals.coveredKnown && group.totals.total > 0 ? (
                           <Text style={{ fontSize: 12, fontWeight: "600", color: successColor, marginTop: 4 }}>
-                            {formatUsd(group.totals.covered)} covered · {group.totals.pct}%
+                            {formatInvoiceUsd(group.totals.covered)} covered · {group.totals.pct}%
                           </Text>
                         ) : null}
                       </View>
@@ -593,17 +473,22 @@ export default function FinancialInvoicesSection({ pet }: Props) {
                     ) : null}
 
                     {group.rows.map((row) => {
-                      const ex = parseExtracted(row.extracted_json);
+                      const ex = parseInvoiceExtracted(row.extracted_json);
                       const title = ex.title?.trim() || "Invoice";
-                      const dateLine = formatShortDate(ex.primaryDate ?? row.created_at);
-                      const total = parseRowTotal(ex);
-                      const prov = providerLine(ex);
+                      const invoiceDate = effectiveInvoiceDate(row, ex);
+                      const dateLine = ex.primaryDate?.trim()
+                        ? formatInvoiceShortDate(ex.primaryDate)
+                        : invoiceDate
+                          ? formatInvoiceDate(invoiceDate)
+                          : formatInvoiceShortDate(row.created_at);
+                      const total = parseInvoiceRowTotal(ex);
+                      const prov = invoiceProviderLine(ex);
                       const detail =
                         total != null
                           ? prov
-                            ? `${formatUsd(total)} · ${prov}`
-                            : formatUsd(total)
-                          : ex.summary?.trim().slice(0, 80) || "Billing document";
+                            ? `${formatInvoiceUsd(total)} · ${prov}`
+                            : formatInvoiceUsd(total)
+                          : ex.summary?.trim().slice(0, 80) || "Billing document — re-upload for amount extraction";
 
                       return (
                         <View key={row.id} style={invoiceRowWell}>

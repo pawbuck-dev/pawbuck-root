@@ -20,6 +20,6 @@ describe("getSettingsSubscreenTokens", () => {
   it("uses light page background in light mode", () => {
     const t = getSettingsSubscreenTokens(theme as never, false);
     expect(t.pageBg).toBe("#F5F7F8");
-    expect(t.iconWellBg).toBe("#EDEDEE");
+    expect(t.iconWellBg).toBe("#E0E0E0");
   });
 });

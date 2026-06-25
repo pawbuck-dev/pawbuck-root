@@ -78,6 +78,20 @@ Rules:
 - Do not invent data; use null or empty strings when unknown.
 """;
 
+    private const string BillingInvoiceFlexibleSuffix = """
+
+Additional rules for billing_invoice:
+- title: short label such as "Vet invoice" or "{clinic name} invoice".
+- primaryDate: invoice date or date of service (not today's date).
+- keyFacts MUST include when visible on the document:
+  - "Total" with the full amount due in USD (e.g. "$142.50") — use this exact label for the invoice total.
+  - "Provider" or "Clinic" with the veterinary clinic or vendor name.
+  - "Invoice date" or "Service date" when shown separately from primaryDate.
+  - "Insurance paid", "Covered", or "Plan paid" when insurance adjustments appear (USD amounts).
+  - Up to 6 line items as separate keyFacts (label = service name, value = USD amount) when itemized.
+- Include dollar signs in amount values. Do not omit totals when they are legible.
+""";
+
     private static readonly string PetDocumentClassificationPromptValue = """
 You are a veterinary records expert. Classify the attached pet health or identity document into exactly one type.
 
@@ -137,6 +151,9 @@ Return ONLY valid JSON (no markdown):
     public string GetFlexibleExtractionPrompt(string documentType)
     {
         var t = string.IsNullOrWhiteSpace(documentType) ? "unknown" : documentType.Trim();
-        return FlexibleExtractionTemplate.Replace("{{DOCUMENT_TYPE}}", t, StringComparison.Ordinal);
+        var prompt = FlexibleExtractionTemplate.Replace("{{DOCUMENT_TYPE}}", t, StringComparison.Ordinal);
+        if (t.Equals("billing_invoice", StringComparison.OrdinalIgnoreCase))
+            prompt += BillingInvoiceFlexibleSuffix;
+        return prompt;
     }
 }

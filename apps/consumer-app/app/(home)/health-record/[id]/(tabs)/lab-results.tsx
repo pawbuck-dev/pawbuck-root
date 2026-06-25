@@ -1,10 +1,8 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { LabResultCard } from "@/components/lab-results/LabResultCard";
 import { useLabResults } from "@/context/labResultsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
-import {
-  FIGMA_HEALTH_LABS_ICON_BG,
-  healthRecordTabCanvas,
-} from "@/constants/figmaHealthLayout";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -86,11 +84,8 @@ export default function LabResultsScreen() {
         className="flex-1 items-center justify-center px-6"
         style={{ backgroundColor: listCanvas, paddingBottom: 120 }}
       >
-        <View
-          className="w-28 h-28 rounded-full items-center justify-center mb-6"
-          style={{ backgroundColor: FIGMA_HEALTH_LABS_ICON_BG }}
-        >
-          <Ionicons name="flask" size={40} color="#FFFFFF" />
+        <View className="mb-6">
+          <DomainCategoryIconWell category="labs" size="hero" />
         </View>
         <Text
           className="text-xl font-bold mb-2 text-center"

@@ -17,7 +17,10 @@ export type SubscriptionLimits = {
 
 export type SubscriptionStatus = {
   plan: SubscriptionPlan;
+  /** Enforcement tier after expiry / founding rules (API source of truth). */
+  activePlan: SubscriptionPlan;
   isFoundingMember: boolean;
+  isAdminGrant: boolean;
   productId: string | null;
   expiresAt: string | null;
   usage: SubscriptionUsage;
@@ -28,7 +31,9 @@ export type SubscriptionStatus = {
 
 type StatusResponse = {
   plan: string;
+  activePlan?: string;
   isFoundingMember: boolean;
+  isAdminGrant?: boolean;
   productId?: string | null;
   expiresAt?: string | null;
   usage: { miloConversationsUsed: number; aiJournalEntriesUsed: number };
@@ -67,9 +72,13 @@ export async function fetchSubscriptionStatus(): Promise<SubscriptionStatus | nu
   }
 
   const json = (await res.json()) as StatusResponse;
+  const storedPlan = parsePlan(json.plan);
+  const activePlan = parsePlan(json.activePlan ?? json.plan);
   return {
-    plan: parsePlan(json.plan),
+    plan: storedPlan,
+    activePlan,
     isFoundingMember: json.isFoundingMember,
+    isAdminGrant: json.isAdminGrant === true,
     productId: json.productId ?? null,
     expiresAt: json.expiresAt ?? null,
     usage: {

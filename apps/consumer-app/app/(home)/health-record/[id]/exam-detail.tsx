@@ -1,3 +1,4 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import {
   OverflowAction,
@@ -7,7 +8,6 @@ import { ClinicalExamEditModal } from "@/components/clinical-exams/ClinicalExamE
 import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
-import { FIGMA_HEALTH_EXAMS_ICON_BG } from "@/constants/figmaHealthLayout";
 import { fetchJournalEntries, linkJournalEntryToClinicalExam } from "@/services/petJournal";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
@@ -259,11 +259,8 @@ export default function ExamDetailScreen() {
           style={{ backgroundColor: theme.card }}
         >
           <View className="flex-row items-start">
-            <View
-              className="w-14 h-14 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG }}
-            >
-              <MaterialCommunityIcons name="stethoscope" size={26} color="#FFFFFF" />
+            <View className="mr-3">
+              <DomainCategoryIconWell category="clinical_visits" size="xl" />
             </View>
             <View className="flex-1">
               <Text

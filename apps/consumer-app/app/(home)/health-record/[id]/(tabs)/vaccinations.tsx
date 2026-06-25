@@ -1,7 +1,7 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import RequiredVaccinesHubCard from "@/components/health/RequiredVaccinesHubCard";
 import { VaccinationCard } from "@/components/vaccinations/VaccinationCard";
 import {
-  FIGMA_HEALTH_TEAL,
   FIGMA_VACCINES_LIST_CANVAS_LIGHT,
   healthRecordTabCanvas,
 } from "@/constants/figmaHealthLayout";
@@ -122,16 +122,8 @@ export default function VaccinationsScreen() {
               className="flex-1 items-center justify-center px-2"
               style={{ minHeight: 420 }}
             >
-              <View
-                className="items-center justify-center mb-6"
-                style={{
-                  width: 128,
-                  height: 128,
-                  borderRadius: 64,
-                  backgroundColor: FIGMA_HEALTH_TEAL,
-                }}
-              >
-                <MaterialCommunityIcons name="heart-pulse" size={56} color="#FFFFFF" />
+              <View className="mb-6">
+                <DomainCategoryIconWell category="vaccines" size="hero" />
               </View>
               <Text
                 className="text-xl font-bold mb-2 text-center"

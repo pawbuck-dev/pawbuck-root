@@ -4,6 +4,7 @@ import {
   meetsMinimumPlan,
   normalizePlan,
   PAYWALL_COPY,
+  resolveEffectiveSubscriptionPlan,
   type OpenPaywallOptions,
   type SubscriptionPlan,
 } from "@/constants/subscriptionPlans";
@@ -116,12 +117,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const plan = useMemo((): SubscriptionPlan => {
     if (DEV_PREMIUM_PLAN !== "free") return DEV_PREMIUM_PLAN;
-    if (subscriptionStatus?.plan) return subscriptionStatus.plan;
-    const fromRow = getActivePlanFromRow(entitlement ?? undefined);
-    if (fromRow !== "free") return fromRow;
-    if (revenueCatPlan) return revenueCatPlan;
-    return "free";
-  }, [entitlement, revenueCatPlan, subscriptionStatus?.plan]);
+    return resolveEffectiveSubscriptionPlan([
+      getActivePlanFromRow(entitlement ?? undefined),
+      subscriptionStatus?.activePlan,
+      subscriptionStatus?.plan,
+      revenueCatPlan,
+    ]);
+  }, [entitlement, revenueCatPlan, subscriptionStatus?.activePlan, subscriptionStatus?.plan]);
 
   const isPremium = plan === "individual" || plan === "family";
   const founding = subscriptionStatus?.isFoundingMember ?? isFoundingMember(entitlement ?? undefined);

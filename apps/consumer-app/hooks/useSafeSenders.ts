@@ -1,3 +1,4 @@
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { usePets } from "@/context/petsContext";
 import {
   addEmailForAllUserPets,
@@ -69,9 +70,9 @@ export const useSafeSenders = ({
     onError: (error) => {
       // Show user-friendly message for duplicate emails
       const errorMessage =
-        error instanceof Error && error.message.includes("already in your safe senders")
+        error instanceof Error && error.message.includes("approved list")
           ? error.message
-          : "Failed to add email to safe senders";
+          : APPROVED_PET_EMAIL_UI.addError;
       Alert.alert("Error", errorMessage);
       console.error("Error adding whitelist email:", error);
     },
@@ -106,7 +107,7 @@ export const useSafeSenders = ({
       });
     },
     onError: (error) => {
-      Alert.alert("Error", "Failed to remove email from safe senders");
+      Alert.alert("Error", APPROVED_PET_EMAIL_UI.removeError);
       console.error("Error deleting whitelist email:", error);
     },
   });

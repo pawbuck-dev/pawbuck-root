@@ -1,4 +1,5 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
+import { claimNotificationDedupe } from "../../_shared/notificationDedup.ts";
 import type { EmailInfo, Pet, ProcessedAttachment, PetValidationResult, SkipReason } from "../types.ts";
 import { formatDetailedError } from "../petValidator.ts";
 import { CONFIRM_HINT } from "../../_shared/email-health-ingestion/ownerFacingFailureReason.ts";
@@ -12,18 +13,31 @@ export async function sendEmailParsingUpgradeNotification(
 ): Promise<void> {
   if (attachmentCount <= 0) return;
 
+  const dedupeKey = `email_parsing_upgrade:${pet.id}`;
+  const maySend = await claimNotificationDedupe(pet.user_id, dedupeKey);
+  if (!maySend) {
+    console.log(
+      `Skipping duplicate email parsing upgrade push for user ${pet.user_id} pet ${pet.id}`,
+    );
+    return;
+  }
+
   const fileWord = attachmentCount === 1 ? "document" : "documents";
+  const threadId = `email_parsing_upgrade_${pet.id}`;
 
   try {
     await sendNotificationToUser(pet.user_id, {
       title: `Upgrade to import records for ${pet.name}`,
       body:
         `We received ${attachmentCount} health ${fileWord} by email. Email parsing is included with Individual — upgrade in the app to import them automatically.`,
+      threadId,
+      collapseId: dedupeKey,
       data: {
         type: "email_parsing_upgrade_required",
         petId: pet.id,
         petName: pet.name,
         attachmentCount,
+        threadId,
       },
     });
     console.log(`Email parsing upgrade notification sent to user ${pet.user_id}`);

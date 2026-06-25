@@ -10,6 +10,8 @@ import DailyIntakeConfigModal, { type DailyIntakeConfigSave } from "@/components
 import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { useDailyIntakeRealtime } from "@/hooks/useDailyIntakeRealtime";
+import { usePetHealthWrite } from "@/hooks/usePetHealthWrite";
 import { syncBodyTrackerObservationJournals } from "@/services/bodyTrackerJournalSync";
 import { resolveIntakePrefs, type PetWithIntakePrefs } from "@/utils/intakeBreedSuggestions";
 import { DailyIntake, getDailyIntake, updateDailyIntake } from "@/services/dailyIntake";
@@ -212,6 +214,10 @@ export default function BodyTrackerSection({
   const queryClient = useQueryClient();
   const intakeQueryKey = ["daily_intake", petId];
   const logsQueryKey = ["pet_weight_logs", petId];
+  const { canWrite, guardWrite, role } = usePetHealthWrite(petId);
+  const canManageTargets = role === "owner" || role === "admin";
+
+  useDailyIntakeRealtime(petId);
 
   const { data: intake, isLoading } = useQuery({
     queryKey: intakeQueryKey,
@@ -260,6 +266,33 @@ export default function BodyTrackerSection({
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: intakeQueryKey }),
   });
+
+  const patchIntake = useCallback(
+    (
+      updates: Partial<
+        Pick<
+          DailyIntake,
+          | "food_intake"
+          | "water_intake"
+          | "food_target"
+          | "water_target"
+          | "poop_count"
+          | "pee_count"
+          | "poop_tags"
+          | "pee_tags"
+          | "poop_observation_note"
+          | "poop_observation_photo_path"
+          | "pee_observation_note"
+          | "pee_observation_photo_path"
+          | "poop_journal_entry_id"
+          | "pee_journal_entry_id"
+        >
+      >
+    ) => {
+      guardWrite(() => mutation.mutate(updates));
+    },
+    [guardWrite, mutation]
+  );
 
   const weightMutation = useMutation({
     mutationFn: async ({
@@ -356,14 +389,14 @@ export default function BodyTrackerSection({
     const next = poopNoteDraft.trim() || null;
     const prev = intake?.poop_observation_note?.trim() || null;
     if (next === prev) return;
-    mutation.mutate({ poop_observation_note: next });
+    patchIntake({ poop_observation_note: next });
   }, [poopNoteDraft, intake?.poop_observation_note, mutation]);
 
   const savePeeObservationNote = useCallback(() => {
     const next = peeNoteDraft.trim() || null;
     const prev = intake?.pee_observation_note?.trim() || null;
     if (next === prev) return;
-    mutation.mutate({ pee_observation_note: next });
+    patchIntake({ pee_observation_note: next });
   }, [peeNoteDraft, intake?.pee_observation_note, mutation]);
 
   const petSlug = pet?.name?.split(/\s+/).join("_") ?? "pet";
@@ -385,7 +418,7 @@ export default function BodyTrackerSection({
             /* ignore storage cleanup errors */
           }
         }
-        mutation.mutate({ poop_observation_photo_path: data.path });
+        patchIntake({ poop_observation_photo_path: data.path });
       } catch {
         Alert.alert("Error", "Could not upload photo. Please try again.");
       } finally {
@@ -412,7 +445,7 @@ export default function BodyTrackerSection({
             /* ignore */
           }
         }
-        mutation.mutate({ pee_observation_photo_path: data.path });
+        patchIntake({ pee_observation_photo_path: data.path });
       } catch {
         Alert.alert("Error", "Could not upload photo. Please try again.");
       } finally {
@@ -472,7 +505,7 @@ export default function BodyTrackerSection({
       }
       clearUrlCache(p);
     }
-    mutation.mutate({ poop_observation_photo_path: null });
+    patchIntake({ poop_observation_photo_path: null });
   }, [intake?.poop_observation_photo_path, mutation]);
 
   const removePeeObservationPhoto = useCallback(async () => {
@@ -485,7 +518,7 @@ export default function BodyTrackerSection({
       }
       clearUrlCache(p);
     }
-    mutation.mutate({ pee_observation_photo_path: null });
+    patchIntake({ pee_observation_photo_path: null });
   }, [intake?.pee_observation_photo_path, mutation]);
 
   const toggleTag = (kind: "poop" | "pee", tag: string) => {
@@ -493,7 +526,7 @@ export default function BodyTrackerSection({
     const i = arr.indexOf(tag);
     if (i >= 0) arr.splice(i, 1);
     else arr.push(tag);
-    mutation.mutate(kind === "poop" ? { poop_tags: arr } : { pee_tags: arr });
+    patchIntake(kind === "poop" ? { poop_tags: arr } : { pee_tags: arr });
   };
 
   const chartW = Math.min(winW - 56, 320);
@@ -550,18 +583,24 @@ export default function BodyTrackerSection({
   }, [latestLog]);
 
   const handleSubmitLog = () => {
-    const w = parseFloat(logValue.replace(",", "."));
-    if (Number.isNaN(w) || w <= 0) return;
-    const t = targetDraft.trim() ? parseFloat(targetDraft.replace(",", ".")) : null;
-    weightMutation.mutate({
-      w,
-      u: displayUnit,
-      target: t != null && !Number.isNaN(t) && t > 0 ? t : null,
+    guardWrite(() => {
+      const w = parseFloat(logValue.replace(",", "."));
+      if (Number.isNaN(w) || w <= 0) return;
+      const t = targetDraft.trim() ? parseFloat(targetDraft.replace(",", ".")) : null;
+      weightMutation.mutate({
+        w,
+        u: displayUnit,
+        target: t != null && !Number.isNaN(t) && t > 0 ? t : null,
+      });
     });
   };
 
   const handleSaveIntakeConfig = useCallback(
     async (cfg: DailyIntakeConfigSave) => {
+      if (!canManageTargets) {
+        Alert.alert("Permission needed", "Only the pet owner or an admin can change daily intake targets.");
+        return;
+      }
       await mutation.mutateAsync({
         food_target: cfg.mealsPerDay,
         water_target: cfg.waterCupsPerDay,
@@ -574,7 +613,7 @@ export default function BodyTrackerSection({
       });
       await queryClient.invalidateQueries({ queryKey: ["pets", user?.id] });
     },
-    [mutation, petId, updatePet, queryClient, user?.id]
+    [mutation, petId, updatePet, queryClient, user?.id, canManageTargets]
   );
 
   if (isLoading) {
@@ -704,9 +743,11 @@ export default function BodyTrackerSection({
         <>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: theme.foreground }}>Daily Intake</Text>
-            <TouchableOpacity onPress={() => setShowConfigModal(true)}>
-              <Ionicons name="settings-outline" size={20} color={theme.secondary} />
-            </TouchableOpacity>
+            {canManageTargets ? (
+              <TouchableOpacity onPress={() => setShowConfigModal(true)}>
+                <Ionicons name="settings-outline" size={20} color={theme.secondary} />
+              </TouchableOpacity>
+            ) : null}
           </View>
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
         <View
@@ -743,7 +784,7 @@ export default function BodyTrackerSection({
             filledColor={primaryTeal}
             emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
             type="food"
-            onSelectSlot={(i) => mutation.mutate({ food_intake: Math.min(i + 1, foodTarget) })}
+            onSelectSlot={(i) => patchIntake({ food_intake: Math.min(i + 1, foodTarget) })}
           />
           <Text
             style={{
@@ -791,7 +832,7 @@ export default function BodyTrackerSection({
             filledColor={isDark ? "#60A5FA" : "#3B82F6"}
             emptyColor={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
             type="water"
-            onSelectSlot={(i) => mutation.mutate({ water_intake: Math.min(i + 1, waterTarget) })}
+            onSelectSlot={(i) => patchIntake({ water_intake: Math.min(i + 1, waterTarget) })}
           />
           <Text
             style={{
@@ -838,7 +879,7 @@ export default function BodyTrackerSection({
             count={poopCount}
             total={poopTarget}
             iconType="poop"
-            onSelectSlot={(i) => mutation.mutate({ poop_count: Math.min(i + 1, poopTarget) })}
+            onSelectSlot={(i) => patchIntake({ poop_count: Math.min(i + 1, poopTarget) })}
           />
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>
@@ -888,7 +929,7 @@ export default function BodyTrackerSection({
             count={peeCount}
             total={peeTarget}
             iconType="pee"
-            onSelectSlot={(i) => mutation.mutate({ pee_count: Math.min(i + 1, peeTarget) })}
+            onSelectSlot={(i) => patchIntake({ pee_count: Math.min(i + 1, peeTarget) })}
           />
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 4 }}>

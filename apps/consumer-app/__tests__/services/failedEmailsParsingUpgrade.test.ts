@@ -19,4 +19,13 @@ describe("failedEmails email parsing upgrade", () => {
     expect(summary).toMatch(/Individual/i);
     expect(summary).toMatch(/1/);
   });
+
+  it("summarizes reprocess copy when parsing is allowed", () => {
+    const summary = summarizeAttachmentFailureReason("email_parsing_upgrade_required:4", {
+      canParseEmail: true,
+    });
+    expect(summary).toMatch(/reprocess/i);
+    expect(summary).toMatch(/4/);
+    expect(summary).not.toMatch(/Upgrade/i);
+  });
 });

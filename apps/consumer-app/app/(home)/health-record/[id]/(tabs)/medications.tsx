@@ -1,8 +1,6 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { MedicineCard } from "@/components/medicines/MedicineCard";
-import {
-  FIGMA_HEALTH_MEDS_ICON_BG,
-  healthRecordTabCanvas,
-} from "@/constants/figmaHealthLayout";
+import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { useMedicines } from "@/context/medicinesContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
@@ -87,16 +85,8 @@ export default function MedicationsScreen() {
           className="flex-1 items-center justify-center px-6"
           style={{ minHeight: 420 }}
         >
-          <View
-            className="items-center justify-center mb-6"
-            style={{
-              width: 128,
-              height: 128,
-              borderRadius: 64,
-              backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG,
-            }}
-          >
-            <MaterialCommunityIcons name="pill" size={56} color="#FFFFFF" />
+          <View className="items-center justify-center mb-6">
+            <DomainCategoryIconWell category="medications" size="hero" />
           </View>
           <Text
             className="text-xl font-bold mb-2 text-center"

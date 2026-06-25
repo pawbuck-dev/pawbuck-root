@@ -1,13 +1,11 @@
-import {
-  FIGMA_HEALTH_MEDS_ICON_BG,
-  FIGMA_HEALTH_TEAL,
-} from "@/constants/figmaHealthLayout";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
+import type { DomainCategoryId } from "@/constants/iconTierTokens";
 import { useTheme } from "@/context/themeContext";
+import { getNextMedicationDose } from "@/utils/medication";
+import { getVaccinationAlertPeriod } from "@/utils/vaccinationAlertPeriods";
 import { Tables } from "@/database.types";
 import { MedicineData } from "@/types/medication";
-import { getVaccinationAlertPeriod } from "@/utils/vaccinationAlertPeriods";
-import { getNextMedicationDose } from "@/utils/medication";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import moment from "moment";
 import React, { useMemo, useRef, useState } from "react";
@@ -34,11 +32,7 @@ type CatchUpCard = {
   type: "vaccination" | "medication";
   title: string;
   subtitle: string;
-  iconName: string;
-  iconColor: string;
-  iconBg: string;
-  /** Rounded rect behind icon (default 12 in render) */
-  iconPlateRadius?: number;
+  domainCategory: DomainCategoryId;
   route: string;
 };
 
@@ -80,10 +74,7 @@ export default function CatchUpSection({
             daysLeft <= 7
               ? `Due in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}. Schedule with your vet.`
               : `Due in ${daysLeft} days. Tap to view details.`,
-          iconName: "heart-pulse",
-          iconColor: "#FFFFFF",
-          iconBg: FIGMA_HEALTH_TEAL,
-          iconPlateRadius: 20,
+          domainCategory: "vaccines",
           route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
         });
       });
@@ -96,10 +87,7 @@ export default function CatchUpSection({
           type: "medication",
           title: `${med.name} Due`,
           subtitle: "Tap to view and schedule with your vet.",
-          iconName: "pill",
-          iconColor: "#FFFFFF",
-          iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
-          iconPlateRadius: 20,
+          domainCategory: "medications",
           route: `/(home)/health-record/${petId}/(tabs)/medications`,
         });
       }
@@ -137,18 +125,7 @@ export default function CatchUpSection({
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: item.iconPlateRadius ?? 12,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: item.iconBg,
-          }}
-        >
-          <MaterialCommunityIcons name={item.iconName as any} size={22} color={item.iconColor} />
-        </View>
+        <DomainCategoryIconWell category={item.domainCategory} size="md" />
         <TouchableOpacity
           style={{
             width: 28,
@@ -180,54 +157,47 @@ export default function CatchUpSection({
           } catch {}
         }}
       >
-        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>View</Text>
-        <Ionicons name="open-outline" size={14} color={theme.primary} style={{ marginLeft: 4 }} />
+        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.primary }}>View details</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.primary} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 
   return (
-    <View>
-      <Text
-        style={{
-          fontSize: 18,
-          fontWeight: "700",
-          color: theme.foreground,
-          marginBottom: 12,
-          paddingHorizontal: 20,
-        }}
-      >
-        Catch Up
-      </Text>
-
+    <View style={{ marginBottom: 16 }}>
       <FlatList
         data={cards}
         renderItem={renderCard}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
-        snapToInterval={screenWidth}
-        decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
+        snapToInterval={cardWidth + CARD_HORIZONTAL_MARGIN * 2}
+        decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const offset = e.nativeEvent.contentOffset.x;
+          const index = Math.round(offset / (cardWidth + CARD_HORIZONTAL_MARGIN * 2));
+          setActiveIndex(index);
+        }}
       />
-
-      {cards.length > 1 && (
-        <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 12, gap: 6 }}>
-          {cards.map((_, i) => (
+      {cards.length > 1 ? (
+        <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 }}>
+          {cards.map((card, index) => (
             <View
-              key={i}
+              key={card.id}
               style={{
-                width: i === activeIndex ? 20 : 6,
+                width: index === activeIndex ? 16 : 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: i === activeIndex ? theme.primary : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
+                backgroundColor:
+                  index === activeIndex ? theme.primary : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
               }}
             />
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

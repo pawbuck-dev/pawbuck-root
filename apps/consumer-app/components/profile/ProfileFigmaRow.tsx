@@ -1,3 +1,4 @@
+import { NavigationIconWell } from "@/components/ui/IconWell";
 import { useTheme } from "@/context/themeContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { type ReactNode } from "react";
@@ -26,6 +27,7 @@ export function ProfileSectionHeading({ children }: { children: string }) {
 
 export function ProfileFigmaRow({
   icon,
+  ionIcon,
   leading,
   title,
   subtitle,
@@ -34,7 +36,10 @@ export function ProfileFigmaRow({
   /** Pet picker row: chevron inside a thin bordered circle (light ref) */
   trailingCircled = false,
 }: {
-  icon?: string;
+  /** MaterialCommunityIcons name */
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  /** Ionicons name (alternative to icon) */
+  ionIcon?: keyof typeof Ionicons.glyphMap;
   leading?: ReactNode;
   title: string;
   subtitle: string;
@@ -77,20 +82,12 @@ export function ProfileFigmaRow({
         >
           {leading ? (
             <View style={{ marginRight: 12, flexShrink: 0 }}>{leading}</View>
-          ) : icon ? (
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: t.profileListIconWellBg,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 12,
-                flexShrink: 0,
-              }}
-            >
-              <MaterialCommunityIcons name={icon as never} size={20} color={t.profileListIconColor} />
+          ) : icon || ionIcon ? (
+            <View style={{ marginRight: 12, flexShrink: 0 }}>
+              <NavigationIconWell
+                size="md"
+                {...(icon ? { materialIcon: icon } : { ionIcon: ionIcon! })}
+              />
             </View>
           ) : null}
           <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>

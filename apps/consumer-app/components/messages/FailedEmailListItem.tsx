@@ -1,4 +1,5 @@
 import { HEALTH_LAYOUT, healthListCardChrome } from "@/constants/figmaHealthLayout";
+import { MESSAGES_INBOX } from "@/components/messages/inboxUiTokens";
 import { useTheme } from "@/context/themeContext";
 import { FailedEmail } from "@/services/failedEmails";
 import { Ionicons } from "@expo/vector-icons";
@@ -127,7 +128,7 @@ export default function FailedEmailListItem({
       onPress={onPress}
       activeOpacity={0.7}
       style={{
-        marginHorizontal: HEALTH_LAYOUT.screenPaddingX,
+        marginHorizontal: MESSAGES_INBOX.paddingH,
         marginBottom: HEALTH_LAYOUT.cardGap,
         borderRadius: HEALTH_LAYOUT.cardRadius,
         padding: HEALTH_LAYOUT.cardPadding,

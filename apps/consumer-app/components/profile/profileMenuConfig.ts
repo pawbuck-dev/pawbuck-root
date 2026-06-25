@@ -1,9 +1,19 @@
 /** Static menu copy + icons; wiring (router / alerts) stays in `profile.tsx`. */
 
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+type ProfileMenuIcon =
+  | { icon: keyof typeof MaterialCommunityIcons.glyphMap; ionIcon?: undefined }
+  | { ionIcon: keyof typeof Ionicons.glyphMap; icon?: undefined };
+
+export function profileMenuIconProps(row: ProfileMenuIcon) {
+  return row.ionIcon ? { ionIcon: row.ionIcon } : { icon: row.icon! };
+}
+
 export const PROFILE_MY_PETS_LINK_ROWS = [
   {
     id: "details",
-    icon: "paw-outline",
+    ionIcon: "paw-outline",
     title: "View & edit pet profile",
     subtitle: "Details, photo, delete pet",
     href: "/(home)/pet-profile",
@@ -23,18 +33,11 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     href: "/transfer-pet",
   },
   {
-    id: "join-household",
-    icon: "home-account",
-    title: "Join Household",
-    subtitle: "Have a household code from a family member?",
-    href: "/join-household",
-  },
-  {
-    id: "access",
-    icon: "account-cog-outline",
-    title: "Manage Access",
-    subtitle: "Invite family, care team & safe senders",
-    href: "/(home)/family-access",
+    id: "family-sharing",
+    icon: "account-group-outline",
+    title: "Family Sharing",
+    subtitle: "Join a household or invite family & care team",
+    href: "/(home)/family-sharing",
   },
   {
     id: "transfer",
@@ -43,24 +46,26 @@ export const PROFILE_MY_PETS_LINK_ROWS = [
     subtitle: "Giving up ownership? Create a transfer code",
     href: "/(home)/transfer-pet",
   },
-] as const;
+] as const satisfies ReadonlyArray<
+  { id: string; title: string; subtitle: string; href: string } & ProfileMenuIcon
+>;
 
 export const PROFILE_SETTINGS_ROWS = [
   {
     id: "notification-center",
-    icon: "notifications-outline",
+    ionIcon: "notifications-outline",
     title: "Notification center",
     subtitle: "Recent alerts and email approvals",
   },
   {
     id: "notifications",
-    icon: "phone-portrait-outline",
+    ionIcon: "phone-portrait-outline",
     title: "Push permissions",
     subtitle: "Device settings to allow or block alerts",
   },
   {
     id: "download-data",
-    icon: "download-outline",
+    ionIcon: "download-outline",
     title: "Download my data",
     subtitle: "Request a copy of your account data",
   },
@@ -72,7 +77,7 @@ export const PROFILE_SETTINGS_ROWS = [
   },
   {
     id: "change-password",
-    icon: "lock-outline",
+    ionIcon: "lock-closed-outline",
     title: "Change password",
     subtitle: "Update your sign-in password",
   },
@@ -82,7 +87,7 @@ export const PROFILE_SETTINGS_ROWS = [
     title: "Appearance",
     subtitle: "Light, Dark, or System default",
   },
-] as const;
+] as const satisfies ReadonlyArray<{ id: string; title: string; subtitle: string } & ProfileMenuIcon>;
 
 export type ProfileSettingsRowId = (typeof PROFILE_SETTINGS_ROWS)[number]["id"];
 
@@ -93,6 +98,6 @@ export const PROFILE_HELP_ROWS = [
     title: "Contact Us",
     subtitle: "Get help and support",
   },
-] as const;
+] as const satisfies ReadonlyArray<{ id: string; title: string; subtitle: string } & ProfileMenuIcon>;
 
 export type ProfileHelpRowId = (typeof PROFILE_HELP_ROWS)[number]["id"];

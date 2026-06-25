@@ -11,6 +11,7 @@ import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { useSafeSenders, validateEmail } from "@/hooks/useSafeSenders";
 import { TablesInsert } from "@/database.types";
 import { linkCareTeamMemberToAllUserPets } from "@/services/careTeamMembers";
@@ -647,7 +648,7 @@ export default function FamilyAccess() {
           />
         )}
 
-        {/* Safe Senders */}
+        {/* Trusted contacts (pet @pawbuck.app allowlist) */}
         {firstPetId && (
           <View style={safeSendersCardStyle}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -668,9 +669,11 @@ export default function FamilyAccess() {
                 />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>Safe Senders</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: theme.foreground }}>
+                  {APPROVED_PET_EMAIL_UI.sectionTitle}
+                </Text>
                 <Text style={{ fontSize: 12, color: theme.secondary, marginTop: 2 }}>
-                  {safeSenderEmails.length} contacts can communicate
+                  {APPROVED_PET_EMAIL_UI.sectionSubtitle(safeSenderEmails.length)}
                 </Text>
               </View>
             </View>
@@ -688,7 +691,7 @@ export default function FamilyAccess() {
                       marginBottom: 16,
                     }}
                   >
-                    You haven't added any trusted senders yet. Add one to get started.
+                    {APPROVED_PET_EMAIL_UI.emptyBody}
                   </Text>
                 )}
 
@@ -836,7 +839,9 @@ export default function FamilyAccess() {
                   }}
                 >
                   <Ionicons name="add" size={18} color={theme.foreground} />
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>Add Senders</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: theme.foreground }}>
+                    {APPROVED_PET_EMAIL_UI.addButton}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
@@ -1218,6 +1223,24 @@ export default function FamilyAccess() {
               </>
             )}
           </View>
+
+          <Pressable
+            onPress={() => router.push("/join-household")}
+            style={{ alignItems: "center", paddingVertical: 12, marginTop: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Join a household with an invite code"
+          >
+            <Text
+              style={{
+                fontFamily: "Poppins_600SemiBold",
+                fontSize: 15,
+                color: theme.primary,
+                textAlign: "center",
+              }}
+            >
+              Have a household code? Join a household
+            </Text>
+          </Pressable>
         </ScrollView>
 
         <Modal

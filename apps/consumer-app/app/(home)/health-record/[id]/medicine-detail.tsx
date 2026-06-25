@@ -1,11 +1,11 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import {
   OverflowAction,
   RecordOverflowSheet,
 } from "@/components/health/RecordOverflowSheet";
 import { MedicineEditModal } from "@/components/medicines/MedicineEditModal";
 import {
-  FIGMA_HEALTH_MEDS_ICON_BG,
   HEALTH_LAYOUT,
   HEALTH_TYPE,
   healthDetailCardChrome,
@@ -252,9 +252,7 @@ export default function MedicineDetailScreen() {
           ]}
         >
           <View style={styles.summaryRow}>
-            <View style={[styles.iconCircle, { backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG }]}>
-              <MaterialCommunityIcons name="pill" size={26} color="#FFFFFF" />
-            </View>
+            <DomainCategoryIconWell category="medications" size="xl" />
             <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
               <Text
                 style={[HEALTH_TYPE.detailTitle, { color: theme.foreground }]}

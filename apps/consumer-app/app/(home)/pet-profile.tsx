@@ -836,7 +836,7 @@ export default function PetProfile() {
                   style={fieldIconWell}
                 >
                   <MaterialCommunityIcons
-                    name="chip"
+                    name="passport"
                     size={20}
                     color={subscreen.iconFg}
                   />

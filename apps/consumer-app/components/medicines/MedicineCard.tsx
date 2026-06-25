@@ -6,8 +6,8 @@ import {
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { useMedicines } from "@/context/medicinesContext";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import {
-  FIGMA_HEALTH_MEDS_ICON_BG,
   HEALTH_LAYOUT,
   HEALTH_TYPE,
   healthListCardChrome,
@@ -139,8 +139,8 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({
         ]}
       >
         <View style={styles.topRow}>
-          <View style={[styles.iconCircle, { backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG }]}>
-            <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />
+          <View style={{ marginRight: HEALTH_LAYOUT.iconToTitleGap }}>
+            <DomainCategoryIconWell category="medications" size="lg" />
           </View>
           <View style={styles.titleBlock}>
             <Text

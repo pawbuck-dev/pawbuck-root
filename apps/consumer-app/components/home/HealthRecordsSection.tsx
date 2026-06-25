@@ -1,13 +1,10 @@
 import {
-  FIGMA_HEALTH_EXAMS_ICON_BG,
-  FIGMA_HEALTH_LABS_ICON_BG,
-  FIGMA_HEALTH_MEDS_ICON_BG,
-  FIGMA_HEALTH_TEAL,
   HEALTH_ELEVATION,
   HEALTH_LAYOUT,
   dashboardCareTeamCardChrome,
-  dashboardIconPlateMuted,
 } from "@/constants/figmaHealthLayout";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
+import { hubCardTypeToDomainCategory } from "@/constants/iconTierTokens";
 import { useTheme } from "@/context/themeContext";
 import { fetchMedicines } from "@/services/medicines";
 import { fetchClinicalExams } from "@/services/clinicalExams";
@@ -111,8 +108,6 @@ export default function HealthRecordsSection({
     ? {}
     : { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" };
   const cardBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
-  const hubIconPlate = dashboardIconPlateMuted(isDark);
-  const hubIconInk = isDark ? theme.foreground : theme.primary;
 
   const { data: vaccinations = [], isLoading: loadingVac } = useQuery({
     queryKey: ["vaccinations", petId],
@@ -259,9 +254,6 @@ export default function HealthRecordsSection({
       title: petPossessiveLabel(petNameForTitles, "Vaccinations"),
       route: `/(home)/health-record/${petId}/(tabs)/vaccinations` as const,
       addRoute: `/(home)/health-record/${petId}/vaccination-upload-modal?upload=library` as const,
-      /** Figma 1340:33860 — solid brand teal disc, not tinted plate */
-      iconBg: FIGMA_HEALTH_TEAL,
-      icon: <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />,
       badge: vaccineSummary.badge,
       hubEmptyBadge: { label: "Not Set", variant: "info" as BadgeVariant },
       hubEmptyLine: "No Vaccines Recorded Yet",
@@ -277,8 +269,6 @@ export default function HealthRecordsSection({
       route: `/(home)/health-record/${petId}/(tabs)/medications` as const,
       /** Empty hub: Meds tab (empty state + FAB); + opens Add Medication sheet */
       addRoute: `/(home)/health-record/${petId}/(tabs)/medications` as const,
-      iconBg: FIGMA_HEALTH_MEDS_ICON_BG,
-      icon: <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />,
       badge: medSummary.badge,
       hubEmptyBadge: { label: "None Active", variant: "infoBlue" as BadgeVariant },
       hubEmptyLine: "No Medications Recorded Yet",
@@ -294,8 +284,6 @@ export default function HealthRecordsSection({
       route: `/(home)/health-record/${petId}/(tabs)/exams` as const,
       /** Empty hub: Exams tab (empty state + FAB); + opens Upload Exam Documents sheet */
       addRoute: `/(home)/health-record/${petId}/(tabs)/exams` as const,
-      iconBg: FIGMA_HEALTH_EXAMS_ICON_BG,
-      icon: <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />,
       badge: examSummary.badge,
       hubEmptyBadge: { label: "No Records", variant: "warning" as BadgeVariant },
       hubEmptyLine: "No Exams Recorded Yet",
@@ -311,8 +299,6 @@ export default function HealthRecordsSection({
       route: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
       /** Empty hub: go to Labs tab (empty state + FAB); user taps + for Upload Lab Result sheet */
       addRoute: `/(home)/health-record/${petId}/(tabs)/lab-results` as const,
-      iconBg: FIGMA_HEALTH_LABS_ICON_BG,
-      icon: <Ionicons name="flask" size={22} color="#FFFFFF" />,
       badge: labSummary.badge,
       hubEmptyBadge: { label: "No Data", variant: "neutral" as BadgeVariant },
       hubEmptyLine: "No Lab Results Recorded Yet",
@@ -421,16 +407,7 @@ export default function HealthRecordsSection({
               ...(!isDark ? HEALTH_ELEVATION.cardLight : {}),
             };
 
-            const hubGlyph =
-              card.type === "vaccine" ? (
-                <MaterialCommunityIcons name="heart-pulse" size={20} color={hubIconInk} />
-              ) : card.type === "med" ? (
-                <MaterialCommunityIcons name="pill" size={20} color={hubIconInk} />
-              ) : card.type === "exam" ? (
-                <MaterialCommunityIcons name="stethoscope" size={20} color={hubIconInk} />
-              ) : (
-                <Ionicons name="flask" size={20} color={hubIconInk} />
-              );
+            const domainCategory = hubCardTypeToDomainCategory(card.type);
 
             const compactLine =
               card.type === "vaccine"
@@ -445,18 +422,7 @@ export default function HealthRecordsSection({
               <View key={card.id} style={hubTileShell}>
                 <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(card.route as any)}>
                   <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: hubIconPlate,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {hubGlyph}
-                    </View>
+                    <DomainCategoryIconWell category={domainCategory} size="md" />
                     <MaterialCommunityIcons name="arrow-top-right" size={18} color={theme.secondary} />
                   </View>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginTop: 10 }}>
@@ -506,18 +472,7 @@ export default function HealthRecordsSection({
                 style={hubTileShell}
               >
                 <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: hubIconPlate,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {hubGlyph}
-                  </View>
+                  <DomainCategoryIconWell category={domainCategory} size="md" />
                   <MaterialCommunityIcons name="arrow-top-right" size={18} color={theme.secondary} />
                 </View>
                 <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginTop: 10 }}>
@@ -556,18 +511,11 @@ export default function HealthRecordsSection({
 
             const headerRow = (
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                <View
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: card.iconBg,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  {card.icon}
+                <View style={{ marginRight: 12 }}>
+                  <DomainCategoryIconWell
+                    category={hubCardTypeToDomainCategory(card.type)}
+                    size="xl"
+                  />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
@@ -641,18 +589,11 @@ export default function HealthRecordsSection({
               style={cardShellStyle}
             >
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                <View
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: card.iconBg,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: 12,
-                  }}
-                >
-                  {card.icon}
+                <View style={{ marginRight: 12 }}>
+                  <DomainCategoryIconWell
+                    category={hubCardTypeToDomainCategory(card.type)}
+                    size="xl"
+                  />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>

@@ -44,4 +44,14 @@ public class MiloPromptProviderTests
 
         prompt.Should().NotBeNullOrWhiteSpace();
     }
+
+    [Fact]
+    public void GetFlexibleExtractionPrompt_WhenBillingInvoice_IncludesTotalKeyFactRules()
+    {
+        var prompt = _sut.GetFlexibleExtractionPrompt("billing_invoice");
+
+        prompt.Should().Contain("billing_invoice");
+        prompt.Should().Contain("\"Total\"");
+        prompt.Should().Contain("keyFacts");
+    }
 }

@@ -2,6 +2,9 @@ import { createSupabaseClient } from "./supabase-utils.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
+/** Max devices to notify per user (most recently seen first). */
+const MAX_PUSH_DEVICES_PER_USER = 4;
+
 export interface NotificationPayload {
   title: string;
   body: string;
@@ -9,6 +12,10 @@ export interface NotificationPayload {
   sound?: "default" | null;
   badge?: number;
   channelId?: string;
+  /** iOS notification grouping (same thread stacks on lock screen). */
+  threadId?: string;
+  /** Android collapse key — replaces prior notification with same id. */
+  collapseId?: string;
 }
 
 export interface SendNotificationResult {
@@ -18,17 +25,16 @@ export interface SendNotificationResult {
 }
 
 /**
- * Get all push tokens for a user
- * @param userId - The user's ID
- * @returns Array of push tokens
+ * Get active push tokens for a user (deduped, most recently seen devices first).
  */
 export async function getUserPushTokens(userId: string): Promise<string[]> {
   const supabase = createSupabaseClient();
 
   const { data, error } = await supabase
     .from("push_tokens")
-    .select("token")
-    .eq("user_id", userId);
+    .select("token, last_seen")
+    .eq("user_id", userId)
+    .order("last_seen", { ascending: false });
 
   if (error) {
     console.error("Error fetching push tokens:", error);
@@ -39,14 +45,20 @@ export async function getUserPushTokens(userId: string): Promise<string[]> {
     return [];
   }
 
-  return data.map((row) => row.token).filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const row of data) {
+    if (!row.token || seen.has(row.token)) continue;
+    seen.add(row.token);
+    unique.push(row.token);
+    if (unique.length >= MAX_PUSH_DEVICES_PER_USER) break;
+  }
+
+  return unique;
 }
 
 /**
  * Send a push notification to a user
- * @param userId - The user's ID
- * @param notification - The notification payload
- * @returns Result with success status and ticket IDs
  */
 export async function sendNotificationToUser(
   userId: string,
@@ -62,23 +74,26 @@ export async function sendNotificationToUser(
     };
   }
 
-  // Dedupe tokens so the same device (if registered multiple times) gets only one notification
-  const uniqueTokens = [...new Set(tokens)];
-
-  return await sendPushNotifications(uniqueTokens, notification);
+  return await sendPushNotifications(tokens, notification);
 }
 
 /**
  * Send push notifications to multiple tokens
- * @param pushTokens - Array of Expo push tokens
- * @param notification - The notification payload
- * @returns Result with success status and ticket IDs
  */
 export async function sendPushNotifications(
   pushTokens: string[],
   notification: NotificationPayload
 ): Promise<SendNotificationResult> {
-  const messages = pushTokens.map((token) => ({
+  const uniqueTokens = [...new Set(pushTokens.filter(Boolean))];
+  if (uniqueTokens.length === 0) {
+    return { success: false, errors: ["No push tokens provided"] };
+  }
+
+  const threadId =
+    notification.threadId ??
+    (typeof notification.data?.threadId === "string" ? notification.data.threadId : undefined);
+
+  const messages = uniqueTokens.map((token) => ({
     to: token,
     title: notification.title,
     body: notification.body,
@@ -86,6 +101,8 @@ export async function sendPushNotifications(
     sound: notification.sound ?? "default",
     badge: notification.badge,
     channelId: notification.channelId,
+    threadId,
+    collapseId: notification.collapseId,
   }));
 
   try {
@@ -110,7 +127,6 @@ export async function sendPushNotifications(
 
     const result = await response.json();
 
-    // Process tickets
     const ticketIds: string[] = [];
     const errors: string[] = [];
 
@@ -120,10 +136,8 @@ export async function sendPushNotifications(
           ticketIds.push(ticket.id);
         } else if (ticket.status === "error") {
           errors.push(ticket.message || "Unknown error");
-          // Handle specific error types
           if (ticket.details?.error === "DeviceNotRegistered") {
             console.log("Device not registered, token should be removed");
-            // Optionally: Remove invalid token from database
           }
         }
       }
@@ -145,9 +159,6 @@ export async function sendPushNotifications(
 
 /**
  * Send notification to multiple users
- * @param userIds - Array of user IDs
- * @param notification - The notification payload
- * @returns Map of userId to result
  */
 export async function sendNotificationToUsers(
   userIds: string[],
@@ -155,7 +166,6 @@ export async function sendNotificationToUsers(
 ): Promise<Map<string, SendNotificationResult>> {
   const results = new Map<string, SendNotificationResult>();
 
-  // Fetch all tokens for all users in parallel
   const tokenPromises = userIds.map(async (userId) => {
     const tokens = await getUserPushTokens(userId);
     return { userId, tokens };
@@ -163,10 +173,7 @@ export async function sendNotificationToUsers(
 
   const userTokens = await Promise.all(tokenPromises);
 
-  // Collect all tokens and map them to users
   const allTokens: string[] = [];
-  const tokenToUserMap = new Map<string, string>();
-
   for (const { userId, tokens } of userTokens) {
     if (tokens.length === 0) {
       results.set(userId, {
@@ -174,18 +181,13 @@ export async function sendNotificationToUsers(
         errors: ["No push tokens found for user"],
       });
     } else {
-      for (const token of tokens) {
-        allTokens.push(token);
-        tokenToUserMap.set(token, userId);
-      }
+      allTokens.push(...tokens);
     }
   }
 
-  // Send all notifications in a single batch
   if (allTokens.length > 0) {
     const batchResult = await sendPushNotifications(allTokens, notification);
 
-    // For now, mark all users with tokens as having the batch result
     for (const { userId, tokens } of userTokens) {
       if (tokens.length > 0) {
         results.set(userId, batchResult);

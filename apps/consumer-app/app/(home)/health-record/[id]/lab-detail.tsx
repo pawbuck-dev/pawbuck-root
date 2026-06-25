@@ -1,3 +1,4 @@
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
 import {
   OverflowAction,
@@ -5,7 +6,6 @@ import {
 } from "@/components/health/RecordOverflowSheet";
 import { LabResultEditModal } from "@/components/lab-results/LabResultEditModal";
 import { useTheme } from "@/context/themeContext";
-import { FIGMA_HEALTH_LABS_ICON_BG } from "@/constants/figmaHealthLayout";
 import { useLabResults } from "@/context/labResultsContext";
 import { LabResult } from "@/services/labResults";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
@@ -200,11 +200,8 @@ export default function LabDetailScreen() {
           style={{ backgroundColor: theme.card }}
         >
           <View className="flex-row items-start">
-            <View
-              className="w-14 h-14 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: FIGMA_HEALTH_LABS_ICON_BG }}
-            >
-              <Ionicons name="flask" size={26} color="#FFFFFF" />
+            <View className="mr-3">
+              <DomainCategoryIconWell category="labs" size="xl" />
             </View>
             <View className="flex-1">
               <Text

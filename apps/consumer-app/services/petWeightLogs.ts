@@ -45,14 +45,17 @@ export async function insertWeightLog(
 
   const wv =
     unit === "kg" ? convertWeight(weightValue, "kg", "lbs") : weightValue;
-  await supabase
+  const { error: petUpdateError } = await supabase
     .from("pets")
     .update({
       weight_value: wv,
       weight_unit: "lbs",
     })
-    .eq("id", petId)
-    .eq("user_id", user.id);
+    .eq("id", petId);
+
+  if (petUpdateError) {
+    console.warn("petWeightLogs: could not sync pets.weight_value", petUpdateError.message);
+  }
 
   return row;
 }
@@ -75,8 +78,7 @@ export async function updatePetTargetWeight(
       target_weight_value: targetValue,
       target_weight_unit: targetUnit,
     })
-    .eq("id", petId)
-    .eq("user_id", user.id);
+    .eq("id", petId);
 
   if (error) throw error;
 }

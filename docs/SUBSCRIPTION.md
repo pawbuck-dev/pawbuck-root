@@ -43,6 +43,17 @@ Support admins can grant **Individual** or **Family** without App Store billing:
 - **Revoke:** same endpoint with `plan: free`
 - **RevenueCat:** expiration webhooks skip rows with `admin_grant`; store purchases still overwrite on renewal events
 
+### One-time grant for existing users (2026-06-23)
+
+Migration `20260623140000_one_time_admin_grant_by_pet_count.sql` grants complimentary access **once** to every `auth.users` row that exists when the migration runs:
+
+| Owned pets | Plan granted |
+|------------|----------------|
+| 0 or 1 | Individual |
+| 2+ | Family |
+
+Skips active App Store / RevenueCat subscribers. **New signups after this migration are not affected** (no recurring job or API). Per-user grants remain available in Admin → Account workspace.
+
 ## API
 
 - `GET /api/subscription/feature-gates` — gate list with `minimumPlan`

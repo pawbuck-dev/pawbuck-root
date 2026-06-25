@@ -15,7 +15,7 @@ export type VetBookingServiceId =
 export type VetBookingServiceCatalogItem = {
   id: VetBookingServiceId;
   label: string;
-  /** MaterialCommunityIcons glyph name (runtime set; Expo types omit some valid names like "syringe") */
+  /** MaterialCommunityIcons glyph name */
   icon: string;
   /** Pastel circle behind icon */
   circleBg: string;
@@ -24,7 +24,7 @@ export type VetBookingServiceCatalogItem = {
 export const VET_BOOKING_SERVICES_CATALOG: VetBookingServiceCatalogItem[] = [
   { id: "dental", label: "Dental Cleaning", icon: "tooth-outline", circleBg: "#D4E8FF" },
   { id: "xray", label: "X-Ray", icon: "stethoscope", circleBg: "#FFE5D4" },
-  { id: "vaccination", label: "Vaccination", icon: "syringe", circleBg: "#C8F0EE" },
+  { id: "vaccination", label: "Vaccination", icon: "needle", circleBg: "#C8F0EE" },
   { id: "blood_work", label: "Blood Work", icon: "water", circleBg: "#FFD6E8" },
   { id: "wellness", label: "Wellness Exam", icon: "flask-outline", circleBg: "#D4F5D4" },
   { id: "groom", label: "Full Groom", icon: "content-cut", circleBg: "#D4E8FF" },

@@ -151,10 +151,16 @@ export const getThreadProcessingFailures = async (
 };
 
 /** User-facing summary from processed_emails.failure_reason. */
-export function summarizeAttachmentFailureReason(failureReason: string): string {
+export function summarizeAttachmentFailureReason(
+  failureReason: string,
+  options?: { canParseEmail?: boolean }
+): string {
   if (isEmailParsingUpgradeReason(failureReason)) {
     const count = emailParsingUpgradeAttachmentCount(failureReason);
     const fileWord = count === 1 ? "attachment was" : "attachments were";
+    if (options?.canParseEmail) {
+      return `${count} health ${fileWord} received — open to reprocess and import automatically.`;
+    }
     return `${count} health ${fileWord} received but not auto-filed. Upgrade to Individual for email parsing.`;
   }
   const docMatch = failureReason.match(/Document '[^']+':\s*(.+)$/i);

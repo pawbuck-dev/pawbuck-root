@@ -1,9 +1,6 @@
-import {
-  FIGMA_HEALTH_MEDS_ICON_BG,
-  FIGMA_HEALTH_TEAL,
-} from "@/constants/figmaHealthLayout";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
@@ -24,7 +21,6 @@ export default function HealthStatusCards({
 
   return (
     <View className="flex-row gap-3 px-4">
-      {/* Vaccines Card */}
       <TouchableOpacity
         className="flex-1 flex-row items-center rounded-2xl p-4"
         style={{
@@ -37,11 +33,8 @@ export default function HealthStatusCards({
         }
         activeOpacity={0.7}
       >
-        <View
-          className="w-12 h-12 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: FIGMA_HEALTH_TEAL }}
-        >
-          <MaterialCommunityIcons name="heart-pulse" size={22} color="#FFFFFF" />
+        <View className="mr-3">
+          <DomainCategoryIconWell category="vaccines" size="lg" />
         </View>
         <View className="flex-1">
           <Text
@@ -60,7 +53,6 @@ export default function HealthStatusCards({
         <Ionicons name="chevron-forward" size={20} color={theme.secondary} />
       </TouchableOpacity>
 
-      {/* Meds Card */}
       <TouchableOpacity
         className="flex-1 flex-row items-center rounded-2xl p-4"
         style={{
@@ -73,11 +65,8 @@ export default function HealthStatusCards({
         }
         activeOpacity={0.7}
       >
-        <View
-          className="w-12 h-12 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: FIGMA_HEALTH_MEDS_ICON_BG }}
-        >
-          <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />
+        <View className="mr-3">
+          <DomainCategoryIconWell category="medications" size="lg" />
         </View>
         <View className="flex-1">
           <Text
@@ -98,4 +87,3 @@ export default function HealthStatusCards({
     </View>
   );
 }
-

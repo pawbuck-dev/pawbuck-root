@@ -1,4 +1,5 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
+import { claimNotificationDedupe } from "../../_shared/notificationDedup.ts";
 import type {
   EmailInfo,
   Pet,
@@ -6,6 +7,78 @@ import type {
   ProcessedAttachment,
   SkipReason,
 } from "../types.ts";
+
+/**
+ * Notify owner that ICS from pet email created pending vet bookings to confirm in-app.
+ */
+export async function sendCalendarImportsPendingNotification(
+  pet: Pet,
+  importCount: number
+): Promise<void> {
+  if (importCount <= 0) return;
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title:
+        importCount === 1
+          ? `Confirm appointment for ${pet.name}`
+          : `Confirm ${importCount} appointments for ${pet.name}`,
+      body:
+        "We imported a calendar invite from email. Open Calendar in the app to confirm the time.",
+      data: {
+        type: "vet_booking_import_pending",
+        petId: pet.id,
+        petName: pet.name,
+        count: String(importCount),
+      },
+    });
+    console.log(`Calendar import pending notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send calendar import notification:", notificationError);
+  }
+}
+
+/**
+ * Notify owner that email health-document parsing requires Individual plan.
+ */
+export async function sendEmailParsingUpgradeNotification(
+  pet: Pet,
+  attachmentCount: number
+): Promise<void> {
+  if (attachmentCount <= 0) return;
+
+  const dedupeKey = `email_parsing_upgrade:${pet.id}`;
+  const maySend = await claimNotificationDedupe(pet.user_id, dedupeKey);
+  if (!maySend) {
+    console.log(
+      `Skipping duplicate email parsing upgrade push for user ${pet.user_id} pet ${pet.id}`,
+    );
+    return;
+  }
+
+  const fileWord = attachmentCount === 1 ? "document" : "documents";
+  const threadId = `email_parsing_upgrade_${pet.id}`;
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Upgrade to import records for ${pet.name}`,
+      body:
+        `We received ${attachmentCount} health ${fileWord} by email. Email parsing is included with Individual — upgrade in the app to import them automatically.`,
+      threadId,
+      collapseId: dedupeKey,
+      data: {
+        type: "email_parsing_upgrade_required",
+        petId: pet.id,
+        petName: pet.name,
+        attachmentCount,
+        threadId,
+      },
+    });
+    console.log(`Email parsing upgrade notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send email parsing upgrade notification:", notificationError);
+  }
+}
 
 /**
  * Send push notification after successful email processing

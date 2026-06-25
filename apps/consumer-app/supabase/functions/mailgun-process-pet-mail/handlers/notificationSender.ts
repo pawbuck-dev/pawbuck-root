@@ -1,6 +1,50 @@
 import { sendNotificationToUser } from "../../_shared/notification.ts";
+import { claimNotificationDedupe } from "../../_shared/notificationDedup.ts";
 import type { EmailInfo, Pet, ProcessedAttachment, PetValidationResult, SkipReason } from "../types.ts";
 import { formatDetailedError } from "../petValidator.ts";
+import { CONFIRM_HINT } from "../../_shared/email-health-ingestion/ownerFacingFailureReason.ts";
+
+/**
+ * Notify owner that email health-document parsing requires Individual plan.
+ */
+export async function sendEmailParsingUpgradeNotification(
+  pet: Pet,
+  attachmentCount: number
+): Promise<void> {
+  if (attachmentCount <= 0) return;
+
+  const dedupeKey = `email_parsing_upgrade:${pet.id}`;
+  const maySend = await claimNotificationDedupe(pet.user_id, dedupeKey);
+  if (!maySend) {
+    console.log(
+      `Skipping duplicate email parsing upgrade push for user ${pet.user_id} pet ${pet.id}`,
+    );
+    return;
+  }
+
+  const fileWord = attachmentCount === 1 ? "document" : "documents";
+  const threadId = `email_parsing_upgrade_${pet.id}`;
+
+  try {
+    await sendNotificationToUser(pet.user_id, {
+      title: `Upgrade to import records for ${pet.name}`,
+      body:
+        `We received ${attachmentCount} health ${fileWord} by email. Email parsing is included with Individual — upgrade in the app to import them automatically.`,
+      threadId,
+      collapseId: dedupeKey,
+      data: {
+        type: "email_parsing_upgrade_required",
+        petId: pet.id,
+        petName: pet.name,
+        attachmentCount,
+        threadId,
+      },
+    });
+    console.log(`Email parsing upgrade notification sent to user ${pet.user_id}`);
+  } catch (notificationError) {
+    console.error("Failed to send email parsing upgrade notification:", notificationError);
+  }
+}
 
 /**
  * Send push notification after successful email processing
@@ -100,8 +144,8 @@ export async function sendFailedNotification(
 ): Promise<void> {
   try {
     await sendNotificationToUser(pet.user_id, {
-      title: `Email Processing Failed for ${pet.name}`,
-      body: `Failed to process email from ${senderEmail} for ${pet.name}`,
+      title: `Email needs your help — ${pet.name}`,
+      body: `We received a health email but could not file it automatically. ${CONFIRM_HINT}`,
       data: {
         type: "email_failed",
         petId: pet.id,
@@ -138,8 +182,8 @@ export async function sendSkippedAttachmentsNotification(
 
   try {
     await sendNotificationToUser(pet.user_id, {
-      title: `Documents Skipped for ${pet.name}`,
-      body: `${skippedCount} ${fileWord} skipped because the pet could not be verified. Please check the email from ${emailInfo.from}.`,
+      title: `Action needed — ${pet.name}'s documents`,
+      body: `${skippedCount} ${fileWord} skipped because we could not verify your pet on the PDF. ${CONFIRM_HINT}`,
       data: {
         type: "email_skipped",
         petId: pet.id,
@@ -199,8 +243,8 @@ export async function sendAttachmentFailureNotification(
 
   try {
     await sendNotificationToUser(pet.user_id, {
-      title: `Failed to Process ${failedCount} ${fileWord} for ${pet.name}`,
-      body: `We received ${failedCount} ${fileWord} from ${emailInfo.from} but couldn't add them to ${pet.name}'s health records.`,
+      title: `Action needed — ${pet.name}'s health records`,
+      body: `We received ${failedCount} ${fileWord} from ${emailInfo.from} but could not add them yet. ${CONFIRM_HINT}`,
       data: {
         type: "email_attachment_failed",
         petId: pet.id,
@@ -247,22 +291,27 @@ export function formatSkipReason(
   pet?: Pet,
   filename?: string
 ): string {
-  // If we have detailed validation info, use it
+  let message: string;
   if (validation && pet) {
-    return formatDetailedValidationError(validation, pet, filename);
+    message = formatDetailedValidationError(validation, pet, filename);
+  } else {
+    switch (reason) {
+      case "no_pet_info":
+        message = "No pet identification info found on this document";
+        break;
+      case "microchip_mismatch":
+        message = "Microchip number does not match (legacy)";
+        break;
+      case "attributes_mismatch":
+        message = "Pet first name or breed does not match profile";
+        break;
+      default:
+        message = "Validation failed";
+    }
   }
-  
-  // Fallback to simple reason
-  switch (reason) {
-    case "no_pet_info":
-      return "No pet identification info found";
-    case "microchip_mismatch":
-      return "Microchip number does not match (legacy)";
-    case "attributes_mismatch":
-      return "Pet first name or breed does not match profile";
-    default:
-      return "Validation failed";
-  }
+
+  if (message.includes(CONFIRM_HINT)) return message;
+  return `${message} ${CONFIRM_HINT}`;
 }
 
 /**

@@ -11,6 +11,7 @@ interface ThreadListItemProps {
   onPress: () => void;
   onAddToCareTeam?: () => void;
   showAddButton?: boolean;
+  insetX?: number;
 }
 
 export default function ThreadListItem({
@@ -18,6 +19,7 @@ export default function ThreadListItem({
   onPress,
   onAddToCareTeam,
   showAddButton = false,
+  insetX = HEALTH_LAYOUT.screenPaddingX,
 }: ThreadListItemProps) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
@@ -62,7 +64,7 @@ export default function ThreadListItem({
       onPress={onPress}
       activeOpacity={0.7}
       style={{
-        marginHorizontal: HEALTH_LAYOUT.screenPaddingX,
+        marginHorizontal: insetX,
         marginBottom: HEALTH_LAYOUT.cardGap,
         borderRadius: HEALTH_LAYOUT.cardRadius,
         padding: HEALTH_LAYOUT.cardPadding,
@@ -91,7 +93,7 @@ export default function ThreadListItem({
           <View className="flex-row items-center justify-between mb-1">
             <Text
               className="text-base font-semibold flex-1"
-              style={{ color: theme.foreground }}
+              style={{ fontFamily: "Poppins_600SemiBold", color: theme.foreground }}
               numberOfLines={1}
             >
               {recipientName}

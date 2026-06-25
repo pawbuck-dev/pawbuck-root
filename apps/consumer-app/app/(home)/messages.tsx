@@ -1,13 +1,19 @@
+import { NavigationIconWell } from "@/components/ui/IconWell";
 import BottomNavBar from "@/components/home/BottomNavBar";
-import PetSelector from "@/components/home/PetSelector";
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import FailedEmailDetailView from "@/components/messages/FailedEmailDetailView";
 import FailedEmailListItem from "@/components/messages/FailedEmailListItem";
-import ReviewInboxResolutionModal from "@/components/messages/ReviewInboxResolutionModal";
 import GroupedThreadList from "@/components/messages/GroupedThreadList";
+import {
+  MESSAGE_CARE_TEAM_SECTION_TITLES,
+  MessagesInboxToolbar,
+  type MessageCareTeamFilter,
+} from "@/components/messages/MessagesInboxToolbar";
+import { MESSAGES_INBOX } from "@/components/messages/inboxUiTokens";
 import { NewMessageModal } from "@/components/messages/NewMessageModal";
 import PendingEmailDetailView from "@/components/messages/PendingEmailDetailView";
 import PendingEmailListItem from "@/components/messages/PendingEmailListItem";
+import ReviewInboxResolutionModal from "@/components/messages/ReviewInboxResolutionModal";
 import ThreadDetailView from "@/components/messages/ThreadDetailView";
 import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
@@ -16,7 +22,6 @@ import { useTheme } from "@/context/themeContext";
 import { FailedEmail, getReviewInbox, isEmailParsingUpgradeReason } from "@/services/failedEmails";
 import { useSubscription } from "@/context/subscriptionContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
-import type { CareTeamMemberType } from "@/services/careTeamMembers";
 import {
   GroupedThreads,
   groupThreadsByPet,
@@ -24,7 +29,7 @@ import {
 } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
 import { supabase } from "@/utils/supabase";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -37,26 +42,8 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
-
-/** Inbox list filter: all care types, or a single `GroupedThreads` bucket */
-type MessageCareTeamFilter = "all" | CareTeamMemberType;
-
-const MESSAGE_CARE_TEAM_FILTERS: {
-  id: MessageCareTeamFilter;
-  label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-}[] = [
-  { id: "all", label: "All", icon: "view-grid-outline" },
-  { id: "veterinarian", label: "Vet", icon: "stethoscope" },
-  { id: "dog_walker", label: "Walker", icon: "walk" },
-  { id: "boarding", label: "Boarder", icon: "home-city-outline" },
-  { id: "groomer", label: "Groomer", icon: "content-cut" },
-  { id: "pet_sitter", label: "Sitter", icon: "heart-outline" },
-  { id: "unknown", label: "Other", icon: "email-outline" },
-];
 
 export default function MessagesScreen() {
   const { theme, mode } = useTheme();
@@ -66,7 +53,7 @@ export default function MessagesScreen() {
   const { pets } = usePets();
   const { selectedPetId, setSelectedPetId } = useSelectedPet();
   const { pendingApprovals, setCurrentApproval, refreshPendingApprovals } = useEmailApproval();
-  const { openPaywall } = useSubscription();
+  const { openPaywall, isAtLeast } = useSubscription();
   const params = useLocalSearchParams<{
     email?: string;
     composeMode?: string;
@@ -220,9 +207,21 @@ export default function MessagesScreen() {
     );
   }, [failedEmails, searchQuery]);
 
-  const hasEmailParsingUpgradeNotice = useMemo(
-    () => failedEmails.some((email) => isEmailParsingUpgradeReason(email.failure_reason)),
+  const emailParsingUpgradeQueue = useMemo(
+    () => failedEmails.filter((email) => isEmailParsingUpgradeReason(email.failure_reason)),
     [failedEmails]
+  );
+
+  const canParseEmail = isAtLeast("individual");
+
+  const hasEmailParsingUpgradeNotice = useMemo(
+    () => emailParsingUpgradeQueue.length > 0 && !canParseEmail,
+    [emailParsingUpgradeQueue, canParseEmail]
+  );
+
+  const hasEmailParsingReprocessNotice = useMemo(
+    () => emailParsingUpgradeQueue.length > 0 && canParseEmail,
+    [emailParsingUpgradeQueue, canParseEmail]
   );
 
   // Get total unread count
@@ -371,9 +370,14 @@ export default function MessagesScreen() {
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 6 }}>
+      <View
+        style={{
+          paddingHorizontal: MESSAGES_INBOX.paddingH,
+          paddingTop: 56,
+          paddingBottom: 8,
+        }}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          {/* Left: Back or Title */}
           {selectedThread || selectedPendingApproval || selectedFailedEmail ? (
             <Pressable
               onPress={() => {
@@ -384,57 +388,61 @@ export default function MessagesScreen() {
               style={{ flexDirection: "row", alignItems: "center" }}
             >
               <Ionicons name="chevron-back" size={24} color={theme.foreground} />
-              <Text style={{ fontSize: 22, fontWeight: "700", color: theme.foreground, marginLeft: 4 }}>
+              <Text
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 22,
+                  color: theme.foreground,
+                  marginLeft: 4,
+                }}
+              >
                 Messages
               </Text>
             </Pressable>
           ) : (
             <View>
-              <Text style={{ fontSize: 24, fontWeight: "700", color: theme.foreground }}>
+              <Text
+                style={{
+                  fontFamily: "Poppins_600SemiBold",
+                  fontSize: 24,
+                  color: theme.foreground,
+                }}
+              >
                 Messages
               </Text>
               {totalUnread > 0 && (
-                <Text style={{ fontSize: 13, color: theme.secondary, marginTop: 2 }}>
+                <Text
+                  style={{
+                    fontFamily: "Poppins_400Regular",
+                    fontSize: 13,
+                    color: theme.secondary,
+                    marginTop: 2,
+                  }}
+                >
                   {totalUnread} unread
                 </Text>
               )}
             </View>
           )}
 
-          {/* Right: Action buttons */}
           {!(selectedThread || selectedPendingApproval || selectedFailedEmail) && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Pressable
-                onPress={() => setShowNewMessageModal(true)}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                }}
-              >
-                <Ionicons name="add" size={22} color={theme.foreground} />
-              </Pressable>
-              <Pressable
-                onPress={() => setSearchQuery(searchQuery ? "" : " ")}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
-                  borderWidth: 1,
-                  borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                }}
-              >
-                <Ionicons name="search-outline" size={20} color={theme.foreground} />
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => setShowNewMessageModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel="New message"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+              }}
+            >
+              <Ionicons name="add" size={22} color={theme.foreground} />
+            </Pressable>
           )}
         </View>
       </View>
@@ -446,7 +454,7 @@ export default function MessagesScreen() {
               openPaywall({ source: "email_parsing", requiredPlan: "individual" })
             }
             style={{
-              marginHorizontal: 16,
+              marginHorizontal: MESSAGES_INBOX.paddingH,
               marginBottom: 8,
               padding: 14,
               borderRadius: 12,
@@ -461,6 +469,30 @@ export default function MessagesScreen() {
             <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 18 }}>
               We received health documents by email but could not auto-file them on Free. Upgrade to
               Individual to import attachments automatically.
+            </Text>
+          </Pressable>
+        )}
+
+      {!(selectedThread || selectedPendingApproval || selectedFailedEmail) &&
+        hasEmailParsingReprocessNotice && (
+          <Pressable
+            onPress={() => setProcessingErrorsExpanded(true)}
+            style={{
+              marginHorizontal: MESSAGES_INBOX.paddingH,
+              marginBottom: 8,
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "#E6F7F6",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(59,208,210,0.35)" : "#9DD9D5",
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: theme.foreground, marginBottom: 4 }}>
+              Health email attachments ready to import
+            </Text>
+            <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 18 }}>
+              Your plan includes email parsing. Open Processing errors below and reprocess each message
+              to import the attachments.
             </Text>
           </Pressable>
         )}
@@ -502,98 +534,19 @@ export default function MessagesScreen() {
         />
       ) : (
         <>
-          {/* Care team filter — only when there are threads to filter */}
-          {threadsToGroup.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ flexGrow: 0, flexShrink: 0 }}
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingVertical: 4,
-                flexDirection: "row",
-                alignItems: "center",
-              }}
-            >
-              {MESSAGE_CARE_TEAM_FILTERS.map((f, index) => {
-                const selected = careTeamFilter === f.id;
-                return (
-                  <Pressable
-                    key={f.id}
-                    onPress={() => setCareTeamFilter(f.id)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      backgroundColor: selected ? theme.primary : theme.card,
-                      marginRight: index < MESSAGE_CARE_TEAM_FILTERS.length - 1 ? 8 : 0,
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name={f.icon}
-                      size={18}
-                      color={selected ? "#FFFFFF" : theme.secondary}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color: selected ? "#FFFFFF" : theme.foreground,
-                      }}
-                    >
-                      {f.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          {/* Search Bar - only when there are messages */}
-          {hasMessages && (
-          <View className="px-4" style={{ paddingTop: 4, paddingBottom: 10 }}>
-            <View
-              className="flex-row items-center px-4 py-3 rounded-2xl"
-              style={{
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-            >
-              <Ionicons
-                name="search-outline"
-                size={20}
-                color={theme.secondary}
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                className="flex-1"
-                style={{ color: theme.foreground }}
-                placeholder="Search conversations..."
-                placeholderTextColor={theme.secondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-          </View>
-          )}
-
-          {/* Pet Selector (multi-pet users always see switcher) */}
-          {pets.length > 1 && (
-            <View className="mb-4 px-2">
-              <PetSelector
-                pets={pets}
-                selectedPetId={selectedPetId ?? pets[0]?.id ?? null}
-                onSelectPet={setSelectedPetId}
-                notificationCounts={messageNotificationCounts}
-              />
-            </View>
-          )}
+          <MessagesInboxToolbar
+            careTeamFilter={careTeamFilter}
+            onCareTeamFilterChange={setCareTeamFilter}
+            showCareTeamFilters={threadsToGroup.length > 0}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            showSearch={hasMessages}
+            pets={pets}
+            selectedPetId={selectedPetId ?? pets[0]?.id ?? null}
+            onSelectPet={setSelectedPetId}
+            showPetFilter={pets.length > 1}
+            notificationCounts={messageNotificationCounts}
+          />
 
           {/* Messages List */}
           <ScrollView
@@ -618,29 +571,42 @@ export default function MessagesScreen() {
               <>
                 {/* Pending Emails Section */}
                 {pendingForDisplay.length > 0 && (
-                  <View className="mb-6">
-                    <View className="flex-row items-center justify-between mb-3 px-4">
-                      <View className="flex-row items-center flex-1">
-                        <Ionicons
-                          name="mail-unread"
-                          size={20}
-                          color={theme.primary}
-                          style={{ marginRight: 8 }}
-                        />
-                        <Text
-                          className="text-base font-bold"
-                          style={{ color: theme.foreground }}
-                        >
-                          Requires Attention
+                  <View style={{ marginBottom: 24 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 10,
+                        paddingHorizontal: MESSAGES_INBOX.paddingH,
+                      }}
+                    >
+                      <View style={{ marginRight: 8 }}>
+                        <NavigationIconWell size="sm" ionIcon="mail-unread-outline" />
+                      </View>
+                      <Text
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 16,
+                          color: theme.foreground,
+                        }}
+                      >
+                        Requires attention
+                      </Text>
+                      <View
+                        style={{
+                          marginLeft: 8,
+                          minWidth: 22,
+                          height: 22,
+                          borderRadius: 11,
+                          paddingHorizontal: 6,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: theme.primary,
+                        }}
+                      >
+                        <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 11, color: "#FFFFFF" }}>
+                          {pendingForDisplay.length}
                         </Text>
-                        <View
-                          className="ml-2 px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: theme.primary }}
-                        >
-                          <Text className="text-xs font-bold text-white">
-                            {pendingForDisplay.length}
-                          </Text>
-                        </View>
                       </View>
                     </View>
 
@@ -661,10 +627,9 @@ export default function MessagesScreen() {
                   <GroupedThreadList
                     threads={filteredGroupedThreads.veterinarian}
                     category="veterinarian"
-                    title="Veterinarians"
+                    title={MESSAGE_CARE_TEAM_SECTION_TITLES.veterinarian}
                     icon="stethoscope"
                     iconType="material"
-                    color="#60A5FA"
                     onThreadPress={handleThreadPress}
                   />
                 )}
@@ -672,10 +637,9 @@ export default function MessagesScreen() {
                   <GroupedThreadList
                     threads={filteredGroupedThreads.dog_walker}
                     category="dog_walker"
-                    title="Dog Walkers"
-                    icon="paw"
+                    title={MESSAGE_CARE_TEAM_SECTION_TITLES.dog_walker}
+                    icon="walk"
                     iconType="material"
-                    color="#4ADE80"
                     onThreadPress={handleThreadPress}
                   />
                 )}
@@ -683,10 +647,9 @@ export default function MessagesScreen() {
                   <GroupedThreadList
                     threads={filteredGroupedThreads.groomer}
                     category="groomer"
-                    title="Groomers"
+                    title={MESSAGE_CARE_TEAM_SECTION_TITLES.groomer}
                     icon="content-cut"
                     iconType="material"
-                    color="#A78BFA"
                     onThreadPress={handleThreadPress}
                   />
                 )}
@@ -694,10 +657,9 @@ export default function MessagesScreen() {
                   <GroupedThreadList
                     threads={filteredGroupedThreads.pet_sitter}
                     category="pet_sitter"
-                    title="Pet Sitters"
-                    icon="heart"
+                    title={MESSAGE_CARE_TEAM_SECTION_TITLES.pet_sitter}
+                    icon="heart-outline"
                     iconType="material"
-                    color="#F472B6"
                     onThreadPress={handleThreadPress}
                   />
                 )}
@@ -705,10 +667,9 @@ export default function MessagesScreen() {
                   <GroupedThreadList
                     threads={filteredGroupedThreads.boarding}
                     category="boarding"
-                    title="Boarding"
-                    icon="home"
+                    title={MESSAGE_CARE_TEAM_SECTION_TITLES.boarding}
+                    icon="home-city-outline"
                     iconType="material"
-                    color="#D97706"
                     onThreadPress={handleThreadPress}
                   />
                 )}
@@ -717,10 +678,9 @@ export default function MessagesScreen() {
                     <GroupedThreadList
                       threads={filteredGroupedThreads.unknown}
                       category="veterinarian"
-                      title="Other"
-                      icon="mail-outline"
+                      title={MESSAGE_CARE_TEAM_SECTION_TITLES.unknown}
+                      icon="email-outline"
                       iconType="ionicons"
-                      color="#9CA3AF"
                       onThreadPress={handleThreadPress}
                     />
                   )}
@@ -728,26 +688,41 @@ export default function MessagesScreen() {
                 {threadsToGroup.length > 0 &&
                   careTeamFilter !== "all" &&
                   filteredInboxThreadCount === 0 && (
-                    <View className="px-4 py-8 items-center">
+                    <View
+                      style={{
+                        paddingHorizontal: MESSAGES_INBOX.paddingH,
+                        paddingVertical: 32,
+                        alignItems: "center",
+                      }}
+                    >
                       <Text
-                        className="text-base text-center font-semibold"
-                        style={{ color: theme.foreground }}
+                        style={{
+                          fontFamily: "Poppins_600SemiBold",
+                          fontSize: 16,
+                          color: theme.foreground,
+                          textAlign: "center",
+                        }}
                       >
                         No conversations in this category
                       </Text>
                       <Text
-                        className="text-sm text-center mt-2"
-                        style={{ color: theme.secondary, maxWidth: 300 }}
+                        style={{
+                          fontFamily: "Poppins_400Regular",
+                          fontSize: 14,
+                          color: theme.secondary,
+                          textAlign: "center",
+                          marginTop: 8,
+                          maxWidth: 300,
+                          lineHeight: 20,
+                        }}
                       >
-                        Try &quot;All&quot; to see every care team thread, or pick another
-                        filter.
+                        Try &quot;All&quot; to see every care team thread, or pick another filter.
                       </Text>
                     </View>
                   )}
 
-                {/* Document processing failures — secondary, collapsed by default */}
                 {failedForDisplay.length > 0 ? (
-                  <View className="mb-6 px-4">
+                  <View style={{ marginBottom: 24, paddingHorizontal: MESSAGES_INBOX.paddingH }}>
                     <Pressable
                       onPress={() => setProcessingErrorsExpanded((e) => !e)}
                       accessibilityRole="button"
@@ -771,8 +746,12 @@ export default function MessagesScreen() {
                           style={{ marginRight: 8 }}
                         />
                         <Text
-                          className="text-base font-semibold"
-                          style={{ color: theme.foreground, flexShrink: 1 }}
+                          style={{
+                            fontFamily: "Poppins_600SemiBold",
+                            fontSize: 16,
+                            color: theme.foreground,
+                            flexShrink: 1,
+                          }}
                           numberOfLines={1}
                         >
                           {`Processing errors (${failedForDisplay.length})`}
@@ -802,7 +781,14 @@ export default function MessagesScreen() {
 
                 {/* Empty State */}
                 {!hasMessages && (
-                  <View className="flex-1 items-center justify-center py-20 px-4">
+                  <View
+                    style={{
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingVertical: 80,
+                      paddingHorizontal: MESSAGES_INBOX.paddingH,
+                    }}
+                  >
                     <Image
                       source={require("@/assets/icons/no-message.png")}
                       style={{ width: 140, height: 140, marginBottom: 20 }}
@@ -810,22 +796,22 @@ export default function MessagesScreen() {
                     />
                     <Text
                       style={{
+                        fontFamily: "Poppins_600SemiBold",
                         fontSize: 22,
-                        fontWeight: "700",
                         color: theme.foreground,
                         textAlign: "center",
                         marginBottom: 8,
                       }}
                     >
-                      No Messages
+                      No messages
                     </Text>
                     <Text
                       style={{
+                        fontFamily: "Poppins_400Regular",
                         fontSize: 15,
                         color: theme.secondary,
                         textAlign: "center",
                         lineHeight: 22,
-                        paddingHorizontal: 20,
                       }}
                     >
                       {selectedPetForDisplay

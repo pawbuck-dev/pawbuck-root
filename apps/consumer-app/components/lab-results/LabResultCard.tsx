@@ -1,6 +1,6 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import {
-  FIGMA_HEALTH_LABS_ICON_BG,
   HEALTH_LAYOUT,
   healthListCardChrome,
 } from "@/constants/figmaHealthLayout";
@@ -142,18 +142,8 @@ export function LabResultCard({ labResult }: LabResultCardProps) {
         {/* Header */}
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center flex-1">
-            <View
-              style={{
-                width: HEALTH_LAYOUT.iconPlate.size,
-                height: HEALTH_LAYOUT.iconPlate.size,
-                borderRadius: HEALTH_LAYOUT.iconPlate.radius,
-                backgroundColor: FIGMA_HEALTH_LABS_ICON_BG,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: HEALTH_LAYOUT.iconToTitleGap,
-              }}
-            >
-              <Ionicons name="flask" size={22} color="#FFFFFF" />
+            <View style={{ marginRight: HEALTH_LAYOUT.iconToTitleGap }}>
+              <DomainCategoryIconWell category="labs" size="lg" />
             </View>
             <View className="flex-1">
               <Text

@@ -73,4 +73,17 @@ describe("computeWalkingStreakFromSessions", () => {
       1
     );
   });
+
+  it("aggregates all walks for the pet on a day (household walkers share streak)", () => {
+    const morning = moment().startOf("day").add(8, "hours").toISOString();
+    const evening = moment().startOf("day").add(18, "hours").toISOString();
+    const streak = computeWalkingStreakFromSessions(
+      [
+        { ended_at: morning, distance_meters: 50 },
+        { ended_at: evening, distance_meters: 50 },
+      ],
+      80
+    );
+    expect(streak).toBeGreaterThanOrEqual(1);
+  });
 });

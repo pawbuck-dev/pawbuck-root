@@ -1,4 +1,5 @@
 import type { Theme } from "@/theme/model";
+import { getNavigationIconTier } from "@/constants/iconTierTokens";
 
 export const PROFILE_LIST_ROW_GAP = 22;
 export const PROFILE_CARD_BORDER_LIGHT = "#E4E7E7";
@@ -14,6 +15,7 @@ export const PROFILE_MUTED_LIGHT = PROFILE_LIST_SUBTITLE_LIGHT;
 
 /** Shared profile screen surfaces & list row colors (Figma 1340:28729 / 1340:28732) */
 export function getProfileScreenTokens(theme: Theme, isDark: boolean) {
+  const navIcon = getNavigationIconTier(isDark);
   if (isDark) {
     const cardBorder = theme.border;
     const muted = theme.secondary;
@@ -22,8 +24,8 @@ export function getProfileScreenTokens(theme: Theme, isDark: boolean) {
       muted,
       profileCardBg: "rgba(255,255,255,0.06)",
       profileCardBorderStyle: {} as const,
-      profileListIconWellBg: "rgba(255,255,255,0.1)",
-      profileListIconColor: "#FFFFFF",
+      profileListIconWellBg: navIcon.wellBg,
+      profileListIconColor: navIcon.glyphColor,
       profileListTitleColor: theme.foreground,
       profileListChevronColor: "#FFFFFF",
     };
@@ -35,8 +37,8 @@ export function getProfileScreenTokens(theme: Theme, isDark: boolean) {
     muted: PROFILE_LIST_SUBTITLE_LIGHT,
     profileCardBg: "#FFFFFF",
     profileCardBorderStyle: { borderWidth: 1 as const, borderColor: cardBorder },
-    profileListIconWellBg: PROFILE_LIST_ICON_WELL_LIGHT,
-    profileListIconColor: PROFILE_LIST_ICON_FG_LIGHT,
+    profileListIconWellBg: navIcon.wellBg,
+    profileListIconColor: navIcon.glyphColor,
     profileListTitleColor: PROFILE_LIST_ICON_FG_LIGHT,
     profileListChevronColor: PROFILE_LIST_CHEVRON_LIGHT,
   };

@@ -1,3 +1,4 @@
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { Tables, TablesInsert } from "@/database.types";
 import { supabase } from "@/utils/supabase";
 
@@ -232,7 +233,7 @@ export const addEmail = async (
     }
     // If existing is whitelisted and we're trying to whitelist again, throw error
     if (!existing.is_blocked && !isBlocked) {
-      throw new Error("This email is already in your safe senders list");
+      throw new Error(APPROVED_PET_EMAIL_UI.duplicateError);
     }
     // If existing is whitelisted and we're trying to block it, update to block
     if (!existing.is_blocked && isBlocked) {
@@ -281,7 +282,7 @@ export const addEmailForAllUserPets = async (
 
   const petIds = userPets?.map((pet) => pet.id) || [];
   if (petIds.length === 0) {
-    throw new Error("You need to have at least one pet to add a safe sender");
+    throw new Error(APPROVED_PET_EMAIL_UI.noPetsError);
   }
 
   const results: PetEmailList[] = [];

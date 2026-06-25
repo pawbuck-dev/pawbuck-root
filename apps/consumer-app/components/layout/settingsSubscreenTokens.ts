@@ -1,4 +1,5 @@
 import type { Theme } from "@/theme/model";
+import { getNavigationIconTier } from "@/constants/iconTierTokens";
 import { Platform } from "react-native";
 
 export const SETTINGS_PAGE_BG_LIGHT = "#F5F7F8";
@@ -12,8 +13,9 @@ export function getSettingsSubscreenTokens(theme: Theme, isDark: boolean) {
   const muted = isDark ? "rgba(255,255,255,0.55)" : "#757575";
   const bodyMuted = isDark ? "rgba(255,255,255,0.6)" : "#5A5F6A";
   const backFabBg = isDark ? theme.card : "#FFFFFF";
-  const iconWellBg = isDark ? "rgba(255,255,255,0.08)" : "#EDEDEE";
-  const iconFg = isDark ? "#FFFFFF" : "#1D2433";
+  const navIcon = getNavigationIconTier(isDark);
+  const iconWellBg = navIcon.wellBg;
+  const iconFg = navIcon.glyphColor;
   const tileBg = isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
   const nestedBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)";
   const listCardBg = isDark ? "rgba(255,255,255,0.06)" : "#FFFFFF";

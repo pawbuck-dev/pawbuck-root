@@ -29,13 +29,19 @@ describe("profileMenuConfig pet access rows", () => {
     );
   });
 
-  it("distinguishes recipient vs owner sharing flows in subtitles", () => {
-    expect(PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "join-household")?.subtitle).toMatch(
-      /household code/i
-    );
-    expect(PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "access")?.subtitle).toMatch(
-      /Invite family/i
-    );
+  it("consolidates household sharing into one Profile hub row", () => {
+    const ids = PROFILE_MY_PETS_LINK_ROWS.map((r) => r.id);
+    expect(ids).toContain("family-sharing");
+    expect(ids).not.toContain("join-household");
+    expect(ids).not.toContain("access");
+
+    const hub = PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "family-sharing");
+    expect(hub?.title).toBe("Family Sharing");
+    expect(hub?.href).toBe("/(home)/family-sharing");
+    expect(hub?.subtitle).toMatch(/Join a household/i);
+  });
+
+  it("distinguishes transfer flows in subtitles", () => {
     expect(PROFILE_MY_PETS_LINK_ROWS.find((r) => r.id === "claim")?.subtitle).toMatch(
       /transfer code/i
     );

@@ -1,5 +1,6 @@
+import { NavigationIconWell } from "@/components/ui/IconWell";
 import { useTheme } from "@/context/themeContext";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import React, { type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { getSettingsSubscreenTokens } from "./settingsSubscreenTokens";
@@ -11,7 +12,7 @@ type SettingsSubscreenRowProps = {
   subtitle?: string;
   onPress?: () => void;
   /** MaterialCommunityIcons name */
-  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  icon?: keyof typeof import("@expo/vector-icons").MaterialCommunityIcons.glyphMap;
   /** Ionicons name (alternative to icon) */
   ionIcon?: keyof typeof Ionicons.glyphMap;
   trailing?: TrailingKind;
@@ -42,26 +43,17 @@ export function SettingsSubscreenRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
+        width: "100%",
         opacity: disabled ? 0.5 : 1,
         ...(compact ? {} : { paddingVertical: 4 }),
       }}
     >
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: t.iconWellBg,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon ? (
-          <MaterialCommunityIcons name={icon} size={22} color={t.iconFg} />
-        ) : ionIcon ? (
-          <Ionicons name={ionIcon} size={22} color={t.iconFg} />
-        ) : null}
-      </View>
+      {(icon || ionIcon) && (
+        <NavigationIconWell
+          size="lg"
+          {...(icon ? { materialIcon: icon } : { ionIcon: ionIcon! })}
+        />
+      )}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text
           style={{
@@ -102,7 +94,10 @@ export function SettingsSubscreenRow({
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1 })}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.88 : 1, width: "100%" })}
+    >
       {content}
     </Pressable>
   );

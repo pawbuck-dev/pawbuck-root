@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { useSafeSenders, validateEmail } from "@/hooks/useSafeSenders";
 
 interface SafeSendersSectionProps {
@@ -77,8 +78,8 @@ export const SafeSendersSection: React.FC<SafeSendersSectionProps> = ({
 
   const handleDeleteEmail = (emailItem: PetEmailList) => {
     Alert.alert(
-      "Remove Email",
-      `Are you sure you want to remove "${emailItem.email_id}" from safe senders?`,
+      APPROVED_PET_EMAIL_UI.removeConfirmTitle,
+      APPROVED_PET_EMAIL_UI.removeConfirmBody(emailItem.email_id),
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -110,7 +111,7 @@ export const SafeSendersSection: React.FC<SafeSendersSectionProps> = ({
       {/* Header with Add New button */}
       <View className="flex-row items-center justify-between mb-2">
         <Text className="text-sm font-medium" style={{ color: theme.secondary }}>
-          Safe Senders
+          {APPROVED_PET_EMAIL_UI.sectionTitle}
         </Text>
         <TouchableOpacity
           onPress={() => setIsAddingEmail(true)}
@@ -124,7 +125,7 @@ export const SafeSendersSection: React.FC<SafeSendersSectionProps> = ({
 
       {/* Helper text */}
       <Text className="text-xs mb-4" style={{ color: theme.secondary }}>
-        Emails added here will be automatically processed by the app.
+        {APPROVED_PET_EMAIL_UI.emptyBody}
       </Text>
 
       {/* Add new email input */}
@@ -255,7 +256,7 @@ export const SafeSendersSection: React.FC<SafeSendersSectionProps> = ({
           className="text-sm text-center py-4"
           style={{ color: theme.secondary }}
         >
-          No safe senders yet
+          {APPROVED_PET_EMAIL_UI.emptyTitle}
         </Text>
       )}
     </View>

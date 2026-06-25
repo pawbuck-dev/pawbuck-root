@@ -10,7 +10,10 @@ Journey spec: [family-sharing-recipient-journeys.md](plans/family-sharing-recipi
 
 | Area | File | What is covered |
 |------|------|-----------------|
-| MTCH accept RPC | `householdInvites.service.test.ts` | `accept_household_invite_code` call shape, error mapping |
+| MTCH accept RPC | `householdInvites.service.test.ts` | create/verify/deactivate/list + RPC error codes (Jest) |
+| MTCH accept RPC | `tools/family-access-integration/.../householdInvite.rpc.test.ts` | live `accept_household_invite_code` |
+| Shared Today | `dailyIntake.test.ts`, `usePetHealthWrite.test.ts` | pet-level intake service + write roles (Jest) |
+| Shared Today | `sharedDailyCare.rpc.test.ts` | `daily_intake` household read/write (integration) |
 | Email invite | `petFamilyInvites.service.test.ts` | Edge invoke + token accept errors |
 | Entry points | `familyTransferEntryPoints.test.ts` | Welcome, profile hrefs, auth resume params |
 | Launch | `index.test.tsx` | Join/Claim CTAs on welcome |
@@ -40,6 +43,13 @@ CI: `.github/workflows/family-access-integration.yml`
 3. **Email flow** — Open `/accept-invite?token=…` → sign in with matching email → pet on Home.
 4. **Wrong email** — Signed in as different user → `email_mismatch` message.
 5. **Self-join** — Own MTCH code → error.
+
+### Shared daily care (Today)
+
+1. **Owner** logs meals/water/output on Home → rings show non-zero counts.
+2. **Family member** opens the same pet on Home → sees **identical** ring values (not a separate empty log).
+3. **Contributor** can bump rings; **view only** sees rings but cannot edit (view-only message).
+4. **Walk streak** — walks by any household member count toward the pet’s streak and daily distance goal.
 
 ### Plan gates (client + RLS)
 

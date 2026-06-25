@@ -2,7 +2,10 @@ import { IntakeProgressRing } from "@/components/home/IntakeProgressRing";
 import { habitRingPercent } from "@/constants/habitRingColors";
 import StartWalkSlider from "@/components/home/StartWalkSlider";
 import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
+import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
+import { useDailyIntakeRealtime } from "@/hooks/useDailyIntakeRealtime";
+import { useDailyIntakeAttribution, usePetHealthWrite } from "@/hooks/usePetHealthWrite";
 import { getDailyIntake, updateDailyIntake, type DailyIntake } from "@/services/dailyIntake";
 import { buildTodayHabitSummary, formatTodayDateLine } from "@/utils/todayHabitSummary";
 import { nextIntakeCount } from "@/utils/dailyIntakeMutations";
@@ -44,9 +47,13 @@ export default function TodayHabitPanel({
   embedded = false,
 }: Props) {
   const { theme, mode } = useTheme();
+  const { user } = useAuth();
   const isDark = mode === "dark";
   const queryClient = useQueryClient();
   const intakeQueryKey = ["daily_intake", petId];
+  const { canWrite, guardWrite } = usePetHealthWrite(petId);
+
+  useDailyIntakeRealtime(petId);
 
   const { data: intake, isLoading } = useQuery({
     queryKey: intakeQueryKey,
@@ -80,6 +87,10 @@ export default function TodayHabitPanel({
   const poopTarget = intake?.poop_target ?? 6;
   const peeTarget = intake?.pee_target ?? 6;
 
+  const { data: lastUpdaterName } = useDailyIntakeAttribution(
+    intake?.user_id && intake.user_id !== user?.id ? intake.user_id : undefined
+  );
+
   const adjustCount = useCallback(
     (
       field: "food_intake" | "water_intake" | "poop_count" | "pee_count",
@@ -87,11 +98,13 @@ export default function TodayHabitPanel({
       delta: number,
       max?: number
     ) => {
-      const next = nextIntakeCount(current, delta, max);
-      if (next === current) return;
-      mutation.mutate({ [field]: next });
+      guardWrite(() => {
+        const next = nextIntakeCount(current, delta, max);
+        if (next === current) return;
+        mutation.mutate({ [field]: next });
+      });
     },
-    [mutation]
+    [guardWrite, mutation]
   );
 
   const bumpFood = useCallback(() => {
@@ -164,6 +177,18 @@ export default function TodayHabitPanel({
         {summary}
       </Text>
 
+      {lastUpdaterName ? (
+        <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 10 }}>
+          Last updated by {lastUpdaterName}
+        </Text>
+      ) : null}
+
+      {!canWrite ? (
+        <Text style={{ fontSize: 12, color: theme.secondary, marginBottom: 10 }}>
+          View only — you can see shared daily care but cannot log changes.
+        </Text>
+      ) : null}
+
       {isLoading ? (
         <ActivityIndicator color={theme.primary} style={{ marginVertical: 12 }} />
       ) : (
@@ -188,7 +213,9 @@ export default function TodayHabitPanel({
               Intake & output
             </Text>
             {onOpenBodyTracker ? (
-              <Text style={{ fontSize: 11, color: theme.secondary }}>long-press to undo</Text>
+              <Text style={{ fontSize: 11, color: theme.secondary }}>
+                {canWrite ? "long-press to undo" : "shared household log"}
+              </Text>
             ) : null}
           </View>
           <View
@@ -205,8 +232,8 @@ export default function TodayHabitPanel({
               value={`${foodIntake}/${foodTarget}`}
               percent={habitRingPercent(foodIntake, foodTarget)}
               variant="food"
-              onPress={bumpFood}
-              onLongPress={decFood}
+              onPress={canWrite ? bumpFood : undefined}
+              onLongPress={canWrite ? decFood : undefined}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -215,8 +242,8 @@ export default function TodayHabitPanel({
               value={`${waterIntake}/${waterTarget}`}
               percent={habitRingPercent(waterIntake, waterTarget)}
               variant="water"
-              onPress={bumpWater}
-              onLongPress={decWater}
+              onPress={canWrite ? bumpWater : undefined}
+              onLongPress={canWrite ? decWater : undefined}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -225,8 +252,8 @@ export default function TodayHabitPanel({
               value={`${poopCount}/${poopTarget}`}
               percent={habitRingPercent(poopCount, poopTarget)}
               variant="poop"
-              onPress={bumpPoop}
-              onLongPress={decPoop}
+              onPress={canWrite ? bumpPoop : undefined}
+              onLongPress={canWrite ? decPoop : undefined}
               size={HABIT_RING_SIZE}
             />
             <IntakeProgressRing
@@ -235,8 +262,8 @@ export default function TodayHabitPanel({
               value={`${peeCount}/${peeTarget}`}
               percent={habitRingPercent(peeCount, peeTarget)}
               variant="pee"
-              onPress={bumpPee}
-              onLongPress={decPee}
+              onPress={canWrite ? bumpPee : undefined}
+              onLongPress={canWrite ? decPee : undefined}
               size={HABIT_RING_SIZE}
             />
           </View>

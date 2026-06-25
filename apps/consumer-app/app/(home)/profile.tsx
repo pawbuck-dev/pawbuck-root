@@ -6,11 +6,12 @@ import { ProfileFigmaRow, ProfileSectionHeading } from "@/components/profile/Pro
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
 import { ProfileListCard } from "@/components/profile/ProfileListCard";
 import { ProfilePetPickerModal } from "@/components/profile/ProfilePetPickerModal";
-import ProfileJournalReminderSection from "@/components/profile/ProfileJournalReminderSection";
+import { ProfileRemindersEntryRow } from "@/components/profile/ProfileRemindersEntryRow";
 import {
   PROFILE_HELP_ROWS,
   PROFILE_MY_PETS_LINK_ROWS,
   PROFILE_SETTINGS_ROWS,
+  profileMenuIconProps,
   type ProfileHelpRowId,
   type ProfileSettingsRowId,
 } from "@/components/profile/profileMenuConfig";
@@ -447,7 +448,7 @@ export default function Profile() {
         <ProfileSectionHeading>Subscription</ProfileSectionHeading>
         <ProfileListCard>
           <ProfileFigmaRow
-            icon="sparkles-outline"
+            ionIcon="sparkles-outline"
             title={isFoundingMember ? "Founding Member" : planLabel}
             subtitle={
               isFoundingMember
@@ -466,7 +467,7 @@ export default function Profile() {
             }}
           />
           <ProfileFigmaRow
-            icon="refresh-outline"
+            ionIcon="refresh-outline"
             title="Restore purchases"
             subtitle={
               isRestoringPurchases
@@ -518,7 +519,7 @@ export default function Profile() {
           {PROFILE_MY_PETS_LINK_ROWS.map((row) => (
             <ProfileFigmaRow
               key={row.id}
-              icon={row.icon}
+              {...profileMenuIconProps(row)}
               title={row.title}
               subtitle={row.subtitle}
               onPress={() => {
@@ -535,20 +536,23 @@ export default function Profile() {
                   router.push("/(home)/pet-profile");
                   return;
                 }
-                router.push(row.href);
+                router.push(row.href as never);
               }}
             />
           ))}
         </ProfileListCard>
 
-        <ProfileJournalReminderSection />
+        <ProfileSectionHeading>Reminders</ProfileSectionHeading>
+        <ProfileListCard>
+          <ProfileRemindersEntryRow />
+        </ProfileListCard>
 
         <ProfileSectionHeading>Settings</ProfileSectionHeading>
         <ProfileListCard>
           {visibleSettingsRows.map((row) => (
             <ProfileFigmaRow
               key={row.id}
-              icon={row.icon}
+              {...profileMenuIconProps(row)}
               title={row.title}
               subtitle={row.id === "appearance" ? themeModeLabel(themeMode) : row.subtitle}
               onPress={settingsRowHandlers[row.id]}
@@ -561,7 +565,7 @@ export default function Profile() {
           {PROFILE_HELP_ROWS.map((row) => (
             <ProfileFigmaRow
               key={row.id}
-              icon={row.icon}
+              {...profileMenuIconProps(row)}
               title={row.title}
               subtitle={row.subtitle}
               onPress={helpRowHandlers[row.id]}

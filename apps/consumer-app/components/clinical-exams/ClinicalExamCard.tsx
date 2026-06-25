@@ -1,6 +1,6 @@
 import { DocumentViewerModal } from "@/components/common/DocumentViewerModal";
+import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import {
-  FIGMA_HEALTH_EXAMS_ICON_BG,
   HEALTH_LAYOUT,
   healthListCardChrome,
 } from "@/constants/figmaHealthLayout";
@@ -180,18 +180,8 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
       >
         {/* Exam Header */}
         <View className="flex-row items-center mb-3">
-          <View
-            style={{
-              width: HEALTH_LAYOUT.iconPlate.size,
-              height: HEALTH_LAYOUT.iconPlate.size,
-              borderRadius: HEALTH_LAYOUT.iconPlate.radius,
-              backgroundColor: FIGMA_HEALTH_EXAMS_ICON_BG,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: HEALTH_LAYOUT.iconToTitleGap,
-            }}
-          >
-            <MaterialCommunityIcons name="stethoscope" size={22} color="#FFFFFF" />
+          <View style={{ marginRight: HEALTH_LAYOUT.iconToTitleGap }}>
+            <DomainCategoryIconWell category="clinical_visits" size="lg" />
           </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-2">

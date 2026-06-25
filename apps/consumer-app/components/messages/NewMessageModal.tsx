@@ -1,4 +1,5 @@
 import { CONTACT_EMAIL } from "@/constants/contact";
+import { APPROVED_PET_EMAIL_UI } from "@/constants/approvedPetEmailUi";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { getCareTeamMembersForPet } from "@/services/careTeamMembers";
@@ -252,7 +253,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
           console.log("Auto-whitelisted support email for pet:", selectedPetId);
         } catch (error: any) {
           // Ignore if already whitelisted or other non-critical errors
-          if (!error.message?.includes("already in your safe senders")) {
+          if (!error.message?.includes("approved list")) {
             console.log("Could not auto-whitelist support email:", error);
           }
         }
@@ -567,7 +568,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       }}
                     />
                   ) : null}
-                  <SectionHeader title="Safe senders" />
+                  <SectionHeader title={APPROVED_PET_EMAIL_UI.composeSectionHeader} />
                   {availableSafeSenders.map((contact, idx) => (
                     <View key={contact.id}>
                       <ContactRow
@@ -624,7 +625,7 @@ export const NewMessageModal: React.FC<NewMessageModalProps> = ({
                       maxWidth: 260,
                     }}
                   >
-                    Add care team members or safe senders from Settings, then try again.
+                    {APPROVED_PET_EMAIL_UI.composeEmptyHint}
                   </Text>
                 </View>
               )}

@@ -252,7 +252,8 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
     private static bool UsesFlexibleVaultExtraction(string docType) =>
         docType.Equals("insurance_policy", StringComparison.OrdinalIgnoreCase)
         || docType.Equals("pedigree", StringComparison.OrdinalIgnoreCase)
-        || docType.Equals("identity_document", StringComparison.OrdinalIgnoreCase);
+        || docType.Equals("identity_document", StringComparison.OrdinalIgnoreCase)
+        || docType.Equals("billing_invoice", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsClinicalSyncDocumentType(string docType) =>
         docType.Equals(MiloPetFactsKinds.Vaccinations, StringComparison.OrdinalIgnoreCase)

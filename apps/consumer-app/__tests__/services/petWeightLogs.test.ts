@@ -34,11 +34,10 @@ function chainInsertWeightThenPetsUpdate(insertResult: { data: unknown; error: E
   const insert = jest.fn().mockReturnValue({ select });
   mockWeightLogs.insert = insert;
 
-  const eqUser = jest.fn().mockResolvedValue({ error: null });
-  const eqPet = jest.fn().mockReturnValue({ eq: eqUser });
-  const update = jest.fn().mockReturnValue({ eq: eqPet });
-  mockPets.update = update;
-  return { insert, update, eqPet, eqUser };
+    const eqPet = jest.fn().mockResolvedValue({ error: null });
+    const update = jest.fn().mockReturnValue({ eq: eqPet });
+    mockPets.update = update;
+    return { insert, update, eqPet };
 }
 
 describe("petWeightLogs service", () => {
@@ -60,7 +59,7 @@ describe("petWeightLogs service", () => {
   it("insertWeightLog inserts then updates pets weight in lbs", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
     const row = { id: "wl1", pet_id: "p1", user_id: "u1", weight_value: 10, weight_unit: "kg" };
-    const { insert, update, eqPet, eqUser } = chainInsertWeightThenPetsUpdate({
+    const { insert, update, eqPet } = chainInsertWeightThenPetsUpdate({
       data: row,
       error: null,
     });
@@ -81,7 +80,6 @@ describe("petWeightLogs service", () => {
       })
     );
     expect(eqPet).toHaveBeenCalledWith("id", "p1");
-    expect(eqUser).toHaveBeenCalledWith("user_id", "u1");
   });
 
   it("updatePetTargetWeight updates pets row", async () => {
