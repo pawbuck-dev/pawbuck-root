@@ -1,5 +1,5 @@
 import PremiumPaywallModal from "@/components/subscription/PremiumPaywallModal";
-import { resolveFeatureGateKey } from "@/constants/featureGates";
+import { resolveFeatureGateKey, fallbackMinimumPlanForFeature } from "@/constants/featureGates";
 import {
   meetsMinimumPlan,
   normalizePlan,
@@ -18,6 +18,11 @@ import {
   isActivePremium,
   isFoundingMember,
 } from "@/services/userEntitlements";
+import {
+  canStartAiJournalEntry,
+  getAiJournalEntriesRemaining,
+  getMiloConversationsRemaining,
+} from "@/utils/subscriptionUsageQuota";
 import { trackSubscriptionEvent } from "@/utils/subscriptionAnalytics";
 import { getPawbuckApiBaseUrl } from "@/utils/pawbuckApi";
 import { supabase } from "@/utils/supabase";
@@ -130,9 +135,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const minimumPlanForFeature = useCallback(
     (gateKey: string): SubscriptionPlan => {
-      if (featureGatesError) return "free";
-      if (!apiConfigured || !featureGates) return "individual";
-      return featureGates.minimumPlan[gateKey] ?? "individual";
+      if (featureGatesError || !featureGates) {
+        return fallbackMinimumPlanForFeature(gateKey);
+      }
+      if (!apiConfigured) {
+        return fallbackMinimumPlanForFeature(gateKey);
+      }
+      return featureGates.minimumPlan[gateKey] ?? fallbackMinimumPlanForFeature(gateKey);
     },
     [apiConfigured, featureGates, featureGatesError]
   );
@@ -155,22 +164,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [isAtLeast, minimumPlanForFeature]
   );
 
-  const miloConversationsRemaining = useMemo(() => {
-    if (isAtLeast("individual")) return null;
-    const max = subscriptionStatus?.limits.maxMiloConversations ?? 3;
-    const used = subscriptionStatus?.usage.miloConversationsUsed ?? 0;
-    return Math.max(0, max - used);
-  }, [isAtLeast, subscriptionStatus]);
+  const miloConversationsRemaining = useMemo(
+    () => getMiloConversationsRemaining(plan, subscriptionStatus),
+    [plan, subscriptionStatus]
+  );
 
-  const aiJournalEntriesRemaining = useMemo(() => {
-    if (isAtLeast("individual")) return null;
-    const max = subscriptionStatus?.limits.maxAiJournalEntries ?? 2;
-    const used = subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0;
-    return Math.max(0, max - used);
-  }, [isAtLeast, subscriptionStatus]);
+  const aiJournalEntriesRemaining = useMemo(
+    () => getAiJournalEntriesRemaining(plan, subscriptionStatus),
+    [plan, subscriptionStatus]
+  );
 
-  const canStartAiJournal =
-    aiJournalEntriesRemaining === null || aiJournalEntriesRemaining > 0;
+  const canStartAiJournal = useMemo(
+    () => canStartAiJournalEntry(plan, subscriptionStatus),
+    [plan, subscriptionStatus]
+  );
 
   const refetchEntitlement = useCallback(async () => {
     await refetchSupabase();

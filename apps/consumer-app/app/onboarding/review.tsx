@@ -6,9 +6,11 @@ import { COUNTRY_FLAGS } from "@/constants/onboarding";
 import { useAuth } from "@/context/authContext";
 import { useOnboarding } from "@/context/onboardingContext";
 import { usePets } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { TablesInsert } from "@/database.types";
 import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
+import { canAssignPetEmailAddress } from "@/utils/petEmailAccess";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -41,7 +43,8 @@ export default function OnboardingReview() {
     setPostPetCreationRoute,
   } = useOnboarding();
   const { user } = useAuth();
-  const { addPet } = usePets();
+  const { addPet, pets } = usePets();
+  const { plan, openPaywall } = useSubscription();
 
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -175,6 +178,10 @@ export default function OnboardingReview() {
     } else if (field === "date_of_birth") {
       updatePetData({ date_of_birth: tempBirthDate.toISOString() });
     } else if (field === "email_id") {
+      if (!canAssignPetEmailAddress(plan, pets.length)) {
+        openPaywall({ source: "pet_email_setup", requiredPlan: "family" });
+        return;
+      }
       const trimmedMail = tempEmailId.trim().toLowerCase();
       if (!trimmedMail) {
         Alert.alert("Pet email", "Enter the part before @pawbuck.app.");

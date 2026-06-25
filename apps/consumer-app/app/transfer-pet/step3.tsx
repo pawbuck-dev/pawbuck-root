@@ -92,6 +92,9 @@ export default function TransferPetStep3() {
       {/* Bottom Action Button */}
       <View className="px-6 pb-8 pt-4">
         <Pressable
+          testID="transfer-success-continue"
+          accessibilityRole="button"
+          accessibilityLabel="Continue"
           onPress={handleContinue}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"
           style={{

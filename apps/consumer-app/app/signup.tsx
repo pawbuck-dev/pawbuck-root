@@ -205,6 +205,8 @@ function SignUp() {
                   Email
                 </Text>
                 <TextInput
+                  testID="email-input"
+                  accessibilityLabel="Email"
                   value={email}
                   onChangeText={setEmail}
                   placeholder="you@example.com"
@@ -237,6 +239,8 @@ function SignUp() {
                   Password
                 </Text>
                 <TextInput
+                  testID="password-input"
+                  accessibilityLabel="Password"
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
@@ -269,6 +273,8 @@ function SignUp() {
                   Confirm Password
                 </Text>
                 <TextInput
+                  testID="confirm-password-input"
+                  accessibilityLabel="Confirm Password"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="••••••••"
@@ -295,6 +301,9 @@ function SignUp() {
 
               {/* Sign Up Button */}
               <Pressable
+                testID="signup-submit"
+                accessibilityRole="button"
+                accessibilityLabel="Sign Up"
                 onPress={handleEmailSignUp}
                 disabled={isLoading}
                 className="w-full rounded-xl py-4 items-center active:opacity-80 mb-6"

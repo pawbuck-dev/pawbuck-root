@@ -133,6 +133,9 @@ export default function BottomNavBar({
           return (
             <TouchableOpacity
               key={item.id}
+              testID={`bottom-nav-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={item.id}
               onPress={() => handleNavPress(item.id)}
               activeOpacity={0.7}
               style={{

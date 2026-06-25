@@ -43,6 +43,9 @@ export interface CTAProps {
   rightIcon?: React.ReactNode;
   disabled?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Maestro / Detox automation anchor */
+  testID?: string;
+  accessibilityLabel?: string;
 }
 
 const SIZE = {
@@ -61,6 +64,8 @@ export function CTA({
   rightIcon,
   disabled,
   containerStyle,
+  testID,
+  accessibilityLabel,
 }: CTAProps) {
   const { theme, mode } = useTheme();
   const [pressed, setPressed] = useState(false);
@@ -92,6 +97,9 @@ export function CTA({
   return (
     <View style={[styles.outer, containerStyle]}>
       <Pressable
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
         onPress={isDisabled ? undefined : onPress}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}

@@ -165,6 +165,8 @@ function Login() {
                   Email
                 </Text>
                 <TextInput
+                  testID="email-input"
+                  accessibilityLabel="Email"
                   value={email}
                   onChangeText={setEmail}
                   placeholder="you@example.com"
@@ -196,6 +198,8 @@ function Login() {
                   Password
                 </Text>
                 <TextInput
+                  testID="password-input"
+                  accessibilityLabel="Password"
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
@@ -235,6 +239,9 @@ function Login() {
               </View>
 
               <Pressable
+                testID="login-submit"
+                accessibilityRole="button"
+                accessibilityLabel="Sign In"
                 onPress={handleEmailLogin}
                 disabled={isLoading}
                 className="w-full rounded-xl py-4 items-center active:opacity-80 mb-6"

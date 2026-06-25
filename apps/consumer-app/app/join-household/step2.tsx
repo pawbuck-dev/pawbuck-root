@@ -215,6 +215,9 @@ export default function JoinHouseholdStep2() {
       {/* Bottom Action Button */}
       <View className="px-6 pb-8 pt-4">
         <Pressable
+          testID="join-household-submit"
+          accessibilityRole="button"
+          accessibilityLabel="Join Household"
           onPress={handleJoinHousehold}
           disabled={joining}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"

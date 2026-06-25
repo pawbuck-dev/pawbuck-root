@@ -448,6 +448,9 @@ export default function Home() {
             Add a pet, join a household with an invite code, or claim a transferred pet
           </Text>
           <TouchableOpacity
+            testID="home-add-first-pet"
+            accessibilityRole="button"
+            accessibilityLabel="Add Your First Pet"
             onPress={() => navigateToAddPet(false)}
             style={{
               width: "100%",

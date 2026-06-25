@@ -80,6 +80,9 @@ export default function OnboardingStep1() {
         </View>
 
         <Pressable
+          testID="onboarding-continue"
+          accessibilityRole="button"
+          accessibilityLabel="Continue"
           onPress={() => router.push("/onboarding/step2")}
           className="rounded-2xl py-4 px-8 items-center active:opacity-85"
           style={{ backgroundColor: theme.primary }}

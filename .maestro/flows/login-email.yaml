@@ -1,0 +1,15 @@
+# E2E: welcome → email login → home (or empty home)
+appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_RECIPIENT_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_RECIPIENT_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/login-email.yaml
+- extendedWaitUntil:
+    visible:
+      anyOf:
+        - id: "home-add-first-pet"
+        - id: "bottom-nav-home"
+    timeout: 30000

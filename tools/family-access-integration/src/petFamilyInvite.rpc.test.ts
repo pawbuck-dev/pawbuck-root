@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLocalSupabaseReachable } from "./env.ts";
+import { createServiceClient, isLocalSupabaseReachable } from "./env.ts";
 import {
   createPetFamilyInvite,
   createTestPet,
@@ -55,5 +55,37 @@ d("process_pet_family_invite_token RPC", () => {
     await deleteTestUser(owner.id);
     await deleteTestUser(invitee.id);
     await deleteTestUser(other.id);
+  });
+});
+
+d("pet family member cap (5 slots per pet)", () => {
+  it("blocks sixth member slot (owner + 4 grants + new invite)", async () => {
+    const owner = await createTestUser("cap-owner");
+    await grantFamilyPlan(owner.id);
+    const petId = await createTestPet(owner, "CapPet");
+    const admin = createServiceClient();
+
+    for (let i = 0; i < 4; i++) {
+      const member = await createTestUser(`cap-member-${i}`);
+      const { error } = await admin.from("pet_family_grants").insert({
+        pet_id: petId,
+        grantee_id: member.id,
+        role: "contributor",
+        invited_by: owner.id,
+      });
+      expect(error).toBeNull();
+      await deleteTestUser(member.id);
+    }
+
+    const ownerClient = await userClient(owner);
+    const { error: sixthInviteError } = await ownerClient.from("pet_family_invites").insert({
+      pet_id: petId,
+      email: `sixth-${Date.now()}@family-cap.test`,
+      role: "view_only",
+    });
+
+    expect(sixthInviteError?.message).toMatch(/pet_family_member_limit|member limit/i);
+
+    await deleteTestUser(owner.id);
   });
 });

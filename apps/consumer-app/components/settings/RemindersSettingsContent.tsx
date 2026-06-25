@@ -3,6 +3,7 @@ import { SettingsSubscreenTile } from "@/components/layout/SettingsSubscreenTile
 import { getSettingsSubscreenTokens } from "@/components/layout/settingsSubscreenTokens";
 import { EVENING_JOURNAL_HOURS } from "@/constants/remindersUi";
 import { useNotifications } from "@/context/notificationsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { useUserPreferences } from "@/context/userPreferencesContext";
 import type { TablesUpdate } from "@/database.types";
@@ -71,9 +72,12 @@ export function RemindersSettingsContent() {
   const t = getSettingsSubscreenTokens(theme, isDark);
   const { preferences, updatePreferences, updatingPreferences } = useUserPreferences();
   const { refreshNotifications } = useNotifications();
+  const { canAccessFeature, openPaywall } = useSubscription();
   const queryClient = useQueryClient();
   const userId = preferences?.user_id;
   const [localBusy, setLocalBusy] = useState(false);
+
+  const healthAlertsEnabled = canAccessFeature("health_alerts");
 
   const persist = useCallback(
     async (patch: Partial<TablesUpdate<"user_preferences">>) => {
@@ -172,12 +176,46 @@ export function RemindersSettingsContent() {
       </SettingsSubscreenTile>
 
       <SettingsSubscreenTile heading="Push alerts">
+        {!healthAlertsEnabled ? (
+          <Pressable
+            onPress={() => openPaywall({ source: "health_alerts", requiredPlan: "individual" })}
+            style={{
+              marginBottom: 16,
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: isDark ? "rgba(59,208,210,0.12)" : "#E6F7F6",
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(59,208,210,0.35)" : "#9DD9D5",
+            }}
+          >
+            <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 15, color: theme.foreground }}>
+              Health alerts require Individual
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Poppins_400Regular",
+                fontSize: 13,
+                lineHeight: 18,
+                color: t.muted,
+                marginTop: 4,
+              }}
+            >
+              Upgrade for insurance expiry and vet appointment reminders. Your journal nudge on this device stays
+              free.
+            </Text>
+          </Pressable>
+        ) : null}
+
         <ReminderToggleRow
           title="Insurance & travel expiry"
           subtitle="When a saved policy or certificate is nearing expiry (30, 7, 1 days, or day-of)."
-          value={docPush}
-          disabled={busy}
+          value={healthAlertsEnabled ? docPush : false}
+          disabled={busy || !healthAlertsEnabled}
           onValueChange={(v) => {
+            if (!healthAlertsEnabled) {
+              openPaywall({ source: "health_alerts", requiredPlan: "individual" });
+              return;
+            }
             void persist({ document_expiry_push_enabled: v });
           }}
         />
@@ -187,9 +225,13 @@ export function RemindersSettingsContent() {
         <ReminderToggleRow
           title="Vet appointment reminders"
           subtitle="About 24 hours and about 1 hour before a confirmed visit."
-          value={vetPush}
-          disabled={busy}
+          value={healthAlertsEnabled ? vetPush : false}
+          disabled={busy || !healthAlertsEnabled}
           onValueChange={(v) => {
+            if (!healthAlertsEnabled) {
+              openPaywall({ source: "health_alerts", requiredPlan: "individual" });
+              return;
+            }
             void persist({ vet_appointment_reminder_push_enabled: v });
           }}
         />

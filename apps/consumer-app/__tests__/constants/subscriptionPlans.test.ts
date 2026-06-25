@@ -1,4 +1,29 @@
-import { resolveEffectiveSubscriptionPlan } from "@/constants/subscriptionPlans";
+import {
+  meetsMinimumPlan,
+  normalizePlan,
+  resolveEffectiveSubscriptionPlan,
+} from "@/constants/subscriptionPlans";
+
+describe("normalizePlan", () => {
+  it("maps legacy premium to individual", () => {
+    expect(normalizePlan("premium")).toBe("individual");
+  });
+
+  it("defaults unknown values to free", () => {
+    expect(normalizePlan(null)).toBe("free");
+    expect(normalizePlan("unknown")).toBe("free");
+  });
+});
+
+describe("meetsMinimumPlan", () => {
+  it("ranks family above individual and free", () => {
+    expect(meetsMinimumPlan("family", "individual")).toBe(true);
+    expect(meetsMinimumPlan("family", "family")).toBe(true);
+    expect(meetsMinimumPlan("individual", "family")).toBe(false);
+    expect(meetsMinimumPlan("free", "individual")).toBe(false);
+    expect(meetsMinimumPlan("free", "free")).toBe(true);
+  });
+});
 
 describe("resolveEffectiveSubscriptionPlan", () => {
   it("prefers Supabase admin grant over API free", () => {

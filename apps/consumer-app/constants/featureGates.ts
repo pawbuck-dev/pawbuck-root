@@ -21,6 +21,35 @@ export const FEATURE_GATE_KEYS = [
 
 export type FeatureGateKey = (typeof FEATURE_GATE_KEYS)[number];
 
+/** Static fallback when feature-gates API is unavailable (matches pricing v1.5 migration). */
+export const FEATURE_GATE_MINIMUM_PLAN_FALLBACK: Record<FeatureGateKey, SubscriptionPlan> = {
+  milo_chat: "free",
+  pet_journal: "free",
+  health_briefing: "individual",
+  weekly_challenge: "free",
+  book_vet: "free",
+  family_sharing: "family",
+  pet_transfer: "free",
+  document_upload: "individual",
+  ai_journal_entry: "individual",
+  milo_symptom_trees: "individual",
+  email_parsing: "individual",
+  pet_passport_export: "individual",
+  health_alerts: "individual",
+  multi_pet: "family",
+  multi_pet_dashboard: "family",
+  family_permissions: "family",
+  per_pet_email: "family",
+};
+
+export function fallbackMinimumPlanForFeature(gateKey: string): SubscriptionPlan {
+  const key = gateKey as FeatureGateKey;
+  if (key in FEATURE_GATE_MINIMUM_PLAN_FALLBACK) {
+    return FEATURE_GATE_MINIMUM_PLAN_FALLBACK[key];
+  }
+  return "individual";
+}
+
 /** Map analytics / legacy strings to canonical gate keys. */
 export function resolveFeatureGateKey(feature?: string): string | undefined {
   if (!feature) return undefined;
@@ -53,6 +82,8 @@ export function resolveFeatureGateKey(feature?: string): string | undefined {
     pet_passport_export: "pet_passport_export",
     passport_export: "pet_passport_export",
     multi_pet: "multi_pet",
+    per_pet_email: "per_pet_email",
+    pet_email_setup: "per_pet_email",
   };
   if (feature in map) return map[feature];
   if ((FEATURE_GATE_KEYS as readonly string[]).includes(feature)) return feature as FeatureGateKey;

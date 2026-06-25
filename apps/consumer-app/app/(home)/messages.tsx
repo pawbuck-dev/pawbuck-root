@@ -427,6 +427,7 @@ export default function MessagesScreen() {
 
           {!(selectedThread || selectedPendingApproval || selectedFailedEmail) && (
             <Pressable
+              testID="messages-new-compose"
               onPress={() => setShowNewMessageModal(true)}
               accessibilityRole="button"
               accessibilityLabel="New message"

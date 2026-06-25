@@ -1,0 +1,27 @@
+# Shared email/password login. Requires MAESTRO_LOGIN_EMAIL and MAESTRO_LOGIN_PASSWORD.
+appId: com.pawbuck.app
+---
+- runFlow:
+    when:
+      visible:
+        id: "welcome-sign-in"
+    commands:
+      - tapOn:
+          id: "welcome-sign-in"
+- runFlow:
+    when:
+      visible: "Welcome Back"
+    commands:
+      - tapOn:
+          id: "email-input"
+      - inputText: ${MAESTRO_LOGIN_EMAIL}
+      - tapOn:
+          id: "password-input"
+      - inputText: ${MAESTRO_LOGIN_PASSWORD}
+      - tapOn:
+          id: "login-submit"
+- runFlow:
+    when:
+      visible: "What should we call you?"
+    commands:
+      - tapOn: "Skip"

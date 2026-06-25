@@ -1,7 +1,10 @@
 import { CTA } from "@/components/ui";
 import { useOnboarding } from "@/context/onboardingContext";
+import { usePets } from "@/context/petsContext";
+import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
 import { checkEmailIdAvailable, validateEmailIdFormat } from "@/services/pets";
+import { canAssignPetEmailAddress } from "@/utils/petEmailAccess";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -26,6 +29,8 @@ export default function OnboardingStep5b() {
   const router = useRouter();
   const { theme, mode } = useTheme();
   const { updatePetData, petData } = useOnboarding();
+  const { pets } = usePets();
+  const { plan, openPaywall } = useSubscription();
   const insets = useSafeAreaInsets();
   const isDark = mode === "dark";
 
@@ -81,6 +86,10 @@ export default function OnboardingStep5b() {
 
   const handleContinue = useCallback(() => {
     const trimmedEmailId = emailId.trim().toLowerCase();
+    if (!canAssignPetEmailAddress(plan, pets.length)) {
+      openPaywall({ source: "pet_email_setup", requiredPlan: "family" });
+      return;
+    }
     if (!trimmedEmailId) {
       Alert.alert("Pet email", "Enter the part before @pawbuck.app to continue.");
       return;
@@ -99,7 +108,7 @@ export default function OnboardingStep5b() {
     }
     updatePetData({ email_id: trimmedEmailId });
     router.push("/onboarding/step6");
-  }, [emailId, isAvailable, validationError, isChecking, checkError, updatePetData, router]);
+  }, [emailId, isAvailable, validationError, isChecking, checkError, updatePetData, router, plan, pets.length, openPaywall]);
 
   const hasError = !!(validationError || checkError);
 

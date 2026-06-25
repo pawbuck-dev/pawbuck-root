@@ -30,8 +30,8 @@ const PLANS: {
     title: "Free",
     price: "$0",
     features: [
-      "3 Milo AI conversations / month",
-      "2 AI journal entries / month",
+      "3 Milo AI conversations (lifetime)",
+      "2 AI journal entries (lifetime)",
       "10 document uploads",
       "1 pet profile",
       "Health records & messaging",

@@ -8,6 +8,7 @@ import {
   type MiloChatFileAttachment,
   SubscriptionRequiredError,
 } from "@/utils/miloChatApi";
+import { blockMiloConversationWhenCapReached } from "@/utils/miloConversationGate";
 import React, { createContext, ReactNode, useCallback, useContext, useState } from "react";
 
 export type { MiloStarterScreen };
@@ -48,7 +49,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 function ChatProviderInner({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { openPaywall, refetchEntitlement } = useSubscription();
+  const { openPaywall, refetchEntitlement, miloConversationsRemaining } = useSubscription();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,15 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback(async (message: string) => {
     if (!message.trim()) return;
+
+    if (
+      blockMiloConversationWhenCapReached(miloConversationsRemaining, {
+        openPaywall,
+        refetchEntitlement,
+      })
+    ) {
+      return;
+    }
 
     setError(null);
 
@@ -161,7 +171,7 @@ function ChatProviderInner({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPet, user?.id, openPaywall, refetchEntitlement]);
+  }, [selectedPet, user?.id, openPaywall, refetchEntitlement, miloConversationsRemaining]);
 
   return (
     <ChatContext.Provider

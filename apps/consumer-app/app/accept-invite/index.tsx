@@ -165,6 +165,9 @@ export default function AcceptInviteScreen() {
               Access level: {state.role.replace("_", " ")}. Open Home to see the shared pet.
             </Text>
             <Pressable
+              testID="accept-invite-continue-home"
+              accessibilityRole="button"
+              accessibilityLabel="Continue to Home"
               onPress={handleContinue}
               style={{
                 backgroundColor: theme.primary,

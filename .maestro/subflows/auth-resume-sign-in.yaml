@@ -1,0 +1,29 @@
+# Sign in from an auth gate (join step 2, accept-invite, etc.)
+appId: com.pawbuck.app
+---
+- runFlow:
+    when:
+      visible: "Authentication Required"
+    commands:
+      - tapOn: "Sign In"
+      - tapOn:
+          id: "email-input"
+      - inputText: ${MAESTRO_LOGIN_EMAIL}
+      - tapOn:
+          id: "password-input"
+      - inputText: ${MAESTRO_LOGIN_PASSWORD}
+      - tapOn:
+          id: "login-submit"
+- runFlow:
+    when:
+      visible: "Sign in required"
+    commands:
+      - tapOn: "Sign In"
+      - tapOn:
+          id: "email-input"
+      - inputText: ${MAESTRO_LOGIN_EMAIL}
+      - tapOn:
+          id: "password-input"
+      - inputText: ${MAESTRO_LOGIN_PASSWORD}
+      - tapOn:
+          id: "login-submit"

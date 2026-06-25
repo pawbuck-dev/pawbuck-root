@@ -147,6 +147,8 @@ export default function JoinHousehold() {
                   Invite Code
                 </Text>
                 <TextInput
+                  testID="invite-code-input"
+                  accessibilityLabel="Invite Code"
                   value={inviteCode}
                   onChangeText={(text) => {
                     setInviteCode(text);
@@ -186,6 +188,9 @@ export default function JoinHousehold() {
       {/* Bottom Action Button */}
       <View className="px-6 pb-8 pt-4">
         <Pressable
+          testID="verify-invite-code"
+          accessibilityRole="button"
+          accessibilityLabel="Verify Code"
           onPress={handleVerifyCode}
           disabled={!inviteCode.trim() || verifying}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"

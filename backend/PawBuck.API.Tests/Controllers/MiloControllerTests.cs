@@ -182,6 +182,31 @@ public class MiloControllerTests
     }
 
     [Fact]
+    public async Task Chat_Returns402_WhenMiloConversationCapExceeded()
+    {
+        var controller = CreateController(
+            out var reasoning,
+            out _,
+            out var entitlements,
+            out _,
+            out _,
+            out _,
+            subscriptionOptions: Options.Create(new SubscriptionOptions { EnforceMiloConversationCap = true }));
+        entitlements
+            .Setup(e => e.AssertMiloConversationAllowedAsync(UserId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new SubscriptionLimitException("milo_conversation_cap", SubscriptionPlans.Individual,
+                "Milo conversation limit reached (3 lifetime). Upgrade to Individual for unlimited Milo."));
+
+        var result = await controller.Chat(new MiloChatRequest { Message = "Hi" }, CancellationToken.None);
+
+        var status = result.Should().BeOfType<ObjectResult>().Subject;
+        status.StatusCode.Should().Be(StatusCodes.Status402PaymentRequired);
+        reasoning.Verify(
+            r => r.ChatAsync(It.IsAny<Guid>(), It.IsAny<MiloChatRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Chat_Returns402_WhenAiJournalCapExceededOnNewSession()
     {
         var controller = CreateController(

@@ -1,24 +1,20 @@
-# Recipient joins a household using a pre-generated MTCH code.
-# Prerequisites: owner account created MTCH code → MAESTRO_HOUSEHOLD_CODE
+# Recipient joins household with pre-generated MTCH code (owner creates code via seed script).
 appId: com.pawbuck.app
+env:
+  MAESTRO_LOGIN_EMAIL: ${MAESTRO_RECIPIENT_EMAIL}
+  MAESTRO_LOGIN_PASSWORD: ${MAESTRO_RECIPIENT_PASSWORD}
 ---
 - launchApp:
     clearState: true
-- runFlow:
-    when:
-      visible: "Sign In"
-    commands:
-      - tapOn: "Sign In"
-      - tapOn:
-          id: "email-input"
-      - inputText: ${MAESTRO_RECIPIENT_EMAIL}
-      - tapOn:
-          id: "password-input"
-      - inputText: ${MAESTRO_RECIPIENT_PASSWORD}
-      - tapOn: "Sign In"
-- tapOn: "Join with Invite Code"
-- tapOn: "Invite Code"
+- openLink: "pawbuck://join-household"
+- tapOn:
+    id: "invite-code-input"
 - inputText: ${MAESTRO_HOUSEHOLD_CODE}
-- tapOn: "Verify Code"
-- tapOn: "Join Household"
-- assertVisible: "You're in"
+- tapOn:
+    id: "verify-invite-code"
+- runFlow: ../subflows/auth-resume-sign-in.yaml
+- tapOn:
+    id: "join-household-submit"
+- assertVisible: "Successfully Joined!"
+- tapOn:
+    id: "join-household-success-continue"

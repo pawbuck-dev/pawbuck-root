@@ -452,6 +452,9 @@ export default function TransferPetStep2() {
 
       <View className="px-6 pb-8 pt-4 gap-3">
         <Pressable
+          testID="accept-transfer-submit"
+          accessibilityRole="button"
+          accessibilityLabel="Accept Transfer"
           onPress={handleTransferPet}
           disabled={transferring || declining || previewLoading || !!previewError || !previewFull}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"

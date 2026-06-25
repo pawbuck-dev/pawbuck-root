@@ -155,6 +155,8 @@ export default function TransferPet() {
                   Transfer Code
                 </Text>
                 <TextInput
+                  testID="transfer-code-input"
+                  accessibilityLabel="Transfer Code"
                   value={transferCode}
                   onChangeText={(text) => {
                     setTransferCode(text);
@@ -193,6 +195,9 @@ export default function TransferPet() {
       {/* Bottom Action Button */}
       <View className="px-6 pb-8 pt-4">
         <Pressable
+          testID="verify-transfer-code"
+          accessibilityRole="button"
+          accessibilityLabel="Verify Code"
           onPress={handleVerifyCode}
           disabled={!transferCode.trim() || verifying}
           className="w-full rounded-2xl py-5 items-center active:opacity-90"

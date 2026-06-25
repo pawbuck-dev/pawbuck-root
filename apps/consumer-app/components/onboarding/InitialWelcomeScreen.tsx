@@ -53,6 +53,7 @@ export default function InitialWelcomeScreen() {
           label="Sign Up"
           size="LG"
           style="Solid"
+          testID="welcome-sign-up"
           onPress={() => router.push("/signup")}
           containerStyle={styles.ctaBtn}
         />
@@ -60,6 +61,7 @@ export default function InitialWelcomeScreen() {
           label="Sign In"
           size="LG"
           style="Outline"
+          testID="welcome-sign-in"
           onPress={() => router.push("/login")}
           containerStyle={styles.ctaBtn}
         />
@@ -67,6 +69,7 @@ export default function InitialWelcomeScreen() {
           label="Join with invite code"
           size="MD"
           style="Outline"
+          testID="welcome-join-household"
           onPress={() => router.push("/join-household")}
           containerStyle={styles.ctaBtn}
         />
@@ -74,6 +77,7 @@ export default function InitialWelcomeScreen() {
           label="Claim a transferred pet"
           size="MD"
           style="Outline"
+          testID="welcome-claim-transfer"
           onPress={() => router.push("/transfer-pet")}
           containerStyle={styles.ctaBtn}
         />
