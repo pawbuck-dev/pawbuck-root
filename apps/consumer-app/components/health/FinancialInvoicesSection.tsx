@@ -1,4 +1,5 @@
 import { dashboardCareTeamCardChrome } from "@/constants/figmaHealthLayout";
+import DocumentCard from "@/components/health/DocumentCard";
 import type { Pet } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
 import { formatMiloUploadError } from "@/utils/miloUploadErrors";
@@ -160,13 +161,6 @@ export default function FinancialInvoicesSection({ pet }: Props) {
     borderRadius: 14,
     padding: 14,
     marginTop: 14,
-  };
-
-  const invoiceRowWell = {
-    backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
   };
 
   const handleAddDocument = () => {
@@ -474,7 +468,6 @@ export default function FinancialInvoicesSection({ pet }: Props) {
 
                     {group.rows.map((row) => {
                       const ex = parseInvoiceExtracted(row.extracted_json);
-                      const title = ex.title?.trim() || "Invoice";
                       const invoiceDate = effectiveInvoiceDate(row, ex);
                       const dateLine = ex.primaryDate?.trim()
                         ? formatInvoiceShortDate(ex.primaryDate)
@@ -491,23 +484,20 @@ export default function FinancialInvoicesSection({ pet }: Props) {
                           : ex.summary?.trim().slice(0, 80) || "Billing document — re-upload for amount extraction";
 
                       return (
-                        <View key={row.id} style={invoiceRowWell}>
-                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-                            <Ionicons name="document-outline" size={20} color={muted} style={{ marginTop: 2 }} />
-                            <View style={{ flex: 1, minWidth: 0 }}>
-                              <Text
-                                style={{ fontSize: 15, fontWeight: "700", color: theme.foreground }}
-                                numberOfLines={2}
-                              >
-                                {title}
-                              </Text>
-                              <Text style={{ fontSize: 13, color: muted, marginTop: 4 }}>{dateLine}</Text>
+                        <DocumentCard
+                          key={row.id}
+                          row={row}
+                          petId={pet!.id}
+                          compactBody
+                          footer={
+                            <>
+                              <Text style={{ fontSize: 13, color: muted, marginTop: 8 }}>{dateLine}</Text>
                               <Text style={{ fontSize: 13, color: muted, marginTop: 6 }} numberOfLines={2}>
                                 {detail}
                               </Text>
-                            </View>
-                          </View>
-                        </View>
+                            </>
+                          }
+                        />
                       );
                     })}
                   </View>

@@ -319,7 +319,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
         {insuranceExpanded ? (
           <View style={{ marginTop: 14 }}>
             {insuranceDocs.length > 0 ? (
-              insuranceDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+              insuranceDocs.map((d) => <DocumentCard key={d.id} row={d} petId={pet!.id} />)
             ) : (
               <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
                 Upload an insurance policy document. Milo will extract details and save it here.
@@ -396,7 +396,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
             </View>
 
             {pedigreeDocs.length > 0 ? (
-              pedigreeDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+              pedigreeDocs.map((d) => <DocumentCard key={d.id} row={d} petId={pet!.id} />)
             ) : (
               <Text
                 style={{
@@ -519,7 +519,7 @@ export default function DocumentsAndIdSection({ pet }: Props) {
         {travelExpanded ? (
           <View style={{ marginTop: 14 }}>
             {travelDocs.length > 0 ? (
-              travelDocs.map((d) => <DocumentCard key={d.id} row={d} />)
+              travelDocs.map((d) => <DocumentCard key={d.id} row={d} petId={pet!.id} />)
             ) : (
               <Text style={{ fontSize: 13, color: theme.secondary, lineHeight: 20 }}>
                 Upload a travel certificate when you have one. Milo will classify and store it here.
