@@ -54,6 +54,7 @@ public class MiloVisionEvalLiveTests
                 ApiKey = Environment.GetEnvironmentVariable("GOOGLE_GEMINI_API_KEY"),
                 Model = Environment.GetEnvironmentVariable("GEMINI_MODEL") ?? GeminiOptions.DefaultModelId,
             }),
+            Mock.Of<IMiloInteractionOutcomeRecorder>(),
             NullLogger<MiloVisionService>.Instance);
     }
 

@@ -26,6 +26,7 @@ public class MiloController : ControllerBase
     private readonly IOptions<SubscriptionOptions> _subscriptionOptions;
     private readonly IMiloJournalTurnService _journalTurns;
     private readonly IJournalTreeInterviewService _journalTreeInterview;
+    private readonly IMiloInteractionOutcomeRecorder _outcomeRecorder;
 
     public MiloController(
         MiloRagService ragService,
@@ -38,7 +39,8 @@ public class MiloController : ControllerBase
         ISubscriptionFeatureGateService featureGates,
         IOptions<SubscriptionOptions> subscriptionOptions,
         IMiloJournalTurnService journalTurns,
-        IJournalTreeInterviewService journalTreeInterview)
+        IJournalTreeInterviewService journalTreeInterview,
+        IMiloInteractionOutcomeRecorder outcomeRecorder)
     {
         _ragService = ragService;
         _reasoning = reasoning;
@@ -51,6 +53,7 @@ public class MiloController : ControllerBase
         _subscriptionOptions = subscriptionOptions;
         _journalTurns = journalTurns;
         _journalTreeInterview = journalTreeInterview;
+        _outcomeRecorder = outcomeRecorder;
     }
 
     /// <summary>
@@ -170,16 +173,20 @@ public class MiloController : ControllerBase
                 }
             }
 
+            await _outcomeRecorder.TryRecordChatAsync(userId, request, response, cancellationToken: cancellationToken);
             return Ok(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Milo chat failed");
-            return StatusCode(500, new MiloChatResponse
+            var errorResponse = new MiloChatResponse
             {
                 Answer = "Woof! Something went wrong. Please try again! 🐕",
                 PetName = request.Pet?.Name,
-            });
+            };
+            await _outcomeRecorder.TryRecordChatAsync(
+                userId, request, errorResponse, ex.GetType().Name, cancellationToken);
+            return StatusCode(500, errorResponse);
         }
     }
 

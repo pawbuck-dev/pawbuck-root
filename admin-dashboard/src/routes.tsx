@@ -10,6 +10,7 @@ import { ProcessingHealthPage } from "@/pages/email/ProcessingHealthPage";
 import { AdrPage } from "@/pages/milo/AdrPage";
 import { ClassifyPage } from "@/pages/milo/ClassifyPage";
 import { JournalPage } from "@/pages/milo/JournalPage";
+import { QualityPage } from "@/pages/milo/QualityPage";
 import { DocumentSyncPage } from "@/pages/product/DocumentSyncPage";
 import { GatesPage } from "@/pages/product/GatesPage";
 import { SubscriptionsPage } from "@/pages/product/SubscriptionsPage";
@@ -28,6 +29,7 @@ export function AdminRoutes() {
         <Route path="email/health" element={<ProcessingHealthPage />} />
         <Route path="email/ops" element={<EmailOpsPage />} />
         <Route path="milo/journal" element={<JournalPage />} />
+        <Route path="milo/quality" element={<QualityPage />} />
         <Route path="milo/classify" element={<ClassifyPage />} />
         <Route path="milo/adr" element={<AdrPage />} />
         <Route path="product/gates" element={<GatesPage />} />

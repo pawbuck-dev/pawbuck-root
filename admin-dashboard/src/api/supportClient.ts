@@ -21,6 +21,8 @@ import type {
   SubscriptionStatusResponse,
   SetAdminEntitlementBody,
   SupportDocumentProcessingMetricsResponse,
+  SupportMiloQualityOutcomesResponse,
+  SupportMiloQualityOverviewResponse,
   SupportDocumentSyncRunResponse,
   SupportHealthTimelineEvent,
   SupportMetrics,
@@ -327,6 +329,41 @@ export function createSupportClient(
       const qs = p.toString();
       return request<SupportDocumentProcessingMetricsResponse>(
         `/api/support/document-processing/metrics${qs ? `?${qs}` : ""}`,
+      );
+    },
+
+    getMiloQualityOverview: (from?: string, to?: string) => {
+      const p = new URLSearchParams();
+      if (from) p.set("from", from);
+      if (to) p.set("to", to);
+      const qs = p.toString();
+      return request<SupportMiloQualityOverviewResponse>(
+        `/api/support/milo/quality/overview${qs ? `?${qs}` : ""}`,
+      );
+    },
+
+    getMiloQualityOutcomes: (params?: {
+      from?: string;
+      to?: string;
+      petId?: string;
+      userId?: string;
+      surface?: string;
+      outcome?: string;
+      failureCode?: string;
+      limit?: number;
+    }) => {
+      const p = new URLSearchParams();
+      if (params?.from) p.set("from", params.from);
+      if (params?.to) p.set("to", params.to);
+      if (params?.petId) p.set("petId", params.petId);
+      if (params?.userId) p.set("userId", params.userId);
+      if (params?.surface) p.set("surface", params.surface);
+      if (params?.outcome) p.set("outcome", params.outcome);
+      if (params?.failureCode) p.set("failureCode", params.failureCode);
+      if (params?.limit != null) p.set("limit", String(params.limit));
+      const qs = p.toString();
+      return request<SupportMiloQualityOutcomesResponse>(
+        `/api/support/milo/quality/outcomes${qs ? `?${qs}` : ""}`,
       );
     },
 

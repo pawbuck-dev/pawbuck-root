@@ -40,6 +40,7 @@ public class DataInventoryDriftTests
             "medication_adr_overrides",
             "medication_products",
             "milo_curated_snippets",
+            "milo_interaction_outcomes",
             "milo_journal_config",
             "notification_dedupe",
             "one_time_ops_log",

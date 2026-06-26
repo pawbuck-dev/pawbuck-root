@@ -28,6 +28,7 @@ public class MiloVisionService : IMiloVisionService
     private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IOptions<SupabaseOptions> _supabaseOptions;
     private readonly IOptions<GeminiOptions> _geminiOptions;
+    private readonly IMiloInteractionOutcomeRecorder _outcomeRecorder;
     private readonly ILogger<MiloVisionService> _logger;
 
     public MiloVisionService(
@@ -38,6 +39,7 @@ public class MiloVisionService : IMiloVisionService
         IGeminiGenerateContentService geminiGenerate,
         IOptions<SupabaseOptions> supabaseOptions,
         IOptions<GeminiOptions> geminiOptions,
+        IMiloInteractionOutcomeRecorder outcomeRecorder,
         ILogger<MiloVisionService> logger)
     {
         _petFacts = petFacts;
@@ -47,6 +49,7 @@ public class MiloVisionService : IMiloVisionService
         _geminiGenerate = geminiGenerate;
         _supabaseOptions = supabaseOptions;
         _geminiOptions = geminiOptions;
+        _outcomeRecorder = outcomeRecorder;
         _logger = logger;
     }
 
@@ -248,6 +251,17 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
                 row.ClinicalSync = new PetDocumentClinicalSyncResult { Error = "sync_failed" };
             }
         }
+
+        await _outcomeRecorder.TryRecordVisionAsync(
+            ownerUserId,
+            petId,
+            row.Id,
+            docType,
+            rowConfidence,
+            classConfidence,
+            extractedJson,
+            internalOptions?.IngestionSource,
+            cancellationToken);
 
         return row;
     }

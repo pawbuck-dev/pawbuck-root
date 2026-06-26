@@ -511,6 +511,50 @@ export interface SupportDocumentProcessingMetricsResponse {
   vault: SupportVaultProcessingMetrics;
 }
 
+export interface SupportMiloQualityBucketRow {
+  key: string;
+  count: number;
+}
+
+export interface SupportMiloQualityOverviewResponse {
+  from: string;
+  to: string;
+  total: number;
+  successCount: number;
+  partialCount: number;
+  failedCount: number;
+  successRate: number;
+  bySurface: SupportMiloQualityBucketRow[];
+  topFailureCodes: SupportMiloQualityBucketRow[];
+}
+
+export interface SupportMiloQualityOutcomeRow {
+  id: string;
+  createdAt: string;
+  userId?: string;
+  petId?: string;
+  turnId?: string;
+  documentId?: string;
+  surface: string;
+  outcome: string;
+  failureCode?: string;
+  intentTags: string[];
+  usedRag: boolean;
+  usedCurated: boolean;
+  usedPetFacts: boolean;
+  journalEmergencyStop: boolean;
+  documentType?: string;
+  confidence?: number;
+  modelId?: string;
+}
+
+export interface SupportMiloQualityOutcomesResponse {
+  from: string;
+  to: string;
+  total: number;
+  items: SupportMiloQualityOutcomeRow[];
+}
+
 export interface SupportBulkClearReviewInboxRequest {
   action?: "dismiss" | "resolve";
   dryRun?: boolean;

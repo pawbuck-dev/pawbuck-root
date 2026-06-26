@@ -6,18 +6,53 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 concurrency:
   group: milo-eval-nightly-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
 
 jobs:
   milo-eval-live:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ secrets.GOOGLE_GEMINI_API_KEY != '' }}
+    if: ${{ secrets.GEMINI_SECRET_ARN != '' && secrets.AWS_ROLE_ARN != '' }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: milo-eval-${{ github.run_id }}
+
+      - name: Load Gemini key from Secrets Manager
+        env:
+          GEMINI_SECRET_ARN: ${{ secrets.GEMINI_SECRET_ARN }}
+          GEMINI_SECRET_JSON_KEY: ${{ vars.GEMINI_SECRET_JSON_KEY }}
+        run: |
+          set -euo pipefail
+          SECRET="$(aws secretsmanager get-secret-value \
+            --secret-id "$GEMINI_SECRET_ARN" \
+            --query SecretString \
+            --output text)"
+          if [ -n "${GEMINI_SECRET_JSON_KEY:-}" ]; then
+            KEY="$(echo "$SECRET" | jq -r --arg k "$GEMINI_SECRET_JSON_KEY" '.[$k] // empty')"
+          else
+            KEY="$SECRET"
+          fi
+          if [ -z "$KEY" ]; then
+            echo "::error::Could not resolve Gemini API key from GEMINI_SECRET_ARN"
+            exit 1
+          fi
+          echo "GOOGLE_GEMINI_API_KEY=$KEY" >> "$GITHUB_ENV"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -42,7 +77,6 @@ jobs:
       - name: Live Gemini eval
         env:
           MILO_EVAL_LIVE: "1"
-          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-2.5-flash
         run: dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj -c Release --filter "Category=MiloEvalLive" --verbosity normal
 

@@ -67,6 +67,7 @@ export function AdminSidebar({ queues, queuesLoading }: Props) {
       label: "AI / Milo",
       items: [
         { to: "/milo/journal", label: "Journal & chat" },
+        { to: "/milo/quality", label: "Quality ledger" },
         { to: "/milo/classify", label: "Classify lab" },
         { to: "/milo/adr", label: "Medication ADR" },
       ],

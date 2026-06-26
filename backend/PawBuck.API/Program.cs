@@ -215,6 +215,7 @@ builder.Services.AddScoped<MiloJournalTurnService>();
 builder.Services.AddScoped<IMiloJournalTurnService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloJournalFeedbackAggregateService>(sp => sp.GetRequiredService<MiloJournalTurnService>());
 builder.Services.AddScoped<IMiloVisionService, MiloVisionService>();
+builder.Services.AddScoped<IMiloInteractionOutcomeRecorder, MiloInteractionOutcomeRecorder>();
 builder.Services.AddScoped<IMiloHealthBundleService, MiloHealthBundleService>();
 builder.Services.AddSingleton<IJournalTreeCatalog, JournalTreeCatalog>();
 builder.Services.AddScoped<IMedicationAdrService, MedicationAdrService>();
@@ -336,6 +337,7 @@ builder.Services.AddScoped<ISupportDirectoryService, SupportDirectoryService>();
 builder.Services.AddScoped<ISupportVaccinationAdminService, SupportVaccinationAdminService>();
 builder.Services.AddScoped<ISupportProcessedEmailsService, SupportProcessedEmailsService>();
 builder.Services.AddScoped<ISupportDocumentProcessingService, SupportDocumentProcessingService>();
+builder.Services.AddScoped<ISupportMiloQualityService, SupportMiloQualityService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

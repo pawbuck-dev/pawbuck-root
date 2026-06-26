@@ -36,7 +36,7 @@ pnpm run backend:test
 
 ## Run (live Gemini — nightly / pre-release)
 
-Requires `GOOGLE_GEMINI_API_KEY` and explicit opt-in:
+Requires explicit opt-in (`MILO_EVAL_LIVE=1`) and a Gemini API key in `GOOGLE_GEMINI_API_KEY` (local) or fetched from **`GEMINI_SECRET_ARN`** in GitHub Actions (same secret as ECS deploy — see [`docs/AWS.md`](../docs/AWS.md)):
 
 ```bash
 export MILO_EVAL_LIVE=1
@@ -46,7 +46,7 @@ export GOOGLE_GEMINI_API_KEY=...
 dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj --filter "Category=MiloEvalLive"
 ```
 
-GitHub Actions: [`.github/workflows/milo-eval-nightly.yml`](../.github/workflows/milo-eval-nightly.yml) (manual + nightly schedule).
+GitHub Actions: [`.github/workflows/milo-eval-nightly.yml`](../.github/workflows/milo-eval-nightly.yml) — uses **`GEMINI_SECRET_ARN`** + **`AWS_ROLE_ARN`** (OIDC) to load the key; no separate `GOOGLE_GEMINI_API_KEY` repo secret required.
 
 ## Model upgrade gate
 
@@ -68,3 +68,7 @@ Before changing `Gemini:Model` / ECS `Gemini__Model`, follow [`model-upgrade/RUN
 - [x] ≥10 journal red-flag scenarios
 - [x] This README + model upgrade runbook
 - [ ] One completed model comparison report when changing production model
+
+## Production observability (separate from this suite)
+
+Offline eval here catches regressions before deploy. In production, PawBuck.API writes structured rows to `milo_interaction_outcomes` (no message text) and exposes admin drill-down at `/api/support/milo/quality/*` and admin **Milo → Quality ledger**.

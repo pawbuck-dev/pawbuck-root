@@ -44,6 +44,7 @@ public class MiloControllerTests
         featureGates = new Mock<ISubscriptionFeatureGateService>();
         journalTurns = new Mock<IMiloJournalTurnService>();
         journalTree = new Mock<IJournalTreeInterviewService>();
+        var outcomeRecorder = new Mock<IMiloInteractionOutcomeRecorder>();
 
         featureGates
             .Setup(f => f.IsPremiumRequiredForFeatureAsync(SubscriptionFeatureKeys.MiloChat, It.IsAny<CancellationToken>()))
@@ -65,7 +66,8 @@ public class MiloControllerTests
             featureGates.Object,
             subscriptionOptions ?? Options.Create(new SubscriptionOptions()),
             journalTurns.Object,
-            journalTree.Object)
+            journalTree.Object,
+            outcomeRecorder.Object)
         {
             ControllerContext = CreateAuthContext(UserId),
         };
