@@ -1,4 +1,5 @@
 import { MapViewPlaceholder } from "@/components/booking/MapViewPlaceholder";
+import { PAWTHON_MAP_WORLD_CAMERA } from "@/constants/pawthon";
 import { PAWTHON_TEAL } from "@/constants/pawthonUi";
 import { useTheme } from "@/context/themeContext";
 import { AppleMaps, GoogleMaps } from "expo-maps";
@@ -62,10 +63,7 @@ export const PawthonWalkMap = forwardRef<PawthonWalkMapRef, Props>(function Pawt
     if (end) {
       return { coordinates: { latitude: end.latitude, longitude: end.longitude }, zoom: 16 };
     }
-    return {
-      coordinates: { latitude: 49.2827, longitude: -123.1207 },
-      zoom: 12,
-    };
+    return PAWTHON_MAP_WORLD_CAMERA;
   }, [path, end, latSpan]);
 
   const appleMarkers = useMemo((): AppleMaps.Marker[] => {
@@ -144,7 +142,7 @@ export const PawthonWalkMap = forwardRef<PawthonWalkMapRef, Props>(function Pawt
   if (Platform.OS === "web") {
     return (
       <View style={[{ flex: 1, minHeight: 200 }, style]}>
-        <MapViewPlaceholder clinicCount={0} />
+        <MapViewPlaceholder clinicCount={0} variant="walk" />
       </View>
     );
   }

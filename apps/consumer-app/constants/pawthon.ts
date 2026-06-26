@@ -15,3 +15,9 @@ export const PAWTHON_MIN_WALK_METERS = 15;
 
 /** Minimum distance in a calendar day to count toward streak (meters). */
 export const PAWTHON_STREAK_DAY_MIN_METERS = 80;
+
+/** Map camera before GPS / route data (not tied to booking demo locations). */
+export const PAWTHON_MAP_WORLD_CAMERA = {
+  coordinates: { latitude: 20, longitude: 0 },
+  zoom: 2,
+} as const;

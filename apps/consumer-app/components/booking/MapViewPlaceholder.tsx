@@ -7,10 +7,12 @@ import { Text, View } from "react-native";
 
 type MapViewPlaceholderProps = {
   clinicCount: number;
+  /** Walk maps use a neutral label; booking keeps Vancouver demo copy. */
+  variant?: "booking" | "walk";
 };
 
 /** Stand-in on **web** only. Native uses `expo-maps` in `VetClinicMap`. */
-export function MapViewPlaceholder({ clinicCount }: MapViewPlaceholderProps) {
+export function MapViewPlaceholder({ clinicCount, variant = "booking" }: MapViewPlaceholderProps) {
   const { mode } = useTheme();
   const isDark = mode === "dark";
 
@@ -38,7 +40,9 @@ export function MapViewPlaceholder({ clinicCount }: MapViewPlaceholderProps) {
           className="text-sm text-center mb-2 px-4"
           style={{ fontFamily: "Poppins_400Regular", color: isDark ? "rgba(255,255,255,0.7)" : "#5A5F6A" }}
         >
-          {SPOOFED_LOCATION.label} · {clinicCount} clinics nearby (demo)
+          {variant === "walk"
+            ? "Map view · GPS route on mobile"
+            : `${SPOOFED_LOCATION.label} · ${clinicCount} clinics nearby (demo)`}
         </Text>
         <Text
           className="text-xs text-center px-6"
