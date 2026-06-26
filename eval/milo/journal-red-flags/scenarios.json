@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "legacy-token-chocolate",
+      "mode": "legacy-gemini",
+      "description": "Legacy journal interview returns EMERGENCY_RED_FLAG token",
+      "userMessage": "He ate dark chocolate and is vomiting.",
+      "modelAnswerToken": "EMERGENCY_RED_FLAG",
+      "expectEmergencyStop": true,
+      "expectSessionComplete": false
+    },
+    {
+      "id": "legacy-token-seizure",
+      "mode": "legacy-gemini",
+      "userMessage": "She is having a seizure right now.",
+      "modelAnswerToken": "EMERGENCY_RED_FLAG",
+      "expectEmergencyStop": true
+    },
+    {
+      "id": "legacy-token-collapse",
+      "mode": "legacy-gemini",
+      "userMessage": "He collapsed and will not stand up.",
+      "modelAnswerToken": "EMERGENCY_RED_FLAG",
+      "expectEmergencyStop": true
+    },
+    {
+      "id": "legacy-token-poisoning",
+      "mode": "legacy-gemini",
+      "userMessage": "I think he ate rat poison.",
+      "modelAnswerToken": "EMERGENCY_RED_FLAG",
+      "expectEmergencyStop": true
+    },
+    {
+      "id": "tree-vomiting-coffee-ground",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_character_vomit": ["coffee_ground"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-vomiting-black-tarry",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_character_stool": ["black_tarry"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-vomiting-bloated",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_red_flags": ["bloated"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-vomiting-pale-gums",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_red_flags": ["pale_gums"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-vomiting-very-weak",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_red_flags": ["very_weak"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-lethargy-collapsed",
+      "mode": "tree",
+      "treeId": "lethargy_v1.5",
+      "answers": {
+        "q_red_flags": ["collapsed"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-lethargy-seizure",
+      "mode": "tree",
+      "treeId": "lethargy_v1.5",
+      "answers": {
+        "q_red_flags": ["seizure"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-lethargy-barely-responsive",
+      "mode": "tree",
+      "treeId": "lethargy_v1.5",
+      "answers": {
+        "q_onset_severity": ["barely_responsive"]
+      },
+      "expectEmergency": true
+    },
+    {
+      "id": "tree-vomiting-none-negative",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_red_flags": ["none"],
+        "q_character_vomit": ["food"]
+      },
+      "expectEmergency": false
+    },
+    {
+      "id": "tree-vomiting-urgent-blood-only",
+      "mode": "tree",
+      "treeId": "vomiting_v1.5",
+      "answers": {
+        "q_red_flags": ["blood"]
+      },
+      "expectEmergency": false,
+      "note": "blood is urgent in tree definition, not emergency-level EvaluateEmergency"
+    }
+  ]
+}

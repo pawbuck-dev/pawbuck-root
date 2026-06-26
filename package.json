@@ -21,16 +21,17 @@
     "ci:consumer-app": "pnpm install --frozen-lockfile && pnpm --filter pawbuck typecheck && pnpm --filter pawbuck run test:ci",
     "provider:test": "pnpm --filter pawbuck-provider-app test",
     "milo:test": "pnpm --filter @pawbuck/milo test",
+    "milo:eval": "pnpm exec tsx eval/milo/run-deterministic.ts",
     "milo-journal-trees:test": "pnpm --filter @pawbuck/milo-journal-trees test",
     "api-client:test": "pnpm --filter @pawbuck/api-client test",
     "backend:build": "cd backend/PawBuck.API && dotnet build",
     "backend:run": "cd backend/PawBuck.API && dotnet run",
-    "backend:test": "dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj && dotnet test backend/PawBuck.Shared.Tests/PawBuck.Shared.Tests.csproj",
+    "backend:test": "dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj --filter \"Category!=MiloEvalLive\" && dotnet test backend/PawBuck.Shared.Tests/PawBuck.Shared.Tests.csproj",
     "admin:dev": "pnpm --filter pawbuck-admin-dashboard dev",
     "admin:build": "pnpm --filter pawbuck-admin-dashboard build",
     "admin:test": "pnpm --filter pawbuck-admin-dashboard test",
     "backend:admin": "cd backend/PawBuck.API && dotnet run",
-    "test:all": "pnpm run milo:test && pnpm run api-client:test && pnpm run consumer:test && pnpm run provider:test && pnpm run admin:test && pnpm run backend:test",
+    "test:all": "pnpm run milo:test && pnpm run milo:eval && pnpm run api-client:test && pnpm run consumer:test && pnpm run provider:test && pnpm run admin:test && pnpm run backend:test",
     "family-access:integration": "pnpm --filter @pawbuck/family-access-integration test",
     "subscription-limits:integration": "pnpm --filter @pawbuck/subscription-limits-integration test",
     "maestro:seed": "pnpm --filter @pawbuck/maestro-seed seed",
@@ -46,6 +47,7 @@
     "deploy:watch": "gh run watch --workflow deploy-aws.yml"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "typescript": "^5.9.2"
   }
 }

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "examples": [
+    {
+      "id": "vet-fyi-soft-stool",
+      "specRef": "docs/specs/vet-notification-format-v1.md §2",
+      "request": {
+        "petName": "Pawsome",
+        "breed": "Malamute",
+        "dateOfBirth": "2022-01-15",
+        "sex": "male",
+        "weightValue": 32,
+        "weightUnit": "kg",
+        "emailId": "pawsome2",
+        "userTurns": ["Watery stool since yesterday"],
+        "journalSummary": "Soft stool, normal energy.",
+        "ownerSigningName": "Alex",
+        "sessionDateLabel": "May 10, 2026",
+        "severity": "low"
+      },
+      "expect": {
+        "subjectMustNotContain": ["!", "**"],
+        "bodyMustNotContain": ["**", "Best regards"],
+        "bodyMustContain": ["Alex", "sent via PawBuck", "OBSERVATIONS"]
+      }
+    },
+    {
+      "id": "vet-advice-limping",
+      "specRef": "docs/specs/vet-notification-format-v1.md §2.1",
+      "request": {
+        "petName": "Bailey",
+        "breed": "Labrador",
+        "dateOfBirth": "2020-05-01",
+        "sex": "female",
+        "weightValue": 62,
+        "weightUnit": "lb",
+        "emailId": "bailey1",
+        "userTurns": ["Limping on front left leg after park play"],
+        "journalSummary": "Limping started today after fetch.",
+        "ownerSigningName": "Jordan",
+        "sessionDateLabel": "June 1, 2026",
+        "severity": "medium"
+      },
+      "expect": {
+        "subjectMaxLength": 70,
+        "bodyMustContain": ["Jordan", "Should Bailey", "PawBuck"]
+      }
+    }
+  ]
+}

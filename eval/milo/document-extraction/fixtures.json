@@ -1,0 +1,258 @@
+[
+  {
+    "id": "vac-beach-avenue-001",
+    "documentType": "vaccinations",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "requiredFields": ["petName", "clinicName", "dateOfVisit", "items"],
+    "keyFieldEquals": { "petName": "Milo" },
+    "expected": {
+      "petName": "Milo",
+      "documentType": "vaccinations",
+      "clinicName": "Beach Avenue Animal Hospital",
+      "dateOfVisit": "2025-10-11",
+      "items": [
+        { "name": "DAPP", "category": "vaccination", "administeredDate": "2025-10-11", "expiryDate": "2028-10-10" },
+        { "name": "Rabies", "category": "vaccination", "expiryDate": "2028-04-07" }
+      ],
+      "confidenceScore": 88
+    }
+  },
+  {
+    "id": "vac-stained-receipt-001",
+    "documentType": "vaccinations",
+    "schemaKind": "medical",
+    "minItems": 3,
+    "keyFieldEquals": { "petName": "Buddy" },
+    "expected": {
+      "petName": "Buddy",
+      "documentType": "vaccinations",
+      "clinicName": "Beach Avenue Animal Hospital",
+      "dateOfVisit": "2025-11-10",
+      "items": [
+        { "name": "DHPP", "category": "vaccination", "administeredDate": "2025-11-10", "expiryDate": "2028-10-10" },
+        { "name": "Rabies 1yr", "category": "vaccination", "administeredDate": "2025-11-10", "expiryDate": "2028-07-04" },
+        { "name": "Bordetella", "category": "vaccination", "administeredDate": "2025-11-10", "expiryDate": "2026-11-10" },
+        { "name": "Leptospirosis", "category": "vaccination", "administeredDate": "2025-11-10", "expiryDate": "2026-11-10" }
+      ],
+      "confidenceScore": 90
+    }
+  },
+  {
+    "id": "vac-happy-paws-luna-001",
+    "documentType": "vaccinations",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "keyFieldEquals": { "petName": "Luna" },
+    "expected": {
+      "petName": "Luna",
+      "documentType": "vaccinations",
+      "clinicName": "Happy Paws Veterinary Clinic",
+      "dateOfVisit": "2025-03-15",
+      "items": [
+        { "name": "FVRCP booster", "category": "vaccination", "expiryDate": "2026-03-15" }
+      ],
+      "confidenceScore": 86
+    }
+  },
+  {
+    "id": "lab-cbc-panel-001",
+    "documentType": "lab_results",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "expected": {
+      "petName": "Bailey",
+      "documentType": "lab_results",
+      "clinicName": "Riverview Veterinary Lab",
+      "dateOfVisit": "2025-06-01",
+      "items": [
+        { "name": "CBC panel", "category": "lab", "expiryDate": "2025-06-01" }
+      ],
+      "confidenceScore": 92
+    }
+  },
+  {
+    "id": "lab-urinalysis-001",
+    "documentType": "lab_results",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "expected": {
+      "petName": "Mochi",
+      "documentType": "lab_results",
+      "clinicName": "Northside Animal Clinic",
+      "dateOfVisit": "2025-08-12",
+      "items": [
+        { "name": "Urinalysis", "category": "lab", "expiryDate": "2025-08-12" }
+      ],
+      "confidenceScore": 89
+    }
+  },
+  {
+    "id": "exam-annual-wellness-001",
+    "documentType": "clinical_exams",
+    "schemaKind": "medical",
+    "keyFieldEquals": { "petName": "Cooper" },
+    "expected": {
+      "petName": "Cooper",
+      "documentType": "clinical_exams",
+      "clinicName": "Happy Paws Veterinary Clinic",
+      "dateOfVisit": "2025-03-15",
+      "items": [
+        { "name": "Annual wellness exam", "category": "exam", "expiryDate": "2026-03-15" }
+      ],
+      "confidenceScore": 91
+    }
+  },
+  {
+    "id": "exam-dental-checkup-001",
+    "documentType": "clinical_exams",
+    "schemaKind": "medical",
+    "expected": {
+      "petName": "Whiskers",
+      "documentType": "clinical_exams",
+      "clinicName": "Feline Dental Center",
+      "dateOfVisit": "2025-02-20",
+      "items": [
+        { "name": "Dental examination", "category": "exam", "expiryDate": "2026-02-20" }
+      ],
+      "confidenceScore": 87
+    }
+  },
+  {
+    "id": "med-rimadyl-001",
+    "documentType": "medications",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "expected": {
+      "petName": "Rocky",
+      "documentType": "medications",
+      "clinicName": "Summit Vet Care",
+      "dateOfVisit": "2025-04-03",
+      "items": [
+        { "name": "Carprofen (Rimadyl)", "category": "medication", "expiryDate": "2025-10-03" }
+      ],
+      "confidenceScore": 93
+    }
+  },
+  {
+    "id": "med-ambiguous-diet-001",
+    "documentType": "medications",
+    "schemaKind": "medical",
+    "maxConfidence": 49,
+    "minItems": 1,
+    "expected": {
+      "petName": "Moxie or Max",
+      "documentType": "medications",
+      "clinicName": "Unknown",
+      "dateOfVisit": "2025-01-01",
+      "items": [
+        { "name": "diet instructions", "category": "diet", "expiryDate": "2025-12-31" }
+      ],
+      "confidenceScore": 25
+    }
+  },
+  {
+    "id": "billing-multi-pet-invoice-001",
+    "documentType": "billing_invoice",
+    "schemaKind": "flexible",
+    "expected": {
+      "title": "Happy Paws invoice",
+      "summary": "Invoice for Luna and Cooper wellness services.",
+      "primaryDate": "2025-03-15",
+      "keyFacts": [
+        { "label": "Total", "value": "$268" },
+        { "label": "Pets", "value": "Luna (cat), Cooper (dog)" }
+      ],
+      "confidenceScore": 90
+    }
+  },
+  {
+    "id": "billing-vaccine-receipt-001",
+    "documentType": "billing_invoice",
+    "schemaKind": "flexible",
+    "expected": {
+      "title": "Vaccination receipt",
+      "summary": "Receipt for Buddy vaccinations at Beach Avenue Animal Hospital.",
+      "primaryDate": "2025-11-10",
+      "keyFacts": [
+        { "label": "Clinic", "value": "Beach Avenue Animal Hospital" }
+      ],
+      "confidenceScore": 85
+    }
+  },
+  {
+    "id": "insurance-petplan-001",
+    "documentType": "insurance_policy",
+    "schemaKind": "flexible",
+    "expected": {
+      "title": "Pet insurance policy",
+      "summary": "Coverage summary for enrolled pet.",
+      "primaryDate": "2026-03-01",
+      "keyFacts": [
+        { "label": "Policy #", "value": "PP-884422" },
+        { "label": "Carrier", "value": "Acme Pet Insurance" }
+      ],
+      "confidenceScore": 88
+    }
+  },
+  {
+    "id": "irrelevant-grocery-receipt-001",
+    "documentType": "irrelevant",
+    "schemaKind": "medical",
+    "maxConfidence": 40,
+    "expected": {
+      "petName": "Unknown",
+      "documentType": "irrelevant",
+      "clinicName": "Unknown",
+      "dateOfVisit": "2025-01-01",
+      "items": [],
+      "confidenceScore": 15
+    }
+  },
+  {
+    "id": "irrelevant-random-note-001",
+    "documentType": "irrelevant",
+    "schemaKind": "medical",
+    "maxConfidence": 35,
+    "expected": {
+      "petName": "Unknown",
+      "documentType": "irrelevant",
+      "clinicName": "Unknown",
+      "dateOfVisit": "2025-01-01",
+      "items": [],
+      "confidenceScore": 10
+    }
+  },
+  {
+    "id": "travel-usda-cert-001",
+    "documentType": "travel_certificate",
+    "schemaKind": "medical",
+    "expected": {
+      "petName": "Nova",
+      "documentType": "travel_certificate",
+      "clinicName": "USDA Accredited Clinic",
+      "dateOfVisit": "2025-09-01",
+      "items": [
+        { "name": "International health certificate", "category": "travel", "expiryDate": "2025-09-15" }
+      ],
+      "confidenceScore": 84
+    }
+  },
+  {
+    "id": "vac-cooper-rabies-001",
+    "documentType": "vaccinations",
+    "schemaKind": "medical",
+    "minItems": 1,
+    "keyFieldEquals": { "petName": "Cooper" },
+    "expected": {
+      "petName": "Cooper",
+      "documentType": "vaccinations",
+      "clinicName": "Happy Paws Veterinary Clinic",
+      "dateOfVisit": "2025-03-15",
+      "items": [
+        { "name": "Rabies 3yr", "category": "vaccination", "expiryDate": "2028-03-15" }
+      ],
+      "confidenceScore": 87
+    }
+  }
+]

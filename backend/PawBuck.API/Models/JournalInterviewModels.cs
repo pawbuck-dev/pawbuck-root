@@ -146,6 +146,9 @@ public sealed class JournalTreeRedFlagTriggerDto
     [JsonPropertyName("ifAnyAnswerIds")]
     public List<string>? IfAnyAnswerIds { get; init; }
 
+    [JsonPropertyName("ifAllAnswerIds")]
+    public List<string>? IfAllAnswerIds { get; init; }
+
     [JsonPropertyName("level")]
     public string Level { get; init; } = "urgent";
 }

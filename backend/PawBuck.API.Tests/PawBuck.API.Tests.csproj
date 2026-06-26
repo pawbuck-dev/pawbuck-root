@@ -20,4 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PawBuck.API\PawBuck.API.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\eval\milo\**\*.json" Link="MiloEval\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

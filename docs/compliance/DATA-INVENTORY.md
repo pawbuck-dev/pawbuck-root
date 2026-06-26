@@ -53,6 +53,6 @@ Machine-readable table list: [inventoried-tables.txt](./inventoried-tables.txt) 
 | Storage `pending-emails` | Comms | — | TTL / delete | purge worker | no |
 | Storage `data-exports` | Account | Export bundle | 7 days | TTL job | user download |
 
-**System / non-user tables (not in export):** `documentation`, `milo_journal_config`, `clinic_scheduling_config`, `medication_adr_*`, `subscription_feature_gates`, `subscription_limits`, `ops_probe_results`, `faq_*`, `milo_curated_snippets`, `country_email_document_verification`, reminder sent markers, etc.
+**System / non-user tables (not in export):** `documentation`, `milo_journal_config`, `clinic_scheduling_config`, `medication_adr_*`, `subscription_feature_gates`, `subscription_limits`, `ops_probe_results`, `notification_dedupe` (Edge push cooldown ledger, service role), `one_time_ops_log` (one-shot migration idempotency), `faq_*`, `milo_curated_snippets`, `country_email_document_verification`, reminder sent markers, etc.
 
 When adding a migration with `CREATE TABLE public.*` for user/pet data, add a row here and a line in `inventoried-tables.txt`.

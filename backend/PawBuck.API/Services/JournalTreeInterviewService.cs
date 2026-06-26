@@ -211,7 +211,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
             {
                 StoreAnswer(answers, q.Id, request.Message, request.JournalChipIds);
                 var asked = session.QuestionsAskedCount + 1;
-                var emergency = EvaluateRedFlags(tree, answers);
+                var emergency = JournalTreeRedFlagEvaluator.EvaluateEmergency(tree, answers);
                 var nextId = GetNextQuestionId(tree, q, answers, asked, emergency);
 
                 if (nextId == null || asked >= tree.MaxQuestions)
@@ -582,7 +582,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         for (var i = idx + 1; i < ordered.Count; i++)
         {
             var q = ordered[i];
-            if (q.Step == 6 && !ShouldAskRedFlagScreen(tree, answers, emergency))
+            if (q.Step == 6 && !JournalTreeRedFlagEvaluator.ShouldAskRedFlagScreen(tree, answers, emergency))
                 continue;
             if (!JournalTreeConditionals.PassesConditional(q.ConditionalOn, answers))
                 continue;
@@ -590,30 +590,6 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         }
 
         return null;
-    }
-
-    private static bool ShouldAskRedFlagScreen(
-        JournalTreeDefinitionDto tree,
-        Dictionary<string, JsonElement> answers,
-        bool alreadyEmergency)
-    {
-        if (alreadyEmergency)
-            return false;
-        return !answers.ContainsKey("q_red_flags");
-    }
-
-    private static bool EvaluateRedFlags(JournalTreeDefinitionDto tree, Dictionary<string, JsonElement> answers)
-    {
-        var allChips = answers.Values
-            .SelectMany(JournalTreeConditionals.ExtractChipIds)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var trigger in tree.RedFlagTriggers)
-        {
-            if (trigger.IfAnyAnswerIds?.Any(id => allChips.Contains(id)) == true &&
-                string.Equals(trigger.Level, "emergency", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
     }
 
     private static JournalStructuredSummaryDto BuildStructuredSummary(
@@ -624,7 +600,7 @@ public sealed class JournalTreeInterviewService : IJournalTreeInterviewService
         var fields = JournalTreeSummaryBuilder.BuildFields(tree, answers, petName);
 
         var redFlags = new List<string>();
-        if (EvaluateRedFlags(tree, answers))
+        if (JournalTreeRedFlagEvaluator.EvaluateEmergency(tree, answers))
             redFlags.Add("Possible urgent signs reported");
 
         return new JournalStructuredSummaryDto

@@ -1,0 +1,55 @@
+# Milo eval — live Gemini (nightly + manual)
+name: Milo eval nightly
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: milo-eval-nightly-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  milo-eval-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ secrets.GOOGLE_GEMINI_API_KEY != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deterministic Milo eval
+        run: pnpm run milo:eval && pnpm run milo:test
+
+      - name: Live Gemini eval
+        env:
+          MILO_EVAL_LIVE: "1"
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-2.5-flash
+        run: dotnet test backend/PawBuck.API.Tests/PawBuck.API.Tests.csproj -c Release --filter "Category=MiloEvalLive" --verbosity normal
+
+      - name: Upload live eval log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: milo-eval-live-results
+          path: backend/PawBuck.API.Tests/TestResults/**/*
+          if-no-files-found: ignore
