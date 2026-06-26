@@ -25,6 +25,7 @@ public class MiloVisionService : IMiloVisionService
     private readonly IMiloPromptProvider _prompts;
     private readonly IPetDocumentClinicalSyncService _clinicalSync;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IOptions<SupabaseOptions> _supabaseOptions;
     private readonly IOptions<GeminiOptions> _geminiOptions;
     private readonly ILogger<MiloVisionService> _logger;
@@ -34,6 +35,7 @@ public class MiloVisionService : IMiloVisionService
         IMiloPromptProvider prompts,
         IPetDocumentClinicalSyncService clinicalSync,
         IHttpClientFactory httpClientFactory,
+        IGeminiGenerateContentService geminiGenerate,
         IOptions<SupabaseOptions> supabaseOptions,
         IOptions<GeminiOptions> geminiOptions,
         ILogger<MiloVisionService> logger)
@@ -42,6 +44,7 @@ public class MiloVisionService : IMiloVisionService
         _prompts = prompts;
         _clinicalSync = clinicalSync;
         _httpClientFactory = httpClientFactory;
+        _geminiGenerate = geminiGenerate;
         _supabaseOptions = supabaseOptions;
         _geminiOptions = geminiOptions;
         _logger = logger;
@@ -445,7 +448,7 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
             },
         };
 
-        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, cancellationToken);
+        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, GeminiCallKind.VisionClassify, cancellationToken);
         return ParseClassification(json);
     }
 
@@ -503,7 +506,7 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
             },
         };
 
-        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, cancellationToken);
+        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, GeminiCallKind.VisionExtract, cancellationToken);
         var text = ExtractFirstCandidateText(json);
         if (string.IsNullOrWhiteSpace(text))
             return """{"title":"","summary":"","keyFacts":[],"confidenceScore":0}""";
@@ -567,29 +570,28 @@ Use specific vaccine names (e.g. "DHPP", "DAPP", "Bordetella", "Leptospirosis") 
             },
         };
 
-        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, cancellationToken);
+        var json = await CallGeminiGenerateContentAsync(requestBody, apiKey, model, GeminiCallKind.VisionExtract, cancellationToken);
         var text = ExtractFirstCandidateText(json);
         if (string.IsNullOrWhiteSpace(text))
             return """{"petName":"","documentType":"irrelevant","clinicName":"","dateOfVisit":"","items":[],"confidenceScore":0}""";
         return text;
     }
 
-    private async Task<string> CallGeminiGenerateContentAsync(object requestBody, string apiKey, string model, CancellationToken cancellationToken)
+    private async Task<string> CallGeminiGenerateContentAsync(
+        object requestBody,
+        string apiKey,
+        string model,
+        string operationKind,
+        CancellationToken cancellationToken)
     {
-        var geminiClient = _httpClientFactory.CreateClient("Gemini");
-        var url = $"{GeminiBaseUrl}{model}:generateContent";
-        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.SetGeminiApiKey(apiKey);
-        var httpResponse = await geminiClient.SendAsync(request, cancellationToken);
-        var json = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-        if (!httpResponse.IsSuccessStatusCode)
+        var result = await _geminiGenerate.GenerateContentAsync(operationKind, model, requestBody, apiKey, cancellationToken);
+        if (!result.Success)
         {
-            _logger.LogWarning("Gemini returned {Status}: {Body}", httpResponse.StatusCode, json);
-            throw new InvalidOperationException($"Gemini API error: {(int)httpResponse.StatusCode}");
+            _logger.LogWarning("Gemini returned {Status}: {Body}", result.StatusCode, result.ResponseJson);
+            throw new InvalidOperationException($"Gemini API error: {(int)result.StatusCode}");
         }
 
-        return json;
+        return result.ResponseJson;
     }
 
     private static string ExtractFirstCandidateText(string geminiResponseJson)

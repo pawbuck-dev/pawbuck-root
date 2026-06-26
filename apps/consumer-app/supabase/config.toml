@@ -381,7 +381,8 @@ import_map = "./functions/clinical-exam-ocr/deno.json"
 entrypoint = "./functions/clinical-exam-ocr/index.ts"
 
 [functions.milo-chat]
-enabled = true
+# DEPRECATED — do not enable. Canonical Milo: PawBuck.API. See docs/MILO_EDGE_DEPRECATION.md
+enabled = false
 verify_jwt = true
 import_map = "./functions/milo-chat/deno.json"
 entrypoint = "./functions/milo-chat/index.ts"

@@ -1,3 +1,4 @@
+// DEPRECATED 2026-06-26 — Legacy copy; not deployed from repo root. See docs/MILO_EDGE_DEPRECATION.md.
 // Milo Chat - AI Pet Assistant powered by Gemini with Function Calling (modular agentic)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -329,6 +330,16 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return handleCorsRequest();
   }
+
+  return jsonResponse(
+    {
+      error: "deprecated",
+      message:
+        "Legacy consumer-app milo-chat is retired. Use PawBuck.API POST /api/milo/chat.",
+      docs: "docs/MILO_EDGE_DEPRECATION.md",
+    },
+    410
+  );
 
   try {
     const body = (await req.json()) as ChatRequest;

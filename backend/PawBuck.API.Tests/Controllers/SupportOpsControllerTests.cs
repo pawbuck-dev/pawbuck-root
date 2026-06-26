@@ -4,6 +4,7 @@ using Moq;
 using PawBuck.API.Controllers;
 using PawBuck.API.Models;
 using PawBuck.API.Services;
+using PawBuck.API.Tests.Services;
 using Xunit;
 
 namespace PawBuck.API.Tests.Controllers;
@@ -27,7 +28,8 @@ public class SupportOpsControllerTests
                 PostgresLatencyMs = 12,
             });
 
-        var controller = new SupportOpsController(probes.Object);
+        var telemetry = new GeminiTelemetryRecorder(Microsoft.Extensions.Logging.Abstractions.NullLogger<GeminiTelemetryRecorder>.Instance);
+        var controller = new SupportOpsController(probes.Object, telemetry);
 
         var result = await controller.GetOpsHealth(CancellationToken.None);
 

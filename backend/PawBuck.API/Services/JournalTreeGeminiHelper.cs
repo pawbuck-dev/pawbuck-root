@@ -23,16 +23,16 @@ public sealed class JournalTreeGeminiHelper : IJournalTreeGeminiHelper
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IOptions<GeminiOptions> _options;
     private readonly ILogger<JournalTreeGeminiHelper> _logger;
 
     public JournalTreeGeminiHelper(
-        IHttpClientFactory httpClientFactory,
+        IGeminiGenerateContentService geminiGenerate,
         IOptions<GeminiOptions> options,
         ILogger<JournalTreeGeminiHelper> logger)
     {
-        _httpClientFactory = httpClientFactory;
+        _geminiGenerate = geminiGenerate;
         _options = options;
         _logger = logger;
     }
@@ -114,30 +114,23 @@ public sealed class JournalTreeGeminiHelper : IJournalTreeGeminiHelper
             generationConfig,
         };
 
-        var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
-        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.SetGeminiApiKey(apiKey);
+        var result = await _geminiGenerate.GenerateContentAsync(
+            GeminiCallKind.JournalTree,
+            model,
+            requestBody,
+            apiKey,
+            cancellationToken);
 
-        try
+        if (!result.Success)
         {
-            var httpResponse = await client.SendAsync(request, cancellationToken);
-            if (!httpResponse.IsSuccessStatusCode)
-            {
-                var body = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-                _logger.LogDebug("Journal Gemini helper HTTP {Status}: {Body}", httpResponse.StatusCode, body);
-                return null;
-            }
-
-            var json = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-            return ExtractGeminiText(json);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Journal Gemini helper request failed");
+            _logger.LogDebug(
+                "Journal Gemini helper HTTP {Status}: {Body}",
+                result.StatusCode,
+                result.ResponseJson.Length > 200 ? result.ResponseJson[..200] : result.ResponseJson);
             return null;
         }
+
+        return GeminiResponseParser.TryExtractCandidateText(result.ResponseJson, out var text) ? text?.Trim() : null;
     }
 
     private static string ExtractJsonObject(string text)
@@ -147,25 +140,6 @@ public sealed class JournalTreeGeminiHelper : IJournalTreeGeminiHelper
         if (start >= 0 && end > start)
             return text[start..(end + 1)];
         return text.Trim();
-    }
-
-    private static string? ExtractGeminiText(string responseJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(responseJson);
-            var candidates = doc.RootElement.GetProperty("candidates");
-            if (candidates.GetArrayLength() == 0)
-                return null;
-            var parts = candidates[0].GetProperty("content").GetProperty("parts");
-            if (parts.GetArrayLength() == 0)
-                return null;
-            return parts[0].GetProperty("text").GetString()?.Trim();
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private sealed class RouteResult

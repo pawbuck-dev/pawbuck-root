@@ -12,10 +12,12 @@ namespace PawBuck.API.Controllers;
 public class SupportOpsController : ControllerBase
 {
     private readonly IOpsProbeService _probes;
+    private readonly IGeminiTelemetryRecorder _geminiTelemetry;
 
-    public SupportOpsController(IOpsProbeService probes)
+    public SupportOpsController(IOpsProbeService probes, IGeminiTelemetryRecorder geminiTelemetry)
     {
         _probes = probes;
+        _geminiTelemetry = geminiTelemetry;
     }
 
     /// <summary>Live config checklist + Postgres ping + latest probe snapshots.</summary>
@@ -37,4 +39,9 @@ public class SupportOpsController : ControllerBase
         var result = await _probes.GetAvailabilityAsync(days, cancellationToken);
         return Ok(result);
     }
+
+    /// <summary>In-process Gemini call counters since this API task started (Phase 0 Milo telemetry).</summary>
+    [HttpGet("gemini-telemetry")]
+    [ProducesResponseType(typeof(GeminiTelemetrySnapshot), StatusCodes.Status200OK)]
+    public IActionResult GetGeminiTelemetry() => Ok(_geminiTelemetry.GetSnapshot());
 }

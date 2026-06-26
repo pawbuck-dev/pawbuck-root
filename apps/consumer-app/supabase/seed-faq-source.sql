@@ -1,6 +1,10 @@
+-- DEPRECATED 2026-06-26: faq_source / faq_documents / add-faq pipeline is retired.
+-- Product help for Milo: edit docs/pawbuck-product-help/ and run seed-documentation-rag.ts.
+-- See docs/MILO_EDGE_DEPRECATION.md.
+--
 -- Seed faq_source with the current PawBuck FAQ list.
 -- Run after migration 20260301100000_faq_source_table.sql.
--- Then call add-faq with { "sync": true } to build vectors in faq_documents.
+-- Legacy: Then call add-faq with { "sync": true } to build vectors in faq_documents.
 
 INSERT INTO public.faq_source (question, answer) VALUES
 ('What is PawBuck?', 'PawBuck is the app that brings everything about your pet into one place — health records, insurance, services, and more. All good things come one step at a time, and we''ve started with what matters most: making your life as a pet parent simpler by organizing all your pet''s health documents. Every pet gets their own email address (like milo@pawbuck.app) that automatically sorts and stores everything the moment it arrives. This is just the beginning — more features are on the way, each one designed to make caring for your pet easier.'),

@@ -39,7 +39,7 @@ public class MiloCuratedSnippetsService : IMiloCuratedSnippetsService
         var topicFilter = string.IsNullOrWhiteSpace(topic) ? null : topic.Trim();
 
         const string sql = """
-            SELECT topic, content, source_attribution
+            SELECT id, topic, content, source_attribution
             FROM public.milo_curated_snippets s
             WHERE ($3::text IS NULL OR s.topic = $3)
               AND (
@@ -78,9 +78,10 @@ public class MiloCuratedSnippetsService : IMiloCuratedSnippetsService
             {
                 results.Add(new MiloCuratedSnippetDto
                 {
-                    Topic = reader.GetString(0),
-                    Content = reader.GetString(1),
-                    SourceAttribution = reader.GetString(2),
+                    Id = reader.GetGuid(0),
+                    Topic = reader.GetString(1),
+                    Content = reader.GetString(2),
+                    SourceAttribution = reader.GetString(3),
                 });
             }
         }

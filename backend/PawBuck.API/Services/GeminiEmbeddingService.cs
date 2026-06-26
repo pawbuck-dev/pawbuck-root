@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -24,15 +25,18 @@ public class GeminiEmbeddingService : IEmbeddingService
     };
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGeminiTelemetryRecorder _telemetry;
     private readonly IOptions<GeminiOptions> _options;
     private readonly ILogger<GeminiEmbeddingService> _logger;
 
     public GeminiEmbeddingService(
         IHttpClientFactory httpClientFactory,
+        IGeminiTelemetryRecorder telemetry,
         IOptions<GeminiOptions> options,
         ILogger<GeminiEmbeddingService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _telemetry = telemetry;
         _options = options;
         _logger = logger;
     }
@@ -74,15 +78,20 @@ public class GeminiEmbeddingService : IEmbeddingService
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = requestContent };
         request.SetGeminiApiKey(apiKey);
 
+        var sw = Stopwatch.StartNew();
         var response = await client.SendAsync(request, cancellationToken);
+        sw.Stop();
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _telemetry.Record(GeminiCallKind.EmbedQuery, ModelName, sw.ElapsedMilliseconds, success: false, statusCode: response.StatusCode);
             _logger.LogWarning("Gemini embed API returned {StatusCode}: {Body}", response.StatusCode, body);
             return new float[EmbeddingDimensions];
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var usage = GeminiResponseParser.TryParseUsageMetadata(json);
+        _telemetry.Record(GeminiCallKind.EmbedQuery, ModelName, sw.ElapsedMilliseconds, success: true, usage, response.StatusCode);
         var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
         var embedding = root.GetProperty("embedding").GetProperty("values");

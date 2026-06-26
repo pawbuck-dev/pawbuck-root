@@ -133,6 +133,25 @@ For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
 - For best results and fewer 404s, run **`gemini-2.5-flash`** (repo default) or another id your key supports per **ListModels**. Unversioned **`gemini-1.5-pro`** in ECS is **remapped** to `gemini-2.5-flash` at startup; use a **versioned** model id only if you have confirmed it works for your project and endpoint.
 - **Vertex AI** or other Google Cloud endpoints are not configured in this repo’s PawBuck.API client; changing “paid tier” there would be a separate integration.
 
+**Milo Gemini telemetry (Phase 0)**
+
+- PawBuck.API logs structured **`GeminiCall`** events for every tagged inference path: `chat_plan`, `chat_answer`, `chat_journal`, `milo_ask`, `vision_classify`, `vision_extract`, `embed_query`, `proactive_tip`, `journal_tree`.
+- Fields: `kind`, `model`, `durationMs`, `success`, optional token counts from `usageMetadata`.
+- **Support readout (in-process):** `GET /api/support/ops-health/gemini-telemetry` (admin JWT) returns counters since the ECS task started.
+- **Production rollups:** CloudWatch Logs Insights example:
+
+  ```
+  fields @timestamp, kind, model, durationMs, success, totalTokens
+  | filter @message like /GeminiCall/
+  | stats count() as calls, avg(durationMs) as avgMs by kind
+  ```
+
+**Model routing policy (Phase 3 prep)**
+
+- Today a single **`Gemini:Model`** (default **`gemini-2.5-flash`**) drives chat, journal, vision classify/extract, and `/api/milo/ask`.
+- Embeddings always use **`gemini-embedding-2`** at 768 dims (`GeminiEmbeddingService`) — not controlled by `Gemini:Model`.
+- Future optional overrides (`Gemini:ClassificationModel`, `Gemini:JournalModel`) are documented in [`docs/plans/milo-domain-ai-platform.md`](../docs/plans/milo-domain-ai-platform.md) Phase 3D; do not split models in ECS until the Milo eval suite (Phase 2) gates the change.
+
 **4. Deploy script / GitHub Actions**
 
 [scripts/deploy/ecs-merge-pawbuck-api-env.sh](../scripts/deploy/ecs-merge-pawbuck-api-env.sh) can merge this for you on each API deploy when **`SUPABASE_JWT_SECRET`** is set (same condition as today’s JWT merge):

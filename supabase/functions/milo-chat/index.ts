@@ -1,10 +1,11 @@
-// Milo Chat - AI Pet Assistant powered by Gemini with Function Calling
-// Deprecated for production app: consumer chat uses PawBuck.API POST /api/milo/chat (plan + Npgsql + optional RAG).
+// DEPRECATED 2026-06-26 — Retired. Consumer app uses PawBuck.API POST /api/milo/chat.
+// See docs/MILO_EDGE_DEPRECATION.md. Disabled in supabase/config.toml (enabled = false).
 import {
   errorResponse,
   handleCorsRequest,
   jsonResponse,
 } from "../_shared/cors.ts";
+import { miloLegacyDeprecatedResponse } from "../_shared/milo-legacy-deprecated.ts";
 import type { SupabaseClient } from "supabase";
 import { callGeminiAPI } from "../_shared/gemini-api.ts";
 import {
@@ -357,6 +358,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return handleCorsRequest();
   }
+
+  return miloLegacyDeprecatedResponse("POST /api/milo/chat on PawBuck.API (EXPO_PUBLIC_PAWBUCK_API_URL)");
 
   try {
     const body: ChatRequest = await req.json();

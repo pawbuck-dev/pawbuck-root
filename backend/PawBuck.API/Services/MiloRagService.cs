@@ -43,18 +43,18 @@ If you tell me more about what you're trying to do, I can try to point you in th
 """;
 
     private readonly IKnowledgeBaseService _knowledgeBase;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IOptions<GeminiOptions> _options;
     private readonly ILogger<MiloRagService> _logger;
 
     public MiloRagService(
         IKnowledgeBaseService knowledgeBase,
-        IHttpClientFactory httpClientFactory,
+        IGeminiGenerateContentService geminiGenerate,
         IOptions<GeminiOptions> options,
         ILogger<MiloRagService> logger)
     {
         _knowledgeBase = knowledgeBase;
-        _httpClientFactory = httpClientFactory;
+        _geminiGenerate = geminiGenerate;
         _options = options;
         _logger = logger;
     }
@@ -118,17 +118,19 @@ If you tell me more about what you're trying to do, I can try to point you in th
         var model = string.IsNullOrWhiteSpace(_options.Value.Model)
             ? GeminiOptions.DefaultModelId
             : _options.Value.Model!.Trim();
-        var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
-        using var requestContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = requestContent };
-        request.SetGeminiApiKey(apiKey);
 
-        var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        var result = await _geminiGenerate.GenerateContentAsync(
+            GeminiCallKind.MiloAsk,
+            model,
+            requestBody,
+            apiKey,
+            cancellationToken);
+        if (!result.Success)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Gemini generateContent returned {StatusCode}: {Body}", response.StatusCode, body);
+            _logger.LogWarning(
+                "Gemini generateContent returned {StatusCode}: {Body}",
+                result.StatusCode,
+                result.ResponseJson.Length > 400 ? result.ResponseJson[..400] : result.ResponseJson);
             return new MiloQueryResponse
             {
                 Answer = GENERAL_HELP_RESPONSE,
@@ -137,22 +139,7 @@ If you tell me more about what you're trying to do, I can try to point you in th
             };
         }
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        var answer = "";
-        try
-        {
-            var candidate = root.GetProperty("candidates")[0];
-            var parts = candidate.GetProperty("content").GetProperty("parts");
-            answer = parts[0].GetProperty("text").GetString() ?? "";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse Gemini response");
-        }
-
-        if (string.IsNullOrWhiteSpace(answer))
+        if (!GeminiResponseParser.TryExtractCandidateText(result.ResponseJson, out var answer) || string.IsNullOrWhiteSpace(answer))
         {
             return new MiloQueryResponse
             {

@@ -24,6 +24,8 @@ public class MiloReasoningService : IMiloReasoningService
     private readonly IMiloJournalTurnService _journalTurns;
     private readonly IJournalTreeInterviewService _journalTreeInterview;
     private readonly IKnowledgeBaseService _knowledgeBase;
+    private readonly IMiloCuratedSnippetsService _curatedSnippets;
+    private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IOptions<GeminiOptions> _geminiOptions;
     private readonly IOptions<MiloOptions> _miloOptions;
@@ -36,6 +38,8 @@ public class MiloReasoningService : IMiloReasoningService
         IMiloJournalTurnService journalTurns,
         IJournalTreeInterviewService journalTreeInterview,
         IKnowledgeBaseService knowledgeBase,
+        IMiloCuratedSnippetsService curatedSnippets,
+        IGeminiGenerateContentService geminiGenerate,
         IHttpClientFactory httpClientFactory,
         IOptions<GeminiOptions> geminiOptions,
         IOptions<MiloOptions> miloOptions,
@@ -47,6 +51,8 @@ public class MiloReasoningService : IMiloReasoningService
         _journalTurns = journalTurns;
         _journalTreeInterview = journalTreeInterview;
         _knowledgeBase = knowledgeBase;
+        _curatedSnippets = curatedSnippets;
+        _geminiGenerate = geminiGenerate;
         _httpClientFactory = httpClientFactory;
         _geminiOptions = geminiOptions;
         _miloOptions = miloOptions;
@@ -220,20 +226,21 @@ public class MiloReasoningService : IMiloReasoningService
 
         var usedRag = false;
         string? ragBlock = null;
+        IReadOnlyList<DocumentationChunk> ragChunks = Array.Empty<DocumentationChunk>();
         if (needsDocumentationRag)
         {
             var boostFiles = MiloDocumentationRagHeuristic.GetBoostSourceFiles(message);
-            var chunks = await _knowledgeBase.GetContextAsync(
+            ragChunks = await _knowledgeBase.GetContextAsync(
                 message,
                 5,
                 cancellationToken,
                 boostFiles.Count > 0 ? boostFiles : null);
-            if (chunks.Count > 0)
+            if (ragChunks.Count > 0)
             {
                 usedRag = true;
                 var sb = new StringBuilder();
-                for (var i = 0; i < chunks.Count; i++)
-                    sb.AppendLine($"[Doc {i + 1}] {chunks[i].Content}");
+                for (var i = 0; i < ragChunks.Count; i++)
+                    sb.AppendLine($"[Doc {i + 1}] {ragChunks[i].Content}");
                 ragBlock = sb.ToString();
             }
             else
@@ -243,6 +250,33 @@ public class MiloReasoningService : IMiloReasoningService
             }
         }
 
+        var usedCurated = false;
+        string? curatedBlock = null;
+        var curatedTopic = MiloCuratedTopicHeuristic.InferTopic(message);
+        IReadOnlyList<MiloCuratedSnippetDto> curatedSnippets = Array.Empty<MiloCuratedSnippetDto>();
+        if (curatedTopic != null)
+        {
+            var breedKey = MiloCuratedSnippetsService.NormalizeBreedKey(request.Pet?.Breed);
+            curatedSnippets = await _curatedSnippets.GetGuidanceAsync(
+                breedKey,
+                request.Pet?.AnimalType,
+                curatedTopic,
+                cancellationToken);
+            if (curatedSnippets.Count > 0)
+            {
+                usedCurated = true;
+                curatedBlock = BuildCuratedBlock(curatedSnippets);
+            }
+        }
+
+        var sources = new List<MiloChatSourceDto>();
+        if (usedPetData)
+            sources.Add(MiloChatSourceBuilder.PetRecordSummary(request.Pet?.Name));
+        foreach (var chunk in ragChunks)
+            sources.Add(MiloChatSourceBuilder.FromDocumentationChunk(chunk));
+        foreach (var snippet in curatedSnippets)
+            sources.Add(MiloChatSourceBuilder.FromCuratedSnippet(snippet));
+
         var productHelpFocus = usedRag && !usedPetData;
         var answer = await RunAnswerStepAsync(
             apiKey,
@@ -251,6 +285,7 @@ public class MiloReasoningService : IMiloReasoningService
             petContextBlock,
             factsText,
             ragBlock,
+            curatedBlock,
             productHelpFocus,
             cancellationToken);
 
@@ -296,6 +331,8 @@ public class MiloReasoningService : IMiloReasoningService
                 : answer.Trim(),
             UsedPetData = usedPetData,
             UsedRag = usedRag,
+            UsedCurated = usedCurated,
+            Sources = sources.Count > 0 ? sources : null,
             PlanSummary = planSummary,
             PetName = request.Pet?.Name,
             FileAttachments = fileAttachments,
@@ -764,7 +801,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             },
         };
 
-        var text = await GeminiGenerateContentTextAsync(apiKey, requestBody, cancellationToken);
+        var text = await GeminiGenerateContentTextAsync(apiKey, requestBody, GeminiCallKind.ChatPlan, cancellationToken);
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
@@ -964,36 +1001,33 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         object requestBody,
         CancellationToken cancellationToken)
     {
-        var client = _httpClientFactory.CreateClient("Gemini");
-        var model = ResolveGenerateModel();
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
-        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.SetGeminiApiKey(apiKey);
+        var result = await _geminiGenerate.GenerateContentAsync(
+            GeminiCallKind.ChatJournal,
+            ResolveGenerateModel(),
+            requestBody,
+            apiKey,
+            cancellationToken);
 
-        using var httpResponse = await client.SendAsync(request, cancellationToken);
-        var body = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+        if (result.StatusCode == HttpStatusCode.TooManyRequests)
+            throw new GeminiRateLimitException("Gemini rate limited (429)", result.RetryAfter);
 
-        if (httpResponse.StatusCode == HttpStatusCode.TooManyRequests)
+        if (!result.Success)
         {
-            var retryAfter = TryParseRetryAfterHeader(httpResponse);
-            throw new GeminiRateLimitException("Gemini rate limited (429).", retryAfter);
+            if ((int)result.StatusCode >= 500 && (int)result.StatusCode <= 599)
+            {
+                throw new HttpRequestException(
+                    $"Gemini returned {(int)result.StatusCode}: {result.ResponseJson[..Math.Min(200, result.ResponseJson.Length)]}");
+            }
+
+            _logger.LogWarning(
+                "Gemini journal generateContent returned {StatusCode}: {Body}",
+                (int)result.StatusCode,
+                result.ResponseJson.Length > 400 ? result.ResponseJson[..400] : result.ResponseJson);
+            throw new InvalidOperationException($"Gemini journal API error: {(int)result.StatusCode}");
         }
 
-        if ((int)httpResponse.StatusCode >= 500 && (int)httpResponse.StatusCode <= 599)
-            throw new HttpRequestException($"Gemini returned {(int)httpResponse.StatusCode}: {body[..Math.Min(200, body.Length)]}");
-
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            _logger.LogWarning("Gemini journal generateContent returned {StatusCode}: {Body}", httpResponse.StatusCode, body);
-            throw new InvalidOperationException($"Gemini journal error {(int)httpResponse.StatusCode}");
-        }
-
-        if (!TryExtractGeminiCandidateText(body, out var text) || string.IsNullOrWhiteSpace(text))
-        {
-            _logger.LogWarning("Gemini journal: missing candidate text in response");
-            throw new InvalidOperationException("Gemini journal: empty candidate text");
-        }
+        if (!GeminiResponseParser.TryExtractCandidateText(result.ResponseJson, out var text) || string.IsNullOrWhiteSpace(text))
+            throw new InvalidOperationException("Gemini journal returned empty candidate text");
 
         return text;
     }
@@ -1048,6 +1082,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         string petContextBlock,
         string factsText,
         string? ragBlock,
+        string? curatedBlock,
         bool productHelpFocus,
         CancellationToken cancellationToken)
     {
@@ -1058,6 +1093,10 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
         var ragSection = string.IsNullOrWhiteSpace(ragBlock)
             ? "(No FAQ documentation context was retrieved.)"
             : ragBlock;
+
+        var curatedSection = string.IsNullOrWhiteSpace(curatedBlock)
+            ? "(No curated educational snippets were retrieved.)"
+            : curatedBlock;
 
         var answerSystem = productHelpFocus
             ? $"""
@@ -1091,6 +1130,7 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 PRIMARY JOB: Synthesize this pet's data from the facts below. Always prioritize summarizing and organizing existing records (journal, vaccines, medications, labs, exams) over generic veterinary how-to (e.g. long desensitization protocols, training plans, or step-by-step behavior articles not tied to this pet's rows). When facts are thin, add only brief neutral context—do not replace record synthesis with generic advice.
 
                 Use ONLY the facts and documentation below for factual claims; do not invent records.
+                When curated educational snippets are present, cite ONLY numeric ranges or general facts from that block—never invent breed statistics.
 
                 PawBuck next step (encourage app use without being salesy):
                 - When facts are thin, the user describes new symptoms/behavior/appetite/energy changes, or asks about tracking or note-taking, close with at most one practical PawBuck suggestion: **Pet journal** for owner observations (Home → Pet Journal, or Milo journal check-in), **Health Records** for uploading vet paperwork, or **vet booking** when they mention scheduling—use FAQ paths only when supported below; otherwise keep it generic ("log it in Pet Journal").
@@ -1116,6 +1156,11 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
                 ---
                 {ragSection}
                 ---
+
+                Curated educational snippets (may be empty; general education only—not veterinary advice):
+                ---
+                {curatedSection}
+                ---
                 """;
 
         var contents = BuildHistoryContents(history, userMessage, isForPlan: false);
@@ -1126,7 +1171,22 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             generationConfig = new { temperature = 0.7, maxOutputTokens = 1024 },
         };
 
-        return await GeminiGenerateContentTextAsync(apiKey, requestBody, cancellationToken) ?? "";
+        return await GeminiGenerateContentTextAsync(apiKey, requestBody, GeminiCallKind.ChatAnswer, cancellationToken) ?? "";
+    }
+
+    private static string BuildCuratedBlock(IReadOnlyList<MiloCuratedSnippetDto> snippets)
+    {
+        var sb = new StringBuilder();
+        for (var i = 0; i < snippets.Count; i++)
+        {
+            var s = snippets[i];
+            sb.AppendLine($"[Curated {i + 1}] topic={s.Topic}");
+            sb.AppendLine(s.Content);
+            sb.AppendLine($"Attribution: {s.SourceAttribution}");
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private string ResolveGenerateModel() =>
@@ -1134,27 +1194,31 @@ The user has view-only access to this pet's records in PawBuck. Do not offer to 
             ? GeminiOptions.DefaultModelId
             : _geminiOptions.Value.Model!.Trim();
 
-    private async Task<string?> GeminiGenerateContentTextAsync(string apiKey, object requestBody, CancellationToken cancellationToken)
+    private async Task<string?> GeminiGenerateContentTextAsync(
+        string apiKey,
+        object requestBody,
+        string operationKind,
+        CancellationToken cancellationToken)
     {
-        var client = _httpClientFactory.CreateClient("Gemini");
-        var model = ResolveGenerateModel();
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
-        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.SetGeminiApiKey(apiKey);
-
-        var httpResponse = await client.SendAsync(request, cancellationToken);
-        if (!httpResponse.IsSuccessStatusCode)
+        var result = await _geminiGenerate.GenerateContentAsync(
+            operationKind,
+            ResolveGenerateModel(),
+            requestBody,
+            apiKey,
+            cancellationToken);
+        if (!result.Success)
         {
-            var body = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Gemini generateContent returned {StatusCode}: {Body}", httpResponse.StatusCode, body);
+            _logger.LogWarning(
+                "Gemini generateContent returned {StatusCode} kind={Kind}: {Body}",
+                (int)result.StatusCode,
+                operationKind,
+                result.ResponseJson.Length > 400 ? result.ResponseJson[..400] : result.ResponseJson);
             return null;
         }
 
-        var json = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
-        if (!TryExtractGeminiCandidateText(json, out var text))
+        if (!GeminiResponseParser.TryExtractCandidateText(result.ResponseJson, out var text))
         {
-            _logger.LogWarning("Failed to parse Gemini response JSON or empty candidate text");
+            _logger.LogWarning("Failed to parse Gemini response JSON or empty candidate text kind={Kind}", operationKind);
             return null;
         }
 

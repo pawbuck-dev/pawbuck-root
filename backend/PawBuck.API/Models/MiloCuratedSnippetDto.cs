@@ -7,6 +7,9 @@ namespace PawBuck.API.Models;
 /// </summary>
 public class MiloCuratedSnippetDto
 {
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
     [JsonPropertyName("topic")]
     public string Topic { get; set; } = string.Empty;
 

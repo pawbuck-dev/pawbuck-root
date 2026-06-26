@@ -1,16 +1,8 @@
 /**
- * Deprecated for PawBuck.API Milo chat: canonical RAG is `public.documentation` (768d).
- * Use `scripts/seed-documentation-rag.ts` instead. This script remains for Edge `milo-chat` / faq_documents only.
+ * RETIRED 2026-06-26 — Do not run. Canonical RAG: `public.documentation` via seed-documentation-rag.ts.
+ * See docs/MILO_EDGE_DEPRECATION.md.
  *
- * Seed FAQ documents into faq_documents with embeddings for Milo chat vector search.
- *
- * Usage:
- *   npx tsx scripts/seed-faq-vectors.ts --env-file .env.local
- *
- * Requires in .env.local (or env):
- *   EXPO_PUBLIC_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
- *   GOOGLE_GEMINI_API_KEY
+ * @deprecated Use `scripts/seed-documentation-rag.ts` instead.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -153,6 +145,13 @@ async function embedText(text: string): Promise<number[]> {
 }
 
 async function main() {
+  console.error(
+    "seed-faq-vectors.ts is retired (2026-06-26).\n" +
+      "Use: npx tsx scripts/seed-documentation-rag.ts --env-file .env.local\n" +
+      "See docs/MILO_EDGE_DEPRECATION.md"
+  );
+  process.exit(1);
+
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.error(
       "Missing EXPO_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local"

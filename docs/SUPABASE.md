@@ -17,7 +17,7 @@ Historically some migrations and edge functions lived under the consumer app. Th
 |----------|--------|
 | [`supabase/migrations`](../supabase/migrations/) | **Use this** for all new tables, RLS, and seeds. |
 | [`apps/consumer-app/supabase/migrations`](apps/consumer-app/supabase/migrations) | Legacy; do not add new files here. **Synced to root (20260528\*):** message-thread soft delete + audit, FAQ pgvector + `faq_source`, service grants. |
-| [`apps/consumer-app/supabase/functions`](apps/consumer-app/supabase/functions) | Legacy; **canonical functions live under repo root** [`supabase/functions/`](../supabase/functions/). `purge-deleted-threads` and `add-faq` were copied to root; root [`supabase/config.toml`](../supabase/config.toml) registers all deployed functions. |
+| [`apps/consumer-app/supabase/functions`](apps/consumer-app/supabase/functions) | Legacy; **canonical functions live under repo root** [`supabase/functions/`](../supabase/functions/). Do not deploy from here. **`milo-chat`** and **`add-faq`** are **retired** — see [`MILO_EDGE_DEPRECATION.md`](MILO_EDGE_DEPRECATION.md). |
 
 ## Apply order
 

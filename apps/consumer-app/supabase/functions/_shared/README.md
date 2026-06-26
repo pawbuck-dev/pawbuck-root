@@ -35,7 +35,7 @@ Optional bridge to **PawBuck.API** for Milo shared retrieval (`GET /api/milo/cur
 - **`getPawbuckApiBaseUrl()`** — from `PAWBUCK_API_URL`
 - **`getMiloInternalServiceKey()`** — from `MILO_INTERNAL_SERVICE_KEY`
 
-Used by `milo-chat/tools/curatedGuidance.ts` when both env vars are set; otherwise the tool reads Postgres directly.
+**Note:** Legacy Edge **`milo-chat`** is **retired** (2026-06-26). Curated guidance and chat run on **PawBuck.API** only — see [`docs/MILO_EDGE_DEPRECATION.md`](../../../../docs/MILO_EDGE_DEPRECATION.md). This helper remains for any non-Milo Edge function that needs the internal curated endpoint.
 
 ### `notification.ts`
 

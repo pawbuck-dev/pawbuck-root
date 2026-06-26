@@ -19,6 +19,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import * as crypto from "crypto";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
@@ -88,8 +89,13 @@ if (
 const EMBED_MODEL = "gemini-embedding-2";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const EMBED_DIM = 768;
+const CORPUS_VERSION = "pawbuck-product-help-v1";
 
 const SKIP_NAMES = new Set(["INVENTORY.md", "README.md"]);
+
+function sha256Hex(text: string): string {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
 
 function chunkMarkdown(fileName: string, body: string): { text: string; sectionHint: string }[] {
   const titleMatch = body.match(/^#\s+(.+)$/m);
@@ -184,14 +190,19 @@ async function main() {
     for (const { text, sectionHint } of chunks) {
       console.log(`Embedding ${file} chunk ${idx} (${text.length} chars)...`);
       const embedding = dryRun ? new Array(EMBED_DIM).fill(0) : await embedText(text);
+      const publishedAt = new Date().toISOString();
       rows.push({
         content: text,
         embedding,
         metadata: {
           source_file: file,
+          source_path: `docs/pawbuck-product-help/${file}`,
           chunk_index: idx,
           section: sectionHint,
           corpus: "pawbuck-product-help",
+          corpus_version: CORPUS_VERSION,
+          content_hash: sha256Hex(text),
+          published_at: publishedAt,
         },
       });
       idx++;

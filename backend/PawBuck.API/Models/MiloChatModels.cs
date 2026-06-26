@@ -116,6 +116,13 @@ public class MiloChatResponse
     [JsonPropertyName("usedRag")]
     public bool UsedRag { get; set; }
 
+    [JsonPropertyName("usedCurated")]
+    public bool UsedCurated { get; set; }
+
+    /// <summary>Grounding sources used for this reply (documentation chunks, curated rows, pet records).</summary>
+    [JsonPropertyName("sources")]
+    public IReadOnlyList<MiloChatSourceDto>? Sources { get; set; }
+
     /// <summary>Short plan/reasoning from the model (optional; may be omitted when <see cref="MiloOptions.ExposePlanSummary"/> is false).</summary>
     [JsonPropertyName("planSummary")]
     public string? PlanSummary { get; set; }

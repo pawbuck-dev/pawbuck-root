@@ -14,7 +14,7 @@ public sealed class ProactivePetHealthWorker : BackgroundService
     private readonly IOptionsMonitor<ProactivePetHealthOptions> _options;
     private readonly IOptions<GeminiOptions> _geminiOptions;
     private readonly IOptions<SupabaseOptions> _supabaseOptions;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IGeminiGenerateContentService _geminiGenerate;
     private readonly IExpoPushService _expoPush;
     private readonly ILogger<ProactivePetHealthWorker> _logger;
 
@@ -22,14 +22,14 @@ public sealed class ProactivePetHealthWorker : BackgroundService
         IOptionsMonitor<ProactivePetHealthOptions> options,
         IOptions<GeminiOptions> geminiOptions,
         IOptions<SupabaseOptions> supabaseOptions,
-        IHttpClientFactory httpClientFactory,
+        IGeminiGenerateContentService geminiGenerate,
         IExpoPushService expoPush,
         ILogger<ProactivePetHealthWorker> logger)
     {
         _options = options;
         _geminiOptions = geminiOptions;
         _supabaseOptions = supabaseOptions;
-        _httpClientFactory = httpClientFactory;
+        _geminiGenerate = geminiGenerate;
         _expoPush = expoPush;
         _logger = logger;
     }
@@ -232,21 +232,21 @@ public sealed class ProactivePetHealthWorker : BackgroundService
             generationConfig = new { temperature = 0.5, maxOutputTokens = 120 },
         };
 
-        var client = _httpClientFactory.CreateClient("Gemini");
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
-        using var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.SetGeminiApiKey(apiKey);
-
-        using var response = await client.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        var result = await _geminiGenerate.GenerateContentAsync(
+            GeminiCallKind.ProactiveTip,
+            model,
+            requestBody,
+            apiKey,
+            cancellationToken);
+        if (!result.Success)
         {
-            _logger.LogWarning("Gemini proactive tip HTTP {Status}", (int)response.StatusCode);
+            _logger.LogWarning("Gemini proactive tip HTTP {Status}", (int)result.StatusCode);
             return null;
         }
 
-        return TryExtractGeminiCandidateText(body, out var text) && !string.IsNullOrWhiteSpace(text) ? text!.Trim() : null;
+        return GeminiResponseParser.TryExtractCandidateText(result.ResponseJson, out var text) && !string.IsNullOrWhiteSpace(text)
+            ? text!.Trim()
+            : null;
     }
 
     private static bool TryExtractGeminiCandidateText(string json, out string? text)

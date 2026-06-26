@@ -1,4 +1,7 @@
 /**
+ * DEPRECATED 2026-06-26 — Retired. Use docs/pawbuck-product-help + seed-documentation-rag.ts.
+ * See docs/MILO_EDGE_DEPRECATION.md. Disabled in supabase/config.toml (enabled = false).
+ *
  * FAQ management: add FAQs or sync vectors from source table. No large FAQ list in code — scales to 1000+.
  *
  * POST body:
@@ -13,6 +16,7 @@ import {
   jsonResponse,
 } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
+import { miloLegacyDeprecatedResponse } from "../_shared/milo-legacy-deprecated.ts";
 
 const EMBED_MODEL = "gemini-embedding-2";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -45,6 +49,10 @@ async function embedText(text: string): Promise<number[]> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCorsRequest();
+
+  return miloLegacyDeprecatedResponse(
+    "Edit docs/pawbuck-product-help/ and run apps/consumer-app/scripts/seed-documentation-rag.ts"
+  );
 
   try {
     const secret = req.headers.get("x-faq-admin-secret");

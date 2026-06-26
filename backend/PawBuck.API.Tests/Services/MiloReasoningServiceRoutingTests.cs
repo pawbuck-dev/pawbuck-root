@@ -58,6 +58,8 @@ public class MiloReasoningServiceRoutingTests
             new Mock<IMiloJournalTurnService>().Object,
             tree.Object,
             knowledge.Object,
+            GeminiTestSupport.EmptyCuratedSnippets(),
+            GeminiTestSupport.CreateGenerateService(handler),
             factory.Object,
             Options.Create(new GeminiOptions { ApiKey = "k", Model = "gemini-2.5-flash" }),
             Options.Create(new MiloOptions()),

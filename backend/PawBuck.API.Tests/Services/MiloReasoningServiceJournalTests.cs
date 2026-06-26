@@ -103,6 +103,8 @@ public class MiloReasoningServiceJournalTests
             journalTurns.Object,
             treeInterview.Object,
             kb.Object,
+            GeminiTestSupport.EmptyCuratedSnippets(),
+            GeminiTestSupport.CreateGenerateService(geminiHandler),
             factory.Object,
             Options.Create(new GeminiOptions { ApiKey = geminiApiKey, Model = "gemini-2.5-flash" }),
             Options.Create(new MiloOptions()),
@@ -323,9 +325,6 @@ public class MiloReasoningServiceJournalTests
     [Fact]
     public async Task ChatAsync_JournalMode_WhenGeminiApiKeyMissing_ReturnsNotConfiguredMessageWithoutCallingGemini()
     {
-        var factoryNeverUsed = new Mock<IHttpClientFactory>();
-        factoryNeverUsed.Setup(f => f.CreateClient("Gemini")).Throws(new InvalidOperationException("Gemini HTTP must not be called"));
-
         var petFacts = new Mock<IMiloPetFactsService>();
         petFacts.Setup(p => p.VerifyPetAccessAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         petFacts.Setup(p => p.GetUserPetRoleAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync("owner");
@@ -355,6 +354,9 @@ public class MiloReasoningServiceJournalTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((MiloChatResponse?)null);
 
+        var geminiGenerate = new Mock<IGeminiGenerateContentService>();
+        var factoryNeverUsed = new Mock<IHttpClientFactory>();
+
         var sut = new MiloReasoningService(
             petFacts.Object,
             context.Object,
@@ -362,6 +364,8 @@ public class MiloReasoningServiceJournalTests
             turns.Object,
             treeInterview.Object,
             kb.Object,
+            GeminiTestSupport.EmptyCuratedSnippets(),
+            geminiGenerate.Object,
             factoryNeverUsed.Object,
             Options.Create(new GeminiOptions { ApiKey = "", Model = "gemini-2.5-flash" }),
             Options.Create(new MiloOptions()),
@@ -370,7 +374,14 @@ public class MiloReasoningServiceJournalTests
         var response = await sut.ChatAsync(UserId, JournalRequest(), CancellationToken.None);
 
         response.Answer.Should().Be("I'm not quite configured yet. Please try again later! 🐕");
-        factoryNeverUsed.Verify(f => f.CreateClient("Gemini"), Times.Never);
+        geminiGenerate.Verify(
+            g => g.GenerateContentAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<object>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

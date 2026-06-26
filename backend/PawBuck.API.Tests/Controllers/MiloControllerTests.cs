@@ -13,6 +13,7 @@ using Moq;
 using PawBuck.API;
 using PawBuck.API.Controllers;
 using PawBuck.API.Models;
+using PawBuck.API.Tests.Services;
 using PawBuck.API.Services;
 using Xunit;
 
@@ -105,7 +106,7 @@ public class MiloControllerTests
 
         return new MiloRagService(
             kb.Object,
-            factory.Object,
+            GeminiTestSupport.CreateGenerateService(new StubHandler()),
             Options.Create(new GeminiOptions { ApiKey = "test-key" }),
             NullLogger<MiloRagService>.Instance);
     }

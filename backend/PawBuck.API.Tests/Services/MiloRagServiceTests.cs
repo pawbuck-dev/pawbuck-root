@@ -22,7 +22,7 @@ public class MiloRagServiceTests
         factory.Setup(f => f.CreateClient("Gemini")).Returns(() => new HttpClient(handler, disposeHandler: true));
         return new MiloRagService(
             kb,
-            factory.Object,
+            GeminiTestSupport.CreateGenerateService(handler),
             Options.Create(geminiOptions ?? new GeminiOptions { ApiKey = "test-key", Model = "gemini-2.5-flash" }),
             NullLogger<MiloRagService>.Instance);
     }

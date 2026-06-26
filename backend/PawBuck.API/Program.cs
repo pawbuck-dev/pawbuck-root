@@ -199,6 +199,8 @@ builder.Services.AddSingleton<SupabaseClientAccessor>();
 
 // RAG FAQ (Milo)
 builder.Services.Configure<MiloOptions>(builder.Configuration.GetSection(MiloOptions.SectionName));
+builder.Services.AddSingleton<IGeminiTelemetryRecorder, GeminiTelemetryRecorder>();
+builder.Services.AddScoped<IGeminiGenerateContentService, GeminiGenerateContentService>();
 builder.Services.AddScoped<IEmbeddingService, GeminiEmbeddingService>();
 builder.Services.AddScoped<IKnowledgeBaseService, KnowledgeBaseService>();
 builder.Services.AddScoped<MiloRagService>();

@@ -1,4 +1,6 @@
 /**
+ * DEPRECATED 2026-06-26 — Legacy copy; not deployed. See docs/MILO_EDGE_DEPRECATION.md.
+ *
  * FAQ management: add FAQs or sync vectors from source table. No large FAQ list in code — scales to 1000+.
  *
  * POST body:
@@ -46,6 +48,15 @@ async function embedText(text: string): Promise<number[]> {
 // @ts-expect-error Deno is provided by Supabase Edge runtime
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleCorsRequest();
+
+  return jsonResponse(
+    {
+      error: "deprecated",
+      message: "add-faq Edge function is retired. Use seed-documentation-rag.ts.",
+      docs: "docs/MILO_EDGE_DEPRECATION.md",
+    },
+    410
+  );
 
   try {
     const secret = req.headers.get("x-faq-admin-secret");
