@@ -40,11 +40,11 @@
     "supabase:types": "cd supabase && supabase gen types typescript --local > ../apps/consumer-app/database.types.ts",
     "supabase:types:remote": "cd supabase && supabase gen types typescript --linked > ../apps/consumer-app/database.types.ts",
     "notion:bug-review": "pnpm --filter @pawbuck/notion-bug-agent review",
-    "deploy:api": "gh workflow run deploy-aws.yml -f deploy_target=api",
-    "deploy:admin": "gh workflow run deploy-aws.yml -f deploy_target=admin",
-    "deploy:both": "gh workflow run deploy-aws.yml -f deploy_target=both",
-    "deploy:status": "gh run list --workflow deploy-aws.yml --limit 10",
-    "deploy:watch": "gh run watch --workflow deploy-aws.yml"
+    "deploy:api": "gh workflow run deploy-aws.yml -R pawbuck-dev/pawbuck-root -f deploy_target=api",
+    "deploy:admin": "gh workflow run deploy-aws.yml -R pawbuck-dev/pawbuck-root -f deploy_target=admin",
+    "deploy:both": "gh workflow run deploy-aws.yml -R pawbuck-dev/pawbuck-root -f deploy_target=both",
+    "deploy:status": "gh run list --workflow deploy-aws.yml -R pawbuck-dev/pawbuck-root --limit 10",
+    "deploy:watch": "gh run watch --workflow deploy-aws.yml -R pawbuck-dev/pawbuck-root"
   },
   "devDependencies": {
     "tsx": "^4.19.2",
