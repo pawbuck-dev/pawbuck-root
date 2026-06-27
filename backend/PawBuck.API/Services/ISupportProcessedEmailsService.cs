@@ -46,6 +46,13 @@ public interface ISupportProcessedEmailsService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Delete false-success <c>processed_emails</c> rows (resolved, no document filed, zero attachments).
+    /// </summary>
+    Task<SupportBulkDeleteGhostSuccessResponse> BulkDeleteGhostSuccessAsync(
+        SupportBulkDeleteGhostSuccessRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Release a stuck <c>status=processing</c> lock so the row can be reprocessed or dismissed.
     /// Returns <c>null</c> when no row exists.
     /// </summary>

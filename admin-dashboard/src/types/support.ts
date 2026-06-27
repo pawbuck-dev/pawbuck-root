@@ -574,6 +574,25 @@ export interface SupportBulkClearReviewInboxResponse {
   message: string;
 }
 
+export interface SupportBulkDeleteGhostSuccessRequest {
+  dryRun?: boolean;
+  ownerUserId?: string;
+  ownerEmail?: string;
+  petId?: string;
+  petName?: string;
+  from?: string;
+  to?: string;
+  emailIds?: string[];
+  maxRows?: number;
+}
+
+export interface SupportBulkDeleteGhostSuccessResponse {
+  dryRun: boolean;
+  matchingCount: number;
+  deletedCount: number;
+  message: string;
+}
+
 export interface SupportBulkReprocessReviewInboxRequest {
   dryRun?: boolean;
   defaultDocType?: "vaccinations" | "medications" | "lab_results" | "clinical_exams";

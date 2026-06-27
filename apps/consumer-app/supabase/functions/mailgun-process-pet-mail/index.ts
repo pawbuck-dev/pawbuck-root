@@ -4,6 +4,8 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { ownerMeetsMinimumPlan } from "../_shared/subscriptionEntitlement.ts";
 import {
   buildErrorResponse,
   buildNotFoundResponse,
@@ -14,6 +16,7 @@ import {
   logProcessingSummary,
   processAttachments,
   sendAttachmentFailureNotification,
+  sendEmailParsingUpgradeNotification,
   sendFailedNotification,
   sendProcessedNotification,
   verifySender,
@@ -25,6 +28,13 @@ import {
   resetFailedRowForReprocess,
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
+import {
+  shouldTreatAsMissingAttachment,
+} from "../_shared/email-health-ingestion/emailAttachmentSignals.ts";
+import {
+  formatOwnerFacingAttachmentFailure,
+  formatOwnerFacingEmailFailureSummary,
+} from "../_shared/email-health-ingestion/ownerFacingFailureReason.ts";
 import { extractMessageId, parseMailgunWebhook } from "./mailgunParser.ts";
 import { storeEmailForApproval } from "./emailStorage.ts";
 import {
@@ -49,8 +59,28 @@ import type {
 } from "./types.ts";
 import type { ForcedDocumentPipelineType } from "./types.ts";
 import type { ProcessAttachmentsOptions } from "./handlers/attachmentProcessor.ts";
+import {
+  isCalendarAttachment,
+  runHybridCalendarImport,
+} from "../_shared/email-calendar-import/index.ts";
+import {
+  computeEmailSuccess,
+  createInitialPipelineOutcome,
+  summarizePipelineFailure,
+  tallyAttachmentOutcomes,
+} from "../process-pet-mail/pipelineOutcome.ts";
+import { sendCalendarImportsPendingNotification } from "../process-pet-mail/handlers/notificationSender.ts";
 
 console.log("mailgun-process-pet-mail function initialized");
+
+function createSupabaseClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 /** Map API / app doc type strings to pipeline `DocumentType` (forced classification). */
 function mapDocumentTypeOverride(
@@ -234,8 +264,13 @@ Deno.serve(async (req) => {
     // Re-open failed rows for JSON reprocess (Review Inbox) so we don't hit "already completed"
     const forcedPipelineType = mapDocumentTypeOverride(documentTypeOverride);
     const processOptions: ProcessAttachmentsOptions | undefined =
-      forcedPipelineType
-        ? { forcedDocumentType: forcedPipelineType, forcedAttachmentIndexLimit: 1 }
+      forcedPipelineType || documentTypeOverride || isReprocessing
+        ? {
+            forcedDocumentType: forcedPipelineType,
+            apiDocumentTypeOverride: documentTypeOverride,
+            forcedAttachmentIndexLimit: 1,
+            skipPetVerification: isReprocessing && !!overridePetId,
+          }
         : undefined;
 
     if (isReprocessing) {
@@ -255,6 +290,17 @@ Deno.serve(async (req) => {
           subject: parsedEmail.subject,
         });
         if (!lockResult.acquired) {
+          if (lockResult.reason === "lock_error") {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: "processing_lock_unavailable",
+                message: "Could not acquire email processing lock",
+                messageId,
+              }),
+              { status: 503, headers: { "Content-Type": "application/json" } },
+            );
+          }
           const message =
             lockResult.status === "completed"
               ? "Email already processed"
@@ -283,6 +329,17 @@ Deno.serve(async (req) => {
         subject: parsedEmail.subject,
       });
       if (!lockResult.acquired) {
+        if (lockResult.reason === "lock_error") {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "processing_lock_unavailable",
+              message: "Could not acquire email processing lock",
+              messageId,
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          );
+        }
         const message =
           lockResult.status === "completed"
             ? "Email already processed"
@@ -429,8 +486,102 @@ Deno.serve(async (req) => {
       );
     }
 
+    const pipelineOutcome = createInitialPipelineOutcome();
+    pipelineOutcome.messageStored = messageStored;
+
+    const allAttachments = parsedEmail.attachments ?? [];
+    const icsAttachments = allAttachments.filter(isCalendarAttachment);
+    const otherAttachments = allAttachments.filter((a) => !isCalendarAttachment(a));
+
+    const calendarBatch = await runHybridCalendarImport({
+      parsedEmail,
+      pet,
+      senderEmail,
+      fileKey: messageId,
+      threadMessageId: null,
+      icsAttachments,
+    });
+
+    pipelineOutcome.calendar.attempted =
+      icsAttachments.length > 0 || calendarBatch.icsAttempted || calendarBatch.nlpAttempted;
+    pipelineOutcome.calendar.error = calendarBatch.calendarError;
+    pipelineOutcome.calendar.insertedCount = calendarBatch.newlyInsertedCount;
+    pipelineOutcome.calendar.acceptableSkip = calendarBatch.acceptableSkip;
+
+    if (calendarBatch.newlyInsertedCount > 0) {
+      await sendCalendarImportsPendingNotification(pet, calendarBatch.newlyInsertedCount);
+    }
+
+    const finalizeEmail = async (
+      attachmentCount: number,
+      extra?: {
+        reviewStatus?: "pending" | "resolved" | "dismissed";
+        failureReason?: string;
+        documentType?: string;
+      },
+    ) => {
+      const success = computeEmailSuccess(pipelineOutcome);
+      await markEmailAsCompleted(messageId, pet!.id, attachmentCount, success, {
+        failureReason:
+          extra?.failureReason ??
+          summarizePipelineFailure(pipelineOutcome) ??
+          undefined,
+        reviewStatus: extra?.reviewStatus ?? (success ? "resolved" : "pending"),
+        documentType: extra?.documentType,
+      });
+      return success;
+    };
+
     // Step 10: Check for attachments
-    if (!parsedEmail.attachments || parsedEmail.attachments.length === 0) {
+    if (allAttachments.length === 0) {
+      const diag = parsedEmail.attachmentDiagnostics;
+      const missingAttachment = shouldTreatAsMissingAttachment({
+        extractedCount: 0,
+        mailgunJsonListed: diag?.mailgunJsonListed ?? 0,
+        mailgunAttachmentCountField: diag?.mailgunAttachmentCountField ?? null,
+        subject: parsedEmail.subject,
+        textBody: parsedEmail.textBody,
+        htmlBody: parsedEmail.htmlBody,
+      });
+
+      if (missingAttachment) {
+        const detail =
+          (diag?.mailgunJsonListed ?? 0) > 0 && (diag?.mailgunFetchFailures ?? 0) > 0
+            ? "Mailgun listed attachment(s) but we could not download them (check MAILGUN_API_KEY on the edge function)."
+            : "We received your email but no attachment file reached PawBuck. Send again with the PDF attached (not forward-only), or upload from Health Records.";
+
+        console.log(
+          `[MONITORING] Expected health attachment missing (jsonListed=${diag?.mailgunJsonListed ?? 0}, attachment-count=${diag?.mailgunAttachmentCountField ?? "n/a"})`,
+        );
+
+        if (!isReprocessing) {
+          try {
+            await storeEmailForApproval(messageId, parsedEmail);
+          } catch (storageError) {
+            console.error(
+              `[MONITORING] Failed to archive email for missing attachment:`,
+              storageError,
+            );
+          }
+        }
+
+        await finalizeEmail(0, {
+          reviewStatus: "pending",
+          failureReason: formatOwnerFacingEmailFailureSummary(1, [detail]),
+        });
+
+        if (isReprocessing && storedEmailPath) {
+          await deleteStoredEmail(storedEmailPath);
+        }
+
+        return buildSuccessResponse(
+          pet,
+          emailInfo,
+          [],
+          "Attachment expected but not received",
+        );
+      }
+
       console.log("[MONITORING] No attachments to process", pet, emailInfo);
 
       // Mark email as completed even if there are no attachments
@@ -439,13 +590,7 @@ Deno.serve(async (req) => {
         `[MONITORING] Marking email as completed (no attachments, message stored: ${messageStored})`
       );
 
-      await markEmailAsCompleted(
-        messageId,
-        pet.id,
-        0, // no attachments
-        true, // success
-        { reviewStatus: "resolved" }
-      );
+      await finalizeEmail(0, { reviewStatus: "resolved" });
 
       console.log(
         `[MONITORING] ✅ Email processing completed (no attachments)`
@@ -464,7 +609,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 11: Process all attachments
+    if (otherAttachments.length === 0) {
+      await finalizeEmail(allAttachments.length, { reviewStatus: "resolved" });
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        "Calendar-only email processed",
+      );
+    }
+
+    // Step 10.5: Health-document parsing requires Individual+
+    const supabase = createSupabaseClient();
+    const canParseEmail = await ownerMeetsMinimumPlan(supabase, pet.user_id, "individual");
+    if (!canParseEmail) {
+      console.log(
+        `[MONITORING] Skipping health attachment processing — owner on Free plan (${otherAttachments.length} files)`
+      );
+      await sendEmailParsingUpgradeNotification(pet, otherAttachments.length);
+      await finalizeEmail(allAttachments.length, {
+        reviewStatus: "pending",
+        failureReason: `email_parsing_upgrade_required:${otherAttachments.length}`,
+      });
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+      return buildSuccessResponse(
+        pet,
+        emailInfo,
+        [],
+        "Health documents received — upgrade to Individual for email parsing"
+      );
+    }
+
+    // Step 11: Process health-document attachments
     const emailContext: EmailContext = {
       subject: parsedEmail.subject,
       textBody: parsedEmail.textBody,
@@ -472,10 +653,12 @@ Deno.serve(async (req) => {
 
     const processedAttachments = await processAttachments(
       pet,
-      parsedEmail.attachments,
+      otherAttachments,
       emailContext,
       processOptions
     );
+
+    Object.assign(pipelineOutcome.attachments, tallyAttachmentOutcomes(processedAttachments));
 
     // Step 12: Log summary and return success
     logProcessingSummary(processedAttachments);
@@ -485,8 +668,12 @@ Deno.serve(async (req) => {
     const relevantAttachments = processedAttachments.filter(
       (a) => a.classification.type !== "irrelevant"
     );
-    const successfulInserts = relevantAttachments.filter((a) => a.dbInserted);
-    const failedAttachments = relevantAttachments.filter((a) => !a.dbInserted);
+    const successfulInserts = relevantAttachments.filter(
+      (a) => a.dbInserted || a.vaultPersisted,
+    );
+    const failedAttachments = relevantAttachments.filter(
+      (a) => !a.dbInserted && !a.vaultPersisted,
+    );
 
     // If we had relevant attachments but NONE were successfully inserted
     if (relevantAttachments.length > 0 && successfulInserts.length === 0) {
@@ -502,25 +689,27 @@ Deno.serve(async (req) => {
         } else if (a.skippedReason) {
           return formatSkipReason(a.skippedReason, undefined, pet, a.filename);
         } else if (a.error) {
-          return a.filename ? `Document '${a.filename}': ${a.error}` : a.error;
+          return formatOwnerFacingAttachmentFailure(a.filename, a.error);
         } else if (a.ocrSuccess === false) {
-          return a.filename ? `Document '${a.filename}': Failed to extract data from document` : "Failed to extract data from document";
+          return formatOwnerFacingAttachmentFailure(
+            a.filename,
+            "Failed to extract data from document",
+          );
         }
-        return a.filename ? `Document '${a.filename}': Failed to save to database` : "Failed to save to database";
+        return formatOwnerFacingAttachmentFailure(
+          a.filename,
+          "Failed to save to database",
+        );
       });
 
-      // Mark as FAILED in processed_emails
-      await markEmailAsCompleted(
-        messageId,
-        pet.id,
-        processedAttachments.length,
-        false,
-        {
-          documentType: relevantAttachments[0]?.classification.type,
-          failureReason: `Failed to process ${failedAttachments.length} document(s): ${failureReasons.join("; ")}`,
-          reviewStatus: "pending",
-        }
-      );
+      await finalizeEmail(processedAttachments.length, {
+        documentType: relevantAttachments[0]?.classification.type,
+        failureReason: formatOwnerFacingEmailFailureSummary(
+          failedAttachments.length,
+          failureReasons,
+        ),
+        reviewStatus: "pending",
+      });
 
       console.log(`[MONITORING] ❌ Email marked as failed - no records inserted`);
 
@@ -553,13 +742,7 @@ Deno.serve(async (req) => {
       `[MONITORING] Marking email as completed (attachments: ${processedAttachments.length}, successful: ${successfulInserts.length}, message stored: ${messageStored})`
     );
 
-      await markEmailAsCompleted(
-        messageId,
-        pet.id,
-        processedAttachments.length,
-        true,
-        { reviewStatus: "resolved" }
-      );
+      await finalizeEmail(processedAttachments.length, { reviewStatus: "resolved" });
 
     console.log(`[MONITORING] ✅ Email processing completed successfully`);
 

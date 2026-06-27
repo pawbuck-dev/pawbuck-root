@@ -3,6 +3,8 @@ export interface ParsedAttachment {
   mimeType: string;
   size: number;
   content: string; // Base64 encoded
+  /** When true, full JSON exceeded archive size cap; Open/download will not have file bytes. */
+  contentWasStrippedForArchive?: boolean;
 }
 
 export interface ParsedEmail {
@@ -15,6 +17,13 @@ export interface ParsedEmail {
   textBody: string | null;
   htmlBody: string | null;
   attachments: ParsedAttachment[];
+  /** How attachments were discovered (for missing-attachment diagnostics). */
+  attachmentDiagnostics?: {
+    mailgunJsonListed: number;
+    mailgunFetchFailures: number;
+    inlineFormExtracted: number;
+    mailgunAttachmentCountField: number | null;
+  };
 }
 
 export interface MailgunConfig {
@@ -52,16 +61,18 @@ export interface Pet {
   microchip_number: string | null;
   date_of_birth: string;
   sex: string;
+  country?: string;
+  home_timezone?: string | null;
 }
 
 // Pet validation types (defined before ProcessedAttachment which uses them)
 export type SkipReason =
-  | "no_pet_info" // No identifiable info, or missing required name+breed on document
-  /** Legacy: validator no longer skips for chip alone; kept for old rows / notifications */
+  | "no_pet_info"
+  | "breed_required_on_document"
   | "microchip_mismatch"
-  | "attributes_mismatch"; // First name or breed on document does not match profile
+  | "attributes_mismatch";
 
-export type ValidationMethod = "microchip" | "attributes" | "none";
+export type ValidationMethod = "microchip" | "attributes" | "name_only" | "none";
 
 export interface ExtractedPetInfo {
   microchip: string | null;
@@ -86,6 +97,7 @@ export interface PetValidationResult {
   extractedInfo: ExtractedPetInfo;
   matchDetails: MatchDetails;
   skipReason?: SkipReason;
+  /** Document microchip differs from profile; processing may still continue (name+breed path). */
   microchipMismatchNotify?: boolean;
   microchipDocumentValue?: string | null;
   microchipProfileValue?: string | null;
@@ -103,6 +115,8 @@ export interface ProcessedAttachment {
   ocrSuccess: boolean;
   dbInserted: boolean;
   dbRecordIds?: string[];
+  vaultPersisted?: boolean;
+  vaultDocumentId?: string;
   error?: string;
   // Pet validation fields
   petValidation?: PetValidationResult;

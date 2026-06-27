@@ -1,4 +1,5 @@
 import type { ParsedAttachment, ParsedEmail } from "./types.ts";
+import { parseMailgunAttachmentCountField } from "../_shared/email-health-ingestion/emailAttachmentSignals.ts";
 
 /**
  * Parse Mailgun Store & Forward webhook data to ParsedEmail format
@@ -54,7 +55,10 @@ export async function parseMailgunWebhook(
   const cc = parseRecipientAddresses(ccField);
 
   // Extract attachments
-  const attachments = await extractAttachments(formData);
+  const mailgunAttachmentCountField = parseMailgunAttachmentCountField(
+    formData.get("attachment-count")?.toString(),
+  );
+  const { attachments, diagnostics } = await extractAttachments(formData);
 
   const parsedEmail: ParsedEmail = {
     from,
@@ -66,6 +70,10 @@ export async function parseMailgunWebhook(
     textBody: bodyPlain || null,
     htmlBody: bodyHtml || null,
     attachments,
+    attachmentDiagnostics: {
+      ...diagnostics,
+      mailgunAttachmentCountField,
+    },
   };
 
   console.log("Mailgun email parsed successfully:", {
@@ -163,14 +171,9 @@ async function fetchMailgunAttachment(
       },
     });
 
-    console.log("Response:", response);
-    console.log("storageUrl:", storageUrl);
-    console.log("filename:", filename);
-    console.log("auth:", auth);
-
     if (!response.ok) {
       console.error(
-        `Failed to fetch attachment from Mailgun: ${response.status} ${response.statusText}`
+        `Failed to fetch attachment from Mailgun: ${response.status} ${response.statusText}`,
       );
       return null;
     }
@@ -203,74 +206,138 @@ async function fetchMailgunAttachment(
 }
 
 /**
- * Extract attachments from Mailgun FormData
- * Mailgun sends attachments in an "attachments" key as a JSON array string
- * Format: [{"url": "...", "content-type": "...", "name": "...", "size": ...}]
+ * Extract attachments from Mailgun FormData.
+ * 1) JSON `attachments` field + fetch from Mailgun storage (production path)
+ * 2) Fallback: inline `attachment-1`, `attachment-2`, … form file fields
  */
 async function extractAttachments(
-  formData: FormData
-): Promise<ParsedAttachment[]> {
+  formData: FormData,
+): Promise<{
+  attachments: ParsedAttachment[];
+  diagnostics: {
+    mailgunJsonListed: number;
+    mailgunFetchFailures: number;
+    inlineFormExtracted: number;
+  };
+}> {
   const attachments: ParsedAttachment[] = [];
+  let mailgunJsonListed = 0;
+  let mailgunFetchFailures = 0;
 
   console.log("Extracting attachments from Mailgun webhook");
 
-  // Get the attachments JSON string
   const attachmentsJson = formData.get("attachments")?.toString();
 
-  if (!attachmentsJson) {
-    console.log("No attachments field found in formData");
-    return attachments;
+  if (attachmentsJson) {
+    try {
+      const attachmentsArray = JSON.parse(attachmentsJson) as {
+        url: string;
+        "content-type": string;
+        name: string;
+        size: number;
+      }[];
+
+      mailgunJsonListed = attachmentsArray.length;
+      console.log(`Found ${mailgunJsonListed} attachment(s) in JSON`);
+
+      for (let i = 0; i < attachmentsArray.length; i++) {
+        const attachmentInfo = attachmentsArray[i];
+
+        try {
+          console.log(
+            `Processing attachment ${i + 1}: ${attachmentInfo.name} (${attachmentInfo["content-type"]}), size: ${attachmentInfo.size} bytes`,
+          );
+
+          const fetchedAttachment = await fetchMailgunAttachment(
+            attachmentInfo.url,
+            attachmentInfo.name,
+          );
+
+          if (fetchedAttachment) {
+            fetchedAttachment.mimeType =
+              attachmentInfo["content-type"] || fetchedAttachment.mimeType;
+            fetchedAttachment.size =
+              attachmentInfo.size || fetchedAttachment.size;
+            attachments.push(fetchedAttachment);
+          } else {
+            mailgunFetchFailures++;
+          }
+        } catch (error) {
+          mailgunFetchFailures++;
+          console.error(
+            `Error processing attachment ${i + 1} (${attachmentInfo.name}):`,
+            error,
+          );
+        }
+      }
+    } catch (parseError) {
+      console.error("Error parsing attachments JSON:", parseError);
+      console.error("Attachments value:", attachmentsJson);
+    }
+  } else {
+    console.log("No attachments JSON field found in formData");
   }
 
-  try {
-    // Parse the JSON array
-    const attachmentsArray = JSON.parse(attachmentsJson) as {
-      url: string;
-      "content-type": string;
-      name: string;
-      size: number;
-    }[];
-
-    console.log(`Found ${attachmentsArray.length} attachment(s) in JSON`);
-
-    // Process each attachment
-    for (let i = 0; i < attachmentsArray.length; i++) {
-      const attachmentInfo = attachmentsArray[i];
-
-      try {
-        console.log(
-          `Processing attachment ${i + 1}: ${attachmentInfo.name} (${attachmentInfo["content-type"]}), size: ${attachmentInfo.size} bytes`
-        );
-
-        // Fetch the attachment from Mailgun storage URL
-        const fetchedAttachment = await fetchMailgunAttachment(
-          attachmentInfo.url,
-          attachmentInfo.name
-        );
-
-        if (fetchedAttachment) {
-          // Override with metadata from Mailgun if available
-          fetchedAttachment.mimeType =
-            attachmentInfo["content-type"] || fetchedAttachment.mimeType;
-          fetchedAttachment.size =
-            attachmentInfo.size || fetchedAttachment.size;
-          attachments.push(fetchedAttachment);
-        }
-      } catch (error) {
-        console.error(
-          `Error processing attachment ${i + 1} (${attachmentInfo.name}):`,
-          error
-        );
-      }
+  let inlineFormExtracted = 0;
+  if (attachments.length === 0) {
+    const inline = await extractInlineFormAttachments(formData);
+    inlineFormExtracted = inline.length;
+    attachments.push(...inline);
+    if (inlineFormExtracted > 0) {
+      console.log(
+        `Extracted ${inlineFormExtracted} attachment(s) from inline attachment-N form fields`,
+      );
     }
-  } catch (parseError) {
-    console.error("Error parsing attachments JSON:", parseError);
-    console.error("Attachments value:", attachmentsJson);
   }
 
   console.log(
-    `Extracted ${attachments.length} attachment(s) from Mailgun webhook`
+    `Extracted ${attachments.length} attachment(s) from Mailgun webhook (jsonListed=${mailgunJsonListed}, fetchFailures=${mailgunFetchFailures}, inline=${inlineFormExtracted})`,
   );
+
+  return {
+    attachments,
+    diagnostics: {
+      mailgunJsonListed,
+      mailgunFetchFailures,
+      inlineFormExtracted,
+    },
+  };
+}
+
+async function extractInlineFormAttachments(
+  formData: FormData,
+): Promise<ParsedAttachment[]> {
+  const attachments: ParsedAttachment[] = [];
+  const keys = [...formData.keys()]
+    .filter((k) => /^attachment-\d+$/i.test(k))
+    .sort((a, b) => {
+      const na = Number.parseInt(a.split("-")[1] ?? "0", 10);
+      const nb = Number.parseInt(b.split("-")[1] ?? "0", 10);
+      return na - nb;
+    });
+
+  for (const key of keys) {
+    const value = formData.get(key);
+    if (!value || typeof value === "string") continue;
+
+    try {
+      const file = value as File;
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const filename = file.name?.trim() || key;
+      const mimeType = file.type?.trim() || "application/octet-stream";
+
+      attachments.push({
+        filename,
+        mimeType,
+        size: uint8Array.length,
+        content: arrayBufferToBase64(uint8Array),
+      });
+    } catch (error) {
+      console.error(`Error reading inline form attachment ${key}:`, error);
+    }
+  }
+
   return attachments;
 }
 

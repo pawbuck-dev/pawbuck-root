@@ -70,6 +70,7 @@ export function ProcessedEmailsPanel({ client, presetOwnerEmail }: Props) {
   const [attachWarning, setAttachWarning] = useState<string | null>(null);
   const [openBusy, setOpenBusy] = useState<number | null>(null);
   const [bulkClearOwnerEmail, setBulkClearOwnerEmail] = useState("");
+  const [bulkGhostPetName, setBulkGhostPetName] = useState("");
   const [bulkClearMessage, setBulkClearMessage] = useState<string | null>(null);
   const [bulkClearBusy, setBulkClearBusy] = useState(false);
   const [reprocessDocType, setReprocessDocType] =
@@ -329,6 +330,37 @@ export function ProcessedEmailsPanel({ client, presetOwnerEmail }: Props) {
       }
     } catch (e) {
       setBulkClearMessage(e instanceof SupportApiError ? e.message : "Bulk clear failed");
+    } finally {
+      setBulkClearBusy(false);
+    }
+  };
+
+  const runBulkDeleteGhost = async (dryRun: boolean) => {
+    if (!dryRun) {
+      const scope = bulkGhostPetName.trim()
+        ? `pet name "${bulkGhostPetName.trim()}"`
+        : "all pets in the date range";
+      const ok = window.confirm(
+        `Permanently delete ghost success processed_emails rows for ${scope}?\n\nThese are false successes (resolved, no document_type, zero attachments). Message threads in the app are not deleted.`,
+      );
+      if (!ok) return;
+    }
+    setBulkClearBusy(true);
+    setBulkClearMessage(null);
+    try {
+      const res = await client.bulkDeleteGhostSuccess({
+        dryRun,
+        ...bulkActionFilters,
+        petName: bulkGhostPetName.trim() || undefined,
+        maxRows: 500,
+      });
+      setBulkClearMessage(res.message);
+      if (!dryRun && res.deletedCount > 0) {
+        await loadList();
+        setSelected(null);
+      }
+    } catch (e) {
+      setBulkClearMessage(e instanceof SupportApiError ? e.message : "Ghost delete failed");
     } finally {
       setBulkClearBusy(false);
     }
@@ -597,6 +629,43 @@ export function ProcessedEmailsPanel({ client, presetOwnerEmail }: Props) {
         </div>
         <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
           <strong>Dismiss / resolve</strong> only update inbox state — they do not extract or file documents.
+        </p>
+
+        <div
+          className="directory__toolbar"
+          style={{ marginTop: "0.75rem", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}
+        >
+          <span className="muted" style={{ fontWeight: 600 }}>
+            Delete ghost successes
+          </span>
+          <input
+            className="directory__search"
+            style={{ minWidth: "8rem", flex: "0 1 8rem" }}
+            placeholder="Pet name (optional)"
+            value={bulkGhostPetName}
+            onChange={(e) => setBulkGhostPetName(e.target.value)}
+            aria-label="Pet name filter for ghost delete"
+          />
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkDeleteGhost(true)}
+          >
+            Preview delete
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn--sm"
+            disabled={bulkClearBusy}
+            onClick={() => void runBulkDeleteGhost(false)}
+          >
+            Delete matching
+          </button>
+        </div>
+        <p className="muted" style={{ marginTop: "0.35rem", fontSize: "0.85rem", maxWidth: "44rem" }}>
+          Removes false <code>success=true</code> rows where no attachment was filed (does not delete Messages
+          threads).
         </p>
         {bulkClearMessage ? (
           <p className="muted" style={{ marginTop: "0.5rem" }}>

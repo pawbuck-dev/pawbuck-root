@@ -110,6 +110,31 @@ public class SupportProcessedEmailsController : ControllerBase
     }
 
     /// <summary>
+    /// Delete false-success processed_emails (message-only ingest, zero attachments filed).
+    /// Defaults to <c>dryRun=true</c>.
+    /// </summary>
+    [HttpPost("bulk-delete-ghost-success")]
+    [ProducesResponseType(typeof(SupportBulkDeleteGhostSuccessResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> BulkDeleteGhostSuccess(
+        [FromBody] SupportBulkDeleteGhostSuccessRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null)
+            return BadRequest(new { error = "Request body is required" });
+
+        try
+        {
+            var result = await _processedEmails.BulkDeleteGhostSuccessAsync(request, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(503, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Re-run mailgun attachment processing for Review Inbox failures (files health records + marks resolved).
     /// Defaults to <c>dryRun=true</c>.
     /// </summary>

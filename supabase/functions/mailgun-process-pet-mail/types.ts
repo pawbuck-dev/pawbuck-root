@@ -17,6 +17,13 @@ export interface ParsedEmail {
   textBody: string | null;
   htmlBody: string | null;
   attachments: ParsedAttachment[];
+  /** How attachments were discovered (for missing-attachment diagnostics). */
+  attachmentDiagnostics?: {
+    mailgunJsonListed: number;
+    mailgunFetchFailures: number;
+    inlineFormExtracted: number;
+    mailgunAttachmentCountField: number | null;
+  };
 }
 
 export interface MailgunConfig {

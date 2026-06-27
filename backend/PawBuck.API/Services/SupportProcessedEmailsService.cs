@@ -963,6 +963,148 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
     }
 
     /// <inheritdoc />
+    public async Task<SupportBulkDeleteGhostSuccessResponse> BulkDeleteGhostSuccessAsync(
+        SupportBulkDeleteGhostSuccessRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var maxRows = Math.Clamp(request.MaxRows <= 0 ? 500 : request.MaxRows, 1, 5000);
+        var (whereSql, parameters) = BuildGhostSuccessDeleteFilter(request);
+
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(cancellationToken);
+
+        var countSql = $"""
+            SELECT COUNT(*)
+            FROM public.processed_emails pe
+            LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+            LEFT JOIN auth.users u ON u.id = p.user_id
+            WHERE {whereSql}
+            """;
+
+        int matchingCount;
+        await using (var countCmd = new NpgsqlCommand(countSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                countCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            var scalar = await countCmd.ExecuteScalarAsync(cancellationToken);
+            matchingCount = scalar is long l ? (int)l : Convert.ToInt32(scalar ?? 0);
+        }
+
+        if (request.DryRun)
+        {
+            return new SupportBulkDeleteGhostSuccessResponse
+            {
+                DryRun = true,
+                MatchingCount = matchingCount,
+                DeletedCount = 0,
+                Message =
+                    $"Dry run: {matchingCount} ghost success row(s) match (completed, resolved, no document_type, zero attachments). " +
+                    "Set dryRun=false to delete up to maxRows.",
+            };
+        }
+
+        var deleteSql = $"""
+            WITH candidates AS (
+              SELECT pe.id
+              FROM public.processed_emails pe
+              LEFT JOIN public.pets p ON p.id = pe.pet_id AND p.deleted_at IS NULL
+              LEFT JOIN auth.users u ON u.id = p.user_id
+              WHERE {whereSql}
+              ORDER BY pe.completed_at DESC NULLS LAST
+              LIMIT @maxRows
+            )
+            DELETE FROM public.processed_emails pe
+            USING candidates c
+            WHERE pe.id = c.id
+            """;
+
+        int deletedCount;
+        await using (var deleteCmd = new NpgsqlCommand(deleteSql, conn))
+        {
+            foreach (var (name, value) in parameters)
+                deleteCmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            deleteCmd.Parameters.AddWithValue("maxRows", maxRows);
+            deletedCount = await deleteCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        _logger.LogInformation(
+            "Support bulk delete ghost success: deleted {DeletedCount}/{MatchingCount} row(s) (maxRows={MaxRows})",
+            deletedCount,
+            matchingCount,
+            maxRows);
+
+        return new SupportBulkDeleteGhostSuccessResponse
+        {
+            DryRun = false,
+            MatchingCount = matchingCount,
+            DeletedCount = deletedCount,
+            Message =
+                $"Deleted {deletedCount} ghost success row(s). {Math.Max(0, matchingCount - deletedCount)} additional row(s) still match — re-run or raise maxRows.",
+        };
+    }
+
+    internal static (string WhereSql, List<(string Name, object? Value)> Parameters) BuildGhostSuccessDeleteFilter(
+        SupportBulkDeleteGhostSuccessRequest request)
+    {
+        var parts = new List<string>
+        {
+            "pe.status = 'completed'",
+            "pe.success = TRUE",
+            "COALESCE(pe.review_status, '') = 'resolved'",
+            "NULLIF(trim(pe.failure_reason), '') IS NULL",
+            "NULLIF(trim(pe.document_type), '') IS NULL",
+            "COALESCE(pe.attachment_count, 0) = 0",
+        };
+        var parameters = new List<(string Name, object? Value)>();
+
+        if (request.PetId is { } petId)
+        {
+            parts.Add("pe.pet_id = @petId");
+            parameters.Add(("petId", petId));
+        }
+
+        var petName = (request.PetName ?? "").Trim();
+        if (petName.Length > 0)
+        {
+            parts.Add("p.name ILIKE @petName");
+            parameters.Add(("petName", petName));
+        }
+
+        if (request.OwnerUserId is { } ownerUserId)
+        {
+            parts.Add("p.user_id = @ownerUserId");
+            parameters.Add(("ownerUserId", ownerUserId));
+        }
+
+        var ownerEmail = (request.OwnerEmail ?? "").Trim();
+        if (ownerEmail.Length > 0)
+        {
+            parts.Add("lower(u.email) = lower(@ownerEmail)");
+            parameters.Add(("ownerEmail", ownerEmail));
+        }
+
+        if (request.From is { } from)
+        {
+            parts.Add("pe.completed_at >= @from");
+            parameters.Add(("from", from));
+        }
+
+        if (request.To is { } to)
+        {
+            parts.Add("pe.completed_at < @to");
+            parameters.Add(("to", to));
+        }
+
+        if (request.EmailIds is { Count: > 0 } ids)
+        {
+            parts.Add("pe.id = ANY(@emailIds)");
+            parameters.Add(("emailIds", ids.ToArray()));
+        }
+
+        return (string.Join(" AND ", parts), parameters);
+    }
+
+    /// <inheritdoc />
     public async Task<SupportBulkReprocessReviewInboxResponse> BulkReprocessReviewInboxAsync(
         SupportBulkReprocessReviewInboxRequest request,
         CancellationToken cancellationToken = default)

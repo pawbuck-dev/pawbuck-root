@@ -29,6 +29,9 @@ import {
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
 import {
+  shouldTreatAsMissingAttachment,
+} from "../_shared/email-health-ingestion/emailAttachmentSignals.ts";
+import {
   formatOwnerFacingAttachmentFailure,
   formatOwnerFacingEmailFailureSummary,
 } from "../_shared/email-health-ingestion/ownerFacingFailureReason.ts";
@@ -531,6 +534,54 @@ Deno.serve(async (req) => {
 
     // Step 10: Check for attachments
     if (allAttachments.length === 0) {
+      const diag = parsedEmail.attachmentDiagnostics;
+      const missingAttachment = shouldTreatAsMissingAttachment({
+        extractedCount: 0,
+        mailgunJsonListed: diag?.mailgunJsonListed ?? 0,
+        mailgunAttachmentCountField: diag?.mailgunAttachmentCountField ?? null,
+        subject: parsedEmail.subject,
+        textBody: parsedEmail.textBody,
+        htmlBody: parsedEmail.htmlBody,
+      });
+
+      if (missingAttachment) {
+        const detail =
+          (diag?.mailgunJsonListed ?? 0) > 0 && (diag?.mailgunFetchFailures ?? 0) > 0
+            ? "Mailgun listed attachment(s) but we could not download them (check MAILGUN_API_KEY on the edge function)."
+            : "We received your email but no attachment file reached PawBuck. Send again with the PDF attached (not forward-only), or upload from Health Records.";
+
+        console.log(
+          `[MONITORING] Expected health attachment missing (jsonListed=${diag?.mailgunJsonListed ?? 0}, attachment-count=${diag?.mailgunAttachmentCountField ?? "n/a"})`,
+        );
+
+        if (!isReprocessing) {
+          try {
+            await storeEmailForApproval(messageId, parsedEmail);
+          } catch (storageError) {
+            console.error(
+              `[MONITORING] Failed to archive email for missing attachment:`,
+              storageError,
+            );
+          }
+        }
+
+        await finalizeEmail(0, {
+          reviewStatus: "pending",
+          failureReason: formatOwnerFacingEmailFailureSummary(1, [detail]),
+        });
+
+        if (isReprocessing && storedEmailPath) {
+          await deleteStoredEmail(storedEmailPath);
+        }
+
+        return buildSuccessResponse(
+          pet,
+          emailInfo,
+          [],
+          "Attachment expected but not received",
+        );
+      }
+
       console.log("[MONITORING] No attachments to process", pet, emailInfo);
 
       // Mark email as completed even if there are no attachments

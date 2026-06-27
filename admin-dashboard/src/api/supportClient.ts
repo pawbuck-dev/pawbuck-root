@@ -36,6 +36,8 @@ import type {
   SupportProcessedEmailsSummaryResponse,
   SupportBulkClearReviewInboxRequest,
   SupportBulkClearReviewInboxResponse,
+  SupportBulkDeleteGhostSuccessRequest,
+  SupportBulkDeleteGhostSuccessResponse,
   SupportBulkReprocessReviewInboxRequest,
   SupportBulkReprocessReviewInboxResponse,
   SupportOpsHealthResponse,
@@ -386,6 +388,12 @@ export function createSupportClient(
         method: "POST",
         json: body,
       }),
+
+    bulkDeleteGhostSuccess: (body: SupportBulkDeleteGhostSuccessRequest) =>
+      request<SupportBulkDeleteGhostSuccessResponse>(
+        "/api/support/processed-emails/bulk-delete-ghost-success",
+        { method: "POST", json: body },
+      ),
 
     bulkReprocessReviewInbox: (body: SupportBulkReprocessReviewInboxRequest) =>
       request<SupportBulkReprocessReviewInboxResponse>(

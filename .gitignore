@@ -18,6 +18,8 @@ dist/
 .env
 .env.local
 .maestro/.env.local
+supabase/.env
+supabase/functions/.env
 .env.development.local
 .env.test.local
 .env.production.local

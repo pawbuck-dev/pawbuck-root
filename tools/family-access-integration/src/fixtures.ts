@@ -49,7 +49,7 @@ export async function grantFamilyPlan(userId: string): Promise<void> {
     {
       user_id: userId,
       plan: "family",
-      status: "active",
+      is_founding_member: true,
     },
     { onConflict: "user_id" }
   );

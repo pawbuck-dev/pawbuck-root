@@ -252,6 +252,55 @@ public class SupportBulkClearReviewInboxResponse
     public string Message { get; set; } = "";
 }
 
+/// <summary>
+/// Remove false-success inbound mail rows (message stored, zero attachments filed).
+/// </summary>
+public class SupportBulkDeleteGhostSuccessRequest
+{
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; } = true;
+
+    [JsonPropertyName("ownerUserId")]
+    public Guid? OwnerUserId { get; set; }
+
+    [JsonPropertyName("ownerEmail")]
+    public string? OwnerEmail { get; set; }
+
+    [JsonPropertyName("petId")]
+    public Guid? PetId { get; set; }
+
+    [JsonPropertyName("petName")]
+    public string? PetName { get; set; }
+
+    [JsonPropertyName("from")]
+    public DateTimeOffset? From { get; set; }
+
+    [JsonPropertyName("to")]
+    public DateTimeOffset? To { get; set; }
+
+    [JsonPropertyName("emailIds")]
+    public IReadOnlyList<Guid>? EmailIds { get; set; }
+
+    /// <summary>Max rows to delete per call (1–5000, default 500).</summary>
+    [JsonPropertyName("maxRows")]
+    public int MaxRows { get; set; } = 500;
+}
+
+public class SupportBulkDeleteGhostSuccessResponse
+{
+    [JsonPropertyName("dryRun")]
+    public bool DryRun { get; set; }
+
+    [JsonPropertyName("matchingCount")]
+    public int MatchingCount { get; set; }
+
+    [JsonPropertyName("deletedCount")]
+    public int DeletedCount { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+}
+
 public class SupportBulkReprocessReviewInboxRequest
 {
     [JsonPropertyName("dryRun")]

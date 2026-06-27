@@ -1,0 +1,12 @@
+{
+  "name": "@pawbuck/email-vaccine-uat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "uat": "tsx src/run-local-vaccine-email.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

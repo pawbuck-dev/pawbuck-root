@@ -163,6 +163,14 @@ export function summarizeAttachmentFailureReason(
     }
     return `${count} health ${fileWord} received but not auto-filed. Upgrade to Individual for email parsing.`;
   }
+  if (failureReason.includes("no attachment file reached PawBuck") ||
+      failureReason.includes("could not download them")) {
+    const docMatch = failureReason.match(/Document '[^']+':\s*(.+)$/i);
+    if (docMatch?.[1]) return docMatch[1].trim();
+    const failedPrefix = /^We could not add \d+ document\(s\) to the pet profile\.\s*/i;
+    const stripped = failureReason.replace(failedPrefix, "").replace(/\s*Open Messages.*$/i, "").trim();
+    if (stripped) return stripped;
+  }
   const docMatch = failureReason.match(/Document '[^']+':\s*(.+)$/i);
   if (docMatch?.[1]) return docMatch[1].trim();
   const failedPrefix = /^Failed to process \d+ document\(s\):\s*/i;
