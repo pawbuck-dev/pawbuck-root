@@ -34,6 +34,10 @@ import { getUserProfile, updateUserProfile } from "@/services/userProfile";
 import { getPrivateImageUrl } from "@/utils/image";
 import { pickImageFromLibrary, takePhoto } from "@/utils/imagePicker";
 import { requestPrivacyExportWithAlerts } from "@/utils/privacyExportUi";
+import {
+  checkingSubscriptionStoreLabel,
+  manageSubscriptionInStoreLabel,
+} from "@/utils/storePlatformCopy";
 import { openStoreSubscriptionSettings } from "@/utils/storeSubscriptions";
 import { supabase } from "@/utils/supabase";
 import {
@@ -342,9 +346,11 @@ export default function Profile() {
 
   const visibleSettingsRows = useMemo(
     () =>
-      PROFILE_SETTINGS_ROWS.filter(
-        (row) => row.id !== "change-password" || userHasEmailPasswordIdentity(user)
-      ),
+      PROFILE_SETTINGS_ROWS.filter((row) => {
+        if (row.id === "download-data") return false;
+        if (row.id === "change-password") return userHasEmailPasswordIdentity(user);
+        return true;
+      }),
     [user]
   );
 
@@ -455,7 +461,7 @@ export default function Profile() {
                 ? "Lifetime access — thank you for building PawBuck with us"
                 : plan === "free"
                   ? "Current plan: Free · Compare Individual or Family plans"
-                  : `Current plan: ${planLabel} · Manage in App Store or Google Play`
+                  : `Current plan: ${planLabel} · ${manageSubscriptionInStoreLabel()}`
             }
             onPress={() => {
               if (plan === "free") {
@@ -471,7 +477,7 @@ export default function Profile() {
             title="Restore purchases"
             subtitle={
               isRestoringPurchases
-                ? "Checking App Store or Google Play…"
+                ? checkingSubscriptionStoreLabel()
                 : "Recover a subscription bought on this device"
             }
             onPress={() => {

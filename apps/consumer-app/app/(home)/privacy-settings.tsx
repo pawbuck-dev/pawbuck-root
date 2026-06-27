@@ -6,7 +6,6 @@ import { SettingsSubscreenLayout } from "@/components/layout/SettingsSubscreenLa
 import { SettingsSubscreenTile } from "@/components/layout/SettingsSubscreenTile";
 import { CONTACT_EMAIL } from "@/constants/contact";
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/legal";
-import { requestPrivacyExportWithAlerts } from "@/utils/privacyExportUi";
 import { useRouter } from "expo-router";
 import { Linking, View } from "react-native";
 
@@ -43,15 +42,6 @@ export default function PrivacySettingsScreen() {
           subtitle="pawbuck.com/terms"
           trailing="external"
           onPress={() => openExternal(TERMS_OF_SERVICE_URL)}
-        />
-        <View style={{ height: 16 }} />
-        <SettingsSubscreenRow
-          compact
-          ionIcon="download-outline"
-          title="Download my data"
-          subtitle="Request a copy of your account data by email"
-          trailing="forward"
-          onPress={() => void requestPrivacyExportWithAlerts()}
         />
         <View style={{ height: 16 }} />
         <SettingsSubscreenRow

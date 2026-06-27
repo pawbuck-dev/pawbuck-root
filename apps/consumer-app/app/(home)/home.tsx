@@ -47,6 +47,7 @@ import { buildHomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
 import { healthRecordBodyTrackerHref } from "@/utils/healthRecordNavigation";
 import { computeTodayDashboardProgress } from "@/utils/todayDashboardProgress";
 import { openMiloJournalCheckIn } from "@/utils/openMiloJournalCheckIn";
+import { pawthonWalkStartRoute } from "@/utils/pawthonWalkNavigation";
 import { computeBriefingCategorySignals } from "@/utils/healthBriefingUi";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import {
@@ -617,12 +618,7 @@ export default function Home() {
                 streakDays={streakDays}
                 walkGoalMeters={goalMeters}
                 walkTodayMeters={todayMeters}
-                onStartWalk={() =>
-                  router.push({
-                    pathname: "/pawthon-walk",
-                    params: { autoStart: "1", petId: selectedPet.id },
-                  })
-                }
+                onStartWalk={() => router.push(pawthonWalkStartRoute(pets, selectedPet.id))}
                 onViewWalkLog={() => router.push("/(home)/pawthon/history" as any)}
                 onOpenBodyTracker={(segment) =>
                   router.push(

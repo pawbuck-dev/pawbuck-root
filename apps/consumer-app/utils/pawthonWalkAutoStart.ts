@@ -22,9 +22,12 @@ export function shouldAutoStartWalk(params: {
   phase: string;
   walkPetIds: string[];
   alreadyHandled: boolean;
+  /** When > 1, user must pick pets on the select screen first. */
+  ownedPetCount?: number;
 }): boolean {
   if (params.alreadyHandled) return false;
   if (params.phase !== "select") return false;
   if (params.walkPetIds.length === 0) return false;
+  if ((params.ownedPetCount ?? 1) > 1) return false;
   return isAutoStartRequested(params.autoStart);
 }

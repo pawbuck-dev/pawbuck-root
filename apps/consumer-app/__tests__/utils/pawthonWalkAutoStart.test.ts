@@ -26,14 +26,25 @@ describe("pawthonWalkAutoStart", () => {
         phase: "select",
         walkPetIds: ["p1"],
         alreadyHandled: false,
+        ownedPetCount: 1,
       })
     ).toBe(true);
+    expect(
+      shouldAutoStartWalk({
+        autoStart: { autoStart: "1" },
+        phase: "select",
+        walkPetIds: ["p1"],
+        alreadyHandled: false,
+        ownedPetCount: 2,
+      })
+    ).toBe(false);
     expect(
       shouldAutoStartWalk({
         autoStart: { autoStart: "1" },
         phase: "warmup",
         walkPetIds: ["p1"],
         alreadyHandled: false,
+        ownedPetCount: 1,
       })
     ).toBe(false);
     expect(
@@ -42,6 +53,7 @@ describe("pawthonWalkAutoStart", () => {
         phase: "select",
         walkPetIds: ["p1"],
         alreadyHandled: true,
+        ownedPetCount: 1,
       })
     ).toBe(false);
   });

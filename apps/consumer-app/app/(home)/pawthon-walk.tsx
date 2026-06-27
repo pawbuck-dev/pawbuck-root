@@ -552,6 +552,7 @@ export default function PawthonWalkScreen() {
         phase,
         walkPetIds,
         alreadyHandled: autoStartHandledRef.current,
+        ownedPetCount: pets.length,
       })
     ) {
       return;

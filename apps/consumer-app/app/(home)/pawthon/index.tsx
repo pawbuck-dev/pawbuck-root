@@ -13,7 +13,7 @@ import {
   formatWeeklyWalkerRankLine,
 } from "@/services/walkSessions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { pawthonWalkStartRoute } from "@/utils/pawthonWalkNavigation";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";
@@ -102,10 +102,7 @@ export default function PawthonHubScreen() {
             onBack={() => router.back()}
             onStartWalk={() => {
               queryClient.invalidateQueries({ queryKey: ["pawthon", "hub", selectedPetId] });
-              router.push({
-                pathname: "/pawthon-walk",
-                params: { autoStart: "1", petId: selectedPetId ?? undefined },
-              });
+              router.push(pawthonWalkStartRoute(pets, selectedPetId));
             }}
             onSeeWalkLog={() => router.push("/(home)/pawthon/history" as any)}
             onWalkPress={(id) => router.push(`/(home)/pawthon/walk/${id}` as any)}
