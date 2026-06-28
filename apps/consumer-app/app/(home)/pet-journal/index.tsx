@@ -15,6 +15,7 @@ import { useAuth } from "@/context/authContext";
 import { usePets } from "@/context/petsContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
+import { useUnifiedPetNotificationCounts } from "@/hooks/useUnifiedPetNotificationCounts";
 import {
   behaviorBaselineQueryKey,
   getBaselineContext,
@@ -71,6 +72,7 @@ export default function PetJournalScreen() {
     () => pets.find((p) => p.id === selectedPetId),
     [pets, selectedPetId]
   );
+  const notificationCounts = useUnifiedPetNotificationCounts();
 
   useEffect(() => {
     if (petIdParam && pets.some((p) => p.id === petIdParam)) {
@@ -286,7 +288,12 @@ export default function PetJournalScreen() {
 
         {pets.length > 0 && (
           <View style={{ marginBottom: 12 }}>
-            <PetSelector pets={pets} selectedPetId={selectedPetId} onSelectPet={setSelectedPetId} />
+            <PetSelector
+              pets={pets}
+              selectedPetId={selectedPetId}
+              onSelectPet={setSelectedPetId}
+              notificationCounts={notificationCounts}
+            />
           </View>
         )}
 

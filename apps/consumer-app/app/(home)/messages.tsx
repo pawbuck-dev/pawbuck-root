@@ -19,12 +19,12 @@ import { useEmailApproval } from "@/context/emailApprovalContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useUnifiedPetNotificationCounts } from "@/hooks/useUnifiedPetNotificationCounts";
 import { FailedEmail, getReviewInbox, isEmailParsingUpgradeReason } from "@/services/failedEmails";
 import { useSubscription } from "@/context/subscriptionContext";
 import { fetchMessageThreads, MessageThread } from "@/services/messages";
 import {
   GroupedThreads,
-  groupThreadsByPet,
   groupThreadsByType,
 } from "@/services/messageThreadsGrouped";
 import { PendingApprovalWithPet } from "@/services/pendingEmailApprovals";
@@ -233,12 +233,6 @@ export default function MessagesScreen() {
     return threadUnreadCount + pendingApprovals.length;
   }, [threads, pendingApprovals]);
 
-  // Group by pet (for pet selector notification counts when multi-pet)
-  const groupedByPet = useMemo(
-    () => groupThreadsByPet(filteredThreads),
-    [filteredThreads]
-  );
-
   // When multi-pet: show only selected pet's threads (grouped by type). When single-pet: show all.
   const threadsToGroup = useMemo(() => {
     if (pets.length <= 1) return filteredThreads;
@@ -247,20 +241,7 @@ export default function MessagesScreen() {
     return filteredThreads.filter((t) => t.pet_id === effectivePetId);
   }, [filteredThreads, pets.length, selectedPetId, pets]);
 
-  // Per-pet notification counts for PetSelector (unread threads + pending approvals)
-  const messageNotificationCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    pendingApprovals.forEach((a) => {
-      if (a.pet_id) counts[a.pet_id] = (counts[a.pet_id] ?? 0) + 1;
-    });
-    Object.entries(groupedByPet).forEach(([petId, list]) => {
-      if (petId !== "unknown") {
-        const unread = list.reduce((s, t) => s + (t.unread_count ?? 0), 0);
-        counts[petId] = (counts[petId] ?? 0) + unread;
-      }
-    });
-    return counts;
-  }, [pendingApprovals, groupedByPet]);
+  const notificationCounts = useUnifiedPetNotificationCounts();
 
   // Group threads by care team type (input is threadsToGroup: selected pet when multi-pet, else all)
   const [filteredGroupedThreads, setFilteredGroupedThreads] =
@@ -546,7 +527,7 @@ export default function MessagesScreen() {
             selectedPetId={selectedPetId ?? pets[0]?.id ?? null}
             onSelectPet={setSelectedPetId}
             showPetFilter={pets.length > 1}
-            notificationCounts={messageNotificationCounts}
+            notificationCounts={notificationCounts}
           />
 
           {/* Messages List */}

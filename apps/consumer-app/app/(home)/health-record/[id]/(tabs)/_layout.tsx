@@ -17,6 +17,7 @@ import { ParamListBase, TabNavigationState } from "@react-navigation/native";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useDocumentUploadQuota } from "@/hooks/useDocumentUploadQuota";
 import { useHealthRecordPetId } from "@/hooks/useHealthRecordPetId";
+import { useUnifiedPetNotificationCounts } from "@/hooks/useUnifiedPetNotificationCounts";
 import {
   HealthRecordTab,
   healthRecordTabHref,
@@ -64,6 +65,7 @@ export default function HealthRecordsLayout() {
   const [redirectPetId, setRedirectPetId] = useState<string | null>(null);
 
   const displayPetId = redirectPetId ?? selectedPetId ?? routePetId;
+  const notificationCounts = useUnifiedPetNotificationCounts();
   const currentPet = useMemo(
     () => pets.find((p) => p.id === displayPetId),
     [pets, displayPetId]
@@ -295,7 +297,7 @@ export default function HealthRecordsLayout() {
               setSelectedPetId(nextPetId);
               setRedirectPetId(nextPetId);
             }}
-            notificationCounts={{}}
+            notificationCounts={notificationCounts}
           />
         </View>
       )}

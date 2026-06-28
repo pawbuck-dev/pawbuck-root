@@ -27,7 +27,7 @@ import {
   linkCareTeamMemberToAllUserPets,
   unlinkCareTeamMemberFromPet,
 } from "@/services/careTeamMembers";
-import { fetchMessageThreads } from "@/services/messages";
+import { useUnifiedPetNotificationCounts } from "@/hooks/useUnifiedPetNotificationCounts";
 import { fetchMedicines } from "@/services/medicines";
 import { fetchHealthBriefingBundle } from "@/services/healthBriefing";
 import { getDailyIntake } from "@/services/dailyIntake";
@@ -88,7 +88,7 @@ export default function Home() {
     updatingPet,
   } = usePets();
   const { selectedPetId, selectedPet, setSelectedPetId } = useSelectedPet();
-  const { refreshPendingApprovals, pendingApprovals } = useEmailApproval();
+  const { refreshPendingApprovals } = useEmailApproval();
   const { user } = useAuth();
   const { navigateToAddPet } = useAddPetNavigation();
   const { weeklyChallengeEnabled } = useWeeklyChallengeEnabled(selectedPet?.country);
@@ -106,24 +106,7 @@ export default function Home() {
   const [selectedMemberType, setSelectedMemberType] =
     useState<CareTeamMemberType>("veterinarian");
   const [selectedMember, setSelectedMember] = useState<VetInformation | null>(null);
-  const { data: messageThreads = [] } = useQuery({
-    queryKey: ["messageThreads"],
-    queryFn: () => fetchMessageThreads(),
-  });
-
-  const notificationCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    pendingApprovals.forEach((approval) => {
-      counts[approval.pet_id] = (counts[approval.pet_id] || 0) + 1;
-    });
-    messageThreads.forEach((thread) => {
-      const petId = thread.pet_id;
-      if (petId) {
-        counts[petId] = (counts[petId] || 0) + (thread.unread_count ?? 0);
-      }
-    });
-    return counts;
-  }, [pendingApprovals, messageThreads]);
+  const notificationCounts = useUnifiedPetNotificationCounts();
 
   const { data: vaccinations = [] } = useQuery({
     queryKey: ["vaccinations", selectedPetId],

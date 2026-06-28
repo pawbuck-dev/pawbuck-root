@@ -6,7 +6,8 @@ import DocumentsAndIdSection from "@/components/health/DocumentsAndIdSection";
 import HealthRecordsAttentionBanner from "@/components/health/HealthRecordsAttentionBanner";
 import { useChat } from "@/context/chatContext";
 import { usePets } from "@/context/petsContext";
-import { useHealthAttentionForPet, usePetHealthNotificationCounts } from "@/hooks/useHealthHubAttention";
+import { useHealthAttentionForPet } from "@/hooks/useHealthHubAttention";
+import { useUnifiedPetNotificationCounts } from "@/hooks/useUnifiedPetNotificationCounts";
 import { healthRecordTabCanvas } from "@/constants/figmaHealthLayout";
 import { petPossessiveLabel } from "@/utils/petCopy";
 import { useTheme } from "@/context/themeContext";
@@ -47,7 +48,7 @@ export default function HealthRecordsHubScreen() {
   const pet = pets.find((p) => p.id === displayPetId);
   const petName = pet?.name ?? "your pet";
 
-  const notificationCounts = usePetHealthNotificationCounts(pets.map((p) => p.id));
+  const notificationCounts = useUnifiedPetNotificationCounts();
   const { attentionCount, subtitle: attentionSubtitle } = useHealthAttentionForPet(displayPetId);
   const [sharingSummary, setSharingSummary] = useState(false);
 

@@ -13,7 +13,8 @@ import {
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 /**
- * Per-pet badge counts for PetSelector (required missing + overdue).
+ * Per-pet health badge counts (missing required + overdue vaccines).
+ * Prefer {@link useUnifiedPetNotificationCounts} for PetSelector chips app-wide.
  */
 export function usePetHealthNotificationCounts(petIds: string[]): Record<string, number> {
   const { pets } = usePets();
