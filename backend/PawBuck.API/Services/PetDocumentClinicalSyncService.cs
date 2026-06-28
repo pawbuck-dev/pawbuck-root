@@ -42,11 +42,41 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         var ids = new List<Guid>();
         await using (var cmd = new NpgsqlCommand(
                    """
-                   SELECT id
-                   FROM public.pet_documents
-                   WHERE clinical_synced_at IS NULL
-                     AND document_type::text = ANY (@types)
-                   ORDER BY created_at ASC
+                   SELECT pd.id
+                   FROM public.pet_documents pd
+                   WHERE pd.document_type::text = ANY (@types)
+                     AND (
+                       pd.clinical_synced_at IS NULL
+                       OR (
+                         pd.document_type::text = 'vaccinations'
+                         AND NOT EXISTS (
+                           SELECT 1 FROM public.vaccinations v
+                           WHERE v.pet_id = pd.pet_id AND v.document_url = pd.storage_path
+                         )
+                       )
+                       OR (
+                         pd.document_type::text = 'medications'
+                         AND NOT EXISTS (
+                           SELECT 1 FROM public.medicines m
+                           WHERE m.pet_id = pd.pet_id AND m.document_url = pd.storage_path
+                         )
+                       )
+                       OR (
+                         pd.document_type::text = 'clinical_exams'
+                         AND NOT EXISTS (
+                           SELECT 1 FROM public.clinical_exams ce
+                           WHERE ce.pet_id = pd.pet_id AND ce.document_url = pd.storage_path
+                         )
+                       )
+                       OR (
+                         pd.document_type::text = 'lab_results'
+                         AND NOT EXISTS (
+                           SELECT 1 FROM public.lab_results lr
+                           WHERE lr.pet_id = pd.pet_id AND lr.document_url = pd.storage_path
+                         )
+                       )
+                     )
+                   ORDER BY CASE WHEN pd.clinical_synced_at IS NULL THEN 0 ELSE 1 END, pd.created_at ASC
                    LIMIT @lim
                    """,
                    conn))
@@ -163,7 +193,20 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         }
 
         if (syncedAt.HasValue)
-            return new PetDocumentClinicalSyncResult { Synced = true };
+        {
+            if (ClinicalDocumentSyncPolicy.ShouldSkipSync(
+                    clinicalSyncedAtSet: true,
+                    clinicalRowsExistForDocument: await ClinicalRowsExistForDocumentAsync(
+                        conn, petId, storagePath, docType, cancellationToken)))
+            {
+                return new PetDocumentClinicalSyncResult { Synced = true };
+            }
+
+            _logger.LogInformation(
+                "pet_documents {DocumentId}: marked synced but no {DocType} rows for storage path; re-syncing",
+                documentId,
+                docType);
+        }
 
         if (string.IsNullOrWhiteSpace(docType) || !SyncableDocumentTypes.Contains(docType))
         {
@@ -528,6 +571,50 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
         cmd.Parameters.Add(new NpgsqlParameter("test_date", NpgsqlDbType.TimestampTz) { Value = testDate.HasValue ? testDate.Value : DBNull.Value });
         cmd.Parameters.AddWithValue("document_url", storagePath);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> ClinicalRowsExistForDocumentAsync(
+        NpgsqlConnection conn,
+        Guid petId,
+        string storagePath,
+        string? documentType,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(documentType) || string.IsNullOrWhiteSpace(storagePath))
+            return false;
+
+        var sql = documentType.ToLowerInvariant() switch
+        {
+            MiloPetFactsKinds.Vaccinations => """
+                SELECT 1 FROM public.vaccinations
+                WHERE pet_id = @pet_id AND document_url = @path
+                LIMIT 1
+                """,
+            MiloPetFactsKinds.Medications => """
+                SELECT 1 FROM public.medicines
+                WHERE pet_id = @pet_id AND document_url = @path
+                LIMIT 1
+                """,
+            MiloPetFactsKinds.ClinicalExams => """
+                SELECT 1 FROM public.clinical_exams
+                WHERE pet_id = @pet_id AND document_url = @path
+                LIMIT 1
+                """,
+            MiloPetFactsKinds.LabResults => """
+                SELECT 1 FROM public.lab_results
+                WHERE pet_id = @pet_id AND document_url = @path
+                LIMIT 1
+                """,
+            _ => null,
+        };
+
+        if (sql == null)
+            return false;
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("pet_id", petId);
+        cmd.Parameters.AddWithValue("path", storagePath);
+        return await cmd.ExecuteScalarAsync(cancellationToken) != null;
     }
 
     private static async Task<bool> VaccinationExistsAsync(
