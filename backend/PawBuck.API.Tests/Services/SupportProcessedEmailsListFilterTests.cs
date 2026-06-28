@@ -55,6 +55,51 @@ public class SupportProcessedEmailsListFilterTests
     }
 
     [Fact]
+    public void IsSuccessfulCompletionWithoutFailure_true_when_completed_success_no_failure_reason()
+    {
+        Assert.True(SupportProcessedEmailsService.IsSuccessfulCompletionWithoutFailure(
+            new SupportProcessedEmailDetailDto
+            {
+                Status = "completed",
+                Success = true,
+                FailureReason = null,
+            }));
+    }
+
+    [Fact]
+    public void BuildRecommendedAction_SuccessWithoutArchive_not_retained_not_cannot_reprocess()
+    {
+        var action = SupportProcessedEmailsService.BuildRecommendedAction(new SupportProcessedEmailDetailDto
+        {
+            Status = "completed",
+            Success = true,
+            ReviewStatus = "resolved",
+            StoredArchiveStatus = "not_retained",
+            AttachmentCount = 2,
+            DocumentType = "vaccinations",
+        });
+
+        Assert.DoesNotContain("Cannot reprocess", action, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Verify health records", action, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildRecommendedAction_GhostSuccess_suggests_resend()
+    {
+        var action = SupportProcessedEmailsService.BuildRecommendedAction(new SupportProcessedEmailDetailDto
+        {
+            Status = "completed",
+            Success = true,
+            ReviewStatus = "resolved",
+            StoredArchiveStatus = "not_retained",
+            AttachmentCount = 0,
+        });
+
+        Assert.Contains("false-success", action, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("re-send", action, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildRecommendedAction_AnalyzeInternalNotConfigured_PointsAtApiEcsKey()
     {
         var action = SupportProcessedEmailsService.BuildRecommendedAction(new SupportProcessedEmailDetailDto

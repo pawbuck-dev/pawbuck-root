@@ -1456,6 +1456,14 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
             detail.StoredArchiveStatus = "missing";
             detail.StoredArchiveMessage = "Row has no s3_key (Message-Id). Cannot reprocess.";
         }
+        else if (IsSuccessfulCompletionWithoutFailure(detail))
+        {
+            // First-pass success never writes pending-emails JSON (only failures + pending approvals do).
+            detail.StoredArchiveStatus = "not_retained";
+            detail.StoredArchiveMessage = IsLikelyGhostSuccessRow(detail)
+                ? "No archive (by design). Row matches false-success ghost pattern (0 attachments filed, no document_type) — verify pet health records or have owner re-send."
+                : "Archive not retained after successful processing (pending-emails JSON is stored only for failures and pending sender approvals).";
+        }
         else
         {
             var archive = await TryLoadPendingEmailAsync(detail.S3Key, cancellationToken);
@@ -1513,6 +1521,28 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         return (false, "Hidden: no failure signal (success=true, no failure_reason).");
     }
 
+    internal static bool IsSuccessfulCompletionWithoutFailure(SupportProcessedEmailDetailDto detail)
+    {
+        if (!string.Equals(detail.Status, "completed", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (detail.Success != true)
+            return false;
+        if (!string.IsNullOrWhiteSpace(detail.FailureReason))
+            return false;
+        return true;
+    }
+
+    internal static bool IsLikelyGhostSuccessRow(SupportProcessedEmailDetailDto detail)
+    {
+        if (!IsSuccessfulCompletionWithoutFailure(detail))
+            return false;
+        if (!string.Equals(detail.ReviewStatus, "resolved", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (!string.IsNullOrWhiteSpace(detail.DocumentType))
+            return false;
+        return detail.AttachmentCount is null or 0;
+    }
+
     internal static string BuildRecommendedAction(SupportProcessedEmailDetailDto detail)
     {
         if (string.Equals(detail.Status, "processing", StringComparison.OrdinalIgnoreCase))
@@ -1522,6 +1552,18 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
 
         if (detail.StoredArchiveStatus == "storage_not_configured")
             return "Configure API Supabase URL + service role key, then refresh detail.";
+
+        if (detail.StoredArchiveStatus == "not_retained")
+        {
+            if (IsLikelyGhostSuccessRow(detail))
+            {
+                return "Possible false-success: no health records were filed. Owner should re-send the email or add records manually; use bulk-delete ghost success in admin if cleaning inbox.";
+            }
+
+            return detail.ReviewStatus is "dismissed" or "resolved"
+                ? "Processing completed and cleared from Review Inbox. Verify health records on the pet profile; re-send email only if records are missing."
+                : "Archive not retained for successful rows; re-send email if records are missing.";
+        }
 
         if (detail.StoredArchiveStatus is "missing" or "invalid_json")
             return "Cannot reprocess: no usable pending-emails JSON. Owner must re-send the email or add records manually.";

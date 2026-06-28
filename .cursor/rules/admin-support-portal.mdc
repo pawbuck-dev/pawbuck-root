@@ -38,7 +38,7 @@ For each support list row, the detail view should expose **actionable diagnostic
 
 - Visible in consumer UI? (yes/no + reason)
 - Owner action allowed? (e.g. Confirm / resolve eligibility)
-- External prerequisites (e.g. `pending-emails` archive: `stored` | `missing` | `metadata_only` | `storage_not_configured`)
+- External prerequisites (e.g. `pending-emails` archive: `stored` | `missing` | `metadata_only` | `not_retained` | `storage_not_configured`)
 - **Recommended next step** (reprocess, fix secrets, dismiss, re-send email)
 
 Prefer extending **`Support*DetailDto`** + API over documenting “run this query.”

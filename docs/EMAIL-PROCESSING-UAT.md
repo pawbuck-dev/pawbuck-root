@@ -474,7 +474,7 @@ Select a row → **Diagnostics (no SQL)**:
 |-------|---------|
 | Consumer Processing errors | visible / hidden + reason |
 | Owner Confirm allowed | Same as `POST /api/mail/resolve` eligibility |
-| pending-emails archive | `stored` \| `missing` \| `metadata_only` \| `storage_not_configured` |
+| pending-emails archive | `stored` \| `missing` \| `metadata_only` \| `not_retained` \| `storage_not_configured` |
 | Recommended | Next support action |
 
 Use **Owner email filter**, **90d** preset, and subject search before writing SQL.

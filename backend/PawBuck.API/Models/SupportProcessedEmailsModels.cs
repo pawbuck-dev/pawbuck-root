@@ -89,7 +89,7 @@ public class SupportProcessedEmailDetailDto : SupportProcessedEmailListItemDto
     [JsonPropertyName("canOwnerResolve")]
     public bool CanOwnerResolve { get; set; }
 
-    /// <summary>stored | missing | metadata_only | storage_not_configured | invalid_json</summary>
+    /// <summary>stored | missing | metadata_only | not_retained | storage_not_configured | invalid_json</summary>
     [JsonPropertyName("storedArchiveStatus")]
     public string? StoredArchiveStatus { get; set; }
 
