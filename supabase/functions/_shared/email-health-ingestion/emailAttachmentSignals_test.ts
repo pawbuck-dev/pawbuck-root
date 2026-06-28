@@ -1,5 +1,7 @@
 import {
+  attachmentLooksLikeHealthDocument,
   emailLikelyHadHealthAttachment,
+  emailLooksLikeUnclassifiedHealthAttempt,
   formatMissingAttachmentFailureReason,
   isMissingAttachmentFailureReason,
   parseMailgunAttachmentCountField,
@@ -14,6 +16,7 @@ Deno.test("emailLikelyHadHealthAttachment detects vaccine subjects", () => {
     emailLikelyHadHealthAttachment("Vaccination Certificate For Milo", null),
     true,
   );
+  assertEquals(emailLikelyHadHealthAttachment("Milo Records.", null), true);
   assertEquals(emailLikelyHadHealthAttachment(null, "attached the docuemnt"), true);
 });
 
@@ -58,5 +61,29 @@ Deno.test("missing attachment failure reason helpers", () => {
   assertEquals(
     summarizeMissingAttachmentFailure(reason),
     "Mailgun fetch failed",
+  );
+});
+
+Deno.test("attachmentLooksLikeHealthDocument", () => {
+  assertEquals(attachmentLooksLikeHealthDocument("image/jpeg", "photo.jpg"), true);
+  assertEquals(attachmentLooksLikeHealthDocument("application/pdf", "cert.pdf"), true);
+  assertEquals(attachmentLooksLikeHealthDocument("text/plain", "notes.txt"), false);
+});
+
+Deno.test("emailLooksLikeUnclassifiedHealthAttempt", () => {
+  assertEquals(
+    emailLooksLikeUnclassifiedHealthAttempt({
+      subject: "Milo Records.",
+      attachments: [{ mimeType: "image/jpeg", filename: "cert.jpg" }],
+    }),
+    true,
+  );
+  assertEquals(
+    emailLooksLikeUnclassifiedHealthAttempt({
+      subject: "Hello",
+      textBody: "See you tomorrow",
+      attachments: [{ mimeType: "text/plain", filename: "notes.txt" }],
+    }),
+    false,
   );
 });

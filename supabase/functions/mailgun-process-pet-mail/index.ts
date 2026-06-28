@@ -29,6 +29,7 @@ import {
   tryAcquireProcessingLock,
 } from "./idempotencyChecker.ts";
 import {
+  emailLooksLikeUnclassifiedHealthAttempt,
   shouldTreatAsMissingAttachment,
 } from "../_shared/email-health-ingestion/emailAttachmentSignals.ts";
 import {
@@ -730,6 +731,57 @@ Deno.serve(async (req) => {
       await sendAttachmentFailureNotification(pet, emailInfo, failedAttachments);
 
       // Clean up stored email if this was a re-processing request
+      if (isReprocessing && storedEmailPath) {
+        await deleteStoredEmail(storedEmailPath);
+      }
+
+      return buildSuccessResponse(pet, emailInfo, processedAttachments);
+    }
+
+    if (
+      otherAttachments.length > 0 &&
+      processedAttachments.length > 0 &&
+      relevantAttachments.length === 0 &&
+      successfulInserts.length === 0 &&
+      emailLooksLikeUnclassifiedHealthAttempt({
+        subject: parsedEmail.subject,
+        textBody: parsedEmail.textBody,
+        htmlBody: parsedEmail.htmlBody,
+        attachments: otherAttachments,
+      })
+    ) {
+      const detail =
+        "We received your attachment but could not classify it as a health document. Try a clearer photo or PDF, or upload from Health Records.";
+
+      console.log(
+        `[MONITORING] Health-like attachment(s) classified irrelevant — sending to Review Inbox (${processedAttachments.length} file(s))`,
+      );
+
+      await finalizeEmail(processedAttachments.length, {
+        reviewStatus: "pending",
+        failureReason: formatOwnerFacingEmailFailureSummary(1, [detail]),
+      });
+
+      if (!isReprocessing && !storedEmailPath) {
+        try {
+          await storeEmailForApproval(messageId, parsedEmail);
+        } catch (storageError) {
+          console.error(
+            `[MONITORING] Failed to store email JSON for unclassified health attachment:`,
+            storageError,
+          );
+        }
+      }
+
+      await sendAttachmentFailureNotification(
+        pet,
+        emailInfo,
+        processedAttachments.map((a) => ({
+          ...a,
+          error: detail,
+        })),
+      );
+
       if (isReprocessing && storedEmailPath) {
         await deleteStoredEmail(storedEmailPath);
       }

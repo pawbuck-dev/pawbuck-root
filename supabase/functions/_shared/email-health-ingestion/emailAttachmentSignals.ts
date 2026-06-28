@@ -4,7 +4,10 @@
  */
 
 const HEALTH_ATTACHMENT_HINT =
-  /\b(attach(ed|ment|ments|ing)?|vaccin(e|ation|ations|es)?|certificate|documents?|docuemnts?|pdf|prescription|lab\s*result|medical\s*record|discharge|invoice|receipt|x-?ray|radiograph|pathology|microchip|passport)\b/i;
+  /\b(attach(ed|ment|ments|ing)?|vaccin(e|ation|ations|es)?|certificate|documents?|docuemnts?|records?|pdf|prescription|lab\s*result|medical\s*record|discharge|invoice|receipt|x-?ray|radiograph|pathology|microchip|passport)\b/i;
+
+const HEALTH_FILE_MIME =
+  /^(image\/(jpeg|jpg|png|webp|heic|heif)|application\/pdf)$/i;
 
 /** Mailgun may send attachment-count even when our parser could not fetch files. */
 export function parseMailgunAttachmentCountField(
@@ -23,6 +26,38 @@ export function emailLikelyHadHealthAttachment(
   const combined = [subject, textBody, htmlBody].filter(Boolean).join(" ");
   if (!combined.trim()) return false;
   return HEALTH_ATTACHMENT_HINT.test(combined);
+}
+
+export function attachmentLooksLikeHealthDocument(
+  mimeType: string | null | undefined,
+  filename: string | null | undefined,
+): boolean {
+  if (mimeType?.trim() && HEALTH_FILE_MIME.test(mimeType.trim())) return true;
+  if (filename?.trim() && /\.(pdf|jpe?g|png|webp|heic|heif)$/i.test(filename.trim())) {
+    return true;
+  }
+  return false;
+}
+
+/** Attachment bytes arrived but classifier marked every file irrelevant. */
+export function emailLooksLikeUnclassifiedHealthAttempt(params: {
+  subject?: string | null;
+  textBody?: string | null;
+  htmlBody?: string | null;
+  attachments: { mimeType?: string; filename?: string }[];
+}): boolean {
+  if (
+    emailLikelyHadHealthAttachment(
+      params.subject,
+      params.textBody,
+      params.htmlBody,
+    )
+  ) {
+    return true;
+  }
+  return params.attachments.some((a) =>
+    attachmentLooksLikeHealthDocument(a.mimeType, a.filename)
+  );
 }
 
 export function shouldTreatAsMissingAttachment(params: {
