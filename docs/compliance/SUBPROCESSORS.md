@@ -5,7 +5,7 @@
 | Processor | Purpose | Data categories | Region (v1) | DPA |
 |-----------|---------|-----------------|-------------|-----|
 | Supabase | Postgres, Auth, Storage, Edge Functions | Account, health, location, AI, comms | us-east-1 | Supabase DPA |
-| Google (Gemini) | Milo chat, OCR/classification, embeddings | Health text, AI queries, document images | US (API) | Google Cloud DPA — confirm no training on customer data |
+| Google (Gemini) | Milo chat, OCR/classification, embeddings | Health text, AI queries, document images | US (API) | **Paid API tier** (Tier 1 · Prepay — no training on prompts/responses per [Gemini API terms](https://ai.google.dev/gemini-api/terms)); Google Cloud DPA — counsel sign-off pending. See [GEMINI-DATA-USE.md](./GEMINI-DATA-USE.md). |
 | Mailgun | Inbound pet email, export delivery | Email content, attachments | US/EU per account | Mailgun DPA |
 | RevenueCat | Subscription entitlements | Account, purchase metadata | US | RevenueCat DPA |
 | Expo | Push notifications | Device push tokens | US | Expo terms |

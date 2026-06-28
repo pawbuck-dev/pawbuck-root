@@ -129,6 +129,7 @@ For a JSON secret whose field is `ApiKey`, set `valueFrom` to:
 
 **Journal / Milo (“paid tier” quality on this stack)**
 
+- Production uses a **paid Gemini API project** (Tier 1 · Prepay). Under Google’s Paid Services terms, prompts and responses are **not** used to improve Google products. Operational checklist: [docs/compliance/GEMINI-DATA-USE.md](compliance/GEMINI-DATA-USE.md).
 - Milo journal mode uses the same **`Gemini:Model`** as the rest of the API (`generateContent` on **Google AI Studio** / Generative Language API). There is **no separate** journal-only model id in code today.
 - For best results and fewer 404s, run **`gemini-2.5-flash`** (repo default) or another id your key supports per **ListModels**. Unversioned **`gemini-1.5-pro`** in ECS is **remapped** to `gemini-2.5-flash` at startup; use a **versioned** model id only if you have confirmed it works for your project and endpoint.
 - **Vertex AI** or other Google Cloud endpoints are not configured in this repo’s PawBuck.API client; changing “paid tier” there would be a separate integration.

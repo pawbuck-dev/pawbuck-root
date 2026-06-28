@@ -1,8 +1,11 @@
 import { DocumentProcessingMetricsPanel } from "@/components/DocumentProcessingMetricsPanel";
 import { EmailOpsPanel, EmailProcessingTuningGuide } from "@/components/EmailOpsPanel";
+import { buildCaseFileUi } from "@/components/inbox/inboxCaseLogic";
+import { ownerVisibilityLabel } from "@/components/inbox/inboxUtils";
 import { PetHealthExplorer } from "@/components/PetHealthExplorer";
 import { ProcessedEmailsPanel } from "@/components/ProcessedEmailsPanel";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 function mockClient() {
   return {
@@ -11,15 +14,16 @@ function mockClient() {
       from: "2026-01-01",
       to: "2026-02-01",
       totalFailures: 0,
-      totalReviewInboxCandidates: 0,
+      totalReviewInboxCandidates: 2,
       totalStuckProcessing: 0,
       byDocumentType: [],
     }),
-    getProcessedEmailDetail: jest.fn(),
+    getProcessedEmail: jest.fn(),
     listProcessedEmailAttachments: jest.fn(),
-    reprocessProcessedEmail: jest.fn(),
-    bulkClearProcessedEmails: jest.fn(),
-    releaseStuckProcessedEmailLock: jest.fn(),
+    bulkClearReviewInbox: jest.fn(),
+    bulkReprocessReviewInbox: jest.fn(),
+    bulkDeleteGhostSuccess: jest.fn(),
+    releaseStuckLock: jest.fn(),
     getOpsHealth: jest.fn().mockResolvedValue({
       allReady: true,
       checks: [{ id: "mail_resolve", ok: true, label: "Mail resolve", hint: "OK" }],
@@ -53,13 +57,59 @@ function mockClient() {
 }
 
 describe("ProcessedEmailsPanel", () => {
-  it("loads processed email list on mount", async () => {
+  it("loads inbox with needs-action tabs on mount", async () => {
     const client = mockClient();
-    render(<ProcessedEmailsPanel client={client} />);
+    render(
+      <MemoryRouter>
+        <ProcessedEmailsPanel client={client} />
+      </MemoryRouter>,
+    );
     await waitFor(() => {
-      expect(client.listProcessedEmails).toHaveBeenCalled();
+      expect(client.listProcessedEmails).toHaveBeenCalledWith(
+        expect.objectContaining({ reviewInboxOnly: true }),
+      );
     });
-    expect(screen.getByText("Inbound mail errors")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Needs action/i })).toBeTruthy();
+    expect(screen.getByText("Case file")).toBeTruthy();
+  });
+});
+
+describe("inboxCaseLogic", () => {
+  it("shows success banner for cleared rows without archive", () => {
+    const ui = buildCaseFileUi({
+      id: "1",
+      s3Key: "msg",
+      petId: "p1",
+      petName: "Milo",
+      ownerEmail: "o@test.com",
+      status: "completed",
+      startedAt: null,
+      completedAt: null,
+      attachmentCount: 1,
+      success: true,
+      senderEmail: null,
+      subject: "Records",
+      documentType: "vaccinations",
+      failureReason: null,
+      failureReasonSnippet: null,
+      reviewStatus: "resolved",
+      consumerInboxVisible: false,
+      storedArchiveStatus: "not_retained",
+    });
+    expect(ui.bannerTone).toBe("success");
+    expect(ui.primaryLabel).toMatch(/Verify pet profile/i);
+  });
+});
+
+describe("inboxUtils", () => {
+  it("labels owner-visible failures", () => {
+    const v = ownerVisibilityLabel({
+      status: "completed",
+      success: false,
+      failureReason: "Failed PDF",
+      reviewStatus: "pending",
+    });
+    expect(v.label).toBe("Owner sees error");
   });
 });
 

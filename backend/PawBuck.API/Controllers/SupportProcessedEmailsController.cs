@@ -32,6 +32,7 @@ public class SupportProcessedEmailsController : ControllerBase
         [FromQuery] string? q = null,
         [FromQuery] bool failuresOnly = true,
         [FromQuery] bool reviewInboxOnly = false,
+        [FromQuery] bool stuckOnly = false,
         [FromQuery] string? ownerEmail = null,
         CancellationToken cancellationToken = default)
     {
@@ -48,6 +49,7 @@ public class SupportProcessedEmailsController : ControllerBase
                 Q = q,
                 FailuresOnly = failuresOnly,
                 ReviewInboxOnly = reviewInboxOnly,
+                StuckOnly = stuckOnly,
                 OwnerEmail = ownerEmail,
             };
             var result = await _processedEmails.ListAsync(query, cancellationToken);

@@ -11,7 +11,7 @@ PawBuck is a pet health companion app: health records, Milo AI journal, inbound 
 | Feature | Data | Necessity | Mitigation |
 |---------|------|-----------|------------|
 | Health records | Pet profile, vaccines, labs, documents | Core product | RLS; export/delete; retention inventory |
-| Milo journal | Health-adjacent chat text | User-initiated assistance | 12m TTL; Gemini DPA (no training — confirm); no secondary use without consent |
+| Milo journal | Health-adjacent chat text | User-initiated assistance | 12m TTL; Gemini **paid API tier** (no training on prompts/responses per Google terms); DPA — counsel sign-off pending; no secondary use without consent |
 | Email ingestion | Attachments, sender metadata | User-configured pet inbox | Verification; 180d processed email TTL; admin support policy |
 | Pawthon walks | Precise GPS (`points`) | Walk distance / engagement | 90d GPS minimization; distance retained |
 | Booking | Appointment metadata | Scheduling UX | Vendor adapters in API only; no client secrets |
@@ -22,7 +22,7 @@ PawBuck is a pet health companion app: health records, Milo AI journal, inbound 
 | Risk | Likelihood | Impact | Mitigation | Residual |
 |------|------------|--------|------------|----------|
 | GPS re-identification | Medium | Medium | 90d point purge | Low–medium |
-| Health text to Gemini | Medium | High | DPA, no training clause, minimal context | Medium (pending DPA sign-off) |
+| Health text to Gemini | Medium | High | Paid API tier (verified 2026-06-28); DPA; minimal context; no AI Studio log sharing | Low–medium (pending DPA sign-off) |
 | Incomplete erasure | High (pre-program) | High | `erase_user_data` RPC + purge worker + inventory CI | Low after Phase 1 |
 | Support over-access | Medium | High | AdminSupport JWT + audit | Medium |
 | Export link leak | Low | High | 7d signed URL; email to account owner | Low |

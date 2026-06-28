@@ -12,7 +12,7 @@ export function InboxPage() {
     <div className="page">
       <PageHeader
         title="Review inbox"
-        description="Consumer-parity triage for inbound mail errors and review queue items."
+        description="Fix emails that didn't become pet health records. Default view matches what owners see under Messages → Processing errors."
       />
       <ProcessedEmailsPanel client={client} presetOwnerEmail={ownerPreset} />
     </div>

@@ -54,7 +54,7 @@ export function AdminSidebar({ queues, queuesLoading }: Props) {
     {
       label: "Email pipeline",
       items: [
-        { to: "/email/inbox", label: "Review inbox", badge: reviewBadge },
+        { to: "/email/inbox?tab=needs-action", label: "Review inbox", badge: reviewBadge },
         { to: "/email/health", label: "Processing health" },
         {
           to: "/email/ops",

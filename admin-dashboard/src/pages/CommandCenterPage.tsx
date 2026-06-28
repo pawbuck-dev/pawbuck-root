@@ -17,9 +17,9 @@ type QueueLink = {
 
 const QUEUE_LINKS: QueueLink[] = [
   {
-    to: "/email/inbox",
+    to: "/email/inbox?tab=needs-action",
     title: "Review inbox",
-    desc: "Triage failed or stuck inbound mail.",
+    desc: "Emails that didn't become pet health records.",
     count: (q) => q.reviewInboxOpen,
   },
   {

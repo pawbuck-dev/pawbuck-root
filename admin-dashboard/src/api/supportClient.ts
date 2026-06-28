@@ -290,6 +290,7 @@ export function createSupportClient(
       q?: string;
       failuresOnly?: boolean;
       reviewInboxOnly?: boolean;
+      stuckOnly?: boolean;
       ownerEmail?: string;
     }) => {
       const p = new URLSearchParams();
@@ -304,6 +305,7 @@ export function createSupportClient(
       if (params.q != null && params.q.trim()) p.set("q", params.q.trim());
       if (params.failuresOnly === false) p.set("failuresOnly", "false");
       if (params.reviewInboxOnly) p.set("reviewInboxOnly", "true");
+      if (params.stuckOnly) p.set("stuckOnly", "true");
       if (params.ownerEmail?.trim()) p.set("ownerEmail", params.ownerEmail.trim());
       const qs = p.toString();
       return request<SupportProcessedEmailsListResponse>(

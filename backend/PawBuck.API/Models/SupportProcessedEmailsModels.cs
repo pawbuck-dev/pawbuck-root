@@ -22,6 +22,9 @@ public class SupportProcessedEmailsListQuery
     /// </summary>
     public bool ReviewInboxOnly { get; set; }
 
+    /// <summary>When true, only <c>status=processing</c> rows (stuck locks). Mutually exclusive with <see cref="ReviewInboxOnly"/> in practice.</summary>
+    public bool StuckOnly { get; set; }
+
     /// <summary>Filter by pet owner email (exact, case-insensitive).</summary>
     public string? OwnerEmail { get; set; }
 }

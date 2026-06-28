@@ -41,6 +41,16 @@ public class SupportProcessedEmailsListFilterTests
     }
 
     [Fact]
+    public void BuildListFilter_StuckOnly_filters_processing_status()
+    {
+        var (sql, _) = SupportProcessedEmailsService.BuildListFilter(
+            new SupportProcessedEmailsListQuery { StuckOnly = true });
+
+        Assert.Contains("pe.status = 'processing'", sql);
+        Assert.DoesNotContain("review_status", sql, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildRecommendedAction_FlagsMissingArchive()
     {
         var action = SupportProcessedEmailsService.BuildRecommendedAction(new SupportProcessedEmailDetailDto

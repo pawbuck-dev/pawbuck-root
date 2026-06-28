@@ -877,6 +877,276 @@ tr.selected {
   align-items: start;
 }
 
+/* Review inbox (email triage) */
+.inbox-layout {
+  gap: 1.25rem;
+}
+
+.inbox-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.inbox-tab {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.inbox-tab--active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+}
+
+.inbox-tab--tools {
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.inbox-tab__count {
+  margin-left: 0.35rem;
+  background: rgb(255 255 255 / 25%);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.inbox-tab:not(.inbox-tab--active) .inbox-tab__count {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.inbox-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.inbox-filters__presets {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.inbox-filters__search {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.inbox-filters__date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.inbox-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.inbox-badge--danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.inbox-badge--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.inbox-badge--muted {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.inbox-banner {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 0.75rem 0 1rem;
+  border: 1px solid transparent;
+}
+
+.inbox-banner--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+
+.inbox-banner--warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #78350f;
+}
+
+.inbox-banner--success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.inbox-banner--neutral {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+.inbox-case__meta {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.inbox-case__meta dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin: 0;
+}
+
+.inbox-case__meta dd {
+  margin: 0.15rem 0 0;
+}
+
+.inbox-case__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.inbox-link {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.inbox-tech-toggle {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 0.75rem;
+}
+
+.inbox-tech {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.inbox-tech__pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  max-height: 12rem;
+  overflow: auto;
+  margin-top: 0.35rem;
+}
+
+.inbox-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.inbox-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  max-width: 28rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 20%);
+}
+
+.inbox-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.inbox-batch-fieldset {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0 0;
+}
+
+.inbox-batch-option {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0.35rem 0;
+  font-size: 0.9rem;
+}
+
+.inbox-batch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.inbox-batch-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.inbox-batch-check {
+  flex-direction: row !important;
+  align-items: center;
+  font-weight: 500 !important;
+}
+
+.inbox-batch-preview {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.inbox-action-message {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #ecfdf5;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+
 /* Full-screen login (no dashboard chrome) */
 .login-screen {
   min-height: 100vh;

@@ -50,5 +50,7 @@ Admin observability: Command center → Retention jobs panel (`/api/support/rete
 - [x] Engineering: retention jobs + admin panel
 - [x] Docs: DPIA draft, RoPA template, subprocessors, store mapping
 - [ ] Staging UAT: run [COMPLIANCE-UAT.md](compliance/COMPLIANCE-UAT.md) (sections 4–6) + [`scripts/compliance/verify-rpcs.sql`](../scripts/compliance/verify-rpcs.sql)
-- [ ] Counsel sign-off: retention windows, Gemini DPA no-training clause, DPIA/ROPA
+- [x] Engineering: production Gemini on **paid API tier** (Tier 1 · Prepay; verified 2026-06-28) — see [GEMINI-DATA-USE.md](compliance/GEMINI-DATA-USE.md)
+- [ ] Confirm ECS + Supabase Edge use the **same paid** `GOOGLE_GEMINI_API_KEY` (not a dev free-tier key)
+- [ ] Counsel sign-off: retention windows, Gemini DPA, DPIA/ROPA
 - [ ] List all third-party subprocessors in **published** privacy policy

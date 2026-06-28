@@ -5,6 +5,8 @@ import type { SupportPetExplorerRow } from "@/types/support";
 type Props = {
   client: ReturnType<typeof createSupportClient>;
   onOpenHealthRecords: (pet: SupportPetExplorerRow) => void;
+  /** Pre-fill search from URL (e.g. /customers/pets?q=Milo). */
+  initialQuery?: string;
 };
 
 function healthBadgeClass(status: string): string {
@@ -29,8 +31,8 @@ function healthLabel(status: string): string {
   }
 }
 
-export function PetHealthExplorer({ client, onOpenHealthRecords }: Props) {
-  const [q, setQ] = useState("");
+export function PetHealthExplorer({ client, onOpenHealthRecords, initialQuery = "" }: Props) {
+  const [q, setQ] = useState(initialQuery);
   const [rows, setRows] = useState<SupportPetExplorerRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

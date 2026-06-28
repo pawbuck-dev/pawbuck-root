@@ -789,7 +789,11 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         var parts = new List<string>();
         var parameters = new List<(string Name, object? Value)>();
 
-        if (query.ReviewInboxOnly)
+        if (query.StuckOnly)
+        {
+            parts.Add("pe.status = 'processing'");
+        }
+        else if (query.ReviewInboxOnly)
         {
             parts.Add(
                 """
@@ -811,7 +815,9 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         if (query.From is { } from)
         {
             parts.Add(
-                query.ReviewInboxOnly
+                query.StuckOnly
+                    ? "pe.started_at >= @from"
+                    : query.ReviewInboxOnly
                     ? "(pe.completed_at >= @from OR (pe.status = 'processing' AND pe.started_at >= @from))"
                     : "pe.completed_at >= @from");
             parameters.Add(("from", from));
@@ -820,7 +826,9 @@ public class SupportProcessedEmailsService : ISupportProcessedEmailsService
         if (query.To is { } to)
         {
             parts.Add(
-                query.ReviewInboxOnly
+                query.StuckOnly
+                    ? "pe.started_at < @to"
+                    : query.ReviewInboxOnly
                     ? "(pe.completed_at < @to OR (pe.status = 'processing' AND pe.started_at < @to) OR pe.completed_at IS NULL)"
                     : "pe.completed_at < @to");
             parameters.Add(("to", to));
