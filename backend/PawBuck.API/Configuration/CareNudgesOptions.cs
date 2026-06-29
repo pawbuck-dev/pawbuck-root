@@ -9,6 +9,9 @@ public sealed class CareNudgesOptions
 
     public bool PushEnabled { get; set; }
 
+    /// <summary>When false, proactive nudge copy uses templates only (Phase C gate).</summary>
+    public bool MiloCopyEnabled { get; set; }
+
     public int MaxClinicalPushesPerUserPerDay { get; set; } = 3;
 
     public int PollIntervalMinutes { get; set; } = 15;

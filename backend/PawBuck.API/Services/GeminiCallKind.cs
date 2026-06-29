@@ -11,6 +11,7 @@ public static class GeminiCallKind
     public const string VisionExtract = "vision_extract";
     public const string EmbedQuery = "embed_query";
     public const string ProactiveTip = "proactive_tip";
+    public const string ProactiveNudgeCopy = "proactive_nudge_copy";
     public const string JournalTree = "journal_tree";
     public const string ClassifierLegacy = "classifier_legacy";
 }

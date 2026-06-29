@@ -33,6 +33,38 @@ public sealed class CareNudgesController : ControllerBase
         return Ok(await _nudges.GetNudgesForUserAsync(userId.Value, cancellationToken));
     }
 
+    [HttpPost("dismiss")]
+    public async Task<IActionResult> Dismiss(
+        [FromBody] CareNudgeDismissRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId == null)
+            return Unauthorized();
+
+        if (request.PetId == Guid.Empty || string.IsNullOrWhiteSpace(request.NudgeKind))
+            return BadRequest(new { error = "petId and nudgeKind are required" });
+
+        try
+        {
+            var snoozeDays = request.SnoozeDays ?? 7;
+            await _nudges.DismissNudgeAsync(
+                userId.Value,
+                new CareNudgeDismissRequest
+                {
+                    PetId = request.PetId,
+                    NudgeKind = request.NudgeKind.Trim(),
+                    SnoozeDays = snoozeDays,
+                },
+                cancellationToken);
+            return Ok(new { ok = true });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);

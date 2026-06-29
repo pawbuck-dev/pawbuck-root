@@ -1,6 +1,7 @@
 import JournalEntryShortcuts from "@/components/petJournal/JournalEntryShortcuts";
+import CareNudgeTodayList from "@/components/home/CareNudgeTodayList";
 import { useTheme } from "@/context/themeContext";
-import type { HomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
+import type { HomeCareNudgeItem, HomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -10,6 +11,8 @@ type Props = {
   petId: string;
   petName: string;
   snapshot: HomeTodaySnapshot;
+  careNudges?: HomeCareNudgeItem[];
+  onDismissCareNudge?: (nudgeKind: string) => void;
   onCheckInWithMilo: () => void;
   aiJournalEntriesRemaining?: number | null;
   aiJournalEntriesUsed?: number;
@@ -19,6 +22,8 @@ export default function HomeMiloDepthCard({
   petId,
   petName,
   snapshot,
+  careNudges = [],
+  onDismissCareNudge,
   onCheckInWithMilo,
   aiJournalEntriesRemaining,
   aiJournalEntriesUsed = 0,
@@ -55,6 +60,13 @@ export default function HomeMiloDepthCard({
       <Text style={{ fontSize: 14, color: theme.secondary, lineHeight: 20, marginBottom: 14 }}>
         {`Milo asks follow-ups from ${petName}'s record — optional any day.`}
       </Text>
+
+      {careNudges.length > 0 && onDismissCareNudge ? (
+        <CareNudgeTodayList
+          nudges={careNudges}
+          onDismiss={(item) => onDismissCareNudge(item.kind)}
+        />
+      ) : null}
 
       {snapshot.priority ? (
         <Pressable

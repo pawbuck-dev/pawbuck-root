@@ -130,9 +130,25 @@ public static class CareNudgeRules
                 Title = $"{req.VaccineName} not on file",
                 Body = "This core vaccine is missing from your pet's records. Add a certificate or ask your vet.",
                 DeepLink = VaccinationsRoute(input.PetId),
-                Channels = ["in_app"],
+                Channels = ["in_app", "push"],
             };
         }
+    }
+
+    public static IReadOnlyList<CareNudgeDto> ApplyDismissals(
+        IEnumerable<CareNudgeDto> nudges,
+        IReadOnlyList<CareNudgeDismissalRow> dismissals,
+        DateOnly today)
+    {
+        var blocked = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var d in dismissals)
+        {
+            if (d.DismissedUntil.HasValue && d.DismissedUntil.Value < today)
+                continue;
+            blocked.Add($"{d.PetId}:{d.NudgeKind}");
+        }
+
+        return nudges.Where(n => !blocked.Contains($"{n.PetId}:{n.Kind}")).ToList();
     }
 
     public static HashSet<Guid> LatestVaccinationIds(IReadOnlyList<CareNudgeVaccinationInput> vaccinations)
@@ -158,7 +174,7 @@ public static class CareNudgeRules
     {
         var eligible = pushNudges
             .Where(n => n.Channels.Contains("push", StringComparer.Ordinal))
-            .Where(n => n.Kind is "vac_overdue" or "doc_expiry" or "senior_mobility_tip")
+            .Where(n => n.Kind is "vac_overdue" or "vac_missing_required" or "doc_expiry" or "senior_mobility_tip")
             .ToList();
 
         if (eligible.Count == 0)

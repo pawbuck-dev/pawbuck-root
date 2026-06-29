@@ -62,3 +62,18 @@ public sealed class CareNudgeRunResultDto
     public int VetRemindersSent { get; init; }
     public int DocumentRemindersSent { get; init; }
 }
+
+public sealed class CareNudgeDismissalRow
+{
+    public required Guid PetId { get; init; }
+    public required string NudgeKind { get; init; }
+    public DateOnly? DismissedUntil { get; init; }
+}
+
+public sealed class CareNudgeDismissRequest
+{
+    public required Guid PetId { get; init; }
+    public required string NudgeKind { get; init; }
+    /// <summary>Snooze days; null = permanent dismiss for this pet+kind.</summary>
+    public int? SnoozeDays { get; init; }
+}

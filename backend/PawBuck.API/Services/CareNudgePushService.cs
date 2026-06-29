@@ -10,6 +10,7 @@ public sealed class CareNudgePushService : ICareNudgePushService
     private readonly IOptions<SupabaseOptions> _options;
     private readonly IOptionsMonitor<CareNudgesOptions> _nudgeOptions;
     private readonly ICareNudgeService _nudgeService;
+    private readonly IMiloNudgeCopyService _miloCopy;
     private readonly IExpoPushService _expoPush;
     private readonly ILogger<CareNudgePushService> _logger;
 
@@ -17,12 +18,14 @@ public sealed class CareNudgePushService : ICareNudgePushService
         IOptions<SupabaseOptions> options,
         IOptionsMonitor<CareNudgesOptions> nudgeOptions,
         ICareNudgeService nudgeService,
+        IMiloNudgeCopyService miloCopy,
         IExpoPushService expoPush,
         ILogger<CareNudgePushService> logger)
     {
         _options = options;
         _nudgeOptions = nudgeOptions;
         _nudgeService = nudgeService;
+        _miloCopy = miloCopy;
         _expoPush = expoPush;
         _logger = logger;
     }
@@ -50,6 +53,13 @@ public sealed class CareNudgePushService : ICareNudgePushService
             var nudges = (await _nudgeService.GetNudgesForUserAsync(userId, cancellationToken)).ToList();
             await AppendDocumentExpiryNudgesAsync(cs, userId, nudges, utcNow, cancellationToken);
             await AppendSeniorMobilityNudgesAsync(cs, userId, nudges, opts, cancellationToken);
+
+            if (!await ProactiveVaccinePushEnabledAsync(cs, userId, cancellationToken))
+            {
+                nudges.RemoveAll(n => n.Kind is "vac_overdue" or "vac_missing_required");
+            }
+
+            await ApplyMiloCopyAsync(userId, nudges, cancellationToken);
 
             if (ShouldSendDailyDigest(opts, utcNow))
             {
@@ -195,6 +205,17 @@ public sealed class CareNudgePushService : ICareNudgePushService
             if (!ProactivePetHealthHeuristics.JournalTextMatchesMobilityKeywords(journal, opts.MobilityKeywords))
                 continue;
 
+            var copy = await _miloCopy.GenerateCopyAsync(
+                new MiloNudgeCopyRequest
+                {
+                    Kind = "senior_mobility_tip",
+                    PetName = petName,
+                    JournalContext = journal,
+                },
+                userId,
+                petId,
+                cancellationToken);
+
             nudges.Add(new CareNudgeDto
             {
                 Kind = "senior_mobility_tip",
@@ -203,11 +224,74 @@ public sealed class CareNudgePushService : ICareNudgePushService
                 PetName = petName,
                 Priority = 70,
                 Title = "Wellness tip",
-                Body = "Recent journal notes mention stiffness — tap for gentle care ideas.",
+                Body = copy.Body,
                 DeepLink = $"/(home)/health-record/{petId}/pet-journal",
                 Channels = ["push"],
             });
         }
+    }
+
+    private async Task ApplyMiloCopyAsync(
+        Guid userId,
+        List<CareNudgeDto> nudges,
+        CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < nudges.Count; i++)
+        {
+            var n = nudges[i];
+            if (n.Kind != "vac_due_soon")
+                continue;
+
+            var copy = await _miloCopy.GenerateCopyAsync(
+                new MiloNudgeCopyRequest
+                {
+                    Kind = n.Kind,
+                    PetName = n.PetName ?? "your pet",
+                    Facts = new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["vaccineName"] = n.Title.Replace(" due", "", StringComparison.Ordinal),
+                    },
+                },
+                userId,
+                n.PetId,
+                cancellationToken);
+
+            nudges[i] = new CareNudgeDto
+            {
+                Kind = n.Kind,
+                DedupeKey = n.DedupeKey,
+                PetId = n.PetId,
+                PetName = n.PetName,
+                Priority = n.Priority,
+                Title = n.Title,
+                Body = copy.Body,
+                DeepLink = n.DeepLink,
+                EvidenceTable = n.EvidenceTable,
+                EvidenceId = n.EvidenceId,
+                Channels = n.Channels,
+            };
+        }
+    }
+
+    private static async Task<bool> ProactiveVaccinePushEnabledAsync(
+        string cs,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using var conn = new NpgsqlConnection(cs);
+        await conn.OpenAsync(cancellationToken);
+        await using var cmd = new NpgsqlCommand(
+            """
+            SELECT proactive_vaccine_push_enabled
+            FROM public.user_preferences
+            WHERE user_id = @uid
+            """,
+            conn);
+        cmd.Parameters.AddWithValue("uid", userId);
+        var o = await cmd.ExecuteScalarAsync(cancellationToken);
+        if (o is bool b)
+            return b;
+        return true;
     }
 
     private static async Task<string> LoadJournalBlobAsync(

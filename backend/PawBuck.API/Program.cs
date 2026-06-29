@@ -245,6 +245,7 @@ builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection
 builder.Services.Configure<CareNudgesOptions>(builder.Configuration.GetSection(CareNudgesOptions.SectionName));
 builder.Services.AddScoped<ICareNudgeService, CareNudgeService>();
 builder.Services.AddScoped<ICareNudgePushService, CareNudgePushService>();
+builder.Services.AddScoped<IMiloNudgeCopyService, MiloNudgeCopyService>();
 builder.Services.AddHostedService<CareNudgeWorker>();
 builder.Services.Configure<ProactivePetHealthOptions>(builder.Configuration.GetSection(ProactivePetHealthOptions.SectionName));
 builder.Services.Configure<OpsProbeOptions>(builder.Configuration.GetSection(OpsProbeOptions.SectionName));

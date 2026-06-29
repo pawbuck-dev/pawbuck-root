@@ -33,5 +33,6 @@ export const PRODUCT_HELP_STARTERS: readonly { id: string; prompt: string }[] = 
   { id: "health-hub-overview", prompt: "What is on the Health Records hub screen?" },
   { id: "documents-invoices", prompt: "How do I upload insurance, invoices, or ID documents for my pet?" },
   { id: "reminders-profile", prompt: "How do I change journal reminders or vet appointment notifications?" },
+  { id: "proactive-care", prompt: "How do proactive care reminders work in PawBuck?" },
   { id: "bottom-nav-records", prompt: "How do I open health records from the bottom navigation?" },
 ] as const;

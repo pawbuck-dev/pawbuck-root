@@ -43,6 +43,8 @@ import HealthNotesFlowConnector from "@/components/home/HealthNotesFlowConnector
 import { SHOW_VET_BOOKING_UI } from "@/constants/vetBooking";
 import { useWeeklyChallengeEnabled } from "@/hooks/useWeeklyChallengeEnabled";
 import { getVaccinationsByPetId } from "@/services/vaccinations";
+import { fetchCareNudgeDismissals, snoozeCareNudge } from "@/services/careNudges/dismissals";
+import { useVaccineCategories } from "@/hooks/useVaccineCategories";
 import { buildHomeTodaySnapshot } from "@/utils/homeTodaySnapshot";
 import { healthRecordBodyTrackerHref } from "@/utils/healthRecordNavigation";
 import { computeTodayDashboardProgress } from "@/utils/todayDashboardProgress";
@@ -126,6 +128,32 @@ export default function Home() {
     enabled: !!selectedPetId,
   });
 
+  const { data: careNudgeDismissals = [] } = useQuery({
+    queryKey: ["careNudgeDismissals", user?.id],
+    queryFn: () => fetchCareNudgeDismissals(user!.id),
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const { requiredVaccinesStatus } = useVaccineCategories();
+
+  const dismissCareNudgeMutation = useMutation({
+    mutationFn: async (nudgeKind: string) => {
+      if (!user?.id || !selectedPetId) return;
+      await snoozeCareNudge({
+        userId: user.id,
+        petId: selectedPetId,
+        nudgeKind,
+        snoozeDays: 7,
+      });
+    },
+    onSuccess: async () => {
+      if (user?.id) {
+        await queryClient.invalidateQueries({ queryKey: ["careNudgeDismissals", user.id] });
+      }
+    },
+  });
+
   const todaySnapshot = useMemo(() => {
     if (!selectedPetId) return null;
     const vetFlaggedCount =
@@ -140,13 +168,24 @@ export default function Home() {
       : null;
     return buildHomeTodaySnapshot({
       petId: selectedPetId,
+      petName: selectedPet?.name,
       vaccinations,
       medicines,
       petCountry: selectedPet?.country,
+      requiredStatus: requiredVaccinesStatus,
+      dismissals: careNudgeDismissals,
       vetFlaggedCount,
       categories,
     });
-  }, [selectedPetId, selectedPet, vaccinations, medicines, healthBriefing]);
+  }, [
+    selectedPetId,
+    selectedPet,
+    vaccinations,
+    medicines,
+    healthBriefing,
+    requiredVaccinesStatus,
+    careNudgeDismissals,
+  ]);
 
   const openMiloCheckIn = useCallback(() => {
     if (!selectedPet) return;
@@ -615,6 +654,8 @@ export default function Home() {
                   petId={selectedPet.id}
                   petName={selectedPet.name}
                   snapshot={todaySnapshot}
+                  careNudges={todaySnapshot.careNudges}
+                  onDismissCareNudge={(kind) => dismissCareNudgeMutation.mutate(kind)}
                   onCheckInWithMilo={openMiloCheckIn}
                   aiJournalEntriesRemaining={aiJournalEntriesRemaining}
                   aiJournalEntriesUsed={subscriptionStatus?.usage.aiJournalEntriesUsed ?? 0}

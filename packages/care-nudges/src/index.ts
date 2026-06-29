@@ -7,4 +7,5 @@ export * from "./buildVaccinationNudges";
 export * from "./buildMedicationNudges";
 export * from "./buildMissingRequiredNudges";
 export * from "./rankNudges";
+export * from "./applyDismissals";
 export * from "./dateUtils";

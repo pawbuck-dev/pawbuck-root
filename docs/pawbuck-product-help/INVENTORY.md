@@ -21,5 +21,6 @@ Auditable checklist for Milo RAG (`documentation` table). Each row maps to one o
 | Contact support | `14-contact-support.md` | `contact` |
 | Documents, ID, invoices | `15-documents-id-invoices.md` | `health-record/[id]` hub → Documents & ID, `FinancialInvoicesSection` |
 | Subscription & plans | `16-subscription-and-plans.md` | `profile` subscription section, paywalls, RevenueCat |
+| Proactive care reminders | `17-proactive-care.md` | Home care nudge list, Profile → Reminders vaccine toggle |
 
 Update this table when adding routes or help articles.

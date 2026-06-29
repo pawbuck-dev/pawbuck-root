@@ -84,4 +84,31 @@ public class CareNudgeRulesTests
         digest!.Title.Should().Contain("2 pets");
         digest.DedupeKey.Should().Be($"digest:{userId}:2026-06-29");
     }
+
+    [Fact]
+    public void ApplyDismissals_SuppressesUntilDate()
+    {
+        var petId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var nudges = new List<CareNudgeDto>
+        {
+            new()
+            {
+                Kind = "vac_overdue",
+                DedupeKey = "a",
+                PetId = petId,
+                Priority = 10,
+                Title = "Rabies overdue",
+                Body = "body",
+                DeepLink = "/",
+                Channels = ["push"],
+            },
+        };
+
+        var filtered = CareNudgeRules.ApplyDismissals(
+            nudges,
+            [new CareNudgeDismissalRow { PetId = petId, NudgeKind = "vac_overdue", DismissedUntil = new DateOnly(2026, 7, 5) }],
+            new DateOnly(2026, 6, 29));
+
+        filtered.Should().BeEmpty();
+    }
 }

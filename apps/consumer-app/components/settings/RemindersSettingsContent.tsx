@@ -100,6 +100,8 @@ export function RemindersSettingsContent() {
   const journalHour = preferences?.journal_prompt_hour ?? 20;
   const docPush = preferences?.document_expiry_push_enabled ?? true;
   const vetPush = preferences?.vet_appointment_reminder_push_enabled ?? true;
+  const vaccineCarePush = (preferences as { proactive_vaccine_push_enabled?: boolean } | null)
+    ?.proactive_vaccine_push_enabled ?? true;
 
   return (
     <>
@@ -233,6 +235,18 @@ export function RemindersSettingsContent() {
               return;
             }
             void persist({ vet_appointment_reminder_push_enabled: v });
+          }}
+        />
+
+        <TileDivider />
+
+        <ReminderToggleRow
+          title="Vaccine care reminders"
+          subtitle="Daily digest push when vaccines are overdue or a core vaccine is missing from your records."
+          value={vaccineCarePush}
+          disabled={busy}
+          onValueChange={(v) => {
+            void persist({ proactive_vaccine_push_enabled: v } as Partial<TablesUpdate<"user_preferences">>);
           }}
         />
       </SettingsSubscreenTile>

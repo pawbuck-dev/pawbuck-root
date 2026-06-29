@@ -39,6 +39,7 @@ describe("buildHomeTodaySnapshot", () => {
     expect(snapshot.statusLabel).toBe("All clear today — add a note anytime");
     expect(snapshot.statusTone).toBe("ok");
     expect(snapshot.priority).toBeNull();
+    expect(snapshot.careNudges).toEqual([]);
   });
 
   it("counts briefing attention items", () => {

@@ -52,7 +52,7 @@ describe("buildCareNudges", () => {
 
     expect(nudges).toHaveLength(1);
     expect(nudges[0].kind).toBe("vac_missing_required");
-    expect(nudges[0].channels).not.toContain("push");
+    expect(nudges[0].channels).toContain("in_app");
   });
 
   it("does not create vaccination nudge when only next due with no overdue row", () => {

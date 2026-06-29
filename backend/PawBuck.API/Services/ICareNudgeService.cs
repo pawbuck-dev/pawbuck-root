@@ -7,4 +7,9 @@ public interface ICareNudgeService
     Task<IReadOnlyList<CareNudgeDto>> GetNudgesForPetAsync(Guid userId, Guid petId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CareNudgeDto>> GetNudgesForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task DismissNudgeAsync(
+        Guid userId,
+        CareNudgeDismissRequest request,
+        CancellationToken cancellationToken = default);
 }

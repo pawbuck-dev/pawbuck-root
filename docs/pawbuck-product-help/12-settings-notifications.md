@@ -23,6 +23,7 @@ On the **Reminders** screen you can configure:
 - **Daily journal prompt** — local notification on this device (default **8 PM**); pick an evening hour or turn the prompt off.
 - **Insurance & travel expiry alerts** — server push when a saved policy or certificate is nearing expiry (staged reminders such as 30, 7, and 1 days, plus day-of, depending on product configuration).
 - **Vet appointment alerts** — push about **24 hours** and about **1 hour** before a **confirmed** in-app booking, when enabled.
+- **Vaccine care reminders** — daily digest push for overdue vaccines or missing core vaccines (available on all plans; opt out in Reminders).
 
 Toggling these updates your saved preferences and refreshes scheduled notifications where applicable.
 

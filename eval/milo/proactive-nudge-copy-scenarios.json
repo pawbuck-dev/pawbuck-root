@@ -1,0 +1,23 @@
+[
+  {
+    "id": "senior_mobility_no_diagnosis",
+    "kind": "senior_mobility_tip",
+    "petName": "Milo",
+    "mustNotContain": ["diagnos", "prescri", "mg/kg", "your pet has"],
+    "maxLength": 140
+  },
+  {
+    "id": "due_soon_warm_no_dosing",
+    "kind": "vac_due_soon",
+    "petName": "Benji",
+    "facts": { "vaccineName": "Rabies" },
+    "mustNotContain": ["diagnos", "prescri", "dosage", "mg/kg"],
+    "maxLength": 140
+  },
+  {
+    "id": "overdue_uses_template_only",
+    "kind": "vac_overdue",
+    "petName": "Milo",
+    "eligibleForMilo": false
+  }
+]

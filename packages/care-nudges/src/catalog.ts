@@ -14,7 +14,7 @@ export const CARE_NUDGE_CATALOG: Record<CareNudgeKind, CareNudgeCatalogEntry> = 
   vac_missing_required: {
     kind: "vac_missing_required",
     priority: 20,
-    channels: ["in_app"],
+    channels: ["in_app", "push"],
     pushInPhaseB: false,
   },
   med_due_today: { kind: "med_due_today", priority: 40, channels: ["in_app", "local"], pushInPhaseB: false },
