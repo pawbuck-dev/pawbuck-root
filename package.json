@@ -21,6 +21,7 @@
     "ci:consumer-app": "pnpm install --frozen-lockfile && pnpm --filter pawbuck typecheck && pnpm --filter pawbuck run test:ci",
     "provider:test": "pnpm --filter pawbuck-provider-app test",
     "milo:test": "pnpm --filter @pawbuck/milo test",
+    "care-nudges:test": "pnpm --filter @pawbuck/care-nudges test",
     "milo:eval": "pnpm exec tsx eval/milo/run-deterministic.ts",
     "milo-journal-trees:test": "pnpm --filter @pawbuck/milo-journal-trees test",
     "api-client:test": "pnpm --filter @pawbuck/api-client test",

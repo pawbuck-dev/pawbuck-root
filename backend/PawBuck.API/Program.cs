@@ -242,6 +242,10 @@ builder.Services.AddScoped<IMailgunEdgeReprocessService, MailgunEdgeReprocessSer
 builder.Services.AddScoped<IMailInboxResolveService, MailInboxResolveService>();
 
 builder.Services.Configure<DocumentSyncOptions>(builder.Configuration.GetSection(DocumentSyncOptions.SectionName));
+builder.Services.Configure<CareNudgesOptions>(builder.Configuration.GetSection(CareNudgesOptions.SectionName));
+builder.Services.AddScoped<ICareNudgeService, CareNudgeService>();
+builder.Services.AddScoped<ICareNudgePushService, CareNudgePushService>();
+builder.Services.AddHostedService<CareNudgeWorker>();
 builder.Services.Configure<ProactivePetHealthOptions>(builder.Configuration.GetSection(ProactivePetHealthOptions.SectionName));
 builder.Services.Configure<OpsProbeOptions>(builder.Configuration.GetSection(OpsProbeOptions.SectionName));
 builder.Services.AddScoped<IOpsProbeService, OpsProbeService>();
@@ -249,6 +253,7 @@ builder.Services.AddScoped<IPetDocumentClinicalSyncService, PetDocumentClinicalS
 builder.Services.AddHttpClient("ExpoPush");
 builder.Services.AddSingleton<IExpoPushService, ExpoPushService>();
 builder.Services.AddHostedService<DocumentSyncWorker>();
+// ProactivePetHealthWorker superseded by CareNudgeWorker when CareNudges:Enabled is true.
 builder.Services.AddHostedService<ProactivePetHealthWorker>();
 builder.Services.Configure<RetentionOptions>(builder.Configuration.GetSection(RetentionOptions.SectionName));
 builder.Services.AddScoped<IRetentionService, RetentionService>();

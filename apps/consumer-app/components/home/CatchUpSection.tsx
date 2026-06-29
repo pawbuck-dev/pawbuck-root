@@ -1,13 +1,11 @@
 import { DomainCategoryIconWell } from "@/components/ui/IconWell";
 import type { DomainCategoryId } from "@/constants/iconTierTokens";
 import { useTheme } from "@/context/themeContext";
-import { getNextMedicationDose } from "@/utils/medication";
-import { getVaccinationAlertPeriod } from "@/utils/vaccinationAlertPeriods";
+import { buildPetCareNudges, careNudgeToCatchUpCard } from "@/services/careNudges/fromPetRecords";
 import { Tables } from "@/database.types";
 import { MedicineData } from "@/types/medication";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import moment from "moment";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Dimensions,
@@ -51,49 +49,16 @@ export default function CatchUpSection({
   const cardWidth = screenWidth - CARD_HORIZONTAL_MARGIN * 2;
 
   const cards = useMemo(() => {
-    const items: CatchUpCard[] = [];
-    const now = moment();
+    const nudges = buildPetCareNudges({
+      petId,
+      vaccinations,
+      medicines,
+      petCountry,
+    })
+      .filter((n) => n.kind === "vac_due_soon" || n.kind === "med_due_today")
+      .slice(0, 5);
 
-    vaccinations
-      .filter((vac) => {
-        if (!vac.next_due_date) return false;
-        const dueDate = moment(vac.next_due_date);
-        const alertPeriodMonths = getVaccinationAlertPeriod(vac.name, petCountry);
-        const alertPeriodDays = alertPeriodMonths * 30;
-        return dueDate.isAfter(now) && dueDate.diff(now, "days") <= alertPeriodDays;
-      })
-      .sort((a, b) => moment(a.next_due_date!).diff(moment(b.next_due_date!)))
-      .slice(0, 3)
-      .forEach((vac) => {
-        const daysLeft = moment(vac.next_due_date!).diff(now, "days");
-        items.push({
-          id: `vac-${vac.id}`,
-          type: "vaccination",
-          title: `${vac.name} Due`,
-          subtitle:
-            daysLeft <= 7
-              ? `Due in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}. Schedule with your vet.`
-              : `Due in ${daysLeft} days. Tap to view details.`,
-          domainCategory: "vaccines",
-          route: `/(home)/health-record/${petId}/(tabs)/vaccinations`,
-        });
-      });
-
-    medicines.forEach((med) => {
-      const nextDose = getNextMedicationDose(med);
-      if (nextDose && moment(nextDose).isSame(now, "day")) {
-        items.push({
-          id: `med-${med.id}`,
-          type: "medication",
-          title: `${med.name} Due`,
-          subtitle: "Tap to view and schedule with your vet.",
-          domainCategory: "medications",
-          route: `/(home)/health-record/${petId}/(tabs)/medications`,
-        });
-      }
-    });
-
-    return items;
+    return nudges.map(careNudgeToCatchUpCard);
   }, [vaccinations, medicines, petId, petCountry]);
 
   const onViewableItemsChanged = useRef(

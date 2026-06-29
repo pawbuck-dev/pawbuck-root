@@ -107,6 +107,9 @@ importers:
       '@pawbuck/api-client':
         specifier: workspace:*
         version: link:../../packages/pawbuck-api-client
+      '@pawbuck/care-nudges':
+        specifier: workspace:*
+        version: link:../../packages/care-nudges
       '@pawbuck/milo':
         specifier: workspace:*
         version: link:../../packages/milo-core
@@ -394,6 +397,24 @@ importers:
       '@types/react':
         specifier: ~19.1.0
         version: 19.1.17
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@22.19.11)(ts-node@10.9.2(@types/node@22.19.11)(typescript@5.9.3))
+      ts-jest:
+        specifier: ^29.2.5
+        version: 29.4.6(@babel/core@7.29.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.0))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.19.11)(ts-node@10.9.2(@types/node@22.19.11)(typescript@5.9.3)))(typescript@5.9.3)
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  packages/care-nudges:
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@22.19.11)(ts-node@10.9.2(@types/node@22.19.11)(typescript@5.9.3))

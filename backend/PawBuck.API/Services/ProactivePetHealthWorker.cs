@@ -12,6 +12,7 @@ namespace PawBuck.API.Services;
 public sealed class ProactivePetHealthWorker : BackgroundService
 {
     private readonly IOptionsMonitor<ProactivePetHealthOptions> _options;
+    private readonly IOptionsMonitor<CareNudgesOptions> _careNudgesOptions;
     private readonly IOptions<GeminiOptions> _geminiOptions;
     private readonly IOptions<SupabaseOptions> _supabaseOptions;
     private readonly IGeminiGenerateContentService _geminiGenerate;
@@ -20,6 +21,7 @@ public sealed class ProactivePetHealthWorker : BackgroundService
 
     public ProactivePetHealthWorker(
         IOptionsMonitor<ProactivePetHealthOptions> options,
+        IOptionsMonitor<CareNudgesOptions> careNudgesOptions,
         IOptions<GeminiOptions> geminiOptions,
         IOptions<SupabaseOptions> supabaseOptions,
         IGeminiGenerateContentService geminiGenerate,
@@ -27,6 +29,7 @@ public sealed class ProactivePetHealthWorker : BackgroundService
         ILogger<ProactivePetHealthWorker> logger)
     {
         _options = options;
+        _careNudgesOptions = careNudgesOptions;
         _geminiOptions = geminiOptions;
         _supabaseOptions = supabaseOptions;
         _geminiGenerate = geminiGenerate;
@@ -40,6 +43,13 @@ public sealed class ProactivePetHealthWorker : BackgroundService
         {
             var opts = _options.CurrentValue;
             if (!opts.Enabled)
+            {
+                await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
+                continue;
+            }
+
+            // Superseded by CareNudgeWorker when CareNudges is enabled.
+            if (_careNudgesOptions.CurrentValue.Enabled)
             {
                 await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
                 continue;

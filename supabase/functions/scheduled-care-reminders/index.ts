@@ -1,10 +1,19 @@
 /**
- * Scheduled care reminders (5.4): document expiry (insurance + travel) and vet appointment T-24h / T-1h.
+ * Scheduled care reminders (5.4): document expiry, vet T-24h / T-1h, and care nudge digest.
  * Invoke on a schedule (e.g. Supabase cron every 15–60 min) with header:
  *   x-scheduled-care-reminders-secret: <SCHEDULED_CARE_REMINDERS_SECRET>
+ *
+ * When PAWBUCK_API_URL + MILO_INTERNAL_SERVICE_KEY are set, delegates push delivery to
+ * PawBuck.API POST /api/care/nudges/run-internal (CareNudgeWorker). Legacy Edge push path
+ * remains as fallback when API is not configured.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { errorResponse, handleCorsRequest, jsonResponse } from "../_shared/cors.ts";
+import {
+  getMiloInternalServiceKey,
+  getPawbuckApiBaseUrl,
+  MILO_INTERNAL_HEADER,
+} from "../_shared/pawbuck-milo-api.ts";
 import { createSupabaseClient } from "../_shared/supabase-utils.ts";
 import { sendNotificationToUser } from "../_shared/notification.ts";
 import { ownerMeetsFeatureGate } from "../_shared/subscriptionEntitlement.ts";
@@ -73,10 +82,49 @@ function verifySecret(req: Request): boolean {
   return header === expected;
 }
 
+async function forwardToCareNudgeApi(): Promise<Response> {
+  const base = getPawbuckApiBaseUrl();
+  const key = getMiloInternalServiceKey();
+  if (!base || !key) {
+    return errorResponse("PAWBUCK_API_URL or MILO_INTERNAL_SERVICE_KEY not configured", 503);
+  }
+
+  try {
+    const res = await fetch(`${base}/api/care/nudges/run-internal`, {
+      method: "POST",
+      headers: { [MILO_INTERNAL_HEADER]: key },
+    });
+    const text = await res.text();
+    let body: unknown = text;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      // keep raw text
+    }
+    if (!res.ok) {
+      console.error("care nudge run-internal", res.status, text);
+      const message =
+        body && typeof body === "object" && "error" in body
+          ? String((body as { error: unknown }).error)
+          : text || `HTTP ${res.status}`;
+      return errorResponse(message, res.status);
+    }
+    return jsonResponse({ ok: true, forwarded: true, api: body });
+  } catch (e) {
+    console.error("care nudge run-internal fetch failed", e);
+    return errorResponse(String(e), 502);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleCorsRequest();
   if (req.method !== "POST") return errorResponse("Method not allowed", 405);
   if (!verifySecret(req)) return errorResponse("Unauthorized", 401);
+
+  const careViaApi = Deno.env.get("CARE_NUDGES_VIA_API") !== "false";
+  if (careViaApi && getPawbuckApiBaseUrl() && getMiloInternalServiceKey()) {
+    return await forwardToCareNudgeApi();
+  }
 
   const supabase = createSupabaseClient();
   const now = new Date();

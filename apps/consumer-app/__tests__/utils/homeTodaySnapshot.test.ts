@@ -9,6 +9,7 @@ describe("buildTopCatchUpPriority", () => {
         {
           id: "v1",
           name: "DHPP",
+          date: "2025-01-01",
           next_due_date: new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10),
         },
       ],
