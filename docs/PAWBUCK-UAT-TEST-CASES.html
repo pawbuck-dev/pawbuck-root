@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>PawBuck UAT Test Cases</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    @page { size: A4 landscape; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 9pt; line-height: 1.35; color: #1a1a1a; max-width: 100%; margin: 0; padding: 8mm; }
+    h1 { color: #143c64; font-size: 20pt; border-bottom: 2px solid #143c64; padding-bottom: 6px; }
+    h2 { color: #143c64; font-size: 13pt; margin-top: 18px; page-break-after: avoid; }
+    h3 { color: #2a5a8a; font-size: 11pt; margin-top: 12px; page-break-after: avoid; }
+    table { border-collapse: collapse; width: 100%; font-size: 7.5pt; margin: 8px 0 14px 0; page-break-inside: auto; }
+    th, td { border: 1px solid #b0c4de; padding: 4px 5px; text-align: left; vertical-align: top; word-wrap: break-word; }
+    th { background: #e8f0fa; font-weight: 600; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    hr { border: none; border-top: 1px solid #ccc; margin: 16px 0; }
+    p { margin: 6px 0; }
+    em { color: #555; }
+  </style>
+  <link rel="stylesheet" href="/dev/null" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">PawBuck UAT Test Cases</h1>
+</header>
+<h1 id="pawbuck-user-acceptance-testing-uat-test-cases">PawBuck — User
+Acceptance Testing (UAT) Test Cases</h1>
+<p><strong>Document version:</strong> 1.0<br />
+<strong>Generated:</strong> June 28, 2026<br />
+<strong>Environment:</strong> Staging (recommended) unless noted as
+Production smoke<br />
+<strong>Canonical sources:</strong>
+<code>docs/EMAIL-PROCESSING-UAT.md</code>,
+<code>docs/compliance/COMPLIANCE-UAT.md</code>,
+<code>docs/TESTING_FAMILY_SHARING.md</code>,
+<code>docs/TESTING_PET_TRANSFER.md</code>, <code>docs/PRICING.md</code>,
+<code>docs/REVENUECAT.md</code>,
+<code>docs/PAWTHON_FIELD_TEST.md</code>,
+<code>.maestro/README.md</code></p>
+<hr />
+<h2 id="table-of-contents">Table of contents</h2>
+<ol type="1">
+<li><a href="#1-auth-onboarding--core-navigation">Auth, onboarding &amp;
+core navigation</a></li>
+<li><a href="#2-pet-email-processing--inbound--sender-gate">Pet email
+processing — inbound &amp; sender gate</a></li>
+<li><a href="#3-pet-email-processing--review-inbox">Pet email processing
+— Review Inbox</a></li>
+<li><a href="#4-pet-email-processing--resolve-api--reprocess">Pet email
+processing — resolve API &amp; reprocess</a></li>
+<li><a href="#5-admin-portal--email--support-ops">Admin portal — email
+&amp; support ops</a></li>
+<li><a href="#6-email-processing--production-smoke">Email processing —
+production smoke</a></li>
+<li><a href="#7-family-sharing--household-access">Family sharing &amp;
+household access</a></li>
+<li><a href="#8-pet-transfer">Pet transfer</a></li>
+<li><a href="#9-shared-daily-care-today-rings">Shared daily care (Today
+rings)</a></li>
+<li><a href="#10-subscription-pricing--revenuecat">Subscription, pricing
+&amp; RevenueCat</a></li>
+<li><a
+href="#11-compliance--account-deletion-export--retention">Compliance —
+account deletion, export &amp; retention</a></li>
+<li><a href="#12-health-documents--exports">Health documents &amp;
+exports</a></li>
+<li><a href="#13-notifications--reminders">Notifications &amp;
+reminders</a></li>
+<li><a href="#14-pawthon-walk-tracking-field-test">Pawthon walk tracking
+(field test)</a></li>
+<li><a href="#15-maestro-device-e2e-flows-automated-uat">Maestro device
+E2E flows (automated UAT)</a></li>
+<li><a href="#16-legal--store-non-code">Legal &amp; store
+(non-code)</a></li>
+</ol>
+<hr />
+<h2 id="how-to-use-this-document">How to use this document</h2>
+<table>
+<colgroup>
+<col style="width: 47%" />
+<col style="width: 52%" />
+</colgroup>
+<thead>
+<tr>
+<th>Column</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ID</strong></td>
+<td>Unique test case identifier</td>
+</tr>
+<tr>
+<td><strong>Area</strong></td>
+<td>Product domain</td>
+</tr>
+<tr>
+<td><strong>Given</strong></td>
+<td>Preconditions</td>
+</tr>
+<tr>
+<td><strong>When</strong></td>
+<td>Action</td>
+</tr>
+<tr>
+<td><strong>Then</strong></td>
+<td>Expected result / pass criteria</td>
+</tr>
+<tr>
+<td><strong>Priority</strong></td>
+<td>P1 = release blocker, P2 = important, P3 = nice-to-have</td>
+</tr>
+</tbody>
+</table>
+<p>Record <strong>Pass / Fail / Blocked / N/A</strong>, tester name,
+date, build version, and notes for each case.</p>
+<hr />
+<h2 id="auth-onboarding-core-navigation">1. Auth, onboarding &amp; core
+navigation</h2>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AUTH-01</td>
+<td>Auth</td>
+<td>Valid credentials</td>
+<td>Sign in via email/password</td>
+<td>User lands on Home; session persists</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AUTH-02</td>
+<td>Auth</td>
+<td>New user</td>
+<td>Sign up</td>
+<td>Account created; onboarding or empty Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AUTH-03</td>
+<td>Onboarding</td>
+<td>New user, no pets</td>
+<td>Complete add-first-pet flow (steps 1–9)</td>
+<td>Pet saved; appears on Home with pet email</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AUTH-04</td>
+<td>Onboarding</td>
+<td>New user</td>
+<td>Skip optional steps (DOB, weight, ID)</td>
+<td>Pet still saves successfully</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>AUTH-05</td>
+<td>Navigation</td>
+<td>Signed-in user</td>
+<td>Navigate all bottom tabs</td>
+<td>Home, Messages, Milo, Profile load without crash</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AUTH-06</td>
+<td>Auth</td>
+<td>Signed out</td>
+<td>Open protected route</td>
+<td>Redirect to sign-in</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pet-email-processing-inbound-sender-gate">2. Pet email
+processing — inbound &amp; sender gate</h2>
+<p><em>Source: <code>docs/EMAIL-PROCESSING-UAT.md</code> §11</em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IN-01</td>
+<td>Email inbound</td>
+<td>Pet exists; sender whitelisted; valid vaccination PDF matching
+pet</td>
+<td>Vet emails PDF to pet address</td>
+<td><code>processed_emails</code>: success=true, review_status=resolved;
+record in health/vault; push <code>email_processed</code>;
+<strong>no</strong> Processing errors</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-02</td>
+<td>Email inbound</td>
+<td>Unknown sender; email has PDF</td>
+<td>Webhook fires</td>
+<td><code>pending_email_approvals.status=pending</code>; JSON in
+<code>pending-emails</code>; push <code>email_approval</code>;
+<strong>no</strong> <code>processed_emails</code> yet</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-03</td>
+<td>Email inbound</td>
+<td>IN-02 pending approval</td>
+<td>User taps Approve</td>
+<td>Sender whitelisted; email processed; records filed; approval
+approved</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-04</td>
+<td>Email inbound</td>
+<td>Unknown sender</td>
+<td>User taps Reject</td>
+<td>Approval rejected; sender blocked; future mail from sender →
+403</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-05</td>
+<td>Email inbound</td>
+<td>Sender blocked in safe senders</td>
+<td>Webhook fires</td>
+<td>403; no processed_emails row</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-06</td>
+<td>Email inbound</td>
+<td>Invalid Mailgun signature</td>
+<td>Webhook fires</td>
+<td>401; no DB changes</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>IN-07</td>
+<td>Email inbound</td>
+<td>Recipient not mapped to any pet</td>
+<td>Webhook fires</td>
+<td>404</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>IN-08</td>
+<td>Email inbound</td>
+<td>Same Message-Id delivered twice within seconds</td>
+<td>Second webhook</td>
+<td>200 “Email already processed”; no duplicate records</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>IN-09</td>
+<td>Email inbound</td>
+<td>Email with no attachments (body only)</td>
+<td>Webhook</td>
+<td>success=true, resolved; no Review Inbox</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>IN-10</td>
+<td>Email inbound</td>
+<td>Care team vet email linked to pet</td>
+<td>Inbound from vet</td>
+<td>No approval step; processes immediately</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pet-email-processing-review-inbox">3. Pet email processing —
+Review Inbox</h2>
+<p><em>Source: <code>docs/EMAIL-PROCESSING-UAT.md</code> §11</em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RI-01</td>
+<td>Review Inbox</td>
+<td>Whitelisted sender; PDF breed/name does not match pet</td>
+<td>Webhook</td>
+<td>success=false, review_status=pending, failure_reason populated; JSON
+stored; <strong>Processing errors (1)</strong></td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RI-02</td>
+<td>Review Inbox</td>
+<td>RI-01 row in inbox</td>
+<td>User opens item</td>
+<td>Failure summary visible; attachment preview works if JSON has
+bodies</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RI-03</td>
+<td>Review Inbox</td>
+<td>RI-01; user fixes pet profile OR picks correct pet on confirm</td>
+<td>Confirm as Vaccine</td>
+<td>200; review_status=resolved; vaccine record exists; “Record
+filed!”</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RI-04</td>
+<td>Review Inbox</td>
+<td>RI-01 row</td>
+<td>User dismisses</td>
+<td>review_status=dismissed; leaves inbox; records unchanged</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RI-05</td>
+<td>Review Inbox</td>
+<td>Row dismissed</td>
+<td>User opens Messages</td>
+<td>Item <strong>not</strong> in Processing errors</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RI-06</td>
+<td>Review Inbox</td>
+<td>Metadata-only JSON (large email stripped bodies)</td>
+<td>Preview attachment</td>
+<td>Unavailable / ATTACHMENT_BODY_NOT_ARCHIVED</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>RI-07</td>
+<td>Review Inbox</td>
+<td>JSON deleted from <code>pending-emails</code></td>
+<td>Confirm</td>
+<td>422 or edge failure; row stays pending</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pet-email-processing-resolve-api-reprocess">4. Pet email
+processing — resolve API &amp; reprocess</h2>
+<p><em>Source: <code>docs/EMAIL-PROCESSING-UAT.md</code> §11</em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RP-01</td>
+<td>Resolve API</td>
+<td>Valid Review Inbox row + stored JSON + secrets configured</td>
+<td>Confirm Lab</td>
+<td>Record filed; resolved</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RP-02</td>
+<td>Resolve API</td>
+<td>Edge missing <code>PAWBUCK_API_URL</code></td>
+<td>Confirm</td>
+<td>422 or pipeline failure; stays pending</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>RP-03</td>
+<td>Resolve API</td>
+<td>Row already resolved</td>
+<td>Confirm</td>
+<td>409 already marked successfully processed</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>RP-04</td>
+<td>Resolve API</td>
+<td>Row dismissed</td>
+<td>Confirm</td>
+<td>409 already dismissed</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>RP-05</td>
+<td>Resolve API</td>
+<td>Double-tap Confirm while first run in progress</td>
+<td>Second request</td>
+<td>409 “currently being processed” (expected)</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>RP-06</td>
+<td>Resolve API</td>
+<td>Wrong pet selected (not owner)</td>
+<td>API call</td>
+<td>403</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="admin-portal-email-support-ops">5. Admin portal — email &amp;
+support ops</h2>
+<p><em>Source: <code>docs/EMAIL-PROCESSING-UAT.md</code> §11; admin
+routes in <code>docs/design/ADMIN_PORTAL_REDESIGN.md</code></em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AD-01</td>
+<td>Admin</td>
+<td>Multiple pending failures in date range</td>
+<td>Bulk dismiss (dry run → execute)</td>
+<td>Rows dismissed; consumer inbox count drops</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-02</td>
+<td>Admin</td>
+<td>Failures with stored JSON</td>
+<td>Bulk reprocess (10 batch)</td>
+<td>Records filed; rows resolved</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-03</td>
+<td>Admin</td>
+<td>Failures</td>
+<td>Bulk resolve <strong>without</strong> reprocess</td>
+<td>review_status=resolved but <strong>no</strong> new health
+records</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-04</td>
+<td>Admin</td>
+<td>Dismissed row</td>
+<td>Bulk reprocess with includeDismissed</td>
+<td>Can reprocess (admin only)</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>AD-05</td>
+<td>Admin</td>
+<td>API or Edge not configured</td>
+<td>Email ops → Check pipeline health</td>
+<td>Red checks with hints; green when secrets aligned</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-06</td>
+<td>Admin</td>
+<td>Row stuck <code>status=processing</code></td>
+<td>Email ops → Unlock or Mail errors detail Unlock stuck email</td>
+<td>Row becomes <code>completed</code>; owner Confirm or admin file
+works</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-07</td>
+<td>Admin</td>
+<td>Owner email known, stored archive</td>
+<td>Email ops → Add records to pet profile</td>
+<td>Health records filed; row resolved</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-08</td>
+<td>Admin</td>
+<td>Backlog after config fix</td>
+<td>Email ops → File all ready or Mail errors File all ready</td>
+<td>Batches until eligible=0</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-09</td>
+<td>Admin</td>
+<td>Noise / already handled</td>
+<td>Email ops → Remove from app</td>
+<td>Dismissed; no new health records</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>AD-10</td>
+<td>Admin</td>
+<td>Quality tracking</td>
+<td>Processing tab date range</td>
+<td>Success rate, failure categories, first/last seen dates</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>AD-11</td>
+<td>Admin</td>
+<td>Support JWT with admin role</td>
+<td>Open <code>/email/inbox</code> row detail</td>
+<td>Diagnostics show consumer visibility, archive status, recommended
+action</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>AD-12</td>
+<td>Admin</td>
+<td>Support user</td>
+<td>Command center <code>/home</code></td>
+<td>Metrics and queue summary load</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="email-processing-production-smoke">6. Email processing —
+production smoke</h2>
+<p><em>Source: <code>docs/EMAIL-PROCESSING-UAT.md</code> §11</em></p>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 36%" />
+<col style="width: 24%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Step</th>
+<th>Pass criteria</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>E2E-01</td>
+<td>Email smoke</td>
+<td>Send test vaccine PDF from whitelisted sender</td>
+<td>Auto-filed within 2 min</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>E2E-02</td>
+<td>Email smoke</td>
+<td>Send from unknown sender → approve</td>
+<td>Files after approval</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>E2E-03</td>
+<td>Email smoke</td>
+<td>Force validation failure → Confirm in app</td>
+<td>“Record filed!” and record visible</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>E2E-04</td>
+<td>Email smoke</td>
+<td>Admin preview attachment for failed row</td>
+<td>PDF renders or clear error code</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="family-sharing-household-access">7. Family sharing &amp;
+household access</h2>
+<p><em>Source: <code>docs/TESTING_FAMILY_SHARING.md</code></em></p>
+<h3 id="owner-sender">Owner (sender)</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FS-01</td>
+<td>Family sharing</td>
+<td>Free account</td>
+<td>Create household MTCH or email invite</td>
+<td>Prompt Family plan (<code>family_access_invite</code>)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-02</td>
+<td>Family sharing</td>
+<td>Individual account</td>
+<td>Create invite</td>
+<td>Blocked</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-03</td>
+<td>Family sharing</td>
+<td>Family account</td>
+<td>Create invite</td>
+<td>Succeeds</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-04</td>
+<td>Family sharing</td>
+<td>Family account, pet selected</td>
+<td>Send email invite with role</td>
+<td>Invite sent; recipient can accept</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-05</td>
+<td>Family sharing</td>
+<td>Family account</td>
+<td>Generate MTCH code</td>
+<td>Copy/QR works</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-06</td>
+<td>Family sharing</td>
+<td>Member joined</td>
+<td>Remove member</td>
+<td>Grantee loses pet access</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recipient-family-member">Recipient (family member)</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FS-07</td>
+<td>Family sharing</td>
+<td>New or empty Home</td>
+<td>Welcome or Profile</td>
+<td>Join with invite code discoverable</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-08</td>
+<td>Family sharing</td>
+<td>Valid MTCH code</td>
+<td>Enter code → sign in if needed</td>
+<td>Shared pets on Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-09</td>
+<td>Family sharing</td>
+<td>Email invite link</td>
+<td>Open <code>/accept-invite?token=…</code> → sign in with matching
+email</td>
+<td>Pet on Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-10</td>
+<td>Family sharing</td>
+<td>Signed in as different user than invite email</td>
+<td>Accept email invite</td>
+<td><code>email_mismatch</code> message</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-11</td>
+<td>Family sharing</td>
+<td>Owner’s own MTCH code</td>
+<td>Attempt self-join</td>
+<td>Error</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plan-gates">Plan gates</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FS-12</td>
+<td>Plan gates</td>
+<td>Free plan</td>
+<td>Invite / share</td>
+<td>Blocked at invite</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-13</td>
+<td>Plan gates</td>
+<td>Free plan, already owns 1 pet</td>
+<td>Accept transfer</td>
+<td>Blocked</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-14</td>
+<td>Plan gates</td>
+<td>Family plan</td>
+<td>Invite / accept transfer</td>
+<td>Succeeds</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="device-uat-two-devices">Device UAT (two devices)</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FS-D01</td>
+<td>Device UAT</td>
+<td>Cold install</td>
+<td>Sign up → Join with Invite Code → MTCH accept</td>
+<td>Pets on Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-D02</td>
+<td>Device UAT</td>
+<td>Owner sends email invite</td>
+<td>Recipient opens link → matching email sign-in</td>
+<td>Pet on Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-D03</td>
+<td>Device UAT</td>
+<td>Email invite, wrong account</td>
+<td>Accept attempt</td>
+<td>Clear error on <code>/accept-invite</code></td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-D04</td>
+<td>Device UAT</td>
+<td>Two accounts</td>
+<td>Owner removes household member</td>
+<td>Grantee loses shared pets</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>FS-D05</td>
+<td>Device UAT</td>
+<td>Free test account</td>
+<td>Premium gates on invite create</td>
+<td>Paywall shown (if enabled)</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pet-transfer">8. Pet transfer</h2>
+<p><em>Source: <code>docs/TESTING_PET_TRANSFER.md</code></em></p>
+<h3 id="sender-current-owner">Sender (current owner)</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PT-01</td>
+<td>Pet transfer</td>
+<td>Free account</td>
+<td>Start transfer</td>
+<td>Prompt Premium (<code>pet_transfer_create</code>)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-02</td>
+<td>Pet transfer</td>
+<td>Premium account</td>
+<td>Profile → Transfer Ownership → pick pet → reason</td>
+<td>Prep snapshot shows weight, meds, last vet</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-03</td>
+<td>Pet transfer</td>
+<td>Transfer wizard</td>
+<td>Highlight up to 5 journal entries; exclude non–vet-flagged</td>
+<td>Same entry cannot be both highlighted and excluded</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-04</td>
+<td>Pet transfer</td>
+<td>Transfer ready</td>
+<td>Generate code</td>
+<td>Format <code>TRF-XXXX-YYYY-####</code>; copy/share; QR; ~14 day
+expiry</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-05</td>
+<td>Pet transfer</td>
+<td>Active code exists</td>
+<td>Second code for same pet</td>
+<td>Error until first cancelled or expired</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-06</td>
+<td>Pet transfer</td>
+<td>Active code</td>
+<td>Cancel</td>
+<td>Recipient preview/accept fails afterward</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recipient-new-owner">Recipient (new owner)</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PT-07</td>
+<td>Pet transfer</td>
+<td>Valid code</td>
+<td>Claim a Pet → enter code (case-insensitive)</td>
+<td>Step 2 preview loads</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-08</td>
+<td>Pet transfer</td>
+<td>Wrong/expired/used code</td>
+<td>Enter code</td>
+<td>Clear error on step 1 or 2</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-09</td>
+<td>Pet transfer</td>
+<td>Logged out on step 2</td>
+<td>Attempt accept</td>
+<td>Sign-in/sign-up prompt with return to step 2</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-10</td>
+<td>Pet transfer</td>
+<td>Free account</td>
+<td>Accept transfer</td>
+<td>Prompt Premium (<code>pet_transfer_accept</code>)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-11</td>
+<td>Pet transfer</td>
+<td>Valid code</td>
+<td>Preview step</td>
+<td>Pet name, breed, photo, record counts, journal snippets</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-12</td>
+<td>Pet transfer</td>
+<td>Valid code</td>
+<td>Decline</td>
+<td>Code inactive; sender can create new code</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-13</td>
+<td>Pet transfer</td>
+<td>Valid code, Premium</td>
+<td>Accept with parent display name</td>
+<td>Success step 3; pet in list with records</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-14</td>
+<td>Pet transfer</td>
+<td>Same account as sender</td>
+<td>Accept own code</td>
+<td>Server error (cannot transfer to yourself)</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="after-accept-edge-cases">After accept &amp; edge cases</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PT-15</td>
+<td>Pet transfer</td>
+<td>Transfer accepted</td>
+<td>Sender views pet list</td>
+<td>Pet removed or no longer editable as owner</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-16</td>
+<td>Pet transfer</td>
+<td>Transfer accepted</td>
+<td>Recipient views health</td>
+<td>Records, journal (minus excluded), meds, documents visible</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-17</td>
+<td>Pet transfer</td>
+<td>Transfer accepted</td>
+<td>Transfer history</td>
+<td>Prior owner label respects “show my name” toggle</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PT-18</td>
+<td>Pet transfer</td>
+<td>Transfer accepted</td>
+<td>Family access</td>
+<td>Old shares cleared; recipient re-invites if needed</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-19</td>
+<td>Pet transfer</td>
+<td>Edge notify configured</td>
+<td>Create/accept/decline</td>
+<td>Email/push notifications sent</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PT-20</td>
+<td>Pet transfer</td>
+<td>Expired code</td>
+<td>Accept attempt</td>
+<td>Invalid / expired message</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-21</td>
+<td>Pet transfer</td>
+<td>Declined code</td>
+<td>Accept attempt</td>
+<td>Cannot accept; new code required</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PT-22</td>
+<td>Pet transfer</td>
+<td>Deleted pet</td>
+<td>Preview/accept</td>
+<td>Fails</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PT-23</td>
+<td>Pet transfer</td>
+<td>Vet-flagged journal in exclude list</td>
+<td>Create transfer</td>
+<td>Blocked at create or RPC</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="shared-daily-care-today-rings">9. Shared daily care (Today
+rings)</h2>
+<p><em>Source: <code>docs/TESTING_FAMILY_SHARING.md</code>,
+<code>docs/plans/shared-pet-daily-care.md</code></em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SDC-01</td>
+<td>Shared Today</td>
+<td>Owner + shared pet</td>
+<td>Owner logs meals/water/output on Home</td>
+<td>Rings show non-zero counts</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SDC-02</td>
+<td>Shared Today</td>
+<td>Family member on same pet</td>
+<td>Open Home</td>
+<td>Identical ring values (not separate empty log)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SDC-03</td>
+<td>Shared Today</td>
+<td>Contributor role</td>
+<td>Bump rings</td>
+<td>Updates persist for household</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SDC-04</td>
+<td>Shared Today</td>
+<td>View-only role</td>
+<td>Attempt edit</td>
+<td>View-only message; cannot edit</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SDC-05</td>
+<td>Shared Today</td>
+<td>Household with walks</td>
+<td>Any member completes walk</td>
+<td>Streak and daily distance goal count for pet</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="subscription-pricing-revenuecat">10. Subscription, pricing &amp;
+RevenueCat</h2>
+<p><em>Sources: <code>docs/PRICING.md</code>,
+<code>docs/REVENUECAT.md</code>,
+<code>docs/compliance/COMPLIANCE-UAT.md</code> §7</em></p>
+<h3 id="pricing-v1.5-caps">Pricing v1.5 caps</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SUB-01</td>
+<td>Pricing</td>
+<td>Free user</td>
+<td>4th Milo chat</td>
+<td>Paywall on 4th</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-02</td>
+<td>Pricing</td>
+<td>Free user</td>
+<td>11th document</td>
+<td>Paywall on 11th</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-03</td>
+<td>Pricing</td>
+<td>Free user</td>
+<td>Manual journal</td>
+<td>OK; 3rd AI journal blocked</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-04</td>
+<td>Pricing</td>
+<td>Free user</td>
+<td>Vet brief</td>
+<td>Teaser only; Individual gets full brief</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>SUB-05</td>
+<td>Pricing</td>
+<td>Individual user</td>
+<td>Passport export</td>
+<td>Works</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-06</td>
+<td>Pricing</td>
+<td>Individual user, 1 pet</td>
+<td>Add 2nd pet</td>
+<td>Family paywall</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-07</td>
+<td>Pricing</td>
+<td>Family user</td>
+<td>6th member invite</td>
+<td>Blocked</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-08</td>
+<td>Pricing</td>
+<td>Founding cap reached</td>
+<td>Founding purchase</td>
+<td>Rejected</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>SUB-09</td>
+<td>Pricing</td>
+<td>Prior purchaser</td>
+<td>Restore purchase</td>
+<td>Plan + badge restored</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>SUB-10</td>
+<td>Pricing</td>
+<td>Free user</td>
+<td>Add 2nd pet</td>
+<td>Blocked</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="revenuecat-sandbox">RevenueCat sandbox</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RC-01</td>
+<td>RevenueCat</td>
+<td>Signed in</td>
+<td>App launch</td>
+<td><code>syncRevenueCatUser</code> sets RC app_user_id = Supabase user
+id</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-02</td>
+<td>RevenueCat</td>
+<td>Free user</td>
+<td>Profile / Compare plans</td>
+<td>Shows Free; store prices or fallback</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-03</td>
+<td>RevenueCat</td>
+<td>Free user</td>
+<td>Subscribe Individual (Apple sandbox)</td>
+<td>Profile shows Individual</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-04</td>
+<td>RevenueCat</td>
+<td>Purchase complete</td>
+<td>Check DB</td>
+<td>Webhook row in <code>user_entitlements</code> with correct
+product_id</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-05</td>
+<td>RevenueCat</td>
+<td>Individual user</td>
+<td>Add 2nd pet</td>
+<td>Family paywall; purchase Family → unlimited pets</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-06</td>
+<td>RevenueCat</td>
+<td>Prior purchaser</td>
+<td>Reinstall → Restore purchases</td>
+<td>Plan restored</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>RC-07</td>
+<td>RevenueCat</td>
+<td>Founding SKU available</td>
+<td>Purchase founding</td>
+<td><code>is_founding_member = true</code> (cap 500 in DB)</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="compliance-account-deletion-export-retention">11. Compliance —
+account deletion, export &amp; retention</h2>
+<p><em>Source: <code>docs/compliance/COMPLIANCE-UAT.md</code></em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CMP-01</td>
+<td>Compliance</td>
+<td>Staging DB</td>
+<td>Run <code>verify-rpcs.sql</code></td>
+<td>RPCs and pricing v1.5 tables exist</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-02</td>
+<td>Compliance</td>
+<td><code>delete-account</code> edge deployed</td>
+<td>POST schedule</td>
+<td>Returns <code>purge_after</code> (~7 days)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-03</td>
+<td>Compliance</td>
+<td>Scheduled deletion</td>
+<td>POST cancel</td>
+<td>Clears scheduled deletion</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-04</td>
+<td>Compliance</td>
+<td>Deletion scheduled</td>
+<td>Sign in during grace</td>
+<td>Succeeds; Profile shows cancel deletion (no auth ban)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-05</td>
+<td>Compliance</td>
+<td>Populated test account</td>
+<td>Profile → Delete account → confirm</td>
+<td><code>account_deletion_requests</code> row with future
+<code>purge_after</code></td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-06</td>
+<td>Compliance</td>
+<td>Grace period elapsed (staging backdate)</td>
+<td>Purge worker runs</td>
+<td>User rows gone; <code>account_deletion_log</code> entry; zero
+residual PII</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-07</td>
+<td>Compliance</td>
+<td>Populated account</td>
+<td>Profile → Download my data</td>
+<td>Export email with signed link within TTL</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-08</td>
+<td>Compliance</td>
+<td>Export link received</td>
+<td>Open and validate JSON</td>
+<td>Sections include pets, health, preferences</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>CMP-09</td>
+<td>Compliance</td>
+<td>Admin access</td>
+<td>Command center → Retention jobs</td>
+<td>Recent runs visible</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>CMP-10</td>
+<td>Compliance</td>
+<td>Old walk with points (optional)</td>
+<td>After worker cycle</td>
+<td><code>points</code> nulled; <code>points_pruned_at</code> set</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>CMP-11</td>
+<td>Compliance</td>
+<td>ECS deployed</td>
+<td>GET <code>/api/health</code></td>
+<td><code>supabaseServiceRoleConfigured: true</code></td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="health-documents-exports">12. Health documents &amp;
+exports</h2>
+<p><em>Sources: <code>docs/design/PET_PASSPORT_V2_SPEC.md</code>,
+<code>docs/design/VET_SUMMARY_V2_SPEC.md</code></em></p>
+<h3 id="pet-passport-pdf">Pet passport PDF</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOC-01</td>
+<td>Passport</td>
+<td>Travel-ready pet (microchip, rabies, FAVN/titer)</td>
+<td>Export passport PDF</td>
+<td>Page 2 travel block populated; EU jurisdiction notes mention
+titer</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>DOC-02</td>
+<td>Passport</td>
+<td>Minimal pet (no titer/travel docs)</td>
+<td>Export passport PDF</td>
+<td>No TRAVEL CERTIFICATES section on page 2</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>DOC-03</td>
+<td>Passport</td>
+<td>Device PDF pipeline OK</td>
+<td>Export passport PDF</td>
+<td>QR renders on page 3</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="vet-summary-pdf">Vet summary PDF</h3>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DOC-04</td>
+<td>Vet summary</td>
+<td>Rich pet (labs, vaccines, baseline, insurance vault)</td>
+<td>Generate PDF</td>
+<td>Up to 4 pages with lab markers and insurance</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>DOC-05</td>
+<td>Vet summary</td>
+<td>Minimal pet (pet + one vaccine)</td>
+<td>Generate PDF</td>
+<td>Fewer than 4 pages; no empty sheets</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>DOC-06</td>
+<td>Vet summary</td>
+<td>Sparse data (no flagged journal, no exams)</td>
+<td>Generate PDF</td>
+<td>Page 3 omitted entirely</td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="notifications-reminders">13. Notifications &amp; reminders</h2>
+<p><em>Source: <code>docs/NOTIFICATIONS_5.4_AUDIT.md</code></em></p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 15%" />
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Given</th>
+<th>When</th>
+<th>Then</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NOT-01</td>
+<td>Notifications</td>
+<td>Profile Reminders</td>
+<td>Toggle journal; change evening hour</td>
+<td>Local reschedule reflected in device notification list</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>NOT-02</td>
+<td>Notifications</td>
+<td>Vaccination local notification</td>
+<td>Tap notification</td>
+<td>Opens vaccinations tab</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>NOT-03</td>
+<td>Notifications</td>
+<td>Journal prompt notification</td>
+<td>Tap notification</td>
+<td>Opens pet journal with correct petId</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>NOT-04</td>
+<td>Notifications</td>
+<td>Edge <code>scheduled-care-reminders</code> deployed</td>
+<td>Run one POST</td>
+<td>Dedupe tables prevent duplicate pushes on repeat</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>NOT-05</td>
+<td>Notifications</td>
+<td>Vet booking with start_utc in 23–25h window</td>
+<td>Reminder window</td>
+<td>At most one push per window</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>NOT-06</td>
+<td>Notifications</td>
+<td>Vet booking with start_utc in 50–70m window</td>
+<td>Reminder window</td>
+<td>At most one push per window</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>NOT-07</td>
+<td>Notifications</td>
+<td>User disabled document expiry push</td>
+<td>Server push attempt</td>
+<td>Respects <code>document_expiry_push_enabled</code></td>
+<td>P2</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="pawthon-walk-tracking-field-test">14. Pawthon walk tracking
+(field test)</h2>
+<p><em>Source: <code>docs/PAWTHON_FIELD_TEST.md</code></em></p>
+<p><strong>Setup:</strong> Development or production build with native
+location (not Expo Go). Test each combination of phone mode ×
+environment on the same ~2 km loop.</p>
+<table>
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 22%" />
+<col style="width: 24%" />
+<col style="width: 27%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Phone mode</th>
+<th>Environment</th>
+<th>Pass criteria</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PAW-01</td>
+<td>Hand, screen on</td>
+<td>Downtown / urban canyon</td>
+<td>Trace overlays within ~10 m vs baseline where GPS good</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PAW-02</td>
+<td>Hand, screen on</td>
+<td>Residential, open sky</td>
+<td>Trace overlays within ~10 m vs baseline where GPS good</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PAW-03</td>
+<td>Hand, screen on</td>
+<td>Heavy tree cover</td>
+<td>Trace overlays within ~10 m vs baseline where GPS good</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PAW-04</td>
+<td>Pocket, screen off</td>
+<td>Downtown / urban canyon</td>
+<td>No long zero-update gaps while moving (note device/OS if
+killed)</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PAW-05</td>
+<td>Pocket, screen off</td>
+<td>Residential, open sky</td>
+<td>No long zero-update gaps while moving</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>PAW-06</td>
+<td>Pocket, screen off</td>
+<td>Heavy tree cover</td>
+<td>No long zero-update gaps while moving</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PAW-07</td>
+<td>Backpack / bag, screen off</td>
+<td>Downtown / urban canyon</td>
+<td>No long zero-update gaps while moving</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PAW-08</td>
+<td>Backpack / bag, screen off</td>
+<td>Residential, open sky</td>
+<td>No long zero-update gaps while moving</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>PAW-09</td>
+<td>Backpack / bag, screen off</td>
+<td>Heavy tree cover</td>
+<td>No long zero-update gaps while moving</td>
+<td>P3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="maestro-device-e2e-flows-automated-uat">15. Maestro device E2E
+flows (automated UAT)</h2>
+<p><em>Source: <code>.maestro/README.md</code> — Milo AI intentionally
+out of scope</em></p>
+<table>
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 20%" />
+<col style="width: 24%" />
+<col style="width: 28%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Flow file</th>
+<th>Description</th>
+<th>Pass criteria</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MAS-01</td>
+<td><code>login-email.yaml</code></td>
+<td>Email login</td>
+<td>User reaches authenticated Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-02</td>
+<td><code>add-first-pet-start.yaml</code></td>
+<td>Onboarding step 2 only</td>
+<td>Pet type/country step completes</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-03</td>
+<td><code>add-first-pet-complete.yaml</code></td>
+<td>Full onboarding steps 1–9 + save</td>
+<td>Pet saved and visible on Home</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-04</td>
+<td><code>join-household-mtch.yaml</code></td>
+<td>Family sharing MTCH</td>
+<td>Recipient sees shared pets</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-05</td>
+<td><code>accept-email-invite.yaml</code></td>
+<td>Email invite deep link</td>
+<td>Pet appears after accept</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-06</td>
+<td><code>claim-pet-trf.yaml</code></td>
+<td>Pet transfer TRF</td>
+<td>Recipient owns pet after accept</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>MAS-07</td>
+<td><code>messages-inbox-smoke.yaml</code></td>
+<td>Messages inbox</td>
+<td>Inbox loads without crash</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Prerequisites:</strong> Maestro CLI, seeded accounts
+(<code>pnpm run maestro:seed</code>), staging/local Supabase + API.</p>
+<hr />
+<h2 id="legal-store-non-code">16. Legal &amp; store (non-code)</h2>
+<p><em>Source: <code>docs/compliance/COMPLIANCE-UAT.md</code></em></p>
+<table>
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 16%" />
+<col style="width: 44%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>Area</th>
+<th>Checklist item</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LEG-01</td>
+<td>Legal</td>
+<td>Counsel TTL sign-off on retention windows</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>LEG-02</td>
+<td>Legal</td>
+<td>Published privacy policy lists subprocessors</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>LEG-03</td>
+<td>Legal</td>
+<td>App Store / Play data forms updated per store disclosures</td>
+<td>P1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="summary-statistics">Summary statistics</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Test case count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auth &amp; onboarding</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Email inbound &amp; sender</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Review Inbox</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolve API</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Admin portal</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Email production smoke</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Family sharing</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Pet transfer</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Shared daily care</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Subscription &amp; RevenueCat</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Compliance</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Health documents</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Notifications</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Pawthon field test</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Maestro E2E</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Legal / store</td>
+<td>3</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>152</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="related-documentation">Related documentation</h2>
+<ul>
+<li><a href="./EMAIL-PROCESSING-UAT.md">EMAIL-PROCESSING-UAT.md</a> —
+Full email pipeline reference</li>
+<li><a href="./compliance/COMPLIANCE-UAT.md">COMPLIANCE-UAT.md</a> —
+Compliance runbook</li>
+<li><a href="./TESTING_FAMILY_SHARING.md">TESTING_FAMILY_SHARING.md</a>
+— Family sharing coverage</li>
+<li><a href="./TESTING_PET_TRANSFER.md">TESTING_PET_TRANSFER.md</a> —
+Pet transfer coverage</li>
+<li><a href="./TESTING.md">TESTING.md</a> — Automated test commands</li>
+<li><a href="./PRICING.md">PRICING.md</a> — Plan limits</li>
+<li><a href="./REVENUECAT.md">REVENUECAT.md</a> — Billing
+integration</li>
+</ul>
+<hr />
+<p><em>End of document</em></p>
+</body>
+</html>

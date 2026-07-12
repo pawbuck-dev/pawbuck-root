@@ -222,6 +222,7 @@ export default function TransferPetStep2() {
           await queryClient.invalidateQueries({ queryKey: ["pets"] });
           await queryClient.invalidateQueries({ queryKey: ["pet_transfer_history"] });
           await queryClient.invalidateQueries({ queryKey: ["pet_journal_transfer_highlights"] });
+          await queryClient.invalidateQueries({ queryKey: ["care_team_members"] });
           router.replace({
             pathname: "/transfer-pet/step3",
             params: { transferCode },

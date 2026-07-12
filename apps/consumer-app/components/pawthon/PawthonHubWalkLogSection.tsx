@@ -1,6 +1,8 @@
 import { PawthonWalkLogRow } from "@/components/pawthon/PawthonWalkLogRow";
 import { getPawthonSurfaceTokens } from "@/components/pawthon/pawthonSurfaceTokens";
+import { useAuth } from "@/context/authContext";
 import { useTheme } from "@/context/themeContext";
+import { useWalkerDisplayNames } from "@/hooks/useWalkerDisplayNames";
 import type { WalkSessionRow } from "@/services/walkSessions";
 import {
   formatWalkDistanceDuration,
@@ -26,6 +28,7 @@ export function PawthonHubWalkLogSection({
   onWalkPress,
 }: PawthonHubWalkLogSectionProps) {
   const { theme, mode } = useTheme();
+  const { user } = useAuth();
   const isDark = mode === "dark";
   const surfaces = getPawthonSurfaceTokens(isDark, theme);
   const borderStyle =
@@ -34,6 +37,8 @@ export function PawthonHubWalkLogSection({
       : { borderWidth: 1 as const, borderColor: surfaces.borderColor };
 
   const preview = walks.slice(0, 2);
+  const walkerIds = preview.map((w) => w.user_id);
+  const { data: walkerNames } = useWalkerDisplayNames(walkerIds);
 
   return (
     <View
@@ -80,6 +85,9 @@ export function PawthonHubWalkLogSection({
               <PawthonWalkLogRow
                 dateLabel={formatWalkLogDate(w.started_at)}
                 petName={petName}
+                walkerName={
+                  w.user_id === user?.id ? "You" : walkerNames?.get(w.user_id) ?? null
+                }
                 distanceMi={formatMiles(metersToMiles(Number(w.distance_meters)))}
                 durationLabel={formatWalkDistanceDuration(w).split(" · ")[1] ?? ""}
                 paceLabel={formatWalkPace(w)}

@@ -11,6 +11,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
+import { AppState } from "react-native";
 
 // Pet type from database
 export type Pet = Tables<"pets">;
@@ -78,6 +79,17 @@ export const PetsProvider: React.FC<{ children: ReactNode }> = ({
     lastPetsQueryErrorKey.current = key;
     handlePetDataPlaneError(queryError);
   }, [petsQueryIsError, queryError]);
+
+  // Refetch pets when app returns to foreground (e.g. after transfer accepted on another device).
+  useEffect(() => {
+    if (!userId) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void queryClient.invalidateQueries({ queryKey: ["pets", userId] });
+      }
+    });
+    return () => sub.remove();
+  }, [userId, queryClient]);
 
   // Add pet mutation
   const addPetMutation = useMutation({

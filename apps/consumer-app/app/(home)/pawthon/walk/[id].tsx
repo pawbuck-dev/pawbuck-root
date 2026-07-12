@@ -10,6 +10,8 @@ import {
 } from "@/constants/pawthonUi";
 import { usePets } from "@/context/petsContext";
 import { useTheme } from "@/context/themeContext";
+import { useAuth } from "@/context/authContext";
+import { fetchDisplayNameForUser } from "@/hooks/usePetHealthWrite";
 import { fetchWalkSessionById, fetchWalkSessionsByGroupId } from "@/services/walkSessions";
 import { captureWalkMapSnapshot } from "@/services/walkShare";
 import { buildWalkSharePayloadFromSession } from "@/utils/buildWalkSharePayload";
@@ -44,6 +46,14 @@ export default function PawthonWalkDetailScreen() {
     queryKey: ["pawthon", "walk", "group", session?.walk_group_id],
     queryFn: () => fetchWalkSessionsByGroupId(session!.walk_group_id!),
     enabled: !!session?.walk_group_id,
+  });
+
+  const { user } = useAuth();
+  const { data: walkerDisplayName } = useQuery({
+    queryKey: ["display_name", session?.user_id],
+    queryFn: () => fetchDisplayNameForUser(session!.user_id),
+    enabled: !!session?.user_id && session.user_id !== user?.id,
+    staleTime: 300_000,
   });
 
   const pet = session ? pets.find((p) => p.id === session.pet_id) : null;
@@ -141,6 +151,12 @@ export default function PawthonWalkDetailScreen() {
             </View>
 
             <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 13, color: theme.secondary, marginBottom: 16 }}>
+              {session.user_id === user?.id
+                ? "Walked by you"
+                : walkerDisplayName
+                  ? `Walked by ${walkerDisplayName}`
+                  : null}
+              {session.user_id === user?.id || walkerDisplayName ? " · " : ""}
               Started {moment(session.started_at).format("h:mm A")} · Ended{" "}
               {moment(session.ended_at).format("h:mm A")}
             </Text>

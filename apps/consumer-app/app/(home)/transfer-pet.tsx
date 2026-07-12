@@ -92,6 +92,7 @@ const TRANSFER_INCLUDES = [
   "Uploaded documents (labs, certificates, etc.)",
   "Medication schedules",
   "Vet invoices and receipts (payment amounts redacted for the new owner)",
+  "Care team contacts (vet, groomer, walker, sitter) — you can remove any you do not need",
 ] as const;
 
 const TRANSFER_EXCLUDES = [
@@ -100,7 +101,6 @@ const TRANSFER_EXCLUDES = [
   "Family sharing permissions (reset for the new owner)",
   "Notification preferences",
   "Milo AI conversation history",
-  "Connected groomer / walker / sitter links",
 ] as const;
 
 export default function TransferPet() {

@@ -5,6 +5,7 @@ import {
   createTestPet,
   createTestUser,
   deleteTestUser,
+  grantFamilyPlan,
   userClient,
 } from "./fixtures.ts";
 
@@ -66,6 +67,54 @@ d("pet transfer RPCs", () => {
     await deleteTestUser(owner.id);
     await deleteTestUser(recipient.id);
     await deleteTestUser(grantee.id);
+  });
+
+  it("accept_pet_transfer preserves care team links for recipient", async () => {
+    const owner = await createTestUser("xfer-care-owner");
+    const recipient = await createTestUser("xfer-care-recipient");
+    await grantFamilyPlan(recipient);
+    const petId = await createTestPet(owner, "Buddy");
+
+    const admin = createServiceClient();
+    const { data: vet, error: vetErr } = await admin
+      .from("vet_information")
+      .insert({
+        clinic_name: "Happy Paws Vet",
+        vet_name: "Dr. Smith",
+        email: `vet-${Date.now()}@care.test`,
+        phone: "555-0100",
+        address: "1 Main St",
+        type: "veterinarian",
+      })
+      .select("id")
+      .single();
+    expect(vetErr).toBeNull();
+    expect(vet?.id).toBeTruthy();
+
+    const { error: linkErr } = await admin.from("pet_care_team_members").insert({
+      pet_id: petId,
+      care_team_member_id: vet!.id,
+    });
+    expect(linkErr).toBeNull();
+
+    const code = await createPetTransferCode(owner, petId);
+    const recipientClient = await userClient(recipient);
+    const { error } = await recipientClient.rpc("accept_pet_transfer", {
+      p_code: code,
+      p_pet_parent_display_name: "Sam",
+    });
+    expect(error).toBeNull();
+
+    const { data: links, error: linksErr } = await recipientClient
+      .from("pet_care_team_members")
+      .select("care_team_member_id, vet_information:care_team_member_id(clinic_name)")
+      .eq("pet_id", petId);
+    expect(linksErr).toBeNull();
+    expect(links?.length).toBe(1);
+    expect(links?.[0]?.vet_information).toMatchObject({ clinic_name: "Happy Paws Vet" });
+
+    await deleteTestUser(owner.id);
+    await deleteTestUser(recipient.id);
   });
 
   it("rejects self-transfer", async () => {

@@ -1,12 +1,30 @@
 import { registerForPush } from "@/utils/notification";
 import * as Application from "expo-application";
 import * as Notifications from "expo-notifications";
+import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 
+function invalidateTransferRelatedCaches(queryClient: ReturnType<typeof useQueryClient>): void {
+  void queryClient.invalidateQueries({ queryKey: ["pets"] });
+  void queryClient.invalidateQueries({ queryKey: ["pet_transfers"] });
+}
+
 function routePetTransferNotification(data: Record<string, unknown> | undefined): void {
   if (!data || data.type !== "pet_transfer") return;
+  const action = typeof data.action === "string" ? data.action : "";
+
+  // Sender / revoked household: land on transfer hub or home — not recipient accept step.
+  if (action === "accepted" || action === "declined" || action === "expired") {
+    router.push("/(home)/transfer-pet");
+    return;
+  }
+  if (action === "access_revoked") {
+    router.push("/(home)/home");
+    return;
+  }
+
   const code = data.transferCode;
   if (typeof code !== "string" || !code.trim()) return;
   router.push({
@@ -38,6 +56,7 @@ function routeFromPawbuckNotificationData(data: Record<string, unknown> | undefi
 }
 
 export function useNotificationHandlers() {
+  const queryClient = useQueryClient();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [pushToken, setPushToken] = useState<string | null>(null);
   useEffect(() => {
@@ -78,7 +97,13 @@ export function useNotificationHandlers() {
   useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        console.log("notification received:", notification);
+        const data = notification.request.content.data as Record<string, unknown> | undefined;
+        if (data?.type === "pet_transfer") {
+          const action = typeof data.action === "string" ? data.action : "";
+          if (action === "accepted" || action === "declined" || action === "access_revoked") {
+            invalidateTransferRelatedCaches(queryClient);
+          }
+        }
       }
     );
 
@@ -86,6 +111,12 @@ export function useNotificationHandlers() {
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content
           .data as Record<string, unknown> | undefined;
+        if (data?.type === "pet_transfer") {
+          const action = typeof data.action === "string" ? data.action : "";
+          if (action === "accepted" || action === "declined" || action === "access_revoked") {
+            invalidateTransferRelatedCaches(queryClient);
+          }
+        }
         routeFromPawbuckNotificationData(data);
       });
 
@@ -93,7 +124,7 @@ export function useNotificationHandlers() {
       notificationListener.remove();
       responseListener.remove();
     };
-  }, []);
+  }, [queryClient]);
 
   return { pushToken, deviceId };
 }

@@ -12,6 +12,8 @@ export type PawthonWalkLogRowProps = {
   durationLabel: string;
   paceLabel?: string | null;
   distanceMeters: number;
+  /** Who logged the walk (household member display name). */
+  walkerName?: string | null;
   onPress: () => void;
 };
 
@@ -22,6 +24,7 @@ export function PawthonWalkLogRow({
   durationLabel,
   paceLabel,
   distanceMeters,
+  walkerName,
   onPress,
 }: PawthonWalkLogRowProps) {
   const { theme, mode } = useTheme();
@@ -59,6 +62,7 @@ export function PawthonWalkLogRow({
           style={{ fontFamily: "Poppins_500Medium", fontSize: 13, color: theme.secondary, marginTop: 4 }}
           numberOfLines={2}
         >
+          {walkerName ? `${walkerName} · ` : ""}
           {petName} · {distanceMi} mi · {durationLabel}
           {paceLabel ? ` · ${paceLabel}` : ""}
         </Text>

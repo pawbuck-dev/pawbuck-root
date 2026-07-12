@@ -1,4 +1,5 @@
 import BottomNavBar from "@/components/home/BottomNavBar";
+import { HouseholdMemberRow } from "@/components/family/HouseholdMemberRow";
 import { SettingsSubscreenHeader } from "@/components/layout/SettingsSubscreenHeader";
 import { CareTeamEmptyStateCard } from "@/components/home/CareTeamEmptyStateCard";
 import { CareTeamMemberContactCard } from "@/components/home/CareTeamMemberContactCard";
@@ -1182,31 +1183,13 @@ export default function FamilyAccess() {
                 )}
 
                 {members.map((member) => (
-                  <View key={member.id} style={[familyNestedRowStyle, { marginBottom: 10 }]}>
-                    <View style={[familyIconWellStyle, { width: 40, height: 40, borderRadius: 20, marginRight: 12 }]}>
-                      <MaterialCommunityIcons
-                        name="account-outline"
-                        size={20}
-                        color={isDarkMode ? "#FFFFFF" : "#1D2433"}
-                      />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        style={{
-                          fontFamily: "Poppins_600SemiBold",
-                          fontSize: 16,
-                          color: theme.foreground,
-                          marginBottom: 2,
-                        }}
-                      >
-                        Family member
-                      </Text>
-                      <Text style={{ fontSize: 13, color: theme.secondary }}>Household access</Text>
-                    </View>
-                    <Pressable onPress={() => handleRemoveMember(member.id)} hitSlop={8}>
-                      <Ionicons name="close-circle" size={22} color="#FF3B30" />
-                    </Pressable>
-                  </View>
+                  <HouseholdMemberRow
+                    key={member.id}
+                    member={member}
+                    onRemove={handleRemoveMember}
+                    rowStyle={familyNestedRowStyle}
+                    iconWellStyle={familyIconWellStyle}
+                  />
                 ))}
 
                 {members.length === 0 && !user && (

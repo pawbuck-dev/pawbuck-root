@@ -20,3 +20,5 @@ If you started a transfer by mistake, cancel from the sender screen while the co
 ## After transfer
 
 The new owner manages family access going forward. Prior family shares on that pet are cleared at accept time.
+
+**Care team** contacts linked to the pet (vet, groomer, walker, sitter) move with the transfer. The new owner can remove any contact they do not wish to keep from Home or pet settings.

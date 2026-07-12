@@ -57,6 +57,15 @@ export async function fetchDisplayNameForUser(userId: string): Promise<string> {
   return (data as string) || "Someone";
 }
 
+/** Resolve display names for a set of user ids (e.g. household walkers). */
+export async function fetchDisplayNamesForUsers(userIds: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  const entries = await Promise.all(
+    unique.map(async (id) => [id, await fetchDisplayNameForUser(id)] as const)
+  );
+  return new Map(entries);
+}
+
 export function useDailyIntakeAttribution(lastUpdatedBy: string | undefined) {
   const { user } = useAuth();
   return useQuery({

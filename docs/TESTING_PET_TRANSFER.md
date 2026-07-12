@@ -47,7 +47,7 @@ See `tools/family-access-integration/` and `pnpm run family-access:integration` 
 ### After accept
 
 1. **Sender** — Pet removed from their list (or no longer editable as owner).
-2. **Recipient** — Health records, journal (minus excluded), medications, documents visible.
+2. **Recipient** — Health records, journal (minus excluded), medications, documents, and **care team contacts** visible; remove unwanted contacts from Home.
 3. **Transfer history** — Prior owner label respects “show my name” toggle.
 4. **Family access** — Old family shares cleared; recipient re-invites if needed.
 5. **Notifications** — Email/push for created/accepted/declined (if Edge notify configured).
@@ -61,6 +61,8 @@ See `tools/family-access-integration/` and `pnpm run family-access:integration` 
 | Deleted pet | Preview/accept fails |
 | Vet-flagged journal in exclude list | Blocked at create or RPC |
 | Milo / billing / family data | Listed in “excludes” on sender UI; not copied |
+
+Care team (vet, groomer, walker, sitter) **is transferred** with the pet. The new owner can unlink any contact they do not need from Home.
 
 ## Commands
 

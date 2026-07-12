@@ -2,6 +2,8 @@ import { PawthonWalkLogRow } from "@/components/pawthon/PawthonWalkLogRow";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
+import { useAuth } from "@/context/authContext";
+import { useWalkerDisplayNames } from "@/hooks/useWalkerDisplayNames";
 import { formatMiles, metersToMiles } from "@/constants/pawthonUi";
 import {
   dedupeWalkSessionsByGroup,
@@ -62,6 +64,7 @@ export default function PawthonWalkHistoryScreen() {
   const isDark = mode === "dark";
   const { selectedPet, selectedPetId } = useSelectedPet();
   const { pets } = usePets();
+  const { user } = useAuth();
   const [filter, setFilter] = useState<Filter>("week");
 
   const { data: walks = [], isPending } = useQuery({
@@ -95,6 +98,9 @@ export default function PawthonWalkHistoryScreen() {
         : moment().subtract(30, "days").startOf("day");
     return deduped.filter((w) => moment(w.ended_at).isSameOrAfter(cutoff));
   }, [walks, filter]);
+
+  const walkerIds = useMemo(() => filtered.map((w) => w.user_id), [filtered]);
+  const { data: walkerNames } = useWalkerDisplayNames(walkerIds);
 
   const petName = selectedPet?.name ?? "Pet";
 
@@ -185,6 +191,11 @@ export default function PawthonWalkHistoryScreen() {
                     <PawthonWalkLogRow
                       dateLabel={formatWalkLogDate(w.started_at)}
                       petName={groupPetNames.get(w.id) ?? petName}
+                      walkerName={
+                        w.user_id === user?.id
+                          ? "You"
+                          : walkerNames?.get(w.user_id) ?? null
+                      }
                       distanceMi={formatMiles(metersToMiles(Number(w.distance_meters)))}
                       durationLabel={formatWalkDistanceDuration(w).split(" · ")[1] ?? ""}
                       paceLabel={formatWalkPace(w)}

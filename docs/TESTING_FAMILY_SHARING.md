@@ -49,7 +49,8 @@ CI: `.github/workflows/family-access-integration.yml`
 1. **Owner** logs meals/water/output on Home → rings show non-zero counts.
 2. **Family member** opens the same pet on Home → sees **identical** ring values (not a separate empty log).
 3. **Contributor** can bump rings; **view only** sees rings but cannot edit (view-only message).
-4. **Walk streak** — walks by any household member count toward the pet’s streak and daily distance goal.
+4. **Pet photo** — family member sees the same profile photo on Home as the owner (requires `20260712160000_pets_storage_family_read` migration).
+5. **Walk streak** — walks by any household member count toward the pet’s streak and daily distance goal.
 
 ### Plan gates (client + RLS)
 
@@ -78,7 +79,7 @@ Expect one grant row per owner pet with role `admin`.
 
 Run on two physical devices or simulators with separate accounts.
 
-1. Cold install → Sign up → Home empty → **Join with Invite Code** → MTCH accept → pets on Home.
+1. Cold install → Sign up → Home empty → **Join with Invite Code** → MTCH accept → pets on Home **with profile photo**.
 2. Owner sends **email invite** → recipient opens link → sign in with matching email → pet on Home.
 3. Email invite with **wrong account** → clear error on `/accept-invite`.
 4. Profile → **Claim a Pet** → TRF accept → pet owned by recipient.
