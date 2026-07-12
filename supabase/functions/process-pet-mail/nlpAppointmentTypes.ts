@@ -21,6 +21,7 @@ export type NlpAppointmentExtraction = {
 };
 
 export const NLP_CONFIDENCE_THRESHOLD = 0.85;
+export const NLP_CALENDAR_INVITE_CONFIDENCE_THRESHOLD = 0.75;
 
 export function emptyNlpExtraction(): NlpAppointmentExtraction {
   return {
@@ -62,10 +63,16 @@ export function parseNlpAppointmentExtraction(raw: unknown): NlpAppointmentExtra
   };
 }
 
-export function shouldPersistNlpExtraction(extraction: NlpAppointmentExtraction): boolean {
+export function shouldPersistNlpExtraction(
+  extraction: NlpAppointmentExtraction,
+  options?: { calendarInviteContext?: boolean },
+): boolean {
+  const threshold = options?.calendarInviteContext
+    ? NLP_CALENDAR_INVITE_CONFIDENCE_THRESHOLD
+    : NLP_CONFIDENCE_THRESHOLD;
   return (
     extraction.is_appointment_found &&
-    extraction.confidence_score >= NLP_CONFIDENCE_THRESHOLD &&
+    extraction.confidence_score >= threshold &&
     Boolean(extraction.start_at?.trim()) &&
     Boolean(extraction.service_label?.trim())
   );

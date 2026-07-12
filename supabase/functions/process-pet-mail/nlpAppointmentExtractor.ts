@@ -6,6 +6,7 @@ import {
   type NlpAppointmentExtraction,
 } from "./nlpAppointmentTypes.ts";
 import { resolveEmailBodyForNlp } from "./emailBodyForNlp.ts";
+import { isGoogleCalendarInviteEmail } from "./googleCalendarInviteExtract.ts";
 import type { ParsedEmail, Pet } from "./types.ts";
 
 const RESPONSE_SCHEMA = {
@@ -14,11 +15,12 @@ const RESPONSE_SCHEMA = {
     is_appointment_found: {
       type: "boolean",
       description:
-        "True only for a confirmed upcoming appointment. False for tentative proposals, questions, past receipts, or general chatter.",
+        "True for a confirmed upcoming appointment OR a calendar invitation with a specific date/time (e.g. Google Calendar invite). False for tentative proposals, questions, past receipts, or general chatter.",
     },
     confidence_score: {
       type: "number",
-      description: "Confidence from 0.0 to 1.0 that this is a real confirmed upcoming appointment.",
+      description:
+        "Confidence from 0.0 to 1.0 that this is a real upcoming appointment or calendar invitation with parseable date/time.",
     },
     category: {
       type: "string",
@@ -74,16 +76,19 @@ export async function extractNlpAppointmentFromEmail(
   if (!body) return emptyNlpExtraction();
 
   const emailDate = params.parsedEmail.date ?? new Date().toISOString();
-  const prompt = `You extract confirmed upcoming pet care appointments from inbound email text.
+  const calendarInviteContext = isGoogleCalendarInviteEmail(params.parsedEmail);
+  const prompt = `You extract upcoming pet care appointments and calendar invitations from inbound email text.
 
 Rules:
 - Reference year is ${params.referenceYear}. Email received: ${emailDate}.
 - Pet: ${params.pet.name}. Pet home timezone for wall times: ${params.homeTimezone}.
 - Sender: ${params.senderEmail}
 - Subject: ${params.parsedEmail.subject || "(no subject)"}
+- Calendar invitation email: ${calendarInviteContext ? "yes" : "no"}
 
-Set is_appointment_found TRUE only when the message clearly confirms a specific future appointment with a date and time (or date with explicit time like "4PM").
+Set is_appointment_found TRUE when the message clearly includes a specific future appointment with a date and time — including Google Calendar invitations ("You have been invited", "Invitation:", "When:" blocks, Accept/Decline links).
 Set FALSE for: past visit receipts, vaccine records without a scheduled visit, "let me know if Tuesday works", marketing, invoices, general questions, or cancelled appointments.
+When this is a calendar invitation with a When/date-time block, treat it as an appointment and use confidence >= 0.9 if date and time are explicit.
 
 Category hints:
 - vet: clinic, exam, vaccine booster at clinic, surgery

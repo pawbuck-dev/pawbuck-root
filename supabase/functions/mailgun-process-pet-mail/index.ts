@@ -504,7 +504,7 @@ Deno.serve(async (req) => {
     });
 
     pipelineOutcome.calendar.attempted =
-      icsAttachments.length > 0 || calendarBatch.icsAttempted || calendarBatch.nlpAttempted;
+      calendarBatch.icsAttempted || calendarBatch.nlpAttempted;
     pipelineOutcome.calendar.error = calendarBatch.calendarError;
     pipelineOutcome.calendar.insertedCount = calendarBatch.newlyInsertedCount;
     pipelineOutcome.calendar.acceptableSkip = calendarBatch.acceptableSkip;

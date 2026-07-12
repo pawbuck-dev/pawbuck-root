@@ -1,6 +1,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { resolveAppointmentUtcRange } from "./appointmentTime.ts";
 import { shouldAttemptNlpAppointmentImport } from "./emailBodyForNlp.ts";
+import { isGoogleCalendarInviteEmail } from "./googleCalendarInviteExtract.ts";
 import { extractNlpAppointmentFromEmail } from "./nlpAppointmentExtractor.ts";
 import {
   buildNlpEmailImportKey,
@@ -63,18 +64,28 @@ export async function runNlpAppointmentImportIfEligible(
     fileKey: params.fileKey,
     messageId: params.parsedEmail.messageId,
     threadMessageId: params.threadMessageId,
+    calendarInviteContext: isGoogleCalendarInviteEmail(params.parsedEmail),
   });
 }
 
-export async function importNlpAppointmentToVetBookings(params: {
+export type ImportNlpAppointmentParams = {
   pet: Pet;
   extraction: NlpAppointmentExtraction;
   homeTimezone: string;
   fileKey: string;
   messageId: string | null;
   threadMessageId: string | null;
-}): Promise<NlpImportBatchResult> {
-  if (!shouldPersistNlpExtraction(params.extraction)) {
+  calendarInviteContext?: boolean;
+};
+
+export async function importNlpAppointmentToVetBookings(
+  params: ImportNlpAppointmentParams,
+): Promise<NlpImportBatchResult> {
+  if (
+    !shouldPersistNlpExtraction(params.extraction, {
+      calendarInviteContext: params.calendarInviteContext,
+    })
+  ) {
     return {
       newlyInsertedCount: 0,
       vetBookingId: null,

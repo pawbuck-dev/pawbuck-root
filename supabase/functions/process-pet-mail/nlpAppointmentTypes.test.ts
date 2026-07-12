@@ -1,6 +1,7 @@
 import {
   buildNlpEmailImportKey,
   formatServiceLabelForStorage,
+  NLP_CALENDAR_INVITE_CONFIDENCE_THRESHOLD,
   parseNlpAppointmentExtraction,
   shouldPersistNlpExtraction,
 } from "./nlpAppointmentTypes.ts";
@@ -34,6 +35,21 @@ Deno.test("shouldPersistNlpExtraction requires threshold and fields", () => {
     }),
     false
   );
+});
+
+Deno.test("shouldPersistNlpExtraction uses lower threshold for calendar invites", () => {
+  const extraction = {
+    is_appointment_found: true,
+    confidence_score: NLP_CALENDAR_INVITE_CONFIDENCE_THRESHOLD,
+    category: "vet" as const,
+    service_label: "Vet Checkup",
+    start_at: "2026-07-15T15:00:00",
+    end_at: "2026-07-15T16:00:00",
+    provider_name: "Google Calendar",
+    notes: null,
+  };
+  assertEquals(shouldPersistNlpExtraction(extraction), false);
+  assertEquals(shouldPersistNlpExtraction(extraction, { calendarInviteContext: true }), true);
 });
 
 Deno.test("buildNlpEmailImportKey uses messageId when present", () => {

@@ -24,4 +24,4 @@ Some messages require **owner review** (for example unclear attachments). Use th
 
 ## Calendar invites (.ics)
 
-When an allowed sender emails your pet’s address and attaches a **calendar invite** (often `.ics` / `text/calendar`), PawBuck may create a **pending** appointment on **Calendar** for you to confirm. This is separate from health-document attachments; confirm or dismiss those rows on **Calendar**.
+When an allowed sender emails your pet’s address with a **calendar invite** (often `.ics` / `text/calendar`), PawBuck may create a **pending** appointment on **Calendar** for you to confirm. **Google Calendar invitations** are supported via embedded calendar data in the email HTML when Mailgun does not attach a separate `.ics` file. Confirm or dismiss those rows on **Calendar**.
