@@ -10,7 +10,8 @@ import {
 } from "@/constants/subscriptionPlans";
 import { useAuth } from "@/context/authContext";
 import { fetchSubscriptionFeatureGates } from "@/services/featureGatesApi";
-import { getRevenueCatPlan } from "@/services/revenuecat";
+import { getRevenueCatPlan, refreshRevenueCatCustomerInfo } from "@/services/revenuecat";
+import { syncRevenueCatEntitlementToSupabase } from "@/services/revenuecatSync";
 import { fetchSubscriptionStatus, type SubscriptionStatus } from "@/services/subscriptionStatusApi";
 import {
   fetchUserEntitlement,
@@ -180,13 +181,20 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   const refetchEntitlement = useCallback(async () => {
+    const rcPlan = await refreshRevenueCatCustomerInfo();
+    if (user?.id) {
+      queryClient.setQueryData(["revenuecat_plan", user.id], rcPlan);
+    }
+    if (user) {
+      await syncRevenueCatEntitlementToSupabase(supabase);
+    }
     await refetchSupabase();
     await refetchStatus();
-    await queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
-    await queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
-    await queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
-    await queryClient.invalidateQueries({ queryKey: ["subscription_feature_gates"] });
-  }, [queryClient, refetchStatus, refetchSupabase]);
+    await queryClient.refetchQueries({ queryKey: ["user_entitlements"] });
+    await queryClient.refetchQueries({ queryKey: ["revenuecat_plan"] });
+    await queryClient.refetchQueries({ queryKey: ["subscription_status"] });
+    await queryClient.refetchQueries({ queryKey: ["subscription_feature_gates"] });
+  }, [queryClient, refetchStatus, refetchSupabase, user?.id]);
 
   const openPaywall = useCallback((options?: OpenPaywallOptions | string) => {
     const opts: OpenPaywallOptions =
@@ -235,6 +243,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   React.useEffect(() => {
+    if (Platform.OS === "web" || !user) return;
+    void (async () => {
+      const rcPlan = await getRevenueCatPlan();
+      if (!rcPlan) return;
+      await syncRevenueCatEntitlementToSupabase(supabase);
+      queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
+    })();
+  }, [queryClient, user?.id]);
+
+  React.useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
@@ -279,12 +298,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => {
     if (Platform.OS === "web") return;
     const onUpdate = () => {
-      queueMicrotask(() => {
+      queueMicrotask(async () => {
         queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
+        if (user) {
+          await syncRevenueCatEntitlementToSupabase(supabase);
+          queryClient.invalidateQueries({ queryKey: ["user_entitlements"] });
+          queryClient.invalidateQueries({ queryKey: ["subscription_status"] });
+        }
       });
     };
     Purchases.addCustomerInfoUpdateListener(onUpdate);
-  }, [queryClient]);
+  }, [queryClient, user]);
 
   const value = useMemo<SubscriptionContextValue>(
     () => ({

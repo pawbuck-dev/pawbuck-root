@@ -1,18 +1,24 @@
-import { configureRevenueCat, isRevenueCatConfigured } from "@/services/revenuecat";
+import {
+  refreshRevenueCatCustomerInfo,
+  syncRevenueCatUser,
+  waitForRevenueCatReady,
+} from "@/services/revenuecat";
 import {
   findPackageForPlan,
   resolveSubscriptionOfferingPrices,
   type PaidPlan,
   type SubscriptionOfferingPrices,
 } from "@/utils/subscriptionOfferingPrices";
+import { customerInfoActivePlan } from "@/utils/revenuecatEntitlement";
 import type { SubscriptionBillingPeriod } from "@/constants/subscriptionProducts";
+import { supabase } from "@/utils/supabase";
 import { Platform } from "react-native";
 import Purchases, { type PurchasesOfferings } from "react-native-purchases";
 
 export async function fetchRevenueCatOfferings(): Promise<PurchasesOfferings | null> {
   if (Platform.OS === "web") return null;
-  configureRevenueCat();
-  if (!isRevenueCatConfigured()) return null;
+  const ready = await waitForRevenueCatReady();
+  if (!ready) return null;
 
   try {
     return await Purchases.getOfferings();
@@ -34,25 +40,32 @@ export async function purchaseSubscriptionPackage(
   if (Platform.OS === "web") {
     return { purchased: false, cancelled: false };
   }
-  configureRevenueCat();
-  if (!isRevenueCatConfigured()) {
+  const ready = await waitForRevenueCatReady();
+  if (!ready) {
     return { purchased: false, cancelled: false };
   }
 
   const offerings = await fetchRevenueCatOfferings();
   const pkg = findPackageForPlan(offerings, plan, period);
   if (!pkg) {
+    if (__DEV__) {
+      console.warn("[RevenueCat] no package for", plan, period);
+    }
     return { purchased: false, cancelled: false };
+  }
+
+  const { data: authData } = await supabase.auth.getUser();
+  if (authData.user?.id) {
+    await syncRevenueCatUser(authData.user.id);
   }
 
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const active = customerInfo.entitlements.active;
-    const hasPaid =
-      typeof active["Pawbuck Family"] !== "undefined" ||
-      typeof active["Pawbuck Individual"] !== "undefined" ||
-      typeof active["Pawbuck Pro"] !== "undefined";
-    return { purchased: hasPaid, cancelled: false };
+    let activePlan = customerInfoActivePlan(customerInfo);
+    if (!activePlan) {
+      activePlan = await refreshRevenueCatCustomerInfo();
+    }
+    return { purchased: activePlan !== null, cancelled: false };
   } catch (e: unknown) {
     const err = e as { userCancelled?: boolean };
     if (err?.userCancelled) {

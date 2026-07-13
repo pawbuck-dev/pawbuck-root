@@ -164,3 +164,6 @@ export const useVaccinations = () => {
   }
   return context;
 };
+
+/** Read vaccinations when provider is optional (e.g. Home outside health-record stack). */
+export const useOptionalVaccinations = () => useContext(VaccinationsContext);

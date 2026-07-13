@@ -169,15 +169,24 @@ Rebuild native app after changing env (`npx expo run:ios` / EAS build). Metro re
 
 ## 5. Webhook → Supabase
 
-### Deploy secret
+RevenueCat webhooks are the long-term source of truth. For dev/Test Store (or before webhooks are wired), the app also calls **`revenuecat-sync-entitlement`** after purchase/restore to upsert `user_entitlements` via the RevenueCat REST API.
 
-Supabase Dashboard → Edge Functions → `revenuecat-webhook` → Secrets:
+### Deploy secrets
 
-| Secret | Value |
-|--------|--------|
-| `REVENUECAT_WEBHOOK_SECRET` | Random string you choose |
-| `SUPABASE_URL` | (auto) |
-| `SUPABASE_SERVICE_ROLE_KEY` | (auto) |
+Supabase Dashboard → Edge Functions → secrets:
+
+| Secret | Functions | Value |
+|--------|-----------|--------|
+| `REVENUECAT_WEBHOOK_SECRET` | `revenuecat-webhook` | Random string you choose |
+| `REVENUECAT_SECRET_API_KEY` | `revenuecat-sync-entitlement` | RevenueCat project **Secret API key** |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | (auto) | — |
+
+Deploy:
+
+```bash
+supabase functions deploy revenuecat-webhook --no-verify-jwt
+supabase functions deploy revenuecat-sync-entitlement
+```
 
 ### RevenueCat webhook URL
 
@@ -234,6 +243,7 @@ Check `public.user_entitlements` for that user.
 | Offerings + purchase | `apps/consumer-app/services/revenuecatOfferings.ts` |
 | Live prices in UI | `hooks/useSubscriptionOfferingPrices.ts` |
 | Webhook | `supabase/functions/revenuecat-webhook/` |
+| Post-purchase sync (REST) | `supabase/functions/revenuecat-sync-entitlement/`, `apps/consumer-app/services/revenuecatSync.ts` |
 | Server limits | `subscription_limits`, `subscription_feature_gates` migrations |
 
 ---
@@ -244,7 +254,7 @@ Check `public.user_entitlements` for that user.
 |---------|-----|
 | Compare plans / Subscribe does nothing | Add RC API keys; rebuild app. |
 | “Couldn’t load subscription plans” | Offering empty or products not linked in RC dashboard. |
-| Purchase succeeds but plan stays Free | Webhook secret/URL wrong; check `app_user_id` matches Supabase uuid. |
+| Purchase succeeds but plan stays Free | Webhook secret/URL wrong; check `app_user_id` matches Supabase uuid. **Also:** set `REVENUECAT_SECRET_API_KEY` and deploy `revenuecat-sync-entitlement`; open Profile → Restore or re-subscribe to trigger sync. |
 | Wrong plan after purchase | Product id typo — must match webhook `SUBSCRIPTION_PRODUCTS` map. |
 
 For support-granted access without billing, use admin **Grant complimentary access** (see [`SUBSCRIPTION.md`](SUBSCRIPTION.md)).

@@ -3,6 +3,10 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  isFoundingProductId,
+  resolvePlanFromWebhookEvent,
+} from "../_shared/revenuecatEntitlementSync.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -11,40 +15,9 @@ const corsHeaders: Record<string, string> = {
 
 type Plan = "free" | "individual" | "family";
 
-const FOUNDING_PRODUCTS: Record<string, Plan> = {
-  founding_individual: "individual",
-  founding_family: "family",
-};
-
-const SUBSCRIPTION_PRODUCTS: Record<string, Plan> = {
-  individual_monthly: "individual",
-  individual_annual: "individual",
-  family_monthly: "family",
-  family_annual: "family",
-};
-
-function resolvePlanFromEvent(evt: Record<string, unknown>): Plan | null {
-  const entitlements = evt.entitlement_ids;
-  if (Array.isArray(entitlements)) {
-    if (entitlements.includes("Pawbuck Family")) return "family";
-    if (entitlements.includes("Pawbuck Individual") || entitlements.includes("Pawbuck Pro")) {
-      return "individual";
-    }
-  }
-
-  const productId = String(evt.product_id ?? evt.product_identifier ?? "");
-  if (FOUNDING_PRODUCTS[productId]) return FOUNDING_PRODUCTS[productId];
-  if (SUBSCRIPTION_PRODUCTS[productId]) return SUBSCRIPTION_PRODUCTS[productId];
-
-  if (productId.includes("family")) return "family";
-  if (productId.includes("individual") || productId.includes("pro")) return "individual";
-
-  return null;
-}
-
 function isFoundingProduct(evt: Record<string, unknown>): boolean {
   const productId = String(evt.product_id ?? evt.product_identifier ?? "");
-  return productId in FOUNDING_PRODUCTS || productId.startsWith("founding_");
+  return isFoundingProductId(productId);
 }
 
 Deno.serve(async (req) => {
@@ -114,7 +87,7 @@ Deno.serve(async (req) => {
   const productId = String(evt.product_id ?? evt.product_identifier ?? "") || null;
 
   if (premiumTypes.includes(type)) {
-    const resolved = resolvePlanFromEvent(evt);
+    const resolved = resolvePlanFromWebhookEvent(evt);
     plan = resolved ?? "individual";
     isFounding = isFoundingProduct(evt) || type === "NON_RENEWING_PURCHASE";
 

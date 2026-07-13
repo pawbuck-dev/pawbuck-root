@@ -477,6 +477,12 @@ verify_jwt = false
 import_map = "./functions/revenuecat-webhook/deno.json"
 entrypoint = "./functions/revenuecat-webhook/index.ts"
 
+[functions.revenuecat-sync-entitlement]
+enabled = true
+verify_jwt = true
+import_map = "./functions/revenuecat-sync-entitlement/deno.json"
+entrypoint = "./functions/revenuecat-sync-entitlement/index.ts"
+
 [functions.purge-deleted-threads]
 enabled = true
 verify_jwt = false

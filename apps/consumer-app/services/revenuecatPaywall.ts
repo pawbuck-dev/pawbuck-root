@@ -1,4 +1,4 @@
-import { configureRevenueCat, isRevenueCatConfigured } from "@/services/revenuecat";
+import { waitForRevenueCatReady } from "@/services/revenuecat";
 import { Platform } from "react-native";
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 
@@ -12,8 +12,8 @@ export { PAYWALL_RESULT };
 export async function presentRevenueCatPaywall(): Promise<boolean> {
   if (Platform.OS === "web") return false;
 
-  configureRevenueCat();
-  if (!isRevenueCatConfigured()) return false;
+  const ready = await waitForRevenueCatReady();
+  if (!ready) return false;
 
   try {
     const paywallResult = await RevenueCatUI.presentPaywall();

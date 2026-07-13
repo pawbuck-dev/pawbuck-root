@@ -1,6 +1,7 @@
 import { useSelectedPet } from "@/context/selectedPetContext";
-import { useVaccinations } from "@/context/vaccinationsContext";
+import { useOptionalVaccinations } from "@/context/vaccinationsContext";
 import { Tables } from "@/database.types";
+import { getVaccinationsByPetId } from "@/services/vaccinations";
 import {
   CategorizedVaccine,
   categorizeVaccinations,
@@ -37,7 +38,16 @@ interface UseVaccineCategoriesResult {
  */
 export const useVaccineCategories = (): UseVaccineCategoriesResult => {
   const { pet } = useSelectedPet();
-  const { vaccinations } = useVaccinations();
+  const petId = pet?.id ?? "";
+  const vaccinationsContext = useOptionalVaccinations();
+
+  const { data: queriedVaccinations = [] } = useQuery({
+    queryKey: ["vaccinations", petId],
+    queryFn: () => getVaccinationsByPetId(petId),
+    enabled: !!petId && vaccinationsContext === undefined,
+  });
+
+  const vaccinations = vaccinationsContext?.vaccinations ?? queriedVaccinations;
   const country = pet?.country ?? null;
   const animalType = pet?.animal_type ?? null;
 

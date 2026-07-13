@@ -2,15 +2,39 @@ import { Platform } from "react-native";
 import type { SubscriptionPlan } from "@/constants/subscriptionPlans";
 import {
   customerInfoActivePlan,
-  customerInfoHasPaidEntitlement,
 } from "@/utils/revenuecatEntitlement";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 
 let configured = false;
+/** Ensures RevenueCat creates the subscriber before offerings / attribute sync race. */
+let bootstrapPromise: Promise<void> | null = null;
+let loginChain: Promise<void> = Promise.resolve();
 
 /** True after `configureRevenueCat()` has successfully called `Purchases.configure`. */
 export function isRevenueCatConfigured(): boolean {
   return configured;
+}
+
+function startRevenueCatBootstrap(): void {
+  if (bootstrapPromise) return;
+  bootstrapPromise = Purchases.getCustomerInfo()
+    .then(() => undefined)
+    .catch((e) => {
+      if (__DEV__) {
+        console.warn("[RevenueCat] bootstrap getCustomerInfo failed:", e);
+      }
+    });
+}
+
+/**
+ * Wait until Purchases.configure finished and the backend subscriber record exists.
+ * Avoids "subscriber was not found" when the SDK syncs attributes before first GET /subscribers.
+ */
+export async function waitForRevenueCatReady(): Promise<boolean> {
+  configureRevenueCat();
+  if (!configured) return false;
+  if (bootstrapPromise) await bootstrapPromise;
+  return true;
 }
 
 /**
@@ -36,9 +60,10 @@ export function configureRevenueCat(): void {
 
   if (configured) return;
 
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.VERBOSE : LOG_LEVEL.ERROR);
+  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.WARN : LOG_LEVEL.ERROR);
   Purchases.configure({ apiKey });
   configured = true;
+  startRevenueCatBootstrap();
 }
 
 /**
@@ -47,18 +72,23 @@ export function configureRevenueCat(): void {
  */
 export async function syncRevenueCatUser(userId: string | null): Promise<void> {
   if (Platform.OS === "web") return;
-  configureRevenueCat();
-  if (!configured) return;
 
-  try {
-    if (userId) {
-      await Purchases.logIn(userId);
-    } else {
-      await Purchases.logOut();
+  loginChain = loginChain.then(async () => {
+    const ready = await waitForRevenueCatReady();
+    if (!ready) return;
+
+    try {
+      if (userId) {
+        await Purchases.logIn(userId);
+      } else {
+        await Purchases.logOut();
+      }
+    } catch (e) {
+      console.warn("[RevenueCat] sync user failed:", e);
     }
-  } catch (e) {
-    console.warn("[RevenueCat] sync user failed:", e);
-  }
+  });
+
+  await loginChain;
 }
 
 /**
@@ -68,25 +98,38 @@ export async function getHasPawbuckProEntitlement(): Promise<boolean> {
   return (await getRevenueCatPlan()) !== null;
 }
 
-export async function getRevenueCatPlan(): Promise<SubscriptionPlan | null> {
-  if (Platform.OS === "web") return null;
-  configureRevenueCat();
-  if (!configured) return null;
+/** Refresh CustomerInfo from RevenueCat after purchase / restore. */
+export async function refreshRevenueCatCustomerInfo(): Promise<SubscriptionPlan | null> {
+  const ready = await waitForRevenueCatReady();
+  if (!ready) return null;
 
   try {
     const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfoActivePlan(customerInfo);
+    const plan = customerInfoActivePlan(customerInfo);
+    if (__DEV__) {
+      console.log(
+        "[RevenueCat] active entitlements:",
+        Object.keys(customerInfo.entitlements.active ?? {}),
+        "→ plan:",
+        plan ?? "free"
+      );
+    }
+    return plan;
   } catch (e) {
-    console.warn("[RevenueCat] getCustomerInfo failed:", e);
+    console.warn("[RevenueCat] refresh customer info failed:", e);
     return null;
   }
+}
+
+export async function getRevenueCatPlan(): Promise<SubscriptionPlan | null> {
+  return refreshRevenueCatCustomerInfo();
 }
 
 /** Restore App Store / Play purchases via RevenueCat. Returns active plan if any. */
 export async function restoreRevenueCatPurchases(): Promise<SubscriptionPlan | null> {
   if (Platform.OS === "web") return null;
-  configureRevenueCat();
-  if (!configured) {
+  const ready = await waitForRevenueCatReady();
+  if (!ready) {
     throw new Error("Subscriptions are not configured in this build.");
   }
 
