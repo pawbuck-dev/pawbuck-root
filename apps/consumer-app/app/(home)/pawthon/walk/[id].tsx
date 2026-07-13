@@ -75,6 +75,36 @@ export default function PawthonWalkDetailScreen() {
   const [sharePreviewPayload, setSharePreviewPayload] = useState<WalkSharePayload | null>(null);
   const mapCaptureRef = useRef<View>(null);
 
+  const walkDetailHeader = (
+    <View
+      style={{
+        paddingTop: insets.top + 8,
+        paddingBottom: 8,
+        paddingHorizontal: 16,
+        backgroundColor: theme.background,
+      }}
+    >
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.card,
+          borderWidth: 1,
+          borderColor: theme.border,
+        }}
+      >
+        <Ionicons name="chevron-back" size={22} color={theme.foreground} />
+      </Pressable>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -87,23 +117,21 @@ export default function PawthonWalkDetailScreen() {
         }}
       />
       {isPending || !session ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={theme.primary} />
+        <View style={{ flex: 1 }}>
+          {walkDetailHeader}
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
         </View>
       ) : (
-        <ScrollView bounces={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}>
-          <View ref={mapCaptureRef} collapsable={false} style={{ height: 280, backgroundColor: "#243038" }}>
-            <PawthonWalkMap path={path} style={{ flex: 1 }} />
-            <Pressable
-              onPress={() => router.back()}
-              style={{ position: "absolute", top: insets.top + 8, left: 16, zIndex: 10 }}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-            </Pressable>
-          </View>
+        <View style={{ flex: 1 }}>
+          {walkDetailHeader}
+          <ScrollView bounces={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+            <View ref={mapCaptureRef} collapsable={false} style={{ height: 280, backgroundColor: "#243038" }}>
+              <PawthonWalkMap path={path} style={{ flex: 1 }} />
+            </View>
 
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <View
                 style={{
@@ -205,7 +233,8 @@ export default function PawthonWalkDetailScreen() {
               </LinearGradient>
             </Pressable>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
       )}
     </View>
   );
