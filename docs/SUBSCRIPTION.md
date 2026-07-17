@@ -64,12 +64,25 @@ Skips active App Store / RevenueCat subscribers. **New signups after this migrat
 
 ```json
 "Subscription": {
+  "MonetizationEnabled": false,
   "RequirePremiumForMilo": false,
   "EnforceMiloConversationCap": true
 }
 ```
 
-`EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM=true` — dev only; treats user as `family`.
+### Free launch — monetization kill-switch (default OFF)
+
+Until App Store Connect banking / RevenueCat is ready, **monetization is off** and every user is treated as **Family** (full Individual + Family features, no paywalls).
+
+| Layer | Setting | OFF (launch) | ON (billing live) |
+|-------|---------|--------------|-------------------|
+| Consumer app | `EXPO_PUBLIC_MONETIZATION_ENABLED` | unset / not `true` | `true` (rebuild app) |
+| PawBuck.API | `Subscription:MonetizationEnabled` | `false` | `true` + redeploy |
+| Postgres + Edge | `app_feature_flags.monetization_enabled` | `false` | `UPDATE … SET enabled = true` |
+
+Flip **all three** together when enabling billing. See [`REVENUECAT.md`](REVENUECAT.md) for store setup.
+
+`EXPO_PUBLIC_SUBSCRIPTION_DEV_PREMIUM=true` — separate **dev-only** override; do not use for production free launch.
 
 ## Analytics
 

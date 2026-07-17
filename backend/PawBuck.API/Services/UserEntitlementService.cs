@@ -60,6 +60,9 @@ public sealed class UserEntitlementService : IUserEntitlementService
     /// <inheritdoc />
     public async Task<string> GetActivePlanAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (!_subscriptionOptions.Value.MonetizationEnabled)
+            return SubscriptionPlans.Family;
+
         if (string.IsNullOrWhiteSpace(_options.Value.ConnectionString))
             return SubscriptionPlans.Free;
 
@@ -158,6 +161,12 @@ public sealed class UserEntitlementService : IUserEntitlementService
         var subscriptionStatus = reader.IsDBNull(3) ? null : reader.GetString(3);
         var expiresAt = reader.IsDBNull(4) ? (DateTimeOffset?)null : reader.GetFieldValue<DateTimeOffset>(4);
         var activePlan = await GetActivePlanAsync(userId, cancellationToken);
+
+        if (!_subscriptionOptions.Value.MonetizationEnabled)
+        {
+            plan = SubscriptionPlans.Family;
+            activePlan = SubscriptionPlans.Family;
+        }
 
         return new SubscriptionStatusResponse
         {

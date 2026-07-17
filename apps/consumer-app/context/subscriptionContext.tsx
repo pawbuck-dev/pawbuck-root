@@ -1,5 +1,6 @@
 import PremiumPaywallModal from "@/components/subscription/PremiumPaywallModal";
 import { resolveFeatureGateKey, fallbackMinimumPlanForFeature } from "@/constants/featureGates";
+import { isMonetizationEnabled } from "@/constants/monetization";
 import {
   meetsMinimumPlan,
   normalizePlan,
@@ -122,6 +123,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const isLoading = !!user && (supabaseLoading || revenueCatLoading || statusLoading || gatesLoading);
 
   const plan = useMemo((): SubscriptionPlan => {
+    if (!isMonetizationEnabled()) return "family";
     if (DEV_PREMIUM_PLAN !== "free") return DEV_PREMIUM_PLAN;
     return resolveEffectiveSubscriptionPlan([
       getActivePlanFromRow(entitlement ?? undefined),
@@ -181,6 +183,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   const refetchEntitlement = useCallback(async () => {
+    if (!isMonetizationEnabled()) {
+      await refetchSupabase();
+      await refetchStatus();
+      await queryClient.refetchQueries({ queryKey: ["user_entitlements"] });
+      await queryClient.refetchQueries({ queryKey: ["subscription_status"] });
+      await queryClient.refetchQueries({ queryKey: ["subscription_feature_gates"] });
+      return;
+    }
     const rcPlan = await refreshRevenueCatCustomerInfo();
     if (user?.id) {
       queryClient.setQueryData(["revenuecat_plan", user.id], rcPlan);
@@ -197,6 +207,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [queryClient, refetchStatus, refetchSupabase, user?.id]);
 
   const openPaywall = useCallback((options?: OpenPaywallOptions | string) => {
+    if (!isMonetizationEnabled()) return;
     const opts: OpenPaywallOptions =
       typeof options === "string" ? { source: options } : (options ?? {});
     setPaywallOptions(opts);
@@ -243,7 +254,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   React.useEffect(() => {
-    if (Platform.OS === "web" || !user) return;
+    if (Platform.OS === "web" || !user || !isMonetizationEnabled()) return;
     void (async () => {
       const rcPlan = await getRevenueCatPlan();
       if (!rcPlan) return;
@@ -296,7 +307,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [featureGatesError, featureGatesQueryError, plan]);
 
   React.useEffect(() => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" || !isMonetizationEnabled()) return;
     const onUpdate = () => {
       queueMicrotask(async () => {
         queryClient.invalidateQueries({ queryKey: ["revenuecat_plan"] });
@@ -363,16 +374,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   return (
     <SubscriptionContext.Provider value={value}>
       {children}
-      <PremiumPaywallModal
-        visible={paywallVisible}
-        onClose={closePaywall}
-        source={paywallOptions.source}
-        requiredPlan={paywallOptions.requiredPlan ?? paywallCopy.requiredPlan}
-        title={paywallCopy.title}
-        body={paywallCopy.body}
-        foundingSpotsRemaining={subscriptionStatus?.foundingSpotsRemaining ?? null}
-        refetchEntitlement={refetchEntitlement}
-      />
+      {isMonetizationEnabled() ? (
+        <PremiumPaywallModal
+          visible={paywallVisible}
+          onClose={closePaywall}
+          source={paywallOptions.source}
+          requiredPlan={paywallOptions.requiredPlan ?? paywallCopy.requiredPlan}
+          title={paywallCopy.title}
+          body={paywallCopy.body}
+          foundingSpotsRemaining={subscriptionStatus?.foundingSpotsRemaining ?? null}
+          refetchEntitlement={refetchEntitlement}
+        />
+      ) : null}
     </SubscriptionContext.Provider>
   );
 }

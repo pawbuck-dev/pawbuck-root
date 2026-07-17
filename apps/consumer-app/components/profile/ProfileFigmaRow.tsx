@@ -43,78 +43,69 @@ export function ProfileFigmaRow({
   leading?: ReactNode;
   title: string;
   subtitle: string;
-  onPress: () => void;
-  trailing?: "forward" | "down";
+  onPress?: () => void;
+  trailing?: "forward" | "down" | "none";
   trailingCircled?: boolean;
 }) {
   const { theme, mode } = useTheme();
   const isDark = mode === "dark";
   const t = getProfileScreenTokens(theme, isDark);
+  const showTrailing = trailing !== "none";
 
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
+  const body = (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
         width: "100%",
-        minHeight: 68,
-        borderRadius: 16,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        opacity: pressed ? 0.9 : 1,
-      })}
+      }}
     >
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
+          flex: 1,
+          minWidth: 0,
+          marginRight: 12,
         }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            flex: 1,
-            minWidth: 0,
-            marginRight: 12,
-          }}
-        >
-          {leading ? (
-            <View style={{ marginRight: 12, flexShrink: 0 }}>{leading}</View>
-          ) : icon || ionIcon ? (
-            <View style={{ marginRight: 12, flexShrink: 0 }}>
-              <NavigationIconWell
-                size="md"
-                {...(icon ? { materialIcon: icon } : { ionIcon: ionIcon! })}
-              />
-            </View>
-          ) : null}
-          <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
-            <Text
-              style={{
-                fontFamily: "Poppins_600SemiBold",
-                fontSize: 16,
-                color: t.profileListTitleColor,
-              }}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Text
-              style={{
-                fontFamily: "Poppins_400Regular",
-                fontSize: 13,
-                color: t.muted,
-                marginTop: 4,
-                lineHeight: 18,
-              }}
-              numberOfLines={2}
-            >
-              {subtitle}
-            </Text>
+        {leading ? (
+          <View style={{ marginRight: 12, flexShrink: 0 }}>{leading}</View>
+        ) : icon || ionIcon ? (
+          <View style={{ marginRight: 12, flexShrink: 0 }}>
+            <NavigationIconWell
+              size="md"
+              {...(icon ? { materialIcon: icon } : { ionIcon: ionIcon! })}
+            />
           </View>
+        ) : null}
+        <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+          <Text
+            style={{
+              fontFamily: "Poppins_600SemiBold",
+              fontSize: 16,
+              color: t.profileListTitleColor,
+            }}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Poppins_400Regular",
+              fontSize: 13,
+              color: t.muted,
+              marginTop: 4,
+              lineHeight: 18,
+            }}
+            numberOfLines={2}
+          >
+            {subtitle}
+          </Text>
         </View>
+      </View>
+      {showTrailing ? (
         <View style={{ flexShrink: 0, justifyContent: "center" }} pointerEvents="none">
           {trailingCircled && trailing === "down" ? (
             <View
@@ -139,7 +130,31 @@ export function ProfileFigmaRow({
             />
           )}
         </View>
-      </View>
+      ) : null}
+    </View>
+  );
+
+  const containerStyle = {
+    width: "100%" as const,
+    minHeight: 68,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  };
+
+  if (!onPress) {
+    return <View style={containerStyle}>{body}</View>;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        ...containerStyle,
+        opacity: pressed ? 0.9 : 1,
+      })}
+    >
+      {body}
     </Pressable>
   );
 }

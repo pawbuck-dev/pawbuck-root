@@ -2,6 +2,8 @@
 
 Connect App Store / Google Play billing to PawBuck via RevenueCat. Canonical prices and feature matrix: [`PRICING.md`](PRICING.md). Enforcement: [`SUBSCRIPTION.md`](SUBSCRIPTION.md).
 
+**Free launch:** Monetization is **off** by default (`EXPO_PUBLIC_MONETIZATION_ENABLED`, `Subscription:MonetizationEnabled`, DB `app_feature_flags.monetization_enabled`). The app skips RevenueCat configure and treats everyone as Family until you flip all three flags after store banking is ready — see [Enable monetization](#enable-monetization-after-free-launch) below.
+
 ## Architecture
 
 ```text
@@ -245,6 +247,16 @@ Check `public.user_entitlements` for that user.
 | Webhook | `supabase/functions/revenuecat-webhook/` |
 | Post-purchase sync (REST) | `supabase/functions/revenuecat-sync-entitlement/`, `apps/consumer-app/services/revenuecatSync.ts` |
 | Server limits | `subscription_limits`, `subscription_feature_gates` migrations |
+
+---
+
+## Enable monetization (after free launch)
+
+1. Paid Apps / banking Active in App Store Connect; products + RevenueCat linked (sections above).
+2. Postgres: `UPDATE public.app_feature_flags SET enabled = true, updated_at = now() WHERE key = 'monetization_enabled';`
+3. API: set `Subscription:MonetizationEnabled` to `true` and redeploy.
+4. App: `EXPO_PUBLIC_MONETIZATION_ENABLED=true` + RevenueCat keys; rebuild (`npx expo run:ios` / EAS).
+5. Smoke: Free user hits Milo/doc/2nd-pet paywalls; purchase updates `user_entitlements`.
 
 ---
 

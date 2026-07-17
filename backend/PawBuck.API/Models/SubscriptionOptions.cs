@@ -8,6 +8,12 @@ public class SubscriptionOptions
     public const string SectionName = "Subscription";
 
     /// <summary>
+    /// When false (default for free launch), every user is treated as Family: no paywall caps.
+    /// Flip to true with App Store / RevenueCat billing ready.
+    /// </summary>
+    public bool MonetizationEnabled { get; set; }
+
+    /// <summary>
     /// When true, legacy all-or-nothing Milo premium check (prefer conversation cap instead).
     /// </summary>
     public bool RequirePremiumForMilo { get; set; }

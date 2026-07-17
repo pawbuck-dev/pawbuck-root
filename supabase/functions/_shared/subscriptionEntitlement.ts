@@ -30,10 +30,26 @@ function isActiveRow(row: {
   return new Date(row.expires_at).getTime() > Date.now();
 }
 
+/** Missing or false `monetization_enabled` → free launch (treat as Family). */
+export async function isMonetizationEnabled(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("app_feature_flags")
+    .select("enabled")
+    .eq("key", "monetization_enabled")
+    .maybeSingle();
+
+  if (error || !data) return false;
+  return data.enabled === true;
+}
+
 export async function getOwnerActivePlan(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<SubscriptionPlan> {
+  if (!(await isMonetizationEnabled(supabase))) {
+    return "family";
+  }
+
   const { data, error } = await supabase
     .from("user_entitlements")
     .select("plan, expires_at, is_founding_member")
@@ -59,6 +75,10 @@ export async function ownerMeetsFeatureGate(
   userId: string,
   featureKey: string,
 ): Promise<boolean> {
+  if (!(await isMonetizationEnabled(supabase))) {
+    return true;
+  }
+
   const { data } = await supabase
     .from("subscription_feature_gates")
     .select("minimum_plan")

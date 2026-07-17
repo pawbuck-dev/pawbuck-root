@@ -24,6 +24,7 @@ import { useSubscription } from "@/context/subscriptionContext";
 import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import PlanComparisonModal from "@/components/subscription/PlanComparisonModal";
+import { isMonetizationEnabled } from "@/constants/monetization";
 import { themeModeLabel, useTheme } from "@/context/themeContext";
 import { resolveProfileEditPhotoPreview } from "@/utils/profilePhotoPreview";
 import { cancelAccountDeletion, getAccountDeletionStatus, invokeDeleteAccount } from "@/services/accountDeletion";
@@ -457,33 +458,42 @@ export default function Profile() {
             ionIcon="sparkles-outline"
             title={isFoundingMember ? "Founding Member" : planLabel}
             subtitle={
-              isFoundingMember
-                ? "Lifetime access — thank you for building PawBuck with us"
-                : plan === "free"
-                  ? "Current plan: Free · Compare Individual or Family plans"
-                  : `Current plan: ${planLabel} · ${manageSubscriptionInStoreLabel()}`
+              !isMonetizationEnabled()
+                ? "Full access while billing is paused for launch"
+                : isFoundingMember
+                  ? "Lifetime access — thank you for building PawBuck with us"
+                  : plan === "free"
+                    ? "Current plan: Free · Compare Individual or Family plans"
+                    : `Current plan: ${planLabel} · ${manageSubscriptionInStoreLabel()}`
             }
-            onPress={() => {
-              if (plan === "free") {
-                setShowPlanComparison(true);
-              } else {
-                openStoreSubscriptionSettings();
-                void refetchEntitlement();
+            trailing={!isMonetizationEnabled() ? "none" : "forward"}
+            onPress={
+              !isMonetizationEnabled()
+                ? undefined
+                : () => {
+                    if (plan === "free") {
+                      setShowPlanComparison(true);
+                    } else {
+                      openStoreSubscriptionSettings();
+                      void refetchEntitlement();
+                    }
+                  }
+            }
+          />
+          {isMonetizationEnabled() ? (
+            <ProfileFigmaRow
+              ionIcon="refresh-outline"
+              title="Restore purchases"
+              subtitle={
+                isRestoringPurchases
+                  ? checkingSubscriptionStoreLabel()
+                  : "Recover a subscription bought on this device"
               }
-            }}
-          />
-          <ProfileFigmaRow
-            ionIcon="refresh-outline"
-            title="Restore purchases"
-            subtitle={
-              isRestoringPurchases
-                ? checkingSubscriptionStoreLabel()
-                : "Recover a subscription bought on this device"
-            }
-            onPress={() => {
-              if (!isRestoringPurchases) void handleRestorePurchases();
-            }}
-          />
+              onPress={() => {
+                if (!isRestoringPurchases) void handleRestorePurchases();
+              }}
+            />
+          ) : null}
         </ProfileListCard>
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
@@ -681,16 +691,18 @@ export default function Profile() {
         isSaving={updateMutation.isPending}
       />
 
-      <PlanComparisonModal
-        visible={showPlanComparison}
-        onClose={() => setShowPlanComparison(false)}
-        currentPlan={plan}
-        readOnly={false}
-        onSubscribe={(targetPlan) => {
-          setShowPlanComparison(false);
-          openPaywall({ source: "profile_plan_compare", requiredPlan: targetPlan });
-        }}
-      />
+      {isMonetizationEnabled() ? (
+        <PlanComparisonModal
+          visible={showPlanComparison}
+          onClose={() => setShowPlanComparison(false)}
+          currentPlan={plan}
+          readOnly={false}
+          onSubscribe={(targetPlan) => {
+            setShowPlanComparison(false);
+            openPaywall({ source: "profile_plan_compare", requiredPlan: targetPlan });
+          }}
+        />
+      ) : null}
 
       <LogOutConfirmModal
         visible={showLogOutModal}

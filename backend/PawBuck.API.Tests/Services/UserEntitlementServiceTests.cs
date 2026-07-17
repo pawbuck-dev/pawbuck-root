@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PawBuck.API;
 using PawBuck.API.Models;
 using PawBuck.API.Services;
 using Xunit;
@@ -10,10 +11,10 @@ namespace PawBuck.API.Tests.Services;
 public class UserEntitlementServiceTests
 {
     [Fact]
-    public async Task HasActivePremiumAsync_ReturnsFalse_WhenConnectionStringEmpty()
+    public async Task HasActivePremiumAsync_ReturnsFalse_WhenConnectionStringEmpty_AndMonetizationOn()
     {
         var opt = Options.Create(new SupabaseOptions { ConnectionString = "" });
-        var sub = Options.Create(new SubscriptionOptions());
+        var sub = Options.Create(new SubscriptionOptions { MonetizationEnabled = true });
         var env = new TestHostEnvironment("Development");
         var svc = new UserEntitlementService(
             opt,
@@ -22,6 +23,22 @@ public class UserEntitlementServiceTests
             LoggerFactory.Create(_ => { }).CreateLogger<UserEntitlementService>());
         var result = await svc.HasActivePremiumAsync(Guid.NewGuid());
         Assert.False(result);
+    }
+
+    [Fact]
+    public async Task GetActivePlanAsync_ReturnsFamily_WhenMonetizationDisabled()
+    {
+        var opt = Options.Create(new SupabaseOptions { ConnectionString = "" });
+        var sub = Options.Create(new SubscriptionOptions { MonetizationEnabled = false });
+        var env = new TestHostEnvironment("Development");
+        var svc = new UserEntitlementService(
+            opt,
+            sub,
+            env,
+            LoggerFactory.Create(_ => { }).CreateLogger<UserEntitlementService>());
+        var plan = await svc.GetActivePlanAsync(Guid.NewGuid());
+        Assert.Equal(SubscriptionPlans.Family, plan);
+        Assert.True(await svc.HasActivePremiumAsync(Guid.NewGuid()));
     }
 
     [Fact]

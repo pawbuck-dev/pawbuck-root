@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { isMonetizationEnabled } from "@/constants/monetization";
 import type { SubscriptionPlan } from "@/constants/subscriptionPlans";
 import {
   customerInfoActivePlan,
@@ -31,6 +32,7 @@ function startRevenueCatBootstrap(): void {
  * Avoids "subscriber was not found" when the SDK syncs attributes before first GET /subscribers.
  */
 export async function waitForRevenueCatReady(): Promise<boolean> {
+  if (!isMonetizationEnabled()) return false;
   configureRevenueCat();
   if (!configured) return false;
   if (bootstrapPromise) await bootstrapPromise;
@@ -40,10 +42,11 @@ export async function waitForRevenueCatReady(): Promise<boolean> {
 /**
  * Call once after app shell is ready. Uses EXPO_PUBLIC_REVENUECAT_IOS_API_KEY /
  * EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY (same value is fine for RevenueCat test keys).
- * No-ops on web or when keys are missing.
+ * No-ops on web, when monetization is off, or when keys are missing.
  */
 export function configureRevenueCat(): void {
   if (Platform.OS === "web") return;
+  if (!isMonetizationEnabled()) return;
 
   const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim();
   const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim();
@@ -72,6 +75,7 @@ export function configureRevenueCat(): void {
  */
 export async function syncRevenueCatUser(userId: string | null): Promise<void> {
   if (Platform.OS === "web") return;
+  if (!isMonetizationEnabled()) return;
 
   loginChain = loginChain.then(async () => {
     const ready = await waitForRevenueCatReady();
