@@ -4,7 +4,9 @@ describe("getDocumentUploadQuota", () => {
   it("returns unlimited for individual plan", () => {
     const q = getDocumentUploadQuota("individual", {
       plan: "individual",
+      activePlan: "individual",
       isFoundingMember: false,
+      isAdminGrant: false,
       productId: null,
       expiresAt: null,
       usage: { miloConversationsUsed: 0, aiJournalEntriesUsed: 0 },
@@ -38,6 +40,8 @@ describe("getDocumentUploadQuota", () => {
       },
       foundingSpotsRemaining: 400,
       documentCount: 10,
+      activePlan: "free",
+      isAdminGrant: false,
     });
     expect(q.atCap).toBe(true);
     expect(q.remaining).toBe(0);
@@ -59,6 +63,8 @@ describe("getDocumentUploadQuota", () => {
       },
       foundingSpotsRemaining: 400,
       documentCount: 7,
+      activePlan: "free",
+      isAdminGrant: false,
     });
     expect(q.atCap).toBe(false);
     expect(q.remaining).toBe(3);

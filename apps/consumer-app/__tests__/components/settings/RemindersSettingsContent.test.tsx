@@ -80,12 +80,31 @@ describe("RemindersSettingsContent", () => {
 
     render(<RemindersSettingsContent />);
 
+    // Switch order: journal prompt, insurance expiry, vet appointment, vaccine care.
     const switches = screen.getAllByRole("switch");
-    const vetSwitch = switches[switches.length - 1];
+    const vetSwitch = switches[switches.length - 2];
     fireEvent(vetSwitch, "valueChange", false);
 
     expect(mockUpdatePreferences).toHaveBeenCalledWith({
       vet_appointment_reminder_push_enabled: false,
+    });
+    expect(mockOpenPaywall).not.toHaveBeenCalled();
+  });
+
+  it("persists vaccine care toggle without health alerts gate", () => {
+    (useSubscription as jest.Mock).mockReturnValue({
+      canAccessFeature: () => true,
+      openPaywall: mockOpenPaywall,
+    });
+
+    render(<RemindersSettingsContent />);
+
+    const switches = screen.getAllByRole("switch");
+    const vaccineSwitch = switches[switches.length - 1];
+    fireEvent(vaccineSwitch, "valueChange", false);
+
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({
+      proactive_vaccine_push_enabled: false,
     });
     expect(mockOpenPaywall).not.toHaveBeenCalled();
   });

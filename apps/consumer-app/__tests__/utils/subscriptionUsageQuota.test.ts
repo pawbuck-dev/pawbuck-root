@@ -9,6 +9,7 @@ const freeStatus: SubscriptionStatus = {
   plan: "free",
   activePlan: "free",
   isFoundingMember: false,
+  isAdminGrant: false,
   productId: null,
   expiresAt: null,
   usage: { miloConversationsUsed: 0, aiJournalEntriesUsed: 0 },

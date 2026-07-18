@@ -14,6 +14,7 @@ import {
 } from "@/services/walkSessions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { pawthonWalkStartRoute } from "@/utils/pawthonWalkNavigation";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { ActivityIndicator, Text, View } from "react-native";

@@ -14,11 +14,18 @@ export async function fetchCareNudgeDismissals(userId: string): Promise<CareNudg
     return [];
   }
 
-  return (data ?? []).map((row) => ({
-    pet_id: String((row as { pet_id: string }).pet_id),
-    nudge_kind: String((row as { nudge_kind: string }).nudge_kind),
-    dismissed_until: (row as { dismissed_until: string | null }).dismissed_until,
-  }));
+  return (data ?? []).map((row) => {
+    const r = row as unknown as {
+      pet_id: string;
+      nudge_kind: string;
+      dismissed_until: string | null;
+    };
+    return {
+      pet_id: String(r.pet_id),
+      nudge_kind: String(r.nudge_kind),
+      dismissed_until: r.dismissed_until,
+    };
+  });
 }
 
 export async function snoozeCareNudge(input: {

@@ -1,3 +1,5 @@
+import type { SubscriptionPlan } from "@/constants/subscriptionPlans";
+
 /** Keys must match `public.subscription_feature_gates.feature_key` and PawBuck.API. */
 export const FEATURE_GATE_KEYS = [
   "milo_chat",

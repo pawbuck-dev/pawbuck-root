@@ -1,8 +1,8 @@
 const mockRemove = jest.fn().mockResolvedValue({ error: null });
 const mockEq = jest.fn().mockResolvedValue({ error: null });
 const mockDelete = jest.fn(() => ({ eq: mockEq }));
-const mockFrom = jest.fn(() => ({ delete: mockDelete }));
-const mockStorageFrom = jest.fn(() => ({ remove: mockRemove }));
+const mockFrom = jest.fn((..._args: unknown[]) => ({ delete: mockDelete }));
+const mockStorageFrom = jest.fn((..._args: unknown[]) => ({ remove: mockRemove }));
 
 jest.mock("@/utils/supabase", () => ({
   supabase: {
