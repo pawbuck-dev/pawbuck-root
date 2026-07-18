@@ -27,6 +27,11 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          # Without a token, resolving "latest" uses the anonymous GitHub API
+          # quota shared per runner IP and intermittently fails with
+          # "rate limit exceeded".
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

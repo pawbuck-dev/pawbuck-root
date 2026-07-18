@@ -42,6 +42,8 @@ Machine-readable table list: [inventoried-tables.txt](./inventoried-tables.txt) 
 | `pet_family_invites` | Account | — | Life of account | `erase_user_data` | yes |
 | `pet_transfers` | Account | — | Life of account | `erase_user_data` | yes |
 | `pet_activity_events` | Behavioral | — | Life of account | cascade / RPC | yes |
+| `care_nudge_deliveries` | Behavioral | — | Life of account | `erase_user_data` | no (send ledger) |
+| `care_nudge_dismissals` | Account | — | Life of account | `erase_user_data` | no (dismissal prefs) |
 | `proactive_pet_health_sends` | Health / AI | — | Life of account | cascade / RPC | yes |
 | `provider_profiles` | Marketplace | — | Life of account | `erase_user_data` | yes |
 | `data_export_requests` | Account | — | 7d after ready | `erase_user_data` | meta only |
@@ -53,6 +55,6 @@ Machine-readable table list: [inventoried-tables.txt](./inventoried-tables.txt) 
 | Storage `pending-emails` | Comms | — | TTL / delete | purge worker | no |
 | Storage `data-exports` | Account | Export bundle | 7 days | TTL job | user download |
 
-**System / non-user tables (not in export):** `documentation`, `milo_journal_config`, `milo_interaction_outcomes` (Milo quality ledger, service role), `clinic_scheduling_config`, `medication_adr_*`, `subscription_feature_gates`, `subscription_limits`, `ops_probe_results`, `notification_dedupe` (Edge push cooldown ledger, service role), `one_time_ops_log` (one-shot migration idempotency), `faq_*`, `milo_curated_snippets`, `country_email_document_verification`, reminder sent markers, etc.
+**System / non-user tables (not in export):** `app_feature_flags` (runtime product flags, no user data), `documentation`, `milo_journal_config`, `milo_interaction_outcomes` (Milo quality ledger, service role), `clinic_scheduling_config`, `medication_adr_*`, `subscription_feature_gates`, `subscription_limits`, `ops_probe_results`, `notification_dedupe` (Edge push cooldown ledger, service role), `one_time_ops_log` (one-shot migration idempotency), `faq_*`, `milo_curated_snippets`, `country_email_document_verification`, reminder sent markers, etc.
 
 When adding a migration with `CREATE TABLE public.*` for user/pet data, add a row here and a line in `inventoried-tables.txt`.

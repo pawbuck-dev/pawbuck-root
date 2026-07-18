@@ -1,5 +1,7 @@
 # One table name per line — used by DataInventoryDriftTests. Update when adding user-data tables.
 analytics_events
+care_nudge_deliveries
+care_nudge_dismissals
 clinical_exams
 daily_intake
 data_export_requests

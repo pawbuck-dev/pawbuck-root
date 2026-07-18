@@ -25,6 +25,7 @@ public class DataInventoryDriftTests
 
         var systemExempt = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "app_feature_flags",
             "clinic_scheduling_config",
             "country_email_document_verification",
             "documentation",
