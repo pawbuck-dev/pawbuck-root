@@ -21,12 +21,26 @@ jobs:
   milo-eval-live:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ secrets.GEMINI_SECRET_ARN != '' && secrets.AWS_ROLE_ARN != '' }}
 
     steps:
       - uses: actions/checkout@v4
 
+      # secrets context is not allowed in job-level `if`; gate via step output instead.
+      - name: Check eval secrets
+        id: gate
+        env:
+          GEMINI_SECRET_ARN: ${{ secrets.GEMINI_SECRET_ARN }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+        run: |
+          if [ -n "$GEMINI_SECRET_ARN" ] && [ -n "$AWS_ROLE_ARN" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::GEMINI_SECRET_ARN / AWS_ROLE_ARN not configured; skipping live eval."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure AWS credentials (OIDC)
+        if: steps.gate.outputs.run == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -34,6 +48,7 @@ jobs:
           role-session-name: milo-eval-${{ github.run_id }}
 
       - name: Load Gemini key from Secrets Manager
+        if: steps.gate.outputs.run == 'true'
         env:
           GEMINI_SECRET_ARN: ${{ secrets.GEMINI_SECRET_ARN }}
           GEMINI_SECRET_JSON_KEY: ${{ vars.GEMINI_SECRET_JSON_KEY }}

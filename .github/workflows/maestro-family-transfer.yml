@@ -8,10 +8,19 @@ jobs:
   maestro:
     runs-on: macos-latest
     timeout-minutes: 45
-    if: >-
-      ${{ secrets.MAESTRO_RECIPIENT_EMAIL != '' && secrets.MAESTRO_HOUSEHOLD_CODE != '' }}
     steps:
       - uses: actions/checkout@v4
+
+      # secrets context is not allowed in job-level `if`; gate via step check instead.
+      - name: Check Maestro secrets
+        env:
+          MAESTRO_RECIPIENT_EMAIL: ${{ secrets.MAESTRO_RECIPIENT_EMAIL }}
+          MAESTRO_HOUSEHOLD_CODE: ${{ secrets.MAESTRO_HOUSEHOLD_CODE }}
+        run: |
+          if [ -z "$MAESTRO_RECIPIENT_EMAIL" ] || [ -z "$MAESTRO_HOUSEHOLD_CODE" ]; then
+            echo "::error::MAESTRO_RECIPIENT_EMAIL / MAESTRO_HOUSEHOLD_CODE secrets are not configured."
+            exit 1
+          fi
 
       - name: Install Maestro
         run: curl -Ls "https://get.maestro.mobile.dev" | bash
