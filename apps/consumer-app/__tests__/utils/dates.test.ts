@@ -22,6 +22,19 @@ describe("dates utils", () => {
     expect(formatDate("2026-03-02")).toMatch(/2026/);
   });
 
+  it("formatDate uses DD-MM-YYYY for India", () => {
+    expect(formatDate("2026-07-12", "India")).toBe("12-07-2026");
+    expect(formatDate("2026-03-02", " india ")).toBe("02-03-2026");
+  });
+
+  it("formatDate keeps MM/DD/YYYY for the United States", () => {
+    expect(formatDate("2026-07-12", "United States")).toBe("07/12/2026");
+  });
+
+  it("formatDateMedium uses the country-specific numeric format for India", () => {
+    expect(formatDateMedium("2026-07-12", "India")).toBe("12-07-2026");
+  });
+
   it("formatDateMedium and formatDateLong", () => {
     expect(formatDateMedium("2026-02-20")).toContain("2026");
     expect(formatDateLong("2026-02-20")).toContain("February");

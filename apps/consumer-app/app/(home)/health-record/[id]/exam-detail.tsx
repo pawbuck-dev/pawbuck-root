@@ -6,10 +6,12 @@ import {
 } from "@/components/health/RecordOverflowSheet";
 import { ClinicalExamEditModal } from "@/components/clinical-exams/ClinicalExamEditModal";
 import { useClinicalExams } from "@/context/clinicalExamsContext";
+import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
 import { fetchJournalEntries, linkJournalEntryToClinicalExam } from "@/services/petJournal";
 import { shareStorageDocument, shareTextSummary } from "@/utils/documentShare";
+import { formatDate, formatDateMedium } from "@/utils/dates";
 import { journalEntryNeedsTriageAttention } from "@/utils/journalTriage";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +29,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ExamDetailScreen() {
   const { theme } = useTheme();
+  const { pet } = useSelectedPet();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const {
@@ -83,7 +86,7 @@ export default function ExamDetailScreen() {
     if (!exam) return;
     const title = exam.exam_type || "Clinical exam";
     const body = [
-      `Date: ${new Date(exam.exam_date).toLocaleDateString()}`,
+      `Date: ${formatDate(exam.exam_date, pet?.country)}`,
       exam.vet_name ? `Vet: ${exam.vet_name}` : null,
       exam.clinic_name ? `Clinic: ${exam.clinic_name}` : null,
       hasValue(exam.weight_value)
@@ -97,7 +100,7 @@ export default function ExamDetailScreen() {
       exam.findings ? `Findings: ${exam.findings}` : null,
       exam.notes ? `Notes: ${exam.notes}` : null,
       exam.follow_up_date
-        ? `Follow-up: ${new Date(exam.follow_up_date).toLocaleDateString()}`
+        ? `Follow-up: ${formatDate(exam.follow_up_date, pet?.country)}`
         : null,
     ]
       .filter(Boolean)
@@ -199,7 +202,7 @@ export default function ExamDetailScreen() {
     validityDate.setHours(0, 0, 0, 0);
     const isValid = validityDate >= today;
     validityLine = isValid
-      ? `Valid until ${validityDate.toLocaleDateString()}`
+      ? `Valid until ${formatDateMedium(validityDate, pet?.country)}`
       : "Travel document expired";
   }
 
@@ -270,7 +273,7 @@ export default function ExamDetailScreen() {
                 {exam.exam_type || "Clinical exam"}
               </Text>
               <Text className="text-sm mt-1" style={{ color: theme.secondary }}>
-                {new Date(exam.exam_date).toLocaleDateString()}
+                {formatDate(exam.exam_date, pet?.country)}
               </Text>
               {validityLine && (
                 <View
@@ -352,7 +355,7 @@ export default function ExamDetailScreen() {
             <View className="flex-row items-center mt-4">
               <Ionicons name="calendar-outline" size={16} color={theme.primary} />
               <Text className="text-sm ml-2" style={{ color: theme.primary }}>
-                Follow-up: {new Date(exam.follow_up_date).toLocaleDateString()}
+                Follow-up: {formatDate(exam.follow_up_date, pet?.country)}
               </Text>
             </View>
           )}

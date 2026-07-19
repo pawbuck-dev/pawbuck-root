@@ -124,9 +124,9 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
   const handleShare = () => {
     const title = vaccination.name;
     const body = [
-      `Administered: ${formatDateMedium(vaccination.date)}`,
+      `Administered: ${formatDateMedium(vaccination.date, pet?.country)}`,
       vaccination.next_due_date
-        ? `Next due: ${formatDateMedium(vaccination.next_due_date)}`
+        ? `Next due: ${formatDateMedium(vaccination.next_due_date, pet?.country)}`
         : null,
       vaccination.clinic_name ? `Clinic: ${vaccination.clinic_name}` : null,
     ]
@@ -223,7 +223,7 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
               Administered
             </Text>
             <Text style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}>
-              {formatDateMedium(vaccination.date)}
+              {formatDateMedium(vaccination.date, pet?.country)}
             </Text>
           </View>
           <View style={styles.column}>
@@ -235,7 +235,7 @@ export const VaccinationCard: React.FC<VaccinationCardProps> = ({
             </Text>
             <Text style={[styles.colValue, HEALTH_TYPE.fieldValue, { color: theme.foreground }]}>
               {vaccination.next_due_date
-                ? formatDateMedium(vaccination.next_due_date)
+                ? formatDateMedium(vaccination.next_due_date, pet?.country)
                 : "—"}
             </Text>
           </View>

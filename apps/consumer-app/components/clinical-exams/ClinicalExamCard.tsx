@@ -8,6 +8,7 @@ import { useClinicalExams } from "@/context/clinicalExamsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useTheme } from "@/context/themeContext";
 import { Tables, TablesUpdate } from "@/database.types";
+import { formatDate, formatDateMedium } from "@/utils/dates";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
@@ -68,11 +69,7 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
     validityDate.setHours(0, 0, 0, 0);
     
     const isValid = validityDate >= today;
-    const formattedDate = validityDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    const formattedDate = formatDateMedium(validityDate, pet?.country);
     
     return {
       isValid,
@@ -223,7 +220,7 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
                 className="text-sm"
                 style={{ color: theme.secondary }}
               >
-                {new Date(exam.exam_date).toLocaleDateString()}
+                {formatDate(exam.exam_date, pet?.country)}
               </Text>
               {/* Validity Status Tag for Travel Documents */}
               {validityStatus && (
@@ -371,7 +368,7 @@ export const ClinicalExamCard: React.FC<ClinicalExamCardProps> = ({ exam }) => {
                 <View className="flex-row items-center mb-3">
                   <Ionicons name="calendar-outline" size={14} color={theme.primary} />
                   <Text className="text-sm ml-2" style={{ color: theme.primary }}>
-                    Follow-up: {new Date(exam.follow_up_date).toLocaleDateString()}
+                    Follow-up: {formatDate(exam.follow_up_date, pet?.country)}
                   </Text>
                 </View>
               )}

@@ -1,18 +1,29 @@
 import moment from "moment";
 
+const usesIndiaDateFormat = (country?: string | null): boolean =>
+  country?.trim().toLowerCase() === "india";
+
 /**
- * Formats a date to MM/DD/YYYY format
+ * Formats a compact date for the pet's country.
+ * India uses DD-MM-YYYY; the existing default remains MM/DD/YYYY.
  */
-export const formatDate = (date: string | Date | null | undefined): string => {
+export const formatDate = (
+  date: string | Date | null | undefined,
+  country?: string | null,
+): string => {
   if (!date) {
     return "-";
   }
-  return moment(date).format("MM/DD/YYYY");
+  return moment(date).format(usesIndiaDateFormat(country) ? "DD-MM-YYYY" : "MM/DD/YYYY");
 };
 
 /** e.g. Feb 20, 2026 — vaccines list / cards */
-export const formatDateMedium = (date: string | Date | null | undefined): string => {
+export const formatDateMedium = (
+  date: string | Date | null | undefined,
+  country?: string | null,
+): string => {
   if (!date) return "—";
+  if (usesIndiaDateFormat(country)) return moment(date).format("DD-MM-YYYY");
   return moment(date).format("MMM D, YYYY");
 };
 
