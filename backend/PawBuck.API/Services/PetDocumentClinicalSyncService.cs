@@ -347,8 +347,41 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
             var examDate = VaultExtractedJsonParser.ParseOptionalDateOnly(medical.DateOfVisit)
                            ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
-            if (items.Count == 0)
+            // A clinical-visit document can also list administered vaccines (mixed document).
+            // Divert explicitly vaccine-tagged items to public.vaccinations so they show in
+            // the Vaccinations section instead of rendering as exam cards.
+            var (vaccineItems, examItems) = VaultExtractedJsonParser.PartitionExplicitVaccinationItems(items);
+
+            foreach (var item in vaccineItems)
             {
+                // Prefer the item's own administered date; fall back to the visit date
+                // (vaccines listed on a visit summary were given at that visit).
+                if (!VaultExtractedJsonParser.TryGetItemAdministeredDate(item, out var administered))
+                {
+                    if (!visitDate.HasValue)
+                    {
+                        examItems.Add(item);
+                        continue;
+                    }
+
+                    administered = visitDate.Value;
+                }
+
+                if (await VaccinationExistsAsync(conn, petId, item.Name, administered, cancellationToken))
+                {
+                    result.SkippedDuplicates++;
+                    continue;
+                }
+
+                var nextDue = VaultExtractedJsonParser.ParseOptionalDate(item.ExpiryDate);
+                await InsertVaccinationAsync(
+                    conn, petId, userId, item.Name.Trim(), administered, nextDue, clinic, null, storagePath, cancellationToken);
+                result.VaccinationsCreated++;
+            }
+
+            if (examItems.Count == 0)
+            {
+                // All items were vaccines (or none extracted) — still record the visit itself.
                 var examType = "Clinical visit";
                 if (await ClinicalExamExistsAsync(conn, petId, examType, examDate, cancellationToken))
                 {
@@ -362,11 +395,8 @@ public sealed class PetDocumentClinicalSyncService : IPetDocumentClinicalSyncSer
                 return;
             }
 
-            foreach (var item in items)
+            foreach (var item in examItems)
             {
-                if (string.IsNullOrWhiteSpace(item.Name))
-                    continue;
-
                 var examType = item.Name.Trim();
                 if (await ClinicalExamExistsAsync(conn, petId, examType, examDate, cancellationToken))
                 {

@@ -116,14 +116,18 @@ public static class VaultExtractedJsonParser
     public static bool IsGenericVaccineTitle(string? name) =>
         !string.IsNullOrWhiteSpace(name) && GenericVaccineTitles.Contains(name.Trim());
 
-    public static bool IsVaccinationCategory(string? category)
-    {
-        if (string.IsNullOrWhiteSpace(category))
-            return true;
+    public static bool IsVaccinationCategory(string? category) =>
+        string.IsNullOrWhiteSpace(category) || IsExplicitVaccinationCategory(category);
 
-        return category.Contains("vaccin", StringComparison.OrdinalIgnoreCase)
-               || category.Contains("immuniz", StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>
+    /// Category explicitly says vaccine/immunization. Unlike <see cref="IsVaccinationCategory"/>
+    /// (lenient inside vaccination-classified documents), a missing category does NOT count —
+    /// used to divert vaccine items out of documents classified as another type.
+    /// </summary>
+    public static bool IsExplicitVaccinationCategory(string? category) =>
+        !string.IsNullOrWhiteSpace(category)
+        && (category.Contains("vaccin", StringComparison.OrdinalIgnoreCase)
+            || category.Contains("immuniz", StringComparison.OrdinalIgnoreCase));
 
     public static List<MedicalRecordItem> FilterVaccinationItems(IEnumerable<MedicalRecordItem> items) =>
         items
@@ -131,6 +135,35 @@ public static class VaultExtractedJsonParser
             .Where(i => IsVaccinationCategory(i.Category))
             .Where(i => !IsGenericVaccineTitle(i.Name))
             .ToList();
+
+    /// <summary>
+    /// Splits a mixed document's items into vaccine records vs everything else. Only items
+    /// whose category explicitly says vaccine are diverted; generic certificate titles are
+    /// dropped entirely (they are document titles, not records).
+    /// </summary>
+    public static (List<MedicalRecordItem> Vaccinations, List<MedicalRecordItem> Others) PartitionExplicitVaccinationItems(
+        IEnumerable<MedicalRecordItem> items)
+    {
+        var vaccinations = new List<MedicalRecordItem>();
+        var others = new List<MedicalRecordItem>();
+        foreach (var item in items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Name))
+                continue;
+
+            if (IsExplicitVaccinationCategory(item.Category))
+            {
+                if (!IsGenericVaccineTitle(item.Name))
+                    vaccinations.Add(item);
+            }
+            else
+            {
+                others.Add(item);
+            }
+        }
+
+        return (vaccinations, others);
+    }
 
     /// <summary>True when the item has an explicit administered/given date on the document.</summary>
     public static bool TryGetItemAdministeredDate(MedicalRecordItem item, out DateTime administered)
