@@ -10,6 +10,7 @@
 # Optional: GEMINI_SECRET_JSON_KEY — when set with GEMINI_SECRET_ARN, appends :KEY:: to valueFrom for JSON-shaped secrets (e.g. ApiKey). Leave empty when the secret stores the raw key string only.
 # Optional: AWS_ECS_TASK_CPU — Fargate CPU units (e.g. 1024 = 1 vCPU). Set together with AWS_ECS_TASK_MEMORY so deploys keep your task size (Milo vision PDFs need ≥2 GB).
 # Optional: AWS_ECS_TASK_MEMORY — Fargate memory in MiB (e.g. 4096 = 4 GB). Applied on each register-task-definition merge.
+# Optional: AWS_ECS_CPU_ARCHITECTURE — X86_64 or ARM64 (Graviton, ~20% cheaper). Must match the pushed image platform (deploy-aws.yml builds linux/arm64 by default). Empty keeps the current task definition's runtimePlatform.
 set -euo pipefail
 
 CLUSTER="${AWS_ECS_CLUSTER:?Set AWS_ECS_CLUSTER}"
@@ -41,6 +42,13 @@ TASK_CPU="$(echo -n "$TASK_CPU" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space
 TASK_MEMORY="${AWS_ECS_TASK_MEMORY:-}"
 TASK_MEMORY="$(echo -n "$TASK_MEMORY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
+CPU_ARCH="${AWS_ECS_CPU_ARCHITECTURE:-}"
+CPU_ARCH="$(echo -n "$CPU_ARCH" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:lower:]' '[:upper:]')"
+if [ -n "$CPU_ARCH" ] && [ "$CPU_ARCH" != "X86_64" ] && [ "$CPU_ARCH" != "ARM64" ]; then
+  echo "AWS_ECS_CPU_ARCHITECTURE must be X86_64 or ARM64 (got: $CPU_ARCH)" >&2
+  exit 1
+fi
+
 TD_ARN="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --region "$REGION" --query 'services[0].taskDefinition' --output text)"
 aws ecs describe-task-definition --task-definition "$TD_ARN" --region "$REGION" --query 'taskDefinition' > /tmp/td-full.json
 
@@ -58,10 +66,11 @@ if [ -n "$EFFECTIVE_MEMORY_MIB" ] && [ "$EFFECTIVE_MEMORY_MIB" -gt 0 ] 2>/dev/nu
   GC_HEAP_LIMIT=$(( EFFECTIVE_MEMORY_MIB * 1024 * 1024 * 75 / 100 ))
 fi
 
-jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg miloKey "$MILO_INTERNAL_SERVICE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" --arg taskCpu "$TASK_CPU" --arg taskMem "$TASK_MEMORY" --arg gcHeap "$GC_HEAP_LIMIT" '
+jq --arg jwt "$JWT_SECRET" --arg cname "$CONTAINER_NAME" --arg supUrl "$SUPABASE_PROJECT_URL" --arg serviceRole "$SUPABASE_SERVICE_ROLE_KEY" --arg miloKey "$MILO_INTERNAL_SERVICE_KEY" --arg corsOrigin "$ADMIN_CORS_ORIGIN" --arg gem "$GEMINI_VALUE_FROM" --arg taskCpu "$TASK_CPU" --arg taskMem "$TASK_MEMORY" --arg gcHeap "$GC_HEAP_LIMIT" --arg cpuArch "$CPU_ARCH" '
   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
   | (if ($taskCpu | length) > 0 then .cpu = $taskCpu else . end)
   | (if ($taskMem | length) > 0 then .memory = $taskMem else . end)
+  | (if ($cpuArch | length) > 0 then .runtimePlatform = {"cpuArchitecture": $cpuArch, "operatingSystemFamily": "LINUX"} else . end)
   | .containerDefinitions |= map(
       if .name == $cname then
         .environment = (
@@ -106,6 +115,9 @@ aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definiti
 echo "ECS task definition updated and service redeployed: $NEW_ARN"
 if [ -n "$TASK_CPU" ] || [ -n "$TASK_MEMORY" ]; then
   echo "Task size: cpu=${TASK_CPU:-unchanged} memory=${TASK_MEMORY:-unchanged} (MiB)"
+fi
+if [ -n "$CPU_ARCH" ]; then
+  echo "Runtime platform: cpuArchitecture=${CPU_ARCH} (image platform must match)"
 fi
 if [ -n "$EFFECTIVE_MEMORY_MIB" ] && [ "$EFFECTIVE_MEMORY_MIB" -le 1024 ] 2>/dev/null; then
   echo "::warning::Task memory is ${EFFECTIVE_MEMORY_MIB} MiB — PawBuck.API + Milo vision often needs ≥2048 MiB. Exit code 139/137 on startup usually means OOM, not a C# bug."

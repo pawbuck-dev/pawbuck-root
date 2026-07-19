@@ -39,6 +39,17 @@ Milo vision (classify + extract on multi-page PDFs) loads full document bytes in
 
 **Recommended for production:** **1024 CPU** (1 vCPU) and **4096 MiB** (4 GB) memory.
 
+### ARM64 / Graviton (cost)
+
+Production Fargate runs **ARM64 (Graviton)** — ~20% cheaper per vCPU-hour and GB-hour than x86 at the same task size. The deploy pipeline handles this end to end:
+
+- **Image:** `deploy-aws.yml` builds `linux/arm64` via buildx (override with Variable `AWS_ECS_IMAGE_PLATFORM`, e.g. `linux/amd64`). The Dockerfile cross-compiles in a native SDK stage (`--platform=$BUILDPLATFORM` + `dotnet publish -a $TARGETARCH`), so builds stay fast on x86 runners.
+- **Task definition:** the merge script sets `runtimePlatform.cpuArchitecture` from `AWS_ECS_CPU_ARCHITECTURE` (workflow default **`ARM64`**).
+
+**These two must match.** An x86 task pulling an arm64 image (or vice versa) crashes instantly with `exec format error` in CloudWatch and the deployment rolls back.
+
+**Rollback to x86:** set Variables `AWS_ECS_IMAGE_PLATFORM=linux/amd64` and `AWS_ECS_CPU_ARCHITECTURE=X86_64`, then re-run **Deploy AWS**.
+
 Set GitHub **Variables** so each **Deploy AWS** run keeps this size when the merge script registers a new task definition:
 
 | Variable | Example | Notes |
@@ -309,6 +320,8 @@ Workflows live under [`.github/workflows/`](../.github/workflows/).
 | `AWS_ECS_CONTAINER_NAME` | API deploy | Optional. Container name to set env on; defaults to the **first** container in the task definition. |
 | `AWS_ECS_TASK_CPU` | API deploy | Optional. Fargate CPU units (e.g. `1024`). Set with `AWS_ECS_TASK_MEMORY` — see **ECS task size** above. |
 | `AWS_ECS_TASK_MEMORY` | API deploy | Optional. Fargate memory in MiB (e.g. `4096` for Milo PDF workloads). |
+| `AWS_ECS_IMAGE_PLATFORM` | API deploy | Optional. Docker platform for the pushed image; defaults to `linux/arm64` (Graviton). Must match `AWS_ECS_CPU_ARCHITECTURE`. |
+| `AWS_ECS_CPU_ARCHITECTURE` | API deploy | Optional. `ARM64` (default) or `X86_64` — sets `runtimePlatform` on the registered task definition. |
 | `GEMINI_SECRET_JSON_KEY` | API deploy | Optional. When `GEMINI_SECRET_ARN` secret is set and the secret is JSON, set to the field name (e.g. `ApiKey`). Leave empty for a plaintext secret value. |
 | `AWS_S3_ADMIN_BUCKET` | Admin deploy | `my-admin-static` |
 | `AWS_CLOUDFRONT_DISTRIBUTION_ID` | Admin deploy | `E123...` (optional; skip invalidation if empty) |

@@ -52,17 +52,29 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, push image
+      # Fargate runs ARM64 (Graviton, ~20% cheaper than x86). The Dockerfile
+      # cross-compiles in a native SDK stage, so QEMU only runs the trivial
+      # final-stage layer copies.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build, tag, push image (linux/arm64)
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
+          PLATFORM: ${{ vars.AWS_ECS_IMAGE_PLATFORM || 'linux/arm64' }}
         run: |
           set -eux
           test -n "${REPOSITORY:-}" || { echo "Set repo Variable AWS_ECR_REPOSITORY"; exit 1; }
-          docker build -f backend/PawBuck.API/Dockerfile -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" -t "$REGISTRY/$REPOSITORY:latest" .
-          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
-          docker push "$REGISTRY/$REPOSITORY:latest"
+          docker buildx build \
+            --platform "$PLATFORM" \
+            -f backend/PawBuck.API/Dockerfile \
+            -t "$REGISTRY/$REPOSITORY:$IMAGE_TAG" \
+            -t "$REGISTRY/$REPOSITORY:latest" \
+            --provenance=false \
+            --push \
+            .
 
       # If secret SUPABASE_JWT_SECRET is set: merge env into task definition and deploy.
       # If not set: warn and force new deployment only (set JWT on ECS manually or add the secret later).
@@ -74,6 +86,8 @@ jobs:
           AWS_ECS_CONTAINER_NAME: ${{ vars.AWS_ECS_CONTAINER_NAME }}
           AWS_ECS_TASK_CPU: ${{ vars.AWS_ECS_TASK_CPU }}
           AWS_ECS_TASK_MEMORY: ${{ vars.AWS_ECS_TASK_MEMORY }}
+          # Graviton: must match the image platform pushed above (linux/arm64 → ARM64).
+          AWS_ECS_CPU_ARCHITECTURE: ${{ vars.AWS_ECS_CPU_ARCHITECTURE || 'ARM64' }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           # Server-only Supabase service role — Review Inbox resolve, support attachment preview, Milo analyze-internal Storage.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
