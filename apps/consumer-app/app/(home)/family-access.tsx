@@ -144,7 +144,8 @@ export default function FamilyAccess() {
   });
 
   const createInviteMutation = useMutation({
-    mutationFn: createHouseholdInvite,
+    mutationFn: ({ days, petIds }: { days: number; petIds?: string[] }) =>
+      createHouseholdInvite(days, petIds),
     onSuccess: (invite) => {
       queryClient.invalidateQueries({ queryKey: ["household_invites"] });
       setGenerating(false);
@@ -168,9 +169,14 @@ export default function FamilyAccess() {
   });
 
   const handleGenerateInvite = () => {
+    const petId = invitePetId ?? pets[0]?.id;
+    if (!petId) {
+      Alert.alert("Select a pet", "Choose which pet to share before generating a code.");
+      return;
+    }
     ensurePlan("family", () => {
       setGenerating(true);
-      createInviteMutation.mutate(30);
+      createInviteMutation.mutate({ days: 30, petIds: [petId] });
     }, "family_access_invite");
   };
 
@@ -1085,7 +1091,7 @@ export default function FamilyAccess() {
                   marginBottom: 12,
                 }}
               >
-                Or share a household code (access to all your pets)
+                Or share a household code for the selected pet above
               </Text>
               <CTA
                 label={generating ? "Generating…" : "Share code"}

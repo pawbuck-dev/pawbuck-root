@@ -10,6 +10,7 @@ import { usePets } from "@/context/petsContext";
 import { useSelectedPet } from "@/context/selectedPetContext";
 import { useSubscription } from "@/context/subscriptionContext";
 import { useTheme } from "@/context/themeContext";
+import { usePetPhotoUpload } from "@/hooks/usePetPhotoUpload";
 import { getPetTransferHistory } from "@/services/petTransfers";
 import { generateAndSharePetPassport } from "@/services/pdfGenerator";
 import { formatPetInboundEmail } from "@/utils/petEmail";
@@ -20,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   Text,
@@ -48,6 +50,9 @@ export default function PetProfile() {
 
   // Get current pet from context
   const currentPet = selectedPet || pets[0];
+  const { uploading: uploadingPhoto, promptPhotoUpload } = usePetPhotoUpload(
+    currentPet ?? ({ id: "", name: "" } as never),
+  );
 
   const { data: transferLog = [] } = useQuery({
     queryKey: ["pet_transfer_history", currentPet?.id],
@@ -382,10 +387,20 @@ export default function PetProfile() {
                 )}
               </View>
               <Pressable
+                onPress={promptPhotoUpload}
+                disabled={!currentPet || uploadingPhoto}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  currentPet?.photo_url ? "Change pet photo" : "Add pet photo"
+                }
                 className="absolute bottom-0 right-0 w-10 h-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: theme.primary }}
+                style={{ backgroundColor: theme.primary, opacity: uploadingPhoto ? 0.7 : 1 }}
               >
-                <Ionicons name="camera-outline" size={20} color={theme.primaryForeground} />
+                {uploadingPhoto ? (
+                  <ActivityIndicator size="small" color={theme.primaryForeground} />
+                ) : (
+                  <Ionicons name="camera-outline" size={20} color={theme.primaryForeground} />
+                )}
               </Pressable>
             </View>
             <Text

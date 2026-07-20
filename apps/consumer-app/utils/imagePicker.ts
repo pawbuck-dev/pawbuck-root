@@ -71,12 +71,20 @@ export const requestLibraryPermission = async (): Promise<boolean> => {
   return true;
 };
 
+export type ImagePickOptions = {
+  /** When true, shows the system square crop UI (best-effort; Android varies). */
+  allowsEditing?: boolean;
+  /** Crop aspect ratio, e.g. [1, 1] for a square pet profile photo. */
+  aspect?: [number, number];
+};
+
 /**
  * Launch camera to take a photo
  * @returns {Promise<string | null>} Image URI if successful, null otherwise
  */
-export const takePhoto =
-  async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+export const takePhoto = async (
+  options: ImagePickOptions = {},
+): Promise<ImagePicker.ImagePickerAsset | null> => {
     try {
       const hasPermission = await requestCameraPermission();
       if (!hasPermission) {
@@ -85,7 +93,8 @@ export const takePhoto =
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: "images",
-        allowsEditing: false,
+        allowsEditing: options.allowsEditing ?? false,
+        aspect: options.aspect,
         quality: 0.8,
       });
 
@@ -111,8 +120,9 @@ export const takePhoto =
  * Launch image picker to select from library
  * @returns {Promise<string | null>} Image URI if successful, null otherwise
  */
-export const pickImageFromLibrary =
-  async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+export const pickImageFromLibrary = async (
+  options: ImagePickOptions = {},
+): Promise<ImagePicker.ImagePickerAsset | null> => {
     try {
       const hasPermission = await requestLibraryPermission();
       if (!hasPermission) {
@@ -121,7 +131,8 @@ export const pickImageFromLibrary =
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
-        allowsEditing: false,
+        allowsEditing: options.allowsEditing ?? false,
+        aspect: options.aspect,
         quality: 0.8,
       });
 

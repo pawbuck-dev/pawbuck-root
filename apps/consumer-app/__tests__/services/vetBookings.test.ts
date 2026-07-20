@@ -4,6 +4,14 @@ const mockVetBookings = {
   select: jest.fn(),
   update: jest.fn(),
 };
+const mockThreadMessages = {
+  select: jest.fn(),
+};
+const mockSoftDeleteThread = jest.fn();
+
+jest.mock("@/services/messages", () => ({
+  softDeleteThread: (...args: unknown[]) => mockSoftDeleteThread(...args),
+}));
 
 jest.mock("@/utils/supabase", () => {
   mockGetUser = jest.fn();
@@ -12,6 +20,7 @@ jest.mock("@/utils/supabase", () => {
       auth: { getUser: mockGetUser },
       from: jest.fn((t: string) => {
         if (t === "vet_bookings") return mockVetBookings;
+        if (t === "thread_messages") return mockThreadMessages;
         throw new Error(t);
       }),
     },
@@ -171,23 +180,50 @@ describe("confirmVetBookingImport / dismissVetBookingImport", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetUser.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+    mockSoftDeleteThread.mockResolvedValue(undefined);
   });
 
-  it("confirm chains id and pending status", async () => {
+  it("confirm chains id and pending status then trashes linked thread", async () => {
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: { id: "bid-1", thread_message_id: "msg-1" },
+      error: null,
+    });
+    const loadEq2 = jest.fn(() => ({ maybeSingle }));
+    const loadEq1 = jest.fn(() => ({ eq: loadEq2 }));
+    mockVetBookings.select = jest.fn(() => ({ eq: loadEq1 }));
+
     const innerEq = jest.fn().mockResolvedValue({ error: null });
     const outerEq = jest.fn(() => ({ eq: innerEq }));
     mockVetBookings.update = jest.fn(() => ({ eq: outerEq }));
+
+    const msgMaybe = jest.fn().mockResolvedValue({
+      data: { thread_id: "thread-1" },
+      error: null,
+    });
+    mockThreadMessages.select = jest.fn(() => ({
+      eq: jest.fn(() => ({ maybeSingle: msgMaybe })),
+    }));
+
     await confirmVetBookingImport("bid-1");
     expect(mockVetBookings.update).toHaveBeenCalledWith({ status: "confirmed" });
     expect(outerEq).toHaveBeenCalledWith("id", "bid-1");
     expect(innerEq).toHaveBeenCalledWith("status", "pending_confirmation");
+    expect(mockSoftDeleteThread).toHaveBeenCalledWith("thread-1");
   });
 
-  it("dismiss sets cancelled", async () => {
+  it("dismiss sets cancelled and trashes linked thread when present", async () => {
+    const maybeSingle = jest.fn().mockResolvedValue({
+      data: { id: "bid-2", thread_message_id: null },
+      error: null,
+    });
+    mockVetBookings.select = jest.fn(() => ({
+      eq: jest.fn(() => ({ maybeSingle })),
+    }));
     const eq = jest.fn().mockResolvedValue({ error: null });
     mockVetBookings.update = jest.fn(() => ({ eq }));
     await dismissVetBookingImport("bid-2");
     expect(mockVetBookings.update).toHaveBeenCalledWith({ status: "cancelled" });
     expect(eq).toHaveBeenCalledWith("id", "bid-2");
+    expect(mockSoftDeleteThread).not.toHaveBeenCalled();
   });
 });

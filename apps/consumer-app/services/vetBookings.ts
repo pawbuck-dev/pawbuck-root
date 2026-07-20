@@ -1,5 +1,6 @@
 import type { VetBookingServiceId } from "@/constants/vetBookingServices";
 import type { Tables } from "@/database.types";
+import { softDeleteThread } from "@/services/messages";
 import { supabase } from "@/utils/supabase";
 
 export type VetBookingRow = Tables<"vet_bookings">;
@@ -93,8 +94,20 @@ export async function fetchVetBookings(params?: FetchVetBookingsParams): Promise
   return (data ?? []) as VetBookingRow[];
 }
 
-/** Confirm a pending email ICS import so reminders apply. */
+/** Confirm a pending email ICS import so reminders apply; move linked inbox thread to Trash. */
 export async function confirmVetBookingImport(bookingId: string): Promise<boolean> {
+  const { data: booking, error: loadError } = await supabase
+    .from("vet_bookings")
+    .select("id, thread_message_id")
+    .eq("id", bookingId)
+    .eq("status", "pending_confirmation")
+    .maybeSingle();
+
+  if (loadError || !booking) {
+    console.warn("[vetBookings] confirm import load failed", loadError?.message);
+    return false;
+  }
+
   const { error } = await supabase
     .from("vet_bookings")
     .update({ status: "confirmed" })
@@ -105,11 +118,23 @@ export async function confirmVetBookingImport(bookingId: string): Promise<boolea
     console.warn("[vetBookings] confirm import failed", error.message);
     return false;
   }
+
+  await softDeleteThreadForBookingMessage(booking.thread_message_id);
   return true;
 }
 
 /** Dismiss / cancel an email ICS import the user does not want on the calendar. */
 export async function dismissVetBookingImport(bookingId: string): Promise<boolean> {
+  const { data: booking, error: loadError } = await supabase
+    .from("vet_bookings")
+    .select("id, thread_message_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (loadError) {
+    console.warn("[vetBookings] dismiss import load failed", loadError.message);
+  }
+
   const { error } = await supabase
     .from("vet_bookings")
     .update({ status: "cancelled" })
@@ -119,7 +144,30 @@ export async function dismissVetBookingImport(bookingId: string): Promise<boolea
     console.warn("[vetBookings] dismiss import failed", error.message);
     return false;
   }
+
+  await softDeleteThreadForBookingMessage(booking?.thread_message_id ?? null);
   return true;
+}
+
+async function softDeleteThreadForBookingMessage(
+  threadMessageId: string | null | undefined,
+): Promise<void> {
+  if (!threadMessageId) return;
+  try {
+    const { data: msg } = await supabase
+      .from("thread_messages")
+      .select("thread_id")
+      .eq("id", threadMessageId)
+      .maybeSingle();
+    if (msg?.thread_id) {
+      await softDeleteThread(msg.thread_id);
+    }
+  } catch (e) {
+    console.warn(
+      "[vetBookings] could not move invite thread to Trash",
+      e instanceof Error ? e.message : e,
+    );
+  }
 }
 
 function isUuid(s: string): boolean {

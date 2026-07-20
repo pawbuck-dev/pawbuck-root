@@ -37,7 +37,7 @@ export interface StoreMessageParams {
  */
 export async function storeInboundMessage(
   params: StoreMessageParams
-): Promise<void> {
+): Promise<string | null> {
   const supabase = createSupabaseClient();
 
   console.log(
@@ -77,8 +77,9 @@ export async function storeInboundMessage(
     throw error;
   }
 
+  const storedId = (data?.id as string | undefined) ?? null;
   console.log(
-    `[MessageStorage] ✅ Message inserted successfully (ID: ${data?.id || "unknown"})`
+    `[MessageStorage] ✅ Message inserted successfully (ID: ${storedId || "unknown"})`
   );
 
   // Update thread updated_at timestamp, message_id, and subject (if not a reply)
@@ -124,4 +125,6 @@ export async function storeInboundMessage(
       `[MessageStorage] ✅ Thread updated for thread ${params.threadId} (message_id: ${params.messageId || "unchanged"}, subject: ${isReply ? "unchanged" : "updated"})`
     );
   }
+
+  return storedId;
 }

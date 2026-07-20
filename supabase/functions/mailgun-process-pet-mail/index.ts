@@ -362,22 +362,40 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 8.5: Store inbound message if it has text content and we can find a thread
+    // Step 8.5: Store inbound message if it has text/HTML content and we can find a thread
     // The recipient email in the "To" field is the reply-to address from our outbound emails
     const messageStorageStartTime = Date.now();
     let messageStored = false;
+    let lastInboundMessageId: string | null = null;
+
+    const stripHtmlToText = (html: string): string =>
+      html
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const inboxBody =
+      (parsedEmail.textBody && parsedEmail.textBody.trim().length > 0
+        ? parsedEmail.textBody.trim()
+        : null) ??
+      (parsedEmail.htmlBody && parsedEmail.htmlBody.trim().length > 0
+        ? stripHtmlToText(parsedEmail.htmlBody)
+        : null);
 
     // Log email details for debugging
     console.log(
       `[MONITORING] Email details - To: ${recipientEmail}, From: ${senderEmail}, Subject: ${parsedEmail.subject}`
     );
     console.log(
-      `[MONITORING] Text body length: ${parsedEmail.textBody?.length || 0}, Has attachments: ${parsedEmail.attachments?.length || 0}`
+      `[MONITORING] Text body length: ${parsedEmail.textBody?.length || 0}, HTML body length: ${parsedEmail.htmlBody?.length || 0}, Has attachments: ${parsedEmail.attachments?.length || 0}`
     );
 
-    if (parsedEmail.textBody && parsedEmail.textBody.trim().length > 0) {
+    if (inboxBody && inboxBody.length > 0) {
       console.log(
-        `[MONITORING] Starting message storage (text body length: ${parsedEmail.textBody.length})`
+        `[MONITORING] Starting message storage (inbox body length: ${inboxBody.length})`
       );
       try {
         const thread = await findThreadByRecipientAndPet(senderEmail, pet.id);
@@ -390,17 +408,18 @@ Deno.serve(async (req) => {
             `[MONITORING] Storing message in thread ${thread.threadId}...`
           );
 
-          await storeInboundMessage({
+          const storedId = await storeInboundMessage({
             threadId: thread.threadId,
             senderEmail: senderEmail,
             recipientEmail: recipientEmail,
             cc: parsedEmail.cc?.map((c) => c.address) || null,
             bcc: null, // BCC is typically not in received emails
             subject: parsedEmail.subject,
-            body: parsedEmail.textBody, // Already cleaned by mailgunParser
+            body: inboxBody,
             sentAt: parsedEmail.date || undefined,
             messageId: messageId, // For email threading support
           });
+          if (storedId) lastInboundMessageId = storedId;
 
           messageStored = true;
           const messageStorageDuration = Date.now() - messageStorageStartTime;
@@ -437,17 +456,18 @@ Deno.serve(async (req) => {
             );
 
             // Store the message in the new thread
-            await storeInboundMessage({
+            const storedId = await storeInboundMessage({
               threadId: newThread.threadId,
               senderEmail: senderEmail,
               recipientEmail: recipientEmail, // This is the pet's email (not used in this context)
               cc: parsedEmail.cc?.map((c) => c.address) || null,
               bcc: null,
               subject: parsedEmail.subject,
-              body: parsedEmail.textBody,
+              body: inboxBody,
               sentAt: parsedEmail.date || undefined,
               messageId: messageId, // For email threading support
             });
+            if (storedId) lastInboundMessageId = storedId;
 
             messageStored = true;
             const messageStorageDuration = Date.now() - messageStorageStartTime;
@@ -483,7 +503,7 @@ Deno.serve(async (req) => {
       }
     } else {
       console.log(
-        `[MONITORING] No text body to store (textBody length: ${parsedEmail.textBody?.length || 0})`
+        `[MONITORING] No inbox body to store (textBody length: ${parsedEmail.textBody?.length || 0}, htmlBody length: ${parsedEmail.htmlBody?.length || 0})`
       );
     }
 
@@ -499,7 +519,7 @@ Deno.serve(async (req) => {
       pet,
       senderEmail,
       fileKey: messageId,
-      threadMessageId: null,
+      threadMessageId: lastInboundMessageId,
       icsAttachments,
     });
 

@@ -507,6 +507,7 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean
+          pet_ids: string[] | null
           used_at: string | null
           used_by: string | null
         }
@@ -517,6 +518,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          pet_ids?: string[] | null
           used_at?: string | null
           used_by?: string | null
         }
@@ -527,6 +529,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          pet_ids?: string[] | null
           used_at?: string | null
           used_by?: string | null
         }

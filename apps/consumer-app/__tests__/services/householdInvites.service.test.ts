@@ -144,6 +144,28 @@ describe("householdInvites service", () => {
           expires_at: expect.any(String),
         })
       );
+      expect(insert.mock.calls[0][0].pet_ids).toBeUndefined();
+    });
+
+    it("stores selected pet_ids when scoping the invite", async () => {
+      const uniquenessSingle = jest
+        .fn()
+        .mockResolvedValue({ data: null, error: { code: "PGRST116" } });
+      const uniquenessEq = jest.fn().mockReturnValue({ single: uniquenessSingle });
+
+      const insertSingle = jest.fn().mockResolvedValue({ data: INVITE_ROW, error: null });
+      const insertSelect = jest.fn().mockReturnValue({ single: insertSingle });
+      const insert = jest.fn().mockReturnValue({ select: insertSelect });
+
+      mockInvitesFrom.select = jest.fn(() => ({ eq: uniquenessEq }));
+      mockInvitesFrom.insert = insert;
+
+      await createHouseholdInvite(30, ["pet-abc"]);
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pet_ids: ["pet-abc"],
+        })
+      );
     });
   });
 

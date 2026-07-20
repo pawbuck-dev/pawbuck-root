@@ -17,9 +17,11 @@ export function usePetPhotoUpload(pet: Pet) {
     async (image: ImagePickerAsset) => {
       try {
         setUploading(true);
-        const fileExtension = image.uri.split(".").pop() || "jpg";
-        const filePath = `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/profile.${fileExtension}`;
+        const fileExtension = image.uri.split(".").pop()?.split("?")[0] || "jpg";
+        // Unique path so PrivateImage remounts after replace (same profile.jpg would keep a stale signed URL).
+        const filePath = `${user?.id}/pet_${pet.name.split(" ").join("_")}_${pet.id}/profile_${Date.now()}.${fileExtension}`;
         const data = await uploadFile(image, filePath);
+        if (pet.photo_url) clearUrlCache(pet.photo_url);
         clearUrlCache(filePath);
 
         await updatePet(pet.id, { photo_url: data.path });
@@ -32,25 +34,27 @@ export function usePetPhotoUpload(pet: Pet) {
         setUploading(false);
       }
     },
-    [pet.id, pet.name, queryClient, user?.id]
+    [pet.id, pet.name, pet.photo_url, queryClient, user?.id]
   );
+
+  const squareCrop = { allowsEditing: true, aspect: [1, 1] as [number, number] };
 
   const promptPhotoUpload = useCallback(() => {
     Alert.alert(
       "Update photo",
-      "Choose an option",
+      "Choose an option — you can crop to a square after selecting",
       [
         {
           text: "Take photo",
           onPress: async () => {
-            const image = await takePhoto();
+            const image = await takePhoto(squareCrop);
             if (image) await updateImage(image);
           },
         },
         {
           text: "Choose from gallery",
           onPress: async () => {
-            const image = await pickImageFromLibrary();
+            const image = await pickImageFromLibrary(squareCrop);
             if (image) await updateImage(image);
           },
         },

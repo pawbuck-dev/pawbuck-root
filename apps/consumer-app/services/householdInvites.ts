@@ -9,6 +9,8 @@ export interface HouseholdInvite {
   used_at: string | null;
   used_by: string | null;
   is_active: boolean;
+  /** When set, accept grants only these pets; null = all owner pets. */
+  pet_ids?: string[] | null;
 }
 
 export interface HouseholdMember {
@@ -30,10 +32,13 @@ function generateInviteCode(): string {
 }
 
 /**
- * Create a new household invite code
+ * Create a new household invite code.
+ * @param expiresInDays - days until expiry (default 30)
+ * @param petIds - when set, accept grants only these pets; omit/empty = all owner pets (legacy)
  */
 export async function createHouseholdInvite(
-  expiresInDays: number = 30
+  expiresInDays: number = 30,
+  petIds?: string[] | null
 ): Promise<HouseholdInvite> {
   const {
     data: { user },
@@ -63,6 +68,9 @@ export async function createHouseholdInvite(
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
+  const scopedPetIds =
+    petIds && petIds.length > 0 ? petIds.filter(Boolean) : null;
+
   const { data, error } = await supabase
     .from("household_invites")
     .insert({
@@ -70,6 +78,7 @@ export async function createHouseholdInvite(
       created_by: user.id,
       expires_at: expiresAt.toISOString(),
       is_active: true,
+      ...(scopedPetIds ? { pet_ids: scopedPetIds } : {}),
     })
     .select()
     .single();
