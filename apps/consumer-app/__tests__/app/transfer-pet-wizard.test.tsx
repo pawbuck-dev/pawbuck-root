@@ -64,6 +64,10 @@ jest.mock("@/components/common/PrivateImage", () => {
   };
 });
 
+jest.mock("@/components/transfer/TransferCodeQrScannerModal", () => ({
+  TransferCodeQrScannerModal: () => null,
+}));
+
 import { useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/authContext";
 import {
@@ -112,6 +116,12 @@ describe("Transfer pet wizard", () => {
   });
 
   describe("step 1", () => {
+    it("shows scan QR entry point", () => {
+      renderWithProviders(<TransferPetStep1 />);
+      expect(screen.getByText("Scan QR code")).toBeTruthy();
+      expect(screen.getByTestId("scan-transfer-qr")).toBeTruthy();
+    });
+
     it("navigates to step 2 when code verifies", async () => {
       (verifyTransferCode as jest.Mock).mockResolvedValue({
         id: "tr-1",

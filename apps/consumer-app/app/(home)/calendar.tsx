@@ -89,6 +89,7 @@ export default function CalendarScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["vetBookings"] });
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
     },
   });
 
@@ -97,6 +98,7 @@ export default function CalendarScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["vetBookings"] });
+      queryClient.invalidateQueries({ queryKey: ["messageThreads"] });
     },
   });
 

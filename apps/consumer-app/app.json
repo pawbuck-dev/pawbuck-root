@@ -90,6 +90,13 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "PawBuck uses your camera to scan pet transfer QR codes shared by the previous owner.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "PawBuck uses your location to map walks with your pet.",

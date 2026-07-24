@@ -452,49 +452,45 @@ export default function Profile() {
           onEditPress={() => void handleEdit()}
         />
 
-        <ProfileSectionHeading>Subscription</ProfileSectionHeading>
-        <ProfileListCard>
-          <ProfileFigmaRow
-            ionIcon="sparkles-outline"
-            title={isFoundingMember ? "Founding Member" : planLabel}
-            subtitle={
-              !isMonetizationEnabled()
-                ? "Full access while billing is paused for launch"
-                : isFoundingMember
-                  ? "Lifetime access — thank you for building PawBuck with us"
-                  : plan === "free"
-                    ? "Current plan: Free · Compare Individual or Family plans"
-                    : `Current plan: ${planLabel} · ${manageSubscriptionInStoreLabel()}`
-            }
-            trailing={!isMonetizationEnabled() ? "none" : "forward"}
-            onPress={
-              !isMonetizationEnabled()
-                ? undefined
-                : () => {
-                    if (plan === "free") {
-                      setShowPlanComparison(true);
-                    } else {
-                      openStoreSubscriptionSettings();
-                      void refetchEntitlement();
-                    }
+        {isMonetizationEnabled() ? (
+          <>
+            <ProfileSectionHeading>Subscription</ProfileSectionHeading>
+            <ProfileListCard>
+              <ProfileFigmaRow
+                ionIcon="sparkles-outline"
+                title={isFoundingMember ? "Founding Member" : planLabel}
+                subtitle={
+                  isFoundingMember
+                    ? "Lifetime access — thank you for building PawBuck with us"
+                    : plan === "free"
+                      ? "Current plan: Free · Compare Individual or Family plans"
+                      : `Current plan: ${planLabel} · ${manageSubscriptionInStoreLabel()}`
+                }
+                trailing="forward"
+                onPress={() => {
+                  if (plan === "free") {
+                    setShowPlanComparison(true);
+                  } else {
+                    openStoreSubscriptionSettings();
+                    void refetchEntitlement();
                   }
-            }
-          />
-          {isMonetizationEnabled() ? (
-            <ProfileFigmaRow
-              ionIcon="refresh-outline"
-              title="Restore purchases"
-              subtitle={
-                isRestoringPurchases
-                  ? checkingSubscriptionStoreLabel()
-                  : "Recover a subscription bought on this device"
-              }
-              onPress={() => {
-                if (!isRestoringPurchases) void handleRestorePurchases();
-              }}
-            />
-          ) : null}
-        </ProfileListCard>
+                }}
+              />
+              <ProfileFigmaRow
+                ionIcon="refresh-outline"
+                title="Restore purchases"
+                subtitle={
+                  isRestoringPurchases
+                    ? checkingSubscriptionStoreLabel()
+                    : "Recover a subscription bought on this device"
+                }
+                onPress={() => {
+                  if (!isRestoringPurchases) void handleRestorePurchases();
+                }}
+              />
+            </ProfileListCard>
+          </>
+        ) : null}
 
         <ProfileSectionHeading>My Pets</ProfileSectionHeading>
         {/* Current pet — own card (Figma / light ref: separate from action rows) */}

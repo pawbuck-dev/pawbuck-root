@@ -1,7 +1,11 @@
+import { useTheme } from "@/context/themeContext";
+import { verifyTransferCode } from "@/services/petTransfers";
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,9 +15,12 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { verifyTransferCode } from "@/services/petTransfers";
-import { useTheme } from "@/context/themeContext";
+
+type ScannerModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onCodeScanned: (code: string) => void;
+};
 
 export default function TransferPet() {
   const router = useRouter();
@@ -23,6 +30,10 @@ export default function TransferPet() {
   const [transferCode, setTransferCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [ScannerModal, setScannerModal] = useState<ComponentType<ScannerModalProps> | null>(
+    null,
+  );
 
   useEffect(() => {
     const raw = Array.isArray(transferCodeParam) ? transferCodeParam[0] : transferCodeParam;
@@ -143,8 +154,59 @@ export default function TransferPet() {
                 className="text-base text-center mb-8"
                 style={{ color: theme.secondary }}
               >
-                Enter the transfer code from the previous owner
+                Scan the QR code or enter the transfer code from the previous owner
               </Text>
+
+              <Pressable
+                testID="scan-transfer-qr"
+                accessibilityRole="button"
+                accessibilityLabel="Scan QR code"
+                onPress={() => {
+                  setError(null);
+                  try {
+                    // Lazy-load so Transfer screen still works before a native rebuild.
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
+                    const mod = require("@/components/transfer/TransferCodeQrScannerModal") as {
+                      TransferCodeQrScannerModal: ComponentType<ScannerModalProps>;
+                    };
+                    setScannerModal(() => mod.TransferCodeQrScannerModal);
+                    setScannerOpen(true);
+                  } catch {
+                    Alert.alert(
+                      "Rebuild required",
+                      "QR scanning needs a fresh native build. Stop Metro, then run npx expo run:ios again.",
+                    );
+                  }
+                }}
+                disabled={verifying}
+                className="w-full rounded-2xl py-4 mb-6 flex-row items-center justify-center active:opacity-90"
+                style={{
+                  backgroundColor: "transparent",
+                  borderWidth: 1.5,
+                  borderColor: "#FF9500",
+                  opacity: verifying ? 0.6 : 1,
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="qr-code-outline" size={22} color="#FF9500" />
+                <Text className="text-base font-semibold" style={{ color: "#FF9500" }}>
+                  Scan QR code
+                </Text>
+              </Pressable>
+
+              <View className="flex-row items-center mb-6" style={{ gap: 12 }}>
+                <View
+                  className="flex-1 h-px"
+                  style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                />
+                <Text className="text-sm" style={{ color: theme.secondary }}>
+                  Or enter code
+                </Text>
+                <View
+                  className="flex-1 h-px"
+                  style={{ backgroundColor: isDarkMode ? "#374151" : theme.border }}
+                />
+              </View>
 
               {/* Transfer Code Input */}
               <View className="mb-4">
@@ -185,7 +247,7 @@ export default function TransferPet() {
                 className="text-sm text-center mb-8"
                 style={{ color: theme.secondary }}
               >
-                The previous owner should have shared a TRF transfer code with you.
+                The previous owner should have shared a TRF transfer code or QR with you.
               </Text>
             </View>
           </View>
@@ -218,6 +280,17 @@ export default function TransferPet() {
           )}
         </Pressable>
       </View>
+
+      {ScannerModal ? (
+        <ScannerModal
+          visible={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onCodeScanned={(code) => {
+            setTransferCode(code);
+            setError(null);
+          }}
+        />
+      ) : null}
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import type { VetBookingServiceId } from "@/constants/vetBookingServices";
 import type { Tables } from "@/database.types";
 import { softDeleteThread } from "@/services/messages";
+import { pickInviteThreadForBooking } from "@/utils/inviteThreadMatch";
 import { supabase } from "@/utils/supabase";
 
 export type VetBookingRow = Tables<"vet_bookings">;
@@ -98,7 +99,7 @@ export async function fetchVetBookings(params?: FetchVetBookingsParams): Promise
 export async function confirmVetBookingImport(bookingId: string): Promise<boolean> {
   const { data: booking, error: loadError } = await supabase
     .from("vet_bookings")
-    .select("id, thread_message_id")
+    .select("id, pet_id, user_id, service_label, created_at, thread_message_id")
     .eq("id", bookingId)
     .eq("status", "pending_confirmation")
     .maybeSingle();
@@ -119,7 +120,7 @@ export async function confirmVetBookingImport(bookingId: string): Promise<boolea
     return false;
   }
 
-  await softDeleteThreadForBookingMessage(booking.thread_message_id);
+  await softDeleteInviteThreadForBooking(booking);
   return true;
 }
 
@@ -127,7 +128,7 @@ export async function confirmVetBookingImport(bookingId: string): Promise<boolea
 export async function dismissVetBookingImport(bookingId: string): Promise<boolean> {
   const { data: booking, error: loadError } = await supabase
     .from("vet_bookings")
-    .select("id, thread_message_id")
+    .select("id, pet_id, user_id, service_label, created_at, thread_message_id")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -145,22 +146,26 @@ export async function dismissVetBookingImport(bookingId: string): Promise<boolea
     return false;
   }
 
-  await softDeleteThreadForBookingMessage(booking?.thread_message_id ?? null);
+  if (booking) {
+    await softDeleteInviteThreadForBooking(booking);
+  }
   return true;
 }
 
-async function softDeleteThreadForBookingMessage(
-  threadMessageId: string | null | undefined,
-): Promise<void> {
-  if (!threadMessageId) return;
+type BookingInviteLink = {
+  pet_id: string | null;
+  user_id: string;
+  service_label: string | null;
+  created_at: string;
+  thread_message_id: string | null;
+};
+
+/** Outlook-style: after accept/decline, move the calendar invite email to Trash. */
+async function softDeleteInviteThreadForBooking(booking: BookingInviteLink): Promise<void> {
   try {
-    const { data: msg } = await supabase
-      .from("thread_messages")
-      .select("thread_id")
-      .eq("id", threadMessageId)
-      .maybeSingle();
-    if (msg?.thread_id) {
-      await softDeleteThread(msg.thread_id);
+    const threadId = await resolveInviteThreadId(booking);
+    if (threadId) {
+      await softDeleteThread(threadId);
     }
   } catch (e) {
     console.warn(
@@ -168,6 +173,36 @@ async function softDeleteThreadForBookingMessage(
       e instanceof Error ? e.message : e,
     );
   }
+}
+
+async function resolveInviteThreadId(booking: BookingInviteLink): Promise<string | null> {
+  if (booking.thread_message_id) {
+    const { data: msg } = await supabase
+      .from("thread_messages")
+      .select("thread_id")
+      .eq("id", booking.thread_message_id)
+      .maybeSingle();
+    if (msg?.thread_id) return msg.thread_id;
+  }
+
+  if (!booking.pet_id) return null;
+
+  const { data: threads, error } = await supabase
+    .from("message_threads")
+    .select("id, subject, created_at")
+    .eq("pet_id", booking.pet_id)
+    .eq("user_id", booking.user_id)
+    .is("deleted_at", null);
+
+  if (error) {
+    console.warn("[vetBookings] invite thread fallback query failed", error.message);
+    return null;
+  }
+
+  return pickInviteThreadForBooking(
+    { service_label: booking.service_label, created_at: booking.created_at },
+    threads ?? [],
+  );
 }
 
 function isUuid(s: string): boolean {
