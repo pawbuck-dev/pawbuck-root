@@ -36,6 +36,26 @@ public class MiloChatSafetyPromptEvalTests
         handler.AnswerPrompt.Should().Contain("never invent breed statistics");
     }
 
+    [Fact]
+    public async Task ChatAsync_ProductHelpPrompt_AllowsGeneralCareWhenDocsThin()
+    {
+        var handler = new PromptCaptureHandler(needsDocumentationRag: true);
+        var sut = CreateService(handler, withDocumentationChunk: true);
+
+        await sut.ChatAsync(UserId, new MiloChatRequest
+        {
+            Message = "My dog keeps barking non stop",
+            Pet = new MiloPetContextDto { Id = PetId.ToString(), Name = "Bailey" },
+        }, CancellationToken.None);
+
+        handler.AnswerPrompt.Should().NotBeNullOrWhiteSpace();
+        handler.AnswerPrompt.Should().Contain("pet care assistant and product guide");
+        handler.AnswerPrompt.Should().Contain("Do NOT make \"the provided documentation does not contain");
+        handler.AnswerPrompt.Should().Contain("Please consult your veterinarian for a professional diagnosis");
+        handler.AnswerPrompt.Should().Contain("NO diagnosis, disease labels as conclusions");
+        handler.AnswerPrompt.Should().NotContain("using ONLY the FAQ / product documentation");
+    }
+
     [Theory]
     [MemberData(nameof(SafetyScenarioIds))]
     public async Task ChatAsync_SafetyScenarios_ReturnAnswersMatchingAssertionsWhenMockIsCompliant(string scenarioId)
@@ -79,6 +99,11 @@ public class MiloChatSafetyPromptEvalTests
 
     private sealed class PromptCaptureHandler : HttpMessageHandler
     {
+        private readonly bool _needsDocumentationRag;
+
+        public PromptCaptureHandler(bool needsDocumentationRag = false) =>
+            _needsDocumentationRag = needsDocumentationRag;
+
         public string? AnswerPrompt { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -89,7 +114,7 @@ public class MiloChatSafetyPromptEvalTests
                 var planJson = JsonSerializer.Serialize(new MiloChatPlanDto
                 {
                     DataNeeded = new List<string> { MiloPetFactsKinds.None },
-                    NeedsDocumentationRag = false,
+                    NeedsDocumentationRag = _needsDocumentationRag,
                     ReasoningBrief = "test",
                 });
                 return GeminiOk(planJson);
@@ -149,7 +174,9 @@ public class MiloChatSafetyPromptEvalTests
         }
     }
 
-    private static MiloReasoningService CreateService(HttpMessageHandler handler)
+    private static MiloReasoningService CreateService(
+        HttpMessageHandler handler,
+        bool withDocumentationChunk = false)
     {
         var petFacts = new Mock<IMiloPetFactsService>();
         petFacts.Setup(p => p.VerifyPetAccessAsync(UserId, PetId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -160,7 +187,12 @@ public class MiloChatSafetyPromptEvalTests
 
         var kb = new Mock<IKnowledgeBaseService>();
         kb.Setup(k => k.GetContextAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<IReadOnlyList<string>>()))
-            .ReturnsAsync(Array.Empty<DocumentationChunk>());
+            .ReturnsAsync(withDocumentationChunk
+                ? new List<DocumentationChunk>
+                {
+                    new() { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Content = "Pet Journal is on Home. Set behavior baseline from Pet Journal." },
+                }
+                : Array.Empty<DocumentationChunk>());
 
         var journalConfig = new Mock<IMiloJournalConfigProvider>();
         var context = new Mock<IPetConversationalContextService>();

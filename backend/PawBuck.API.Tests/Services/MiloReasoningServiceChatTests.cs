@@ -188,7 +188,7 @@ public class MiloReasoningServiceChatTests
                 return GeminiOk(planJson);
             }
 
-            if (raw.Contains("PawBuck product guide", StringComparison.Ordinal))
+            if (raw.Contains("pet care assistant and product guide", StringComparison.Ordinal))
                 SawProductGuidePrompt = true;
             if (raw.Contains("clinical scribe", StringComparison.Ordinal) && raw.Contains("PRIMARY JOB", StringComparison.Ordinal))
                 SawClinicalScribePrompt = true;

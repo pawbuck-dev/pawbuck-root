@@ -13,6 +13,7 @@ The chat opens as a **modal** over your current screen (general Milo) or a full 
 
 - Summarize vaccinations, medications, labs, exams, journal notes, and document vault items **for the selected pet** when you have access.
 - Answer **how-to** questions about PawBuck features, plans, pet health workflows, and product help (RAG from PawBuck documentation).
+- Give **brief, non-diagnostic** general pet-care tips (for example calming during loud noises, common barking triggers, or feeding discussion points)—always with a veterinarian disclaimer. Milo does **not** diagnose disease or prescribe doses.
 - Help with **document uploads** in flows that send files through Milo-powered classification (for example generic **Add document** on the Health Records hub).
 
 ## What Milo cannot do
